@@ -1,6 +1,7 @@
 body{
     background-color: black;
     font-size: 16px;
+    font-family: "Inter",sans-serif;
 }
 .container{
     display: grid;
