@@ -1,6 +1,15 @@
-import React from 'react'
+import React from 'react';
+import styles from './styles.module.css';
+import Link from 'next/link';
 
-function Footer(){
-  return <h1>Footer</h1>
+function Footer() {
+  return (
+    <footer className={styles.footer}>
+      Made for &nbsp;
+      <Link href="https://google.com" target="_blank">
+        Eralp
+      </Link>
+    </footer>
+  );
 }
-export default Footer
+export default Footer;
