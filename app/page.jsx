@@ -1,10 +1,8 @@
-
-import "@/styles/reset.css"
-import "@/styles/global.css"
+import HomeContainer from '@/containers/home';
 
 import React from 'react';
 
 function HomePage(){
-  return <h1>Home Page</h1>
+  return <HomeContainer />;
 }
 export default HomePage
