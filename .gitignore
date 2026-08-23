@@ -52,3 +52,6 @@ engine/Public/Home/Static/**/*.min.css
 data/
 stream/admin.json
 engine/admin.json
+
+# yerel gizli env (sifreler)
+/.env

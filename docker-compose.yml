@@ -40,7 +40,26 @@ services:
       ADMIN_CONFIG_PATH    : /data/admin.json
       # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
       SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-256}
+      # Public erişim için kullanıcı/şifre (boşsa auth kapalı).
+      AUTH_USER            : ${AUTH_USER:-}
+      AUTH_PASS            : ${AUTH_PASS:-}
     volumes:
       - ./data:/data
     networks:
       - internal
+
+  # Hibrit: içerik evde kalır, w.evaitec.com Cloudflare Tunnel ile eve bağlanır.
+  # Etkinleştirmek için: CF_TUNNEL_TOKEN ver ve `docker compose --profile tunnel up -d`
+  cloudflared:
+    image          : cloudflare/cloudflared:latest
+    container_name : netmovies-tunnel
+    restart        : unless-stopped
+    command        : tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      - stream
+    networks:
+      - internal
+    profiles:
+      - tunnel

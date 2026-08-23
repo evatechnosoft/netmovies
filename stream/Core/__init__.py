@@ -21,6 +21,10 @@ kekik_FastAPI = FastAPI(
 kekik_FastAPI.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 kekik_FastAPI.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# NetMovies: env-tabanlı Basic Auth (AUTH_USER boşsa devre dışı)
+from Core.Modules._auth import BasicAuthMiddleware
+kekik_FastAPI.add_middleware(BasicAuthMiddleware)
+
 # ! ----------------------------------------» Routers
 
 from Core.Modules          import _guard, _istek, _hata, _security
