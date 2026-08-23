@@ -40,8 +40,11 @@ services:
     environment:
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
       M3U_SOURCES: ${M3U_SOURCES:-}
-      # RecTV domaini sık değişir (b.prectvNN.sbs). "Kırmızı/çekemiyor" olursa güncelle.
+      # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
+      # Aşağıdakiler yalnızca elle SABİTLEMEK istersen; boşsa otomatik çalışır.
       RECTV_URL: ${RECTV_URL:-}
+      HDFC_URL: ${HDFC_URL:-}
+      DIZIYOU_URL: ${DIZIYOU_URL:-}
     volumes:
       - ./lists:/data/lists:ro
     networks:

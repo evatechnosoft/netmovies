@@ -21,6 +21,20 @@ from KekikStream.Core import (
     HTMLHelper,
 )
 
+try:
+    from Plugins.__kekik_domain import discover_main_url
+except Exception:
+    import sys, os as _os
+    sys.path.insert(0, _os.path.dirname(__file__))
+    from __kekik_domain import discover_main_url
+
+# Güncel domain otomatik çekilir; HDFC_URL ile elle sabitlenebilir.
+_MAIN_URL = discover_main_url(
+    "HDFilmCehennemi/src/main/kotlin/com/keyiflerolsun/HDFilmCehennemi.kt",
+    "https://www.hdfilmcehennemi.nl",
+    "HDFC_URL",
+)
+
 
 # ----------------------------------------------------------------------------
 # P.A.C.K.E.R. (Dean Edwards) unpacker — sitenin "eval(function(p,a,c,k,e,d)...)"
@@ -69,8 +83,8 @@ class _JSUnpacker:
 class HDFilmCehennemi(PluginBase):
     name        = "HDFilmCehennemi"
     language    = "tr"
-    main_url    = "https://www.hdfilmcehennemi.nl"
-    favicon     = f"https://www.google.com/s2/favicons?domain=https://www.hdfilmcehennemi.nl&sz=64"
+    main_url    = _MAIN_URL
+    favicon     = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "HDFilmCehennemi — Türkçe dublaj/altyazı film ve dizi kaynağı."
 
     main_page = {

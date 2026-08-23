@@ -22,8 +22,19 @@ from KekikStream.Core import (
     ExtractResult,
 )
 
-# Domain değişince: docker-compose'da RECTV_URL ver ya da burada güncelle.
-_MAIN_URL = (os.getenv("RECTV_URL") or "https://b.prectv38.sbs").rstrip("/")
+try:
+    from Plugins.__kekik_domain import discover_main_url
+except Exception:  # farklı yükleme yolları için yedek
+    import sys, os as _os
+    sys.path.insert(0, _os.path.dirname(__file__))
+    from __kekik_domain import discover_main_url
+
+# Domain otomatik keşfedilir (Kekik-cloudstream'den güncel); RECTV_URL ile elle sabitlenebilir.
+_MAIN_URL = discover_main_url(
+    "RecTV/src/main/kotlin/com/keyiflerolsun/RecTV.kt",
+    "https://b.prectv38.sbs",
+    "RECTV_URL",
+)
 _SW_KEY   = os.getenv("RECTV_SW_KEY") or "4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 
 _API_UA    = "okhttp/4.12.0"          # API istekleri bu UA olmadan reddediyor

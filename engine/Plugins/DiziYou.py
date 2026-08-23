@@ -19,12 +19,26 @@ from KekikStream.Core import (
     HTMLHelper,
 )
 
+try:
+    from Plugins.__kekik_domain import discover_main_url
+except Exception:
+    import sys, os as _os
+    sys.path.insert(0, _os.path.dirname(__file__))
+    from __kekik_domain import discover_main_url
+
+# Güncel domain otomatik çekilir; DIZIYOU_URL ile elle sabitlenebilir.
+_MAIN_URL = discover_main_url(
+    "DiziYou/src/main/kotlin/com/keyiflerolsun/DiziYou.kt",
+    "https://www.diziyou3.com",
+    "DIZIYOU_URL",
+)
+
 
 class DiziYou(PluginBase):
     name        = "DiziYou"
     language    = "tr"
-    main_url    = "https://www.diziyou3.com"
-    favicon     = "https://www.google.com/s2/favicons?domain=https://www.diziyou3.com&sz=64"
+    main_url    = _MAIN_URL
+    favicon     = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "DiziYou — Türkçe dublaj/altyazı yerli ve yabancı diziler."
 
     # get_main_page'de "SAYFA" placeholder'ı gerçek sayfa numarasıyla değiştirilir.

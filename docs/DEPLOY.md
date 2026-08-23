@@ -101,8 +101,10 @@ devre dışı kalır. Ekstra ayar gerekmez, `docker compose up` ile aktif.
 
 ## 5. Bakım
 
-- **Kaynak kırmızı olduğunda:** `/admin` sağlık panelinde hangi site düştüğünü gör. RecTV domaini
-  değiştiyse `.env` → `RECTV_URL=https://b.prectvNN.sbs` yazıp `docker compose up -d`.
+- **Kaynak kırmızı olduğunda:** Genelde bir şey yapmana gerek yok — domainler her açılışta
+  **otomatik** güncellenir (Kekik-cloudstream'den çekilir). Yeni domain yayınlandığında
+  `docker compose restart engine` yeterli. `/admin` panelinden durumu görebilirsin.
+  Otomatik çekilemezse (nadiren) `.env` → `RECTV_URL`/`HDFC_URL`/`DIZIYOU_URL` ile elle sabitle.
 - **KekikStream güncelleme:** `docker compose build engine` (extractor/motor tazelenir).
 - **4K donma:** `.env` → `SEGMENT_CACHE_MB` artır; en akıcı deneyim için oynatıcıda
   **Harici Oynat → Nova/MX** (Mibox'ta native player tarayıcıdan çok daha iyi).
