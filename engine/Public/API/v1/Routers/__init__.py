@@ -26,5 +26,6 @@ from . import (
     load_links,
     extract,
     ytdlp_extract,
-    plugin_health
+    plugin_health,
+    aggregate_new
 )
