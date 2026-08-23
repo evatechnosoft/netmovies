@@ -5,7 +5,7 @@
 .card {
   position: relative;
   background:
-    radial-gradient(circle at 100% 0%, rgba(239, 127, 26, 0.06) 0%, rgba(239, 127, 26, 0) 30%),
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.06) 0%, rgba(139, 92, 246, 0) 30%),
     var(--card-bg-color);
   border-radius: var(--border-radius-lg);
   overflow: hidden;
@@ -113,8 +113,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(239, 127, 26, 0.08) 100%);
-  border: 1px solid rgba(239, 127, 26, 0.08);
+  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.08);
 }
 
 .poster-card-img.has-error img {
@@ -216,7 +216,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--card-bg-color) 0%, rgba(239, 127, 26, 0.08) 100%);
+  background: linear-gradient(135deg, var(--card-bg-color) 0%, rgba(139, 92, 246, 0.08) 100%);
   color: var(--text-dim);
   font-size: 3rem;
 }

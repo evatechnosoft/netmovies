@@ -15,7 +15,7 @@
   -webkit-backdrop-filter: var(--glass-filter-light);
   padding: 10px 16px;
   border-radius: var(--border-radius-lg, 10px);
-  border: 1px solid rgba(239, 127, 26, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
   z-index: 100;
   animation: featureFadeInUp 0.3s ease;
   color: var(--text-color, #f5f5f5);
@@ -101,7 +101,7 @@
 }
 
 .btn-share:hover {
-  border-color: rgba(239, 127, 26, 0.35);
+  border-color: rgba(139, 92, 246, 0.35);
   color: var(--primary-light);
   background: var(--primary-soft);
   box-shadow: var(--shadow-sm);

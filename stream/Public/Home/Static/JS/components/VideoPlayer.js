@@ -2170,29 +2170,18 @@ export default class VideoPlayer {
         // Altyazıları ekle
         const ccBtn = document.getElementById('custom-cc');
 
-        // Varsayılan altyazıyı önceden belirle (Buton metni ve track ayarları için)
-        let defaultIndex = 0;
+        // Varsayılan altyazı: KAPALI. İçerik çoğunlukla Türkçe dublaj; altyazıyı
+        // (özellikle "Forced") kendiliğinden açmak istenmiyor. Yalnızca kullanıcı
+        // daha önce açıkça bir altyazı seçtiyse onu geri yükleriz.
+        let defaultIndex = -1;
         const preferredSubName = localStorage.getItem('wb_preferred_subtitle');
 
         if (!this.isLiveStream && selectedVideo.subtitles && selectedVideo.subtitles.length > 0) {
-            if (preferredSubName === 'off') {
-                defaultIndex = -1;
-            } else if (preferredSubName) {
+            if (preferredSubName && preferredSubName !== 'off') {
                 const foundIdx = selectedVideo.subtitles.findIndex(s => s.name === preferredSubName);
                 if (foundIdx !== -1) defaultIndex = foundIdx;
-                else {
-                    // Fallback to TR or FORCED if preference not found
-                    const forcedIdx = selectedVideo.subtitles.findIndex(s => s.name === 'FORCED');
-                    const trIdx = selectedVideo.subtitles.findIndex(s => s.name === 'TR');
-                    if (forcedIdx !== -1) defaultIndex = forcedIdx;
-                    else if (trIdx !== -1) defaultIndex = trIdx;
-                }
-            } else {
-                const forcedIdx = selectedVideo.subtitles.findIndex(s => s.name === 'FORCED');
-                const trIdx = selectedVideo.subtitles.findIndex(s => s.name === 'TR');
-                if (forcedIdx !== -1) defaultIndex = forcedIdx;
-                else if (trIdx !== -1) defaultIndex = trIdx;
             }
+            // Tercih yok / 'off' / bulunamadı → -1 (altyazı kapalı)
         }
 
         if (selectedVideo.subtitles && selectedVideo.subtitles.length > 0) {
@@ -2496,6 +2485,78 @@ export default class VideoPlayer {
         }
     }
 
+    /**
+     * HLS kalite (çözünürlük) seviyelerini kontrol et ve seçici UI oluştur.
+     * hls.currentLevel = -1 => otomatik (adaptif bitrate). Kullanıcı seçimi
+     * ve admin varsayılanı (window.DEFAULT_QUALITY: 'auto' | '1080' | '720')
+     * localStorage 'wb_preferred_quality' ile kalıcıdır.
+     */
+    checkHlsQualityLevels(hls) {
+        const qualityBtn = document.getElementById('custom-quality');
+        if (!qualityBtn) return;
+
+        const levels = hls.levels || [];
+        if (levels.length <= 1) {
+            this.hideElement(qualityBtn);
+            return;
+        }
+
+        const labelOf = (lvl) => (lvl && lvl.height) ? `${lvl.height}p` : (lvl && lvl.bitrate ? `${Math.round(lvl.bitrate / 1000)}k` : '—');
+
+        // Tercih / admin varsayılanını uygula (yoksa otomatik)
+        const pref = localStorage.getItem('wb_preferred_quality') || window.DEFAULT_QUALITY || 'auto';
+        if (pref && pref !== 'auto') {
+            const idx = levels.findIndex(l => String(l.height) === String(pref));
+            if (idx !== -1) hls.currentLevel = idx;
+        } else {
+            hls.currentLevel = -1;
+        }
+
+        this.showElement(qualityBtn);
+        const newBtn = qualityBtn.cloneNode(true);
+        qualityBtn.parentNode.replaceChild(newBtn, qualityBtn);
+        this.showElement(newBtn);
+
+        const refreshLabel = () => {
+            const cur = hls.currentLevel;
+            const isAuto = (cur === -1 || !levels[cur]);
+            const short  = isAuto ? t('quality_auto') : labelOf(levels[cur]);
+            newBtn.title = `${t('tooltip_quality')}: ${short}`;
+            const lbl = newBtn.querySelector('.ctrl-label');
+            if (lbl) lbl.textContent = short;
+        };
+        refreshLabel();
+        hls.on(Hls.Events.LEVEL_SWITCHED, refreshLabel);
+
+        newBtn.onclick = () => {
+            const options = [
+                { label: t('quality_auto'), value: -1, action: () => this._applyQuality(hls, -1, 'auto', refreshLabel) },
+                // Yüksekten düşüğe sırala
+                ...levels
+                    .map((lvl, index) => ({ lvl, index }))
+                    .sort((a, b) => (b.lvl.height || 0) - (a.lvl.height || 0))
+                    .map(({ lvl, index }) => ({
+                        label: labelOf(lvl),
+                        value: index,
+                        action: () => this._applyQuality(hls, index, String(lvl.height || ''), refreshLabel),
+                    })),
+            ];
+            this.showSelectionModal(t('selection_quality'), 'fa-gauge-high', options, newBtn, hls.currentLevel);
+        };
+    }
+
+    _applyQuality(hls, levelIndex, prefValue, refreshLabel) {
+        try {
+            hls.currentLevel = levelIndex;             // -1 => otomatik
+            localStorage.setItem('wb_preferred_quality', prefValue || 'auto');
+            if (typeof refreshLabel === 'function') refreshLabel();
+            this.logger.info('🎚️', 'QUALITY', 'Level Changed', { 'Target': prefValue || 'auto' });
+            this.hideSelectionModal();
+        } catch (e) {
+            this.logger.error('❌', 'QUALITY', 'Change Error', { 'Details': e.message });
+        }
+    }
+
     loadHLSVideo(originalUrl, referer, userAgent, forceMode = null, extraHeaders = null) {
         this.logger.info('🚀', 'HLS', 'Starting HLS.js', { 'Mode': forceMode ? `Forced ${forceMode}` : 'Smart' });
         this.retryCount = 0;
@@ -2587,6 +2648,8 @@ export default class VideoPlayer {
 
                     // Ses izlerini kontrol et
                     this.checkHlsAudioTracks(hls);
+                    // Kalite (çözünürlük) seviyelerini kontrol et
+                    this.checkHlsQualityLevels(hls);
                 });
 
                 // Ses izleri güncellendiğinde de kontrol et

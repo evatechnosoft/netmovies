@@ -1,5 +1,5 @@
 {
-    "site_name": "KekikStream",
+    "site_name": "NetMovies",
     "site_tagline": "开源内容提取器",
     "download_google": "在 Google Play 中打开",
     "download_apple": "在 App Store 中打开",
@@ -176,5 +176,8 @@
     "error_details_label": "错误详情",
     "video_no_sources_title": "未找到视频源",
     "video_no_sources_message": "无法为此内容检测到可播放的视频源。",
-    "video_error_contribution": "想帮助修复这个错误吗？"
+    "video_error_contribution": "想帮助修复这个错误吗？",
+    "quality_auto": "Auto",
+    "selection_quality": "Select Quality",
+    "tooltip_quality": "Quality"
 }

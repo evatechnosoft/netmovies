@@ -67,8 +67,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(239, 127, 26, 0.08) 100%);
-  border-color: rgba(239, 127, 26, 0.12);
+  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border-color: rgba(139, 92, 246, 0.12);
 }
 
 .content-poster-wrap.has-error::before {
@@ -313,7 +313,7 @@
   margin-bottom: var(--spacing-xl);
   display: block;
   animation: errorPulse 2.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 24px rgba(239, 127, 26, 0.3));
+  filter: drop-shadow(0 0 24px rgba(139, 92, 246, 0.3));
 }
 
 @keyframes errorPulse {
@@ -332,7 +332,7 @@
 
 .error-box {
   background: var(--surface-glass);
-  border: 1px solid rgba(239, 127, 26, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.15);
   border-left: 4px solid var(--error-color);
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-xl);

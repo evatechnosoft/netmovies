@@ -1,5 +1,5 @@
 {
-    "site_name": "KekikStream",
+    "site_name": "NetMovies",
     "site_tagline": "ओपन-सोर्स कंटेंट एक्सट्रैक्टर",
     "download_google": "Google Play पर खोलें",
     "download_apple": "App Store पर खोलें",
@@ -176,5 +176,8 @@
     "error_details_label": "त्रुटि विवरण",
     "video_no_sources_title": "कोई वीडियो स्रोत नहीं मिला",
     "video_no_sources_message": "इस सामग्री के लिए कोई खेलने योग्य वीडियो स्रोत नहीं पाया जा सका।",
-    "video_error_contribution": "क्या आप इस त्रुटि को ठीक करने में मदद करना चाहते हैं?"
+    "video_error_contribution": "क्या आप इस त्रुटि को ठीक करने में मदद करना चाहते हैं?",
+    "quality_auto": "Auto",
+    "selection_quality": "Select Quality",
+    "tooltip_quality": "Quality"
 }

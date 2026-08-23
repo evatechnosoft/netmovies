@@ -27,8 +27,8 @@
   padding: var(--spacing-xs) var(--spacing-lg);
   margin-bottom: var(--spacing-md);
   border-radius: var(--border-radius-pill);
-  background: linear-gradient(135deg, rgba(239, 127, 26, 0.1), rgba(239, 127, 26, 0.04));
-  border: 1px solid rgba(239, 127, 26, 0.2);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.04));
+  border: 1px solid rgba(139, 92, 246, 0.2);
   color: var(--primary-light);
   font-size: var(--font-size-xs);
   font-weight: 800;
@@ -92,7 +92,7 @@
 }
 
 .search-form:focus-within {
-  border-color: rgba(239, 127, 26, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
   box-shadow: var(--shadow-search-form);
 }
 
@@ -619,7 +619,7 @@
   border-radius: var(--border-radius-xl);
   border: 1px solid var(--glass-edge);
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(239, 127, 26, 0.045) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139, 92, 246, 0.045) 0%, transparent 70%),
     var(--glass-panel-soft);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
@@ -639,9 +639,9 @@
 .plugin-card:hover {
   transform: translateY(-6px) scale(1.025);
   box-shadow: var(--plugin-card-glow);
-  border-color: rgba(239, 127, 26, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
   background:
-    radial-gradient(ellipse 90% 70% at 50% -10%, rgba(239, 127, 26, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 90% 70% at 50% -10%, rgba(139, 92, 246, 0.08) 0%, transparent 70%),
     var(--card-bg-hover);
 }
 
@@ -718,7 +718,7 @@
   letter-spacing: 0.04em;
   line-height: 1.6;
   text-transform: uppercase;
-  border: 1px solid rgba(239, 127, 26, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.15);
 }
 
 .plugin-card .card-desc {
@@ -765,8 +765,8 @@
   justify-content: center;
   gap: 8px;
   flex-shrink: 0;
-  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(239, 127, 26, 0.08) 100%);
-  border-bottom: 1px solid rgba(239, 127, 26, 0.08);
+  background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.08);
 }
 
 .card .card-no-poster::before {
@@ -808,7 +808,7 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   z-index: 2;
-  border: 1px solid rgba(239, 127, 26, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .card .card-content {
@@ -1005,8 +1005,8 @@
 }
 
 .plugin-preference-item:not(.is-disabled) {
-  border-color: rgba(239, 127, 26, 0.18);
-  border-left: 3px solid rgba(239, 127, 26, 0.35);
+  border-color: rgba(139, 92, 246, 0.18);
+  border-left: 3px solid rgba(139, 92, 246, 0.35);
 }
 
 .plugin-preference-icon {

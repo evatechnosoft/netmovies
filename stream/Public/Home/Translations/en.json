@@ -1,5 +1,5 @@
 {
-    "site_name": "KekikStream",
+    "site_name": "NetMovies",
     "site_tagline": "Open-source content extractor",
     "download_google": "Open on Google Play",
     "download_apple": "Open on the App Store",
@@ -176,5 +176,8 @@
     "error_details_label": "Error Details",
     "video_no_sources_title": "No Video Source Found",
     "video_no_sources_message": "No playable video source could be detected for this content.",
-    "video_error_contribution": "Want to help fix this error?"
+    "video_error_contribution": "Want to help fix this error?",
+    "quality_auto": "Auto",
+    "selection_quality": "Select Quality",
+    "tooltip_quality": "Quality"
 }

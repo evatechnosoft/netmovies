@@ -175,7 +175,7 @@ function _initPlayerShare() {
     btn.addEventListener('click', async () => {
         const title = document.querySelector('meta[property="og:title"]')?.content || document.title;
         const url   = window.location.href;
-        const text  = `🍿 ${title} — WatchBuddy`;
+        const text  = `🍿 ${title} — NetMovies`;
 
         if (navigator.share) {
             try {

@@ -50,7 +50,7 @@
 }
 
 .button-secondary:hover {
-  border-color: rgba(239, 127, 26, 0.35);
+  border-color: rgba(139, 92, 246, 0.35);
   color: var(--primary-light);
   background: var(--primary-soft);
   box-shadow: var(--shadow-sm);
@@ -82,7 +82,7 @@
 .button-icon:hover {
   color: var(--primary-color);
   background: var(--primary-soft);
-  border-color: rgba(239, 127, 26, 0.3);
+  border-color: rgba(139, 92, 246, 0.3);
   transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }

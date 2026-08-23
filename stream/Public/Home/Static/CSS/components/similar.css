@@ -159,7 +159,7 @@
     margin: 0;
     padding: var(--spacing-lg) var(--spacing-xl);
     background: var(--glass-panel-soft);
-    border: 1px solid rgba(239, 127, 26, 0.30);
+    border: 1px solid rgba(139, 92, 246, 0.30);
     border-radius: var(--border-radius-xl);
     box-shadow: var(--inner-shadow), var(--shadow-soft);
     color: var(--text-muted);

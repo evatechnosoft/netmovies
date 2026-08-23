@@ -1,5 +1,5 @@
 {
-    "site_name": "KekikStream",
+    "site_name": "NetMovies",
     "site_tagline": "Экстрактор контента с открытым исходным кодом",
     "download_google": "Открыть в Google Play",
     "download_apple": "Открыть в App Store",
@@ -176,5 +176,8 @@
     "error_details_label": "Детали ошибки",
     "video_no_sources_title": "Источники видео не найдены",
     "video_no_sources_message": "Для этого контента не удалось найти воспроизводимых источников видео.",
-    "video_error_contribution": "Хотите помочь исправить эту ошибку?"
+    "video_error_contribution": "Хотите помочь исправить эту ошибку?",
+    "quality_auto": "Auto",
+    "selection_quality": "Select Quality",
+    "tooltip_quality": "Quality"
 }

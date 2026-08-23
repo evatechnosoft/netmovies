@@ -21,12 +21,6 @@
             <button class="button-icon" id="share-player-btn" title="{{ tr('share') }}" data-i18n="share" data-i18n-attr="title">
                 <i class="fas fa-share-alt"></i>
             </button>
-            <a href="#" target="_blank" id="watch-party-button" class="button button-primary button-small">
-                <i class="fas fa-users"></i> <span data-i18n="watchbuddy_web">{{ tr('watchbuddy_web') }}</span>
-            </a>
-            <a href="#" id="watch-party-app-button" class="button button-primary button-small is-hidden">
-                <i class="fas fa-mobile-alt"></i> <span data-i18n="watchbuddy_app">{{ tr('watchbuddy_app') }}</span>
-            </a>
         </div>
     </div>
 
@@ -124,6 +118,9 @@
                         </div>
 
                         <div class="control-group">
+                            <button class="ctrl-btn is-hidden" id="custom-quality" title="{{ tr('tooltip_quality') }}" data-i18n="tooltip_quality" data-i18n-attr="title">
+                                <i class="fas fa-gauge-high"></i> <span class="ctrl-label"></span>
+                            </button>
                             <button class="ctrl-btn is-hidden" id="custom-audio" title="{{ tr('tooltip_audio') }}" data-i18n="tooltip_audio" data-i18n-attr="title">
                                 <i class="fas fa-headphones-alt"></i>
                             </button>
