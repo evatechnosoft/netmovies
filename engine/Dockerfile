@@ -1,7 +1,7 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
 # * Docker İmajı
-FROM python:3.13.7-slim-trixie
+FROM python:3.14.3-slim-trixie
 
 # * Etkileşimsiz apt/locale kurulumu
 ENV DEBIAN_FRONTEND=noninteractive

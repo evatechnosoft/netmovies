@@ -8,13 +8,14 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/24
+        - subnet: 172.31.0.0/24
 
 services:
   # DNS-over-HTTPS: tüm konteynerlerin alan adı çözümlemesini HTTPS üzerinden
   # (Cloudflare/Google) yapar; ISP'nin DNS ile engellediği siteler çözülür.
   doh:
-    image          : cloudflare/cloudflared:latest
+    # proxy-dns 2026.2.0'da kaldırıldı; son destekleyen sürüme pinlendi.
+    image          : cloudflare/cloudflared:2026.1.2
     container_name : netmovies-doh
     restart        : unless-stopped
     command: >
@@ -25,7 +26,7 @@ services:
       --upstream https://8.8.8.8/dns-query
     networks:
       internal:
-        ipv4_address: 172.28.0.53
+        ipv4_address: 172.31.0.53
 
   engine:
     build          : ./engine
@@ -34,7 +35,7 @@ services:
     depends_on:
       - doh
     dns:
-      - 172.28.0.53          # DoH resolver (engelli domain'ler çözülsün)
+      - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
     expose:
       - "3310"
     environment:
@@ -58,7 +59,7 @@ services:
       - engine
       - doh
     dns:
-      - 172.28.0.53          # DoH resolver
+      - 172.31.0.53          # DoH resolver
     ports:
       - "3310:3310"
     environment:
