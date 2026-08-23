@@ -51,20 +51,34 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 
 ---
 
-## 5. ⚠️ Test edilmemiş / bilinen sınırlar
-- **Gerçek içerik akışı (canlı arama/oynatma) HİÇ doğrulanmadı.** Geliştirme ortamından hedef siteler egress-bloklu. Kod/parse/endpoint/admin/PWA/auth doğrulandı; **gerçek izleme kullanıcının makinesinde test edilecek.**
-- İlk çalıştırmada `/admin` sağlık panelinden kaynak durumuna bak. Kırmızıysa: RecTV → `RECTV_URL` güncelle; diğerleri → domain/selector eskimişse plugin güncelle (Kekik-cloudstream'e bak).
-- **hls.js** bu ortamda indirilemedi (proxy CDN'leri blokluyor); kullanıcının makinesinde Dockerfile indirir veya çalışma anında fallback.
+## 5. ⚠️ Test durumu / bilinen sınırlar
+- **HDFilmCehennemi: CANLI DOĞRULANDI (Dean'in evinden).** Film oynuyor. Site player'ı her istekte yapısı değişen JS obfuscation'a (`dc_*` fonksiyonları) geçti; elle regex çözümü kırıldı. Çözüm: **V8 (py_mini_racer) ile sitenin kendi player JS'ini çalıştırıp `jwplayer().setup(cfg)` yakalama** → `engine/Plugins/_js_player.py` (rapidrame/CloseLoad ailesi için ortak, diğer kaynaklarda da kullanılacak).
+- **DiziYou:** domain düzeltildi (upstream Kotlin `diziyou3.com` = ÖLÜ; artık `diziyou.one`). `__kekik_domain.discover_main_url` artık adayları **canlılık kontrolünden** geçiriyor. Selector'ların diziyou.one'da tuttuğu henüz uçtan uca doğrulanmadı.
+- **RecTV: BLOKE.** Tüm `b.prectvNN.sbs` (38/39/40 + 41-60 taraması) ölü; güncel domain tahmin edilemiyor. Güncel domain bulununca `.env` `RECTV_URL` ile gir. API-only kaynak (kendi sitesi yok).
+- **Egress/IP:** Kaynaklar datacenter IP'sini engelliyor (KANIT: watchbuddy.tv hosted API HDFC load_links'te 403; ev-engine başardı). **Azure ACA + AFD/DNS Zone bunu ÇÖZMEZ** — AFD sadece inbound; scraping outbound=Azure egress IP=bloklu. Engine residential (ev) egress'te kalmalı; inbound için CF Tunnel (veya AFD sadece inbound).
+- **hls.js** kullanıcının makinesinde Dockerfile ile indi; ABR config iyi (480p başlar→1080p ramp, 60s buffer, capLevelToPlayerSize, nudge).
 
 ---
 
-## 6. Sonraki adımlar / backlog (öncelik sırasız)
-1. **Gerçek test:** kullanıcı `docker compose up` sonrası her kaynağı canlı dener; kırılan selector/extractor düzeltilir.
-2. **InatBox premium** (TOD, EXXEN, Netflix, Disney+, BluTV, HBO Max, Tabii) — kullanıcı şimdilik "yeterli" dedi. Karmaşık: 4-5 şifreli extractor (CDNJWPlayer, Dzen, Vk, DiskYandex + `pichive.online` gibi dinamik CDN). Yüksek bakım.
-3. **SezonlukDizi** — "Son Bölümler" akışı güçlü ama loadLinks AJAX + genel extractor zinciri gerektiriyor.
-4. **Font Awesome + Google Fonts self-host** (şu an cdnjs/google'dan; engellenirse UI görselleri bozulur, işlev değil).
-5. **İzleme geçmişini SQLite'a taşıma** (şu an localStorage — cihazlar arası senkron yok). `docs/MIMARI_SPEC.md` ADR-3.
-6. **Masaüstü harici oynatıcı** (.m3u dosyası / mpv komutu) — şu an harici player Android intent odaklı.
+## 6. Sonraki adımlar / backlog
+
+### Stratejik karar (Dean, 2026-08-24)
+- **Kendi upstream'imizi biz yazıyoruz** — vendored fork'u yamamak yerine kaynakları tersine mühendislikle çözüp (V8 yaklaşımı) kendi Python plugin/extractor'larımızı maintain ediyoruz. Referans: Kekik-cloudstream + recloudstream/extensions (Kotlin). Gerekirse Kotlin de kendimiz yazarız (clone/rebase).
+- **Client = PWA** (Flutter değil, şimdilik). Engine client-agnostik (MIMARI_SPEC ADR-1) — Flutter sonra opsiyonel.
+- Yapı **modern/genişletilebilir** olsun; aşağıdaki roadmap sonradan eklenecek.
+
+### Yakın backlog
+1. **Birleşik "Yeni Çıkanlar" UI (task 1, YAPILMADI):** engine `GET /api/v1/aggregate_new?type=movie|serie` HAZIR. Stream tarafı bağlanacak: `ana_sayfa.py` iki çağrı → `home.html.j2`'ye "🎬 Yeni Filmler"/"📺 Yeni Diziler" yatay rafı + admin filtresi. **Kaynak-bağımsız liste hedefi bu.**
+2. **RecTV güncel domain** bul (bloke) → `RECTV_URL`.
+3. **DiziYou uçtan uca** doğrula (diziyou.one selector'ları) + V8 extractor gerekiyorsa `_js_player`'a bağla.
+4. **Daha çok kaynak port et** (recloudstream/extensions'tan): FullHDFilmizlesene (RapidVid ailesi — V8 ile hazır çözülür), JetFilmizle, Dizilla, SezonlukDizi...
+5. **İzleme geçmişini SQLite'a taşı** (localStorage → cihazlar arası senkron; ADR-3) — öneri motorunun da temeli.
+
+### Roadmap (Dean'in istediği "sonra" eklentileri)
+- **Telefondan doğal-dil komut** ("şunu aç" → bulur/açar): telefon → **LiteLLM proxy** intent parse → engine `/search` → otomatik oynat. `POST /api/v1/command` AI gateway.
+- **Spotify mantığı öneri** ("izlediklerime benzer"): izleme geçmişi (SQLite) + katalog → LiteLLM sıralama → `/api/v1/recommendations` + ana sayfa "Sana Özel" rafı.
+- **Client-server telefon kontrolü / kendi watch-party** (watchbuddy söküldü; kendimizinki).
+- InatBox premium, Font/FA self-host, masaüstü harici oynatıcı (.m3u/mpv).
 
 ---
 
