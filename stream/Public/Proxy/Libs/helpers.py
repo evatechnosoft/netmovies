@@ -1,0 +1,283 @@
+# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+
+from CLI          import konsol
+from fastapi      import Request
+from urllib.parse import urljoin, quote
+from Settings     import PROXIES
+import httpx, traceback, re, json
+
+_proxy_url = PROXIES.get("https") or PROXIES.get("http") if PROXIES else None
+
+def parse_extra_headers(raw: str | None) -> dict[str, str] | None:
+    """'extra_headers' query param'ını (JSON obje) dict'e çözer. Bozuk/boş girişte sessizce None döner."""
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
+
+# Global shared AsyncClient for video and subtitle proxying
+shared_client = httpx.AsyncClient(
+    follow_redirects = True,
+    timeout          = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+    verify           = False,
+    proxy            = _proxy_url,
+)
+
+
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)"
+DEFAULT_REFERER    = "https://twitter.com/"
+DEFAULT_CHUNK_SIZE = 1024 * 128  # 128KB
+
+CONTENT_TYPES = {
+    ".m3u8" : "application/vnd.apple.mpegurl",
+    ".ts"   : "video/mp2t",
+    ".mp4"  : "video/mp4",
+    ".webm" : "video/webm",
+    ".mkv"  : "video/x-matroska",
+    ".avi"  : "video/x-msvideo",
+    ".mov"  : "video/quicktime",
+    ".flv"  : "video/x-flv",
+    ".wmv"  : "video/x-ms-wmv",
+    ".m4s"  : "video/iso.segment",
+}
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin"  : "*",
+    "Access-Control-Allow-Methods" : "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers" : "Origin, Content-Type, Accept, Range",
+}
+
+
+def get_content_type(url: str, response_headers: dict) -> str:
+    """URL ve response headers'dan content-type belirle"""
+    # 1. Response header kontrolü
+    if ct := response_headers.get("content-type"):
+        return ct
+
+    # 2. URL uzantısı kontrolü
+    url_lower = url.lower()
+    for ext, ct in CONTENT_TYPES.items():
+        if ext in url_lower:
+            return ct
+
+    # 3. Varsayılan
+    return "video/mp4"
+
+def prepare_request_headers(request: Request, url: str, referer: str | None, user_agent: str | None, extra_headers: dict[str, str] | None = None) -> dict:
+    """Proxy isteği için headerları hazırlar"""
+    headers = {}
+
+    # Extractor'ın istediği ek headerlar (Origin/Auth/Cookie vb.) önce set edilir;
+    # Accept/UA/Referer altta override eder (goProxy parity) — Accept-Encoding
+    # özellikle identity kalmalı, aksi halde HLS manifest rewrite bozulur.
+    if extra_headers:
+        headers.update(extra_headers)
+
+    headers["Accept"]          = "*/*"
+    headers["Accept-Encoding"] = "identity"
+    headers["Connection"]      = "keep-alive"
+
+    # user-agent ayarı
+    if user_agent and user_agent != "None":
+        headers["user-agent"] = user_agent
+    else:
+        headers["user-agent"] = DEFAULT_USER_AGENT
+
+    if referer and referer != "None":
+        headers["referer"] = referer
+
+    # Client'tan gelen Range header'ı aktar (MP4 seek/byte-range desteği, goProxy parity)
+    range_header = request.headers.get("range")
+    if range_header:
+        headers["Range"] = range_header
+
+    return headers
+
+def prepare_response_headers(response_headers: dict, url: str, detected_content_type: str = None) -> dict:
+    """Client'a dönecek headerları hazırlar"""
+    headers = CORS_HEADERS.copy()
+
+    # Content-Type belirle
+    headers["Content-Type"] = detected_content_type or get_content_type(url, response_headers)
+
+    # Transfer edilecek headerlar
+    important_headers = [
+        "content-range", "accept-ranges",
+        "etag", "cache-control", "content-disposition",
+        "content-length"
+    ]
+
+    for header in important_headers:
+        if val := response_headers.get(header):
+            headers[header.title()] = val
+
+    # Zorunlu headerlar
+    if "Accept-Ranges" not in headers:
+        headers["Accept-Ranges"] = "bytes"
+
+    return headers
+
+def detect_hls_from_url(url: str) -> bool:
+    """URL yapısından HLS olup olmadığını tahmin eder"""
+    url_lower  = url.lower()
+    indicators = (
+        ".m3u8",
+        ".m3u",
+        "/hls/",
+        "/m3u8/",
+        "master.txt",
+        "/manifests/",
+        "playlist.m3u8",
+        "/m.php",
+        "/l.php",
+        "/ld.php",
+        "embed/sheila"
+    )
+    return any(x in url_lower for x in indicators)
+
+def is_hls_segment(url: str) -> bool:
+    """URL'nin HLS segment'i olup olmadığını kontrol et"""
+    url_lower = url.lower()
+
+    # Manifest'leri hariç tut
+    if ".m3u8" in url_lower:
+        return False
+
+    # Segment göstergeleri (standalone .mp4 hariç — tam dosya belleğe okunmasın, goProxy parity)
+    segment_indicators = (".ts", ".m4s", ".aac", "seg-", "chunk-", "fragment", ".png", ".jpg", ".jpeg")
+    return any(indicator in url_lower for indicator in segment_indicators)
+
+def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, user_agent: str = None, force_proxy: bool = False, extra_headers: dict[str, str] | None = None) -> bytes:
+    """
+    HLS manifest içindeki göreceli URL'leri işler.
+
+    BANT GENİŞLİĞİ OPTİMİZASYONU:
+    - Manifest dosyaları (.m3u8) -> Proxy üzerinden (CORS + header injection için)
+    - Video segmentleri (.ts, .m4s) -> Doğrudan CDN'den (bant genişliği tasarrufu)
+    """
+    try:
+        text = content.decode('utf-8')
+    except UnicodeDecodeError:
+        return content  # Binary içerik, değiştirme
+
+    # HLS manifest değilse değiştirme
+    if not text.strip().startswith('#EXTM3U'):
+        return content
+
+    lines           = text.split('\n')
+    new_lines       = []
+    extra_headers_q = f'&extra_headers={quote(json.dumps(extra_headers), safe="")}' if extra_headers else ''
+
+    for line in lines:
+        stripped = line.strip()
+
+        # URI="..." içeren satırları işle (audio/subtitle tracks, encryption keys)
+        if 'URI="' in line:
+            def replace_uri(match):
+                uri          = match.group(1)
+                absolute_url = urljoin(base_url, uri)
+
+                # Eğer bir segment DEĞİLSE (key veya alt manifest ise) proxy üzerinden geçmeli
+                # VEYA force_proxy aktif ise her şey proxy üzerinden geçmeli
+                if force_proxy or not is_hls_segment(absolute_url):
+                    proxy_url = f'/proxy/video?url={quote(absolute_url, safe="")}'
+                    if referer:
+                        proxy_url += f'&referer={quote(referer, safe="")}'
+                    if user_agent:
+                        proxy_url += f'&user_agent={quote(user_agent, safe="")}'
+                    if force_proxy:
+                        proxy_url += '&force_proxy=1'
+                    proxy_url += extra_headers_q
+                    return f'URI="{proxy_url}"'
+
+                # Segment ise doğrudan CDN
+                return f'URI="{absolute_url}"'
+
+            line = re.sub(r'URI="([^"]+)"', replace_uri, line)
+            new_lines.append(line)
+
+        # URL satırları (# ile başlamayan ve boş olmayan)
+        elif stripped and not stripped.startswith('#'):
+            absolute_url = urljoin(base_url, stripped)
+
+            # Segment ise doğrudan CDN (Bant Genişliği Tasarrufu)
+            if not force_proxy and is_hls_segment(absolute_url):
+                new_lines.append(absolute_url)
+            else:
+                # Alt manifest (.m3u8) veya force_proxy=true ise proxy
+                proxy_url = f'/proxy/video?url={quote(absolute_url, safe="")}'
+                if referer:
+                    proxy_url += f'&referer={quote(referer, safe="")}'
+                if user_agent:
+                    proxy_url += f'&user_agent={quote(user_agent, safe="")}'
+                if force_proxy:
+                    proxy_url += '&force_proxy=1'
+                proxy_url += extra_headers_q
+                new_lines.append(proxy_url)
+
+        else:
+            new_lines.append(line)
+
+    return '\n'.join(new_lines).encode('utf-8')
+
+async def stream_wrapper(response: httpx.Response):
+    """Response içeriğini yield eder ve bağlantıyı güvenle kapatır"""
+    try:
+        async for chunk in response.aiter_bytes(chunk_size=DEFAULT_CHUNK_SIZE):
+            yield chunk
+    except GeneratorExit:
+        pass
+    except Exception as e:
+        konsol.print(f"[red]Stream hatası: {str(e)}[/red]")
+    except BaseException:
+        pass
+    finally:
+        await response.aclose()
+
+def process_subtitle_content(content: bytes, content_type: str, url: str) -> bytes:
+    """Altyazı içeriğini işler ve VTT formatına çevirir"""
+    def _normalize_vtt_timestamps(text: str) -> str:
+        # Only replace comma in timestamps (HH:MM:SS,mmm -> HH:MM:SS.mmm)
+        return re.sub(r"(\d{2}:\d{2}:\d{2}),(\d{3})", r"\1.\2", text)
+
+    # 1. UTF-8 BOM temizliği
+    if content.startswith(b"\xef\xbb\xbf"):
+        content = content[3:]
+
+    # 2. VTT Kontrolü
+    is_vtt = "text/vtt" in content_type or content.startswith(b"WEBVTT")
+    if is_vtt:
+        try:
+            text = content.decode("utf-8", errors="ignore")
+            text = _normalize_vtt_timestamps(text)
+            if not text.startswith("WEBVTT"):
+                text = "WEBVTT\n\n" + text
+            return text.encode("utf-8")
+        except Exception:
+            if not content.startswith(b"WEBVTT"):
+                return b"WEBVTT\n\n" + content
+            return content
+
+    # 3. SRT -> VTT Dönüşümü
+    is_srt = (
+        content_type == "application/x-subrip" or
+        url.endswith(".srt") or
+        content.strip().startswith(b"1\r\n") or
+        content.strip().startswith(b"1\n")
+    )
+
+    if is_srt:
+        try:
+            content = content.replace(b"\r\n", b"\n")
+            text    = content.decode("utf-8", errors="ignore")
+            text    = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', text)  # Sadece timestamp virgülü
+            if not text.startswith("WEBVTT"):
+                text = "WEBVTT\n\n" + text
+            return text.encode("utf-8")
+        except Exception as e:
+            konsol.print(f"[yellow]SRT dönüştürme hatası: {str(e)}[/yellow]")
+
+    return content

@@ -1,0 +1,108 @@
+/* Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-speed) var(--transition-timing),
+              visibility var(--transition-speed) var(--transition-timing);
+}
+
+.modal-overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--border-radius-xxl);
+  padding: var(--spacing-xxl);
+  max-width: 480px;
+  width: 90%;
+  box-shadow: var(--inner-shadow), var(--shadow-strong);
+  overflow: hidden;
+  transform: translateY(20px) scale(0.95);
+  transition: transform var(--transition-speed) var(--transition-timing);
+}
+
+.modal-overlay.is-active .modal-content {
+  transform: translateY(0) scale(1);
+}
+
+.modal-title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+}
+
+.modal-body {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-xl);
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.provider-recovery-modal .modal-content {
+  text-align: center;
+  max-width: 420px;
+  padding: var(--spacing-xl);
+}
+
+.provider-recovery-modal .modal-title i {
+  color: var(--primary);
+  margin-right: var(--spacing-xs);
+}
+
+.provider-recovery-modal .modal-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-content: stretch;
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: var(--spacing-lg);
+    width: 94%;
+  }
+
+  .modal-title {
+    font-size: var(--font-size-base);
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .provider-recovery-modal .modal-actions {
+    display: flex;
+  }
+
+  .modal-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .modal-content {
+    padding: var(--spacing-md);
+    width: 96%;
+  }
+}

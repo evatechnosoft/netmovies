@@ -1,0 +1,3202 @@
+// Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+
+import { buildProxyUrl as buildServiceProxyUrl } from '../service-detector.min.js';
+import { detectFormat, parseRemoteUrl, createHlsConfig, suggestInitialMode, hasCustomHeaders, ProxyMode, buildProxyUrlWithMode } from '../video-utils.min.js';
+import BuddyLogger from '../utils/BuddyLogger.min.js';
+import { t, escapeHtml } from '../utils/dom.min.js';
+import { isUrlPlayable } from '../utils/playability.min.js';
+const PREVIEW_SEEK_THROTTLE_MS = 120;
+const PREVIEW_SEEK_TIMEOUT_MS = 1800;
+const PREVIEW_LOADING_DELAY_MS = 140;
+const PREVIEW_SEEK_EPSILON = 0.15;
+const PREVIEW_SHORT_BUCKET_SECONDS = 5;
+const PREVIEW_LONG_BUCKET_SECONDS = 10;
+const PREVIEW_LONG_BUCKET_THRESHOLD_SECONDS = 60 * 60;
+const PREVIEW_CANVAS_BASE_WIDTH = 160;
+const PREVIEW_DEFAULT_ASPECT_RATIO = 16 / 9;
+const PREVIEW_MIN_ASPECT_RATIO = 1.2;
+const PREVIEW_MAX_ASPECT_RATIO = 2.39;
+
+export default class VideoPlayer {
+    constructor() {
+        // BuddyLogger'ı başlat ve ata
+        this.logger = new BuddyLogger(true);
+
+        // --- Console Welcome Message ---
+        BuddyLogger.info(
+            '📺',
+            'PROVIDER-READY',
+            'Detected Configuration:',
+            {
+                'Provider Name': document.body.dataset.providerName || 'Unknown',
+                'Base URL':      window.location.origin,
+                'Proxy URL':     document.body.dataset.proxyUrl || 'N/A',
+                'Fallback URL':  document.body.dataset.proxyFallbackUrl || 'N/A'
+            }
+        );
+        // ----------------------------------------
+
+        // Global değişkenler (sınıf özellikleri olarak)
+        this.currentHls = null;
+        this.loadingTimeout = null;
+        this.isLoadingVideo = false;
+        this.videoData = [];
+        this.retryCount = 0;
+        this.maxRetries = 5;
+        this.lastLoadedBaseUrl = null; // HLS segment URL'leri için base URL takibi
+        this.lastLoadedOrigin = null; // HLS absolute path'leri için origin takibi
+        this.userGestureUntil = 0; // Kısa süreli user gesture guard
+        this.selectedSubtitleUrl = null; // Seçilen altyazı URL'i
+        this.currentVideoIndex = null; // Şu anki video index'i
+        this.currentOriginalUrl = ''; // Orijinal video URL'i
+        this.currentLoadingUrl = ''; // Şu an yüklenmeye çalışılan URL (Proxied)
+        this.isLiveStream = false; // year=LIVE için player davranış bayrağı
+
+        this.subtitleSettings = {
+            color: '#FFFF00',
+            fontSize: 18,
+            showBackground: true,
+            enabled: true
+        };
+
+        // Resume watching debounce timer
+        this._resumeSaveTimer = null;
+
+        // Preview video for seekbar thumbnails
+        this.previewVideo = null;
+        this.previewHls = null;
+        this._lastPreviewSeek = 0;
+        this.previewPendingTime = null;
+        this.previewRequestedTime = null;
+        this.previewSeekTimer = null;
+        this.previewSeekTimeout = null;
+        this.previewLoadingTimer = null;
+        this.previewIsSeeking = false;
+        this.previewWarmupPromise = null;
+        this.previewSource = null;
+        this.previewRetriedWithProxy = false;
+        this.previewHlsContext = null;
+
+        // DOM Elementleri
+        this.videoPlayer = document.getElementById('video-player');
+        this.videoLinksUI = document.getElementById('video-links-ui');
+        this.loadingOverlay = document.getElementById('loading-overlay');
+        this.toggleDiagnosticsBtn = document.getElementById('toggle-diagnostics');
+        this.diagnosticsPanel = document.getElementById('diagnostics-panel');
+        this.selectionModal = document.getElementById('selection-modal');
+        this.selectionList = document.getElementById('selection-list');
+
+        // Preview elements
+        this.previewThumbnail = document.getElementById('preview-thumbnail');
+        this.previewCanvas = document.getElementById('preview-canvas');
+        this.previewTimeEl = document.getElementById('preview-time');
+        this.previewContext = this.previewCanvas?.getContext('2d');
+
+        this.init();
+        window.addEventListener('lang:changed', () => {
+            this.refreshI18n();
+        });
+    }
+
+    // Proxy URL oluşturucu (yalnızca provider proxy)
+    buildProxyUrl(url, userAgent = '', referer = '', endpoint = 'video', extraHeaders = null) {
+        const proxyBase = this.proxyUrl || this.proxyFallbackUrl;
+        return buildServiceProxyUrl(url, userAgent, referer, endpoint, proxyBase, extraHeaders);
+    }
+
+    async init() {
+        this.setupDiagnostics();
+        this.collectVideoLinks();
+        this.renderVideoLinks();
+        this.checkAllPlayability();
+        this.loadHlsLibrary();
+        this.setupUserGestureGuard();
+        this.setupKeyboardControls();
+        this.setupCustomControls();
+        this.setupPreview();
+        this.setupGlobalErrorHandling();
+        this.setupSelectionModal();
+        this.setupSubtitleSettings();
+
+        // Check for fullscreen request from previous page
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('fs') === '1') {
+            // Browser might block auto-fullscreen without user gesture.
+            // We'll try, but also bind it to the first interaction.
+            const tryFS = async () => {
+                await this.toggleFullscreen(true);
+                document.removeEventListener('click', tryFS);
+                document.removeEventListener('keydown', tryFS);
+            };
+            document.addEventListener('click', tryFS, { once: true });
+            document.addEventListener('keydown', tryFS, { once: true });
+            // Try immediately just in case (some environments allow it)
+            tryFS();
+        }
+    }
+
+    async toggleFullscreen(forceOpen = false) {
+        const wrapper = document.getElementById('video-player-wrapper');
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || this.videoPlayer.webkitDisplayingFullscreen);
+
+        if (isFS && !forceOpen) {
+            if (document.exitFullscreen) await document.exitFullscreen().catch(() => {});
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else {
+            try {
+                const fsMethod = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen || wrapper.mozRequestFullScreen || wrapper.msRequestFullscreen;
+                if (fsMethod) {
+                    await fsMethod.call(wrapper);
+                    if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(() => {});
+                } else if (this.videoPlayer.webkitEnterFullscreen) {
+                    this.videoPlayer.webkitEnterFullscreen();
+                }
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    formatDuration(seconds) {
+        if (!Number.isFinite(seconds)) return '0:00';
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        return hours > 0
+            ? `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+            : `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    isLiveYear(value) {
+        return String(value || '').trim().toUpperCase() === 'LIVE';
+    }
+
+    applyLiveModeUI() {
+        const isLive = this.isLiveStream === true;
+        document.body.classList.toggle('is-live-stream', isLive);
+
+        const progressContainer = document.getElementById('custom-progress-container');
+        const backwardBtn = document.getElementById('custom-backward');
+        const forwardBtn = document.getElementById('custom-forward');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationTimeEl = document.getElementById('duration-time');
+        const timeDisplay = currentTimeEl?.closest('.time-display') || null;
+
+        if (progressContainer) {
+            progressContainer.style.display = isLive ? 'none' : '';
+        }
+        if (backwardBtn) {
+            backwardBtn.disabled = isLive;
+            backwardBtn.style.display = isLive ? 'none' : '';
+        }
+        if (forwardBtn) {
+            forwardBtn.disabled = isLive;
+            forwardBtn.style.display = isLive ? 'none' : '';
+        }
+
+        if (timeDisplay) {
+            let liveIndicator = timeDisplay.querySelector('.live-indicator');
+            if (isLive) {
+                if (!liveIndicator) {
+                    liveIndicator = document.createElement('div');
+                    liveIndicator.className = 'live-indicator';
+                    liveIndicator.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff3b30;margin-right:8px;"></span><span>LIVE</span>';
+                    liveIndicator.style.display = 'inline-flex';
+                    liveIndicator.style.alignItems = 'center';
+                    liveIndicator.style.fontWeight = '700';
+                    liveIndicator.style.letterSpacing = '0.02em';
+                    liveIndicator.style.color = '#ff3b30';
+                    timeDisplay.appendChild(liveIndicator);
+                }
+                if (currentTimeEl) currentTimeEl.style.display = 'none';
+                if (durationTimeEl) durationTimeEl.style.display = 'none';
+                for (const node of Array.from(timeDisplay.childNodes)) {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent?.includes('/')) {
+                        node.textContent = '';
+                    }
+                }
+            } else {
+                if (liveIndicator) liveIndicator.remove();
+                if (currentTimeEl) currentTimeEl.style.display = '';
+                if (durationTimeEl) durationTimeEl.style.display = '';
+            }
+        }
+    }
+
+    clearPreviewSeekTimer() {
+        if (this.previewSeekTimer) {
+            clearTimeout(this.previewSeekTimer);
+            this.previewSeekTimer = null;
+        }
+    }
+
+    clearPreviewSeekTimeout() {
+        if (this.previewSeekTimeout) {
+            clearTimeout(this.previewSeekTimeout);
+            this.previewSeekTimeout = null;
+        }
+    }
+
+    clearPreviewLoadingTimer() {
+        if (this.previewLoadingTimer) {
+            clearTimeout(this.previewLoadingTimer);
+            this.previewLoadingTimer = null;
+        }
+    }
+
+    ensurePreviewContext() {
+        if (!this.previewContext && this.previewCanvas) {
+            this.previewContext = this.previewCanvas.getContext('2d');
+        }
+        return this.previewContext;
+    }
+
+    getPreviewCanvasWrapper() {
+        return this.previewCanvas?.closest('.preview-canvas-wrapper') || null;
+    }
+
+    getPreviewAspectRatio(videoEl = this.previewVideo) {
+        const width = videoEl?.videoWidth;
+        const height = videoEl?.videoHeight;
+        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+            const ratio = width / height;
+            if (Number.isFinite(ratio) && ratio >= PREVIEW_MIN_ASPECT_RATIO && ratio <= PREVIEW_MAX_ASPECT_RATIO) {
+                return ratio;
+            }
+        }
+        return PREVIEW_DEFAULT_ASPECT_RATIO;
+    }
+
+    syncPreviewCanvasSize(videoEl = this.previewVideo) {
+        if (!this.previewCanvas) return;
+
+        const ratio = this.getPreviewAspectRatio(videoEl);
+        const nextWidth = PREVIEW_CANVAS_BASE_WIDTH;
+        const nextHeight = Math.max(1, Math.round(nextWidth / ratio));
+
+        if (this.previewCanvas.width !== nextWidth || this.previewCanvas.height !== nextHeight) {
+            this.previewCanvas.width = nextWidth;
+            this.previewCanvas.height = nextHeight;
+        }
+
+        const previewCanvasWrapper = this.getPreviewCanvasWrapper();
+        if (previewCanvasWrapper) {
+            previewCanvasWrapper.style.setProperty('--preview-aspect-ratio', ratio.toFixed(4));
+        }
+    }
+
+    clearPreviewLoading() {
+        this.clearPreviewLoadingTimer();
+        this.clearPreviewSeekTimeout();
+        if (this.previewThumbnail) {
+            this.previewThumbnail.classList.remove('loading');
+        }
+    }
+
+    schedulePreviewLoading() {
+        this.clearPreviewLoadingTimer();
+        if (!this.previewThumbnail) return;
+
+        this.previewLoadingTimer = setTimeout(() => {
+            this.previewLoadingTimer = null;
+            if (this.previewThumbnail && (this.previewIsSeeking || this.previewPendingTime != null)) {
+                this.previewThumbnail.classList.add('loading');
+            }
+        }, PREVIEW_LOADING_DELAY_MS);
+    }
+
+    clampPreviewTime(time) {
+        const duration = this.previewVideo?.duration;
+        if (!Number.isFinite(duration) || duration <= 0) {
+            return Math.max(0, time);
+        }
+        return Math.max(0, Math.min(time, Math.max(0, duration - 0.05)));
+    }
+
+    getPreviewBucketSeconds(duration) {
+        if (Number.isFinite(duration) && duration >= PREVIEW_LONG_BUCKET_THRESHOLD_SECONDS) {
+            return PREVIEW_LONG_BUCKET_SECONDS;
+        }
+        return PREVIEW_SHORT_BUCKET_SECONDS;
+    }
+
+    quantizePreviewTime(time) {
+        const duration = this.videoPlayer?.duration;
+        const bucket = this.getPreviewBucketSeconds(duration);
+        const maxTime = Number.isFinite(duration) && duration > 0 ? Math.max(0, duration - 0.05) : time;
+        return Math.max(0, Math.min(Math.floor(time / bucket) * bucket, maxTime));
+    }
+
+    schedulePendingPreviewSeek() {
+        this.clearPreviewSeekTimer();
+        if (this.previewPendingTime == null || this.previewIsSeeking) return;
+
+        const elapsed = Date.now() - this._lastPreviewSeek;
+        const delay = Math.max(0, PREVIEW_SEEK_THROTTLE_MS - elapsed);
+
+        if (delay === 0) {
+            this.executePreviewSeek();
+            return;
+        }
+
+        this.previewSeekTimer = setTimeout(() => {
+            this.previewSeekTimer = null;
+            this.executePreviewSeek();
+        }, delay);
+    }
+
+    finishPreviewSeek() {
+        this.clearPreviewLoading();
+        this.previewIsSeeking = false;
+        if (this.previewPendingTime != null) {
+            this.schedulePendingPreviewSeek();
+        }
+    }
+
+    retryPreviewWithFullProxy() {
+        if (this.previewRetriedWithProxy || !this.previewSource) {
+            this.finishPreviewSeek();
+            return;
+        }
+
+        this.previewRetriedWithProxy = true;
+        this.previewIsSeeking = false;
+        this.clearPreviewSeekTimer();
+        this.clearPreviewSeekTimeout();
+        this.setupPreviewVideo({ ...this.previewSource }, ProxyMode.FULL);
+
+        if (this.previewRequestedTime != null) {
+            this.previewPendingTime = this.previewRequestedTime;
+            this.schedulePreviewLoading();
+            this.schedulePendingPreviewSeek();
+        }
+    }
+
+    drawPreviewFrame() {
+        const previewContext = this.ensurePreviewContext();
+        if (!previewContext || !this.previewCanvas || !this.previewVideo) {
+            this.finishPreviewSeek();
+            return;
+        }
+
+        try {
+            this.syncPreviewCanvasSize(this.previewVideo);
+            previewContext.drawImage(
+                this.previewVideo,
+                0,
+                0,
+                this.previewCanvas.width,
+                this.previewCanvas.height
+            );
+            this.finishPreviewSeek();
+        } catch (e) {
+            this.retryPreviewWithFullProxy();
+        }
+    }
+
+    renderPreviewFrame() {
+        if (!this.previewVideo) {
+            this.finishPreviewSeek();
+            return;
+        }
+
+        let settled = false;
+        const settle = () => {
+            if (settled || !this.previewIsSeeking) return;
+            settled = true;
+            this.drawPreviewFrame();
+        };
+
+        requestAnimationFrame(settle);
+        setTimeout(settle, 80);
+
+        if (typeof this.previewVideo.requestVideoFrameCallback === 'function') {
+            this.previewVideo.requestVideoFrameCallback(() => settle());
+        }
+    }
+
+    warmPreviewVideo() {
+        if (!this.previewVideo || this.previewWarmupPromise) return;
+
+        if (this.previewVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            if (this.previewPendingTime != null && !this.previewIsSeeking) {
+                this.schedulePendingPreviewSeek();
+            }
+            return;
+        }
+
+        const playPromise = this.previewVideo.play();
+        if (playPromise === undefined || typeof playPromise.then !== 'function') {
+            this.schedulePendingPreviewSeek();
+            return;
+        }
+
+        this.previewWarmupPromise = playPromise.then(() => {
+            this.previewVideo.pause();
+        }).catch(() => {
+            // Hidden muted previews can still be blocked on some WebViews.
+        }).finally(() => {
+            this.previewWarmupPromise = null;
+            if (this.previewPendingTime != null && !this.previewIsSeeking) {
+                this.schedulePendingPreviewSeek();
+            }
+        });
+    }
+
+    executePreviewSeek() {
+        if (!this.previewVideo || this.previewPendingTime == null) return;
+
+        if (this.previewVideo.readyState < HTMLMediaElement.HAVE_METADATA) {
+            this.warmPreviewVideo();
+            return;
+        }
+
+        if (this.previewVideo.seeking) return;
+
+        const nextTime = this.clampPreviewTime(this.previewPendingTime);
+        if (Number.isFinite(this.previewVideo.currentTime) &&
+            Math.abs(this.previewVideo.currentTime - nextTime) < PREVIEW_SEEK_EPSILON) {
+            this.previewPendingTime = null;
+            this.renderPreviewFrame();
+            return;
+        }
+
+        this.previewPendingTime = null;
+        this.previewIsSeeking = true;
+        this._lastPreviewSeek = Date.now();
+        this.schedulePreviewLoading();
+
+        this.clearPreviewSeekTimeout();
+        this.previewSeekTimeout = setTimeout(() => {
+            if (this.previewIsSeeking) {
+                this.retryPreviewWithFullProxy();
+            }
+        }, PREVIEW_SEEK_TIMEOUT_MS);
+
+        try {
+            this.previewVideo.currentTime = nextTime;
+        } catch (e) {
+            this.retryPreviewWithFullProxy();
+        }
+    }
+
+    setupPreview() {
+        const progressContainer = document.getElementById('custom-progress-container');
+        if (!progressContainer || !this.previewThumbnail) return;
+
+        this.syncPreviewCanvasSize();
+
+        progressContainer.addEventListener('mousemove', (e) => this.handlePreviewMove(e));
+        progressContainer.addEventListener('mouseleave', () => this.hideElement(this.previewThumbnail));
+
+        // Mobil Touch Desteği
+        progressContainer.addEventListener('touchstart', (e) => {
+            this.handlePreviewMove(e.touches[0]);
+        }, { passive: true });
+
+        progressContainer.addEventListener('touchmove', (e) => {
+            this.handlePreviewMove(e.touches[0]);
+        }, { passive: true });
+
+        progressContainer.addEventListener('touchend', () => this.hideElement(this.previewThumbnail));
+        progressContainer.addEventListener('touchcancel', () => this.hideElement(this.previewThumbnail));
+    }
+
+    handlePreviewMove(e) {
+        if (!this.videoPlayer || !Number.isFinite(this.videoPlayer.duration) || this.videoPlayer.duration <= 0) return;
+
+        const progressContainer = document.getElementById('custom-progress-container');
+        const rect = progressContainer.getBoundingClientRect();
+
+        // Touch veya Mouse koordinatını hesapla
+        const clientX = e.clientX || e.pageX;
+        let pos = (clientX - rect.left) / progressContainer.offsetWidth;
+        pos = Math.max(0, Math.min(1, pos));
+        const previewTime = pos * this.videoPlayer.duration;
+
+        // Pozisyonu ayarla (Thumbnail'ı merkeze al ve taşırmama yap)
+        const thumbWidth = this.previewThumbnail.offsetWidth || 160;
+        let left = clientX - rect.left;
+        left = Math.max(thumbWidth / 2, Math.min(rect.width - thumbWidth / 2, left));
+        this.previewThumbnail.style.left = `${left}px`;
+
+        // Süreyi güncelle
+        if (this.previewTimeEl) {
+            this.previewTimeEl.textContent = this.formatDuration(previewTime);
+        }
+
+        this.showElement(this.previewThumbnail);
+
+        // Preview videosunu seek et
+        this.seekPreview(previewTime);
+    }
+
+    seekPreview(time) {
+        if (!this.previewVideo) return;
+
+        const quantizedTime = this.quantizePreviewTime(time);
+        if (this.previewRequestedTime != null && Math.abs(this.previewRequestedTime - quantizedTime) < PREVIEW_SEEK_EPSILON) {
+            return;
+        }
+
+        this.previewRequestedTime = quantizedTime;
+        this.previewPendingTime = quantizedTime;
+        this.schedulePreviewLoading();
+        this.schedulePendingPreviewSeek();
+    }
+
+    setupPreviewVideo(videoData, forcedMode = null) {
+        const originalUrl = videoData.url;
+        const referer = videoData.referer || '';
+        const userAgent = videoData.userAgent || '';
+        const isSameSource =
+            this.previewSource?.url === originalUrl &&
+            this.previewSource?.userAgent === userAgent &&
+            this.previewSource?.referer === referer &&
+            (this.previewSource?.format || '') === (videoData.format || '');
+
+        this.clearPreviewSeekTimer();
+        this.clearPreviewSeekTimeout();
+        this.previewWarmupPromise = null;
+        this.previewIsSeeking = false;
+        this.previewHlsContext = null;
+        if (!isSameSource) {
+            this.previewRequestedTime = null;
+            this.previewPendingTime = null;
+        }
+        this.previewSource = { ...videoData };
+        this.previewRetriedWithProxy = isSameSource ? (this.previewRetriedWithProxy || forcedMode === ProxyMode.FULL) : forcedMode === ProxyMode.FULL;
+        this.clearPreviewLoading();
+
+        // Temizlik
+        if (this.previewHls) {
+            this.previewHls.destroy();
+            this.previewHls = null;
+        }
+        if (this.previewVideo) {
+            this.previewVideo.pause();
+            this.previewVideo.removeAttribute('src');
+            this.previewVideo.load();
+        } else {
+            this.previewVideo = document.createElement('video');
+            this.previewVideo.muted = true;
+            this.previewVideo.playsInline = true;
+            this.previewVideo.setAttribute('playsinline', '');
+            this.previewVideo.setAttribute('webkit-playsinline', '');
+            this.previewVideo.preload = 'auto'; // Mobilde metadata'yı zorla
+            // Mobilde display: none olan videoların decode'u durdurulur, bu yüzden görünmez yapıp DOM'a ekliyoruz
+            this.previewVideo.style.position = 'absolute';
+            this.previewVideo.style.width = '1px';
+            this.previewVideo.style.height = '1px';
+            this.previewVideo.style.opacity = '0.01';
+            this.previewVideo.style.pointerEvents = 'none';
+            this.previewVideo.style.zIndex = '-1';
+            // crossOrigin burada set edilmiyor — HLS.js path'de set edilir, native path'de kaldırılır
+            // (iOS Safari/WebView: crossOrigin='anonymous' CORS header olmayan CDN'lerde video'yu bloke eder)
+            document.body.appendChild(this.previewVideo);
+
+            this.previewVideo.addEventListener('loadedmetadata', () => {
+                this.syncPreviewCanvasSize(this.previewVideo);
+                if (this.previewRequestedTime != null) {
+                    this.previewPendingTime = this.previewRequestedTime;
+                    this.schedulePendingPreviewSeek();
+                    return;
+                }
+                this.warmPreviewVideo();
+            });
+
+            this.previewVideo.addEventListener('loadeddata', () => {
+                if (this.previewPendingTime != null && !this.previewIsSeeking) {
+                    this.schedulePendingPreviewSeek();
+                }
+            });
+
+            this.previewVideo.addEventListener('seeked', () => {
+                this.renderPreviewFrame();
+            });
+
+            this.previewVideo.addEventListener('error', () => {
+                this.retryPreviewWithFullProxy();
+            });
+
+            this.previewVideo.addEventListener('stalled', () => {
+                if (this.previewIsSeeking || this.previewPendingTime != null) {
+                    this.retryPreviewWithFullProxy();
+                }
+            });
+        }
+
+        const previewMode = forcedMode || this.currentProxyMode || suggestInitialMode(originalUrl, hasCustomHeaders(referer, videoData.extraHeaders));
+        this.previewHlsContext = {
+            currentProxyMode: previewMode,
+            proxyUrl: this.proxyUrl,
+            proxyFallbackUrl: this.proxyFallbackUrl,
+            proxyBase: this.proxyBase,
+            lastLoadedBaseUrl: this.lastLoadedBaseUrl,
+            lastLoadedOrigin: this.lastLoadedOrigin
+        };
+        const previewUrl = buildProxyUrlWithMode(
+            originalUrl,
+            userAgent,
+            referer,
+            previewMode,
+            this.previewHlsContext,
+            videoData.extraHeaders
+        );
+
+        // Format tespiti
+        const format = detectFormat(originalUrl, videoData.format || '');
+
+        if (format === 'hls' && typeof Hls !== 'undefined' && Hls.isSupported()) {
+            // HLS.js kendi XHR pipeline'ını kullandığı için crossOrigin video element'te güvenli
+            this.previewVideo.crossOrigin = 'anonymous';
+            const hlsConfig = createHlsConfig(userAgent, referer, this.previewHlsContext, previewMode, videoData.extraHeaders);
+            // Preview için buffer'ı minimize et ve hızı maksimize et
+            hlsConfig.maxBufferLength = 1;
+            hlsConfig.maxMaxBufferLength = 2;
+            hlsConfig.capLevelToPlayerSize = true; // 1px video, bu yüzden en düşük kaliteyi çekecek
+            hlsConfig.startLevel = 0; // Doğrudan en düşük kalite seviyesinden başla
+
+            const hls = new Hls(hlsConfig);
+            this.previewHls = hls;
+            hls.on(Hls.Events.ERROR, (_, data) => {
+                if (data?.fatal) {
+                    this.retryPreviewWithFullProxy();
+                }
+            });
+
+            hls.loadSource(previewMode === ProxyMode.NONE ? originalUrl : previewUrl);
+            hls.attachMedia(this.previewVideo);
+        } else {
+            // Native path (iOS Safari/WebKit): crossOrigin CORS olmayan CDN'lerde yüklemeyi bloke eder — kaldır
+            this.previewVideo.removeAttribute('crossorigin');
+            this.previewVideo.src = previewUrl;
+            this.previewVideo.load();
+        }
+
+        this.warmPreviewVideo();
+    }
+
+    setAudioTooltip(label) {
+        const audioBtn = document.getElementById('custom-audio');
+        if (!audioBtn) return;
+        audioBtn.title = label ? t('audio_tooltip', { label }) : t('tooltip_audio');
+    }
+
+    setSubtitleTooltip(label) {
+        const ccBtn = document.getElementById('custom-cc');
+        if (!ccBtn) return;
+        if (label === t('off')) {
+            ccBtn.title = t('subtitle_off_tooltip');
+            return;
+        }
+        ccBtn.title = label ? t('subtitle_tooltip', { label }) : t('tooltip_subtitle');
+    }
+
+    showElement(element) {
+        if (!element) return;
+        element.classList.remove('is-hidden');
+        element.style.removeProperty('display');
+    }
+
+    hideElement(element) {
+        if (!element) return;
+        element.classList.add('is-hidden');
+        element.style.removeProperty('display');
+    }
+
+    refreshI18n() {
+        if (this.currentHls && this.currentHls.audioTracks && this.currentHls.audioTracks.length > 1) {
+            let currentIndex = typeof this.currentHls.audioTrack === 'number' ? this.currentHls.audioTrack : 0;
+            if (currentIndex < 0 || currentIndex >= this.currentHls.audioTracks.length) {
+                currentIndex = 0;
+            }
+            const currentTrack = this.currentHls.audioTracks[currentIndex];
+            const currentLabel = currentTrack?.name || currentTrack?.lang || t('audio_track_label', { index: currentIndex + 1 });
+            this.setAudioTooltip(currentLabel);
+        } else {
+            this.setAudioTooltip(null);
+        }
+
+        if (this.currentVideoIndex !== null && this.videoData[this.currentVideoIndex]?.subtitles?.length) {
+            if (!this.selectedSubtitleUrl) {
+                this.setSubtitleTooltip(t('off'));
+            } else {
+                const currentSub = this.videoData[this.currentVideoIndex].subtitles.find(s => s.url === this.selectedSubtitleUrl);
+                if (currentSub?.name) {
+                    this.setSubtitleTooltip(currentSub.name);
+                } else {
+                    this.setSubtitleTooltip(t('tooltip_subtitle'));
+                }
+            }
+        } else {
+            this.setSubtitleTooltip(null);
+        }
+
+        const subtitleSelectBtn = document.getElementById('subtitle-select-btn');
+        if (subtitleSelectBtn && this.currentVideoIndex !== null) {
+            const subs = this.videoData[this.currentVideoIndex]?.subtitles || [];
+            let label = t('off');
+            if (this.selectedSubtitleUrl) {
+                label = subs.find(s => s.url === this.selectedSubtitleUrl)?.name || t('selection_selected');
+            } else if (subs.length > 0) {
+                label = subs[0].name || t('selection_selected');
+            }
+            subtitleSelectBtn.innerHTML = `<i class="fas fa-closed-captioning"></i> ${label} <i class="fas fa-ellipsis-v"></i>`;
+        }
+    }
+
+    setupUserGestureGuard() {
+        const onGesture = () => { this.userGestureUntil = Date.now() + 1200; };
+        if (this.videoPlayer) {
+            this.videoPlayer.addEventListener('pointerdown', onGesture);
+            this.videoPlayer.addEventListener('mousedown', onGesture);
+            this.videoPlayer.addEventListener('touchstart', onGesture, { passive: true });
+        }
+    }
+
+    setupKeyboardControls() {
+        const SEEK_STEP = 10; // 10 saniye ileri/geri (Flutter parity)
+
+        // Video element'in focus almasını engelle (native keyboard handling devre dışı)
+        if (this.videoPlayer) {
+            this.videoPlayer.tabIndex = -1;
+
+            // Seek eventlerini yakala ve durdur (native default'ları ezmek için)
+            const onSeeking = (e) => {
+                if (e.isTrusted || Date.now() < this.userGestureUntil) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                }
+            };
+            this.videoPlayer.addEventListener('seeking', onSeeking, { capture: true });
+            this.videoPlayer.addEventListener('seeked', onSeeking, { capture: true });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!this.videoPlayer || this.isLoadingVideo) return;
+
+            // Input alanındayken kısayolları devre dışı bırak
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                return;
+            }
+
+            switch (e.code) {
+                case 'Space':
+                case 'KeyK':
+                    e.preventDefault();
+                    if (this.videoPlayer.paused) {
+                        this.videoPlayer.play().catch(() => {});
+                    } else {
+                        this.videoPlayer.pause();
+                    }
+                    break;
+                case 'ArrowRight':
+                case 'KeyL':
+                    e.preventDefault();
+                    if (!this.isLiveStream && Number.isFinite(this.videoPlayer.duration)) {
+                        this.videoPlayer.currentTime = Math.min(this.videoPlayer.duration, this.videoPlayer.currentTime + SEEK_STEP);
+                    }
+                    break;
+                case 'ArrowLeft':
+                case 'KeyJ':
+                    e.preventDefault();
+                    if (!this.isLiveStream) {
+                        this.videoPlayer.currentTime = Math.max(0, this.videoPlayer.currentTime - SEEK_STEP);
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.videoPlayer.volume = Math.min(1, this.videoPlayer.volume + 0.1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.videoPlayer.volume = Math.max(0, this.videoPlayer.volume - 0.1);
+                    break;
+                case 'KeyF':
+                    e.preventDefault();
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                    } else {
+                        const container = document.getElementById('video-player-wrapper') || this.videoPlayer;
+                        if (container.requestFullscreen) {
+                            container.requestFullscreen().catch(() => {});
+                        } else if (container.webkitRequestFullscreen) {
+                            container.webkitRequestFullscreen();
+                        }
+                    }
+                    break;
+                case 'KeyM':
+                    e.preventDefault();
+                    this.videoPlayer.muted = !this.videoPlayer.muted;
+                    break;
+            }
+
+            // Kendi kontrollerimiz çalıştıysa yayılımı durdur
+            e.stopPropagation();
+        }, { capture: true });
+    }
+
+    setupCustomControls() {
+        if (!this.videoPlayer) return;
+
+        const wrapper = document.getElementById('video-player-wrapper');
+
+        const bottomPlayBtn = document.getElementById('bottom-play-pause');
+        const muteBtn = document.getElementById('custom-mute');
+        const volumeSlider = document.getElementById('custom-volume-slider');
+        const progressContainer = document.getElementById('custom-progress-container');
+        const progressFill = document.getElementById('custom-progress-fill');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationTimeEl = document.getElementById('duration-time');
+        const fullscreenBtn = document.getElementById('custom-fullscreen');
+        const backwardBtn = document.getElementById('custom-backward');
+        const forwardBtn = document.getElementById('custom-forward');
+        const ccBtn = document.getElementById('custom-cc');
+        const actionAnimation = document.getElementById('action-animation');
+
+        const htmlEl = document.documentElement;
+        if (bottomPlayBtn && progressContainer && fullscreenBtn) {
+            htmlEl.classList.add('custom-controls-ready');
+            // Firefox güvenliği: native controls'u programatik olarak da kaldır
+            // Firefox bazen CSS ::-moz-media-controls gizlemeyi yoksayabilir
+            this.videoPlayer.removeAttribute('controls');
+        } else {
+            htmlEl.classList.remove('custom-controls-ready');
+        }
+
+        const togglePlay = () => {
+            this.userGestureUntil = Date.now() + 1200;
+            if (this.videoPlayer.paused) {
+                this.videoPlayer.play().catch(() => {});
+            } else {
+                this.videoPlayer.pause();
+            }
+        };
+
+        const updatePlayIcons = () => {
+            const iconClass = this.videoPlayer.paused ? 'fa-play' : 'fa-pause';
+            if (bottomPlayBtn) bottomPlayBtn.querySelector('i').className = `fas ${iconClass}`;
+        };
+
+        const triggerAnimation = (iconClass) => {
+            if (!actionAnimation) return;
+            actionAnimation.querySelector('i').className = `fas ${iconClass}`;
+            actionAnimation.classList.remove('active');
+            void actionAnimation.offsetWidth; // trigger reflow
+            actionAnimation.classList.add('active');
+            // Animasyon bitince class'ı kaldır — sabit kalmasın
+            setTimeout(() => actionAnimation.classList.remove('active'), 600);
+        };
+
+        // Events
+
+
+        bottomPlayBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePlay();
+        });
+
+        this.videoPlayer.addEventListener('play', updatePlayIcons);
+        this.videoPlayer.addEventListener('pause', updatePlayIcons);
+
+
+
+        // Volume
+        volumeSlider?.addEventListener('input', (e) => {
+            this.videoPlayer.volume = e.target.value;
+            this.videoPlayer.muted = false;
+        });
+
+        muteBtn?.addEventListener('click', () => {
+            this.videoPlayer.muted = !this.videoPlayer.muted;
+        });
+
+        this.videoPlayer.addEventListener('volumechange', () => {
+            const val = this.videoPlayer.muted ? 0 : this.videoPlayer.volume;
+
+            if (volumeSlider) {
+                volumeSlider.value = val;
+                // Dolu/Boş ayrımı için gradient
+                const percent = val * 100;
+                // Stream tarafında primary-color kullanılıyor
+                volumeSlider.style.background = `linear-gradient(to right, var(--primary-color) ${percent}%, rgba(255, 255, 255, 0.2) ${percent}%)`;
+            }
+
+            if (muteBtn) {
+                let icon = 'fa-volume-up';
+                if (this.videoPlayer.muted || this.videoPlayer.volume === 0) icon = 'fa-volume-mute';
+                else if (this.videoPlayer.volume < 0.5) icon = 'fa-volume-down';
+                muteBtn.querySelector('i').className = `fas ${icon}`;
+            }
+        });
+
+        // Başlangıç durumu
+        if (volumeSlider) {
+            const val = this.videoPlayer.muted ? 0 : this.videoPlayer.volume;
+            const percent = val * 100;
+            volumeSlider.style.background = `linear-gradient(to right, var(--primary-color) ${percent}%, rgba(255, 255, 255, 0.2) ${percent}%)`;
+        }
+
+        // Progress / Seeking
+        // Progress / Seeking (Drag Support & Optimistic UI)
+        let isDragging = false;
+        let seekButtonsTimeout;
+        let longPressTimer;
+
+        const setSeekingState = (active) => {
+            document.body.classList.toggle('seeking-active', active);
+        };
+
+        const showSeekButtonsTemporarily = () => {
+            if (window.innerWidth > 480 || !wrapper) return;
+            wrapper.classList.add('show-seek-buttons');
+
+            clearTimeout(seekButtonsTimeout);
+            seekButtonsTimeout = setTimeout(() => {
+                wrapper.classList.remove('show-seek-buttons');
+            }, 2500);
+        };
+
+        const handleSeekMove = (e) => {
+            if (this.isLiveStream) return;
+            const rect = progressContainer.getBoundingClientRect();
+            let pos = (e.pageX - rect.left) / progressContainer.offsetWidth;
+            pos = Math.max(0, Math.min(1, pos)); // Clamp between 0 and 1
+
+            if (progressFill) progressFill.style.width = `${pos * 100}%`;
+
+            // Show preview time if wanted (optional)
+            if (Number.isFinite(this.videoPlayer.duration)) {
+                 const previewTime = pos * this.videoPlayer.duration;
+                 if (currentTimeEl) currentTimeEl.textContent = this.formatDuration(previewTime);
+            }
+        };
+
+        const handleSeekEnd = (e) => {
+            if (this.isLiveStream) return;
+            if (!isDragging) return;
+            isDragging = false;
+            setSeekingState(false);
+
+            document.removeEventListener('mousemove', handleSeekMove);
+            document.removeEventListener('mouseup', handleSeekEnd);
+
+            const rect = progressContainer.getBoundingClientRect();
+            let pos = (e.pageX - rect.left) / progressContainer.offsetWidth;
+            pos = Math.max(0, Math.min(1, pos));
+
+            if (Number.isFinite(this.videoPlayer.duration)) {
+                this.userGestureUntil = Date.now() + 1200;
+                this.videoPlayer.currentTime = pos * this.videoPlayer.duration;
+            }
+        };
+
+        progressContainer?.addEventListener('mousedown', (e) => {
+            if (this.isLiveStream) return;
+            isDragging = true;
+            setSeekingState(true);
+            handleSeekMove(e); // Update UI immediately
+
+            document.addEventListener('mousemove', handleSeekMove);
+            document.addEventListener('mouseup', handleSeekEnd);
+        });
+
+        // Touch support
+        progressContainer?.addEventListener('touchstart', (e) => {
+            if (this.isLiveStream) return;
+            isDragging = true;
+            if (e.cancelable) e.preventDefault();
+            setSeekingState(true);
+            // Use the first touch point
+            const touch = e.touches[0];
+            const fakeEvent = { pageX: touch.pageX };
+            handleSeekMove(fakeEvent);
+
+            const handleTouchMove = (e) => {
+                if (e.cancelable) e.preventDefault();
+                const touch = e.touches[0];
+                handleSeekMove({ pageX: touch.pageX });
+            };
+
+            const handleTouchEnd = (e) => {
+                isDragging = false;
+                setSeekingState(false);
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', handleTouchEnd);
+                document.removeEventListener('touchcancel', handleTouchEnd);
+
+                // For touch end, we use the last known position or we need changedTouches
+                // Ideally handleSeekMove updates a variable we can use, but simply calculating based on last move is tricky without state.
+                // Simpler: Just rely on the last visual update? No, we need to set currentTime.
+                // Let's re-calculate from changedTouches
+                if (e.changedTouches.length > 0) {
+                     const touch = e.changedTouches[0];
+                     const rect = progressContainer.getBoundingClientRect();
+                     let pos = (touch.pageX - rect.left) / progressContainer.offsetWidth;
+                     pos = Math.max(0, Math.min(1, pos));
+
+                     if (Number.isFinite(this.videoPlayer.duration)) {
+                        this.userGestureUntil = Date.now() + 1200;
+                        this.videoPlayer.currentTime = pos * this.videoPlayer.duration;
+                    }
+                }
+            };
+
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+            document.addEventListener('touchcancel', handleTouchEnd);
+        });
+
+        const updateTimeUI = () => {
+            if (this.isLiveStream) {
+                if (currentTimeEl) currentTimeEl.textContent = this.formatDuration(this.videoPlayer.currentTime || 0);
+                if (durationTimeEl) durationTimeEl.textContent = 'LIVE';
+                return;
+            }
+            if (Number.isFinite(this.videoPlayer.duration) && this.videoPlayer.duration > 0) {
+                // Dragging sırasında ilerleme çubuğunu güncelleme (jitter önleme)
+                if (!isDragging) {
+                    const percent = (this.videoPlayer.currentTime / this.videoPlayer.duration) * 100;
+                    if (progressFill) progressFill.style.width = `${percent}%`;
+                    if (currentTimeEl) currentTimeEl.textContent = this.formatDuration(this.videoPlayer.currentTime);
+                }
+                if (durationTimeEl) durationTimeEl.textContent = this.formatDuration(this.videoPlayer.duration);
+            }
+        };
+
+        this.videoPlayer.addEventListener('timeupdate', () => {
+            updateTimeUI();
+
+            // Next Episode Early Trigger
+            if (!this.isLiveStream && this.videoPlayer.duration > 60) {
+                const timeLeft = this.videoPlayer.duration - this.videoPlayer.currentTime;
+                
+                // Show panel in last 60 seconds
+                if (timeLeft <= 60 && timeLeft > 30) {
+                    const panel = document.getElementById('next-episode-panel');
+                    if (panel && window.__nextEpisodeUrl) {
+                        panel.classList.remove('is-hidden');
+                    }
+                }
+                
+                // Start countdown in last 30 seconds
+                if (timeLeft <= 30 && timeLeft > 0) {
+                    window.dispatchEvent(new CustomEvent('player:requestNextEpisode', { 
+                        detail: { secs: Math.floor(timeLeft) } 
+                    }));
+                }
+            }
+
+            // Debounced resume position save (every 5s)
+            if (!this._resumeSaveTimer) {
+                this._resumeSaveTimer = setTimeout(() => {
+                    this._resumeSaveTimer = null;
+                    this._saveResumePosition();
+                }, 5000);
+            }
+
+            // Mark episode watched at 85%
+            if (!this.isLiveStream && this.videoPlayer.duration > 0 && this.videoPlayer.currentTime / this.videoPlayer.duration > 0.85) {
+                this._markEpisodeWatched();
+            }
+        });
+        this.videoPlayer.addEventListener('loadedmetadata', updateTimeUI);
+        this.videoPlayer.addEventListener('durationchange', updateTimeUI);
+
+        this.videoPlayer.addEventListener('ended', () => {
+            // Clear resume timer and remove entry (finished watching)
+            if (this._resumeSaveTimer) {
+                clearTimeout(this._resumeSaveTimer);
+                this._resumeSaveTimer = null;
+            }
+            try {
+                const metaContainer = document.getElementById('video-links-data');
+                const contentUrl = metaContainer?.dataset?.contentUrl || window.location.pathname;
+                const season  = metaContainer?.dataset?.season  || '';
+                const episode = metaContainer?.dataset?.episode || '';
+                const resumeKey = (season && episode) ? `${contentUrl}::s${season}::e${episode}` : contentUrl;
+                const resumeData = JSON.parse(localStorage.getItem('wb_resume_watching') || '{}');
+                delete resumeData[resumeKey];
+                localStorage.setItem('wb_resume_watching', JSON.stringify(resumeData));
+            } catch (e) { /* ignore */ }
+            this._markEpisodeWatched();
+        });
+
+        // Backward / Forward
+        const SEEK_STEP = 10;
+        backwardBtn?.addEventListener('click', () => {
+            if (this.isLiveStream) return;
+            this.userGestureUntil = Date.now() + 1200;
+            this.videoPlayer.currentTime = Math.max(0, this.videoPlayer.currentTime - SEEK_STEP);
+            triggerAnimation('fa-undo');
+        });
+
+        forwardBtn?.addEventListener('click', () => {
+            if (this.isLiveStream) return;
+            this.userGestureUntil = Date.now() + 1200;
+            this.videoPlayer.currentTime = Math.min(this.videoPlayer.duration, this.videoPlayer.currentTime + SEEK_STEP);
+            triggerAnimation('fa-redo');
+        });
+
+        // Fullscreen with mobile orientation support
+        fullscreenBtn?.addEventListener('click', async () => {
+            await this.toggleFullscreen();
+        });
+
+        const handleFullscreenChange = () => {
+            const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || this.videoPlayer?.webkitDisplayingFullscreen);
+
+            // İkonu güncelle
+            if (fullscreenBtn) {
+                const icon = fullscreenBtn.querySelector('i');
+                if (icon) icon.className = `fas ${isFS ? 'fa-compress' : 'fa-expand'}`;
+            }
+
+            document.body.classList.toggle('is-fullscreen', isFS);
+
+            // Fullscreen çıkışında orientation kilidini kaldır ve cleanup
+            if (!isFS) {
+                if (screen.orientation?.unlock) {
+                    try { screen.orientation.unlock(); } catch (_) {}
+                }
+                document.body.classList.remove('keyboard-open');
+                window.dispatchEvent(new Event('resize'));
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        this.videoPlayer.addEventListener('webkitbeginfullscreen', handleFullscreenChange);
+        this.videoPlayer.addEventListener('webkitendfullscreen', handleFullscreenChange);
+
+        // Ekran döndüğünde layout'u tazele (bazı mobil tarayıcılar için)
+        window.addEventListener('orientationchange', () => {
+            if (document.fullscreenElement) {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 300);
+            }
+        });
+
+        // Subtitles (CC)
+        ccBtn?.addEventListener('click', () => {
+            const tracks = this.videoPlayer.textTracks;
+            // Eğer o anki videonun birden fazla altyazısı varsa modalı aç
+            if (this.currentVideoIndex !== null &&
+                this.videoData[this.currentVideoIndex].subtitles &&
+                this.videoData[this.currentVideoIndex].subtitles.length > 1) {
+
+                const subOptions = this.videoData[this.currentVideoIndex].subtitles.map(s => ({
+                    label: s.name,
+                    value: s.url,
+                    action: () => this.changeSubtitle(s)
+                }));
+                // "Kapalı" seçeneğini ekle
+                subOptions.unshift({
+                    label: t('off'),
+                    value: null,
+                    action: () => this.changeSubtitle(null)
+                });
+
+                this.showSelectionModal(t('selection_subtitle'), 'fa-closed-captioning', subOptions, ccBtn, this.selectedSubtitleUrl);
+
+            } else if (tracks.length > 0) {
+                // Tek altyazı varsa toggle yap
+                const isShowing = tracks[0].mode === 'showing';
+                tracks[0].mode = isShowing ? 'hidden' : 'showing';
+                ccBtn.classList.toggle('active', !isShowing);
+            }
+        });
+
+        // Auto-hide controls (Robust Logic)
+        let hideTimeout;
+
+        const showControls = () => {
+            wrapper.classList.add('show-controls');
+            wrapper.style.cursor = 'default';
+
+            clearTimeout(hideTimeout);
+            if (!this.videoPlayer.paused) {
+                const isMobile = window.innerWidth <= 1024;
+                const hideDelay = isMobile ? 4500 : 3000;
+                hideTimeout = setTimeout(() => {
+                    hideControls();
+                }, hideDelay);
+            }
+        };
+
+        const hideControls = (force = false) => {
+            if (!force && this.videoPlayer.paused) return; // Paused iken asla gizleme (mobile tap force ile bypass eder)
+            if (isDragging) return; // Kullanıcı arama yaparken (parmak basılıyken) gizleme
+            wrapper.classList.remove('show-controls');
+            if (document.fullscreenElement) {
+                wrapper.style.cursor = 'none';
+            }
+        };
+
+        // ── Mobile Double-Tap Seek ──
+        let lastTapTime = 0;
+        let lastTapSide = null;
+        let singleTapTimeout = null;
+
+        const handleMobileTap = (e) => {
+            const now = Date.now();
+            const rect = wrapper.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const side = x < rect.width / 2 ? 'left' : 'right';
+
+            if (now - lastTapTime < 300 && lastTapSide === side) {
+                // Double-tap → Seek
+                clearTimeout(singleTapTimeout);
+                lastTapTime = 0;
+                lastTapSide = null;
+
+                if (!Number.isFinite(this.videoPlayer.duration) || this.videoPlayer.duration <= 0) return;
+                this.userGestureUntil = Date.now() + 1200;
+
+                if (side === 'left') {
+                    this.videoPlayer.currentTime = Math.max(0, this.videoPlayer.currentTime - SEEK_STEP);
+                    triggerAnimation('fa-undo');
+                } else {
+                    this.videoPlayer.currentTime = Math.min(this.videoPlayer.duration, this.videoPlayer.currentTime + SEEK_STEP);
+                    triggerAnimation('fa-redo');
+                }
+            } else {
+                lastTapTime = now;
+                lastTapSide = side;
+                singleTapTimeout = setTimeout(() => {
+                    // Single-tap → Toggle controls
+                    lastTapTime = 0;
+                    lastTapSide = null;
+                    if (wrapper.classList.contains('show-controls')) {
+                        hideControls(true); // Mobile tap: force hide (paused olsa bile)
+                    } else {
+                        showControls();
+                    }
+                }, 300);
+            }
+        };
+
+        const toggleControls = (e) => {
+            // Eğer tıklanan eleman interaktif ise sadece süreyi yenile (veya input ise)
+            if (e && e.target.closest('.bottom-controls, .player-header, .ctrl-btn, .subtitle-modal, input, .button')) {
+                showControls();
+                return;
+            }
+
+            // Modern Player UX:
+            // Masaüstü: Tıkla -> Oynat/Durdur
+            // Mobil: Çift dokunma -> Seek, Tek dokunma -> Kontrolleri Aç/Kapa
+            const isDesktop = window.innerWidth > 1024;
+
+            if (isDesktop) {
+                togglePlay();
+                triggerAnimation(this.videoPlayer.paused ? 'fa-pause' : 'fa-play');
+                showControls();
+            } else {
+                handleMobileTap(e);
+            }
+        };
+
+        // Hareket takibi (Sadece Mouse için - Touch cihazlarda click/tap çalışır)
+        wrapper.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'touch') return; // Dokunmatik cihazlarda hover emülasyonunu engelle
+            showControls();
+        });
+
+        // Click / Tap (Toggle)
+        wrapper.addEventListener('click', (e) => {
+            toggleControls(e);
+        });
+
+        // Long press: show seek buttons on very small screens
+        wrapper.addEventListener('touchstart', (e) => {
+            const isControlHit = e.target.closest('.bottom-controls, .control-row, .ctrl-btn, .progress-container, .volume-group');
+            if (isControlHit || window.innerWidth > 480) return;
+
+            clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(() => {
+                showControls();
+                showSeekButtonsTemporarily();
+            }, 450);
+        }, { passive: true });
+
+        wrapper.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        }, { passive: true });
+
+        wrapper.addEventListener('touchcancel', () => {
+            clearTimeout(longPressTimer);
+        }, { passive: true });
+
+        // ── Buffering Spinner Helpers ──
+        let bufferSpinnerTimer = null;
+
+        const hideBufferSpinner = () => {
+            if (bufferSpinnerTimer) { clearTimeout(bufferSpinnerTimer); bufferSpinnerTimer = null; }
+            if (this.loadingOverlay) {
+                this.hideElement(this.loadingOverlay);
+                this.loadingOverlay.classList.remove('is-buffering');
+            }
+        };
+
+        const showBufferSpinner = () => {
+            if (this.loadingOverlay) {
+                this.loadingOverlay.classList.add('is-buffering');
+                this.showElement(this.loadingOverlay);
+            }
+            // Güvenlik: 8s sonra hâlâ görünüyorsa otomatik gizle
+            if (bufferSpinnerTimer) clearTimeout(bufferSpinnerTimer);
+            bufferSpinnerTimer = setTimeout(hideBufferSpinner, 8000);
+        };
+
+        // Video durumu değişiklikleri
+        this.videoPlayer.addEventListener('play', () => {
+            showControls();
+            hideBufferSpinner();
+        });
+
+        // playing: buffering sonrası da spinner'ı temizle (play tetiklenmez)
+        this.videoPlayer.addEventListener('playing', () => {
+            hideBufferSpinner();
+        });
+
+        this.videoPlayer.addEventListener('pause', showControls);
+
+        this.videoPlayer.addEventListener('waiting', () => {
+            showControls();
+            // Sadece gerçek buffering'de spinner göster
+            if (!this.videoPlayer.paused && !this.isLoadingVideo) {
+                showBufferSpinner();
+            }
+        });
+
+        // canplay/canplaythrough: buffer bitince spinner temizle
+        this.videoPlayer.addEventListener('canplay', hideBufferSpinner);
+        this.videoPlayer.addEventListener('canplaythrough', hideBufferSpinner);
+
+        // Mouse Wheel ile Ses Kontrolü
+        wrapper.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = Math.sign(e.deltaY) * -1;
+            const step = 0.05;
+            let newVol = this.videoPlayer.volume + (delta * step);
+            newVol = Math.max(0, Math.min(1, newVol));
+            this.videoPlayer.volume = newVol;
+
+            // Mute varsa kaldır
+            if (newVol > 0 && this.videoPlayer.muted) this.videoPlayer.muted = false;
+
+            // Volume Bar'ı Göster
+            if (volumeSlider) {
+                const group = volumeSlider.closest('.volume-group');
+                if (group) {
+                    group.classList.add('show-slider');
+
+                    if (this.volumeTimer) clearTimeout(this.volumeTimer);
+
+                    this.volumeTimer = setTimeout(() => {
+                        group.classList.remove('show-slider');
+                        this.volumeTimer = null;
+                    }, 1500);
+                }
+            }
+
+            // Kontrolleri de göster
+            showControls();
+        }, { passive: false });
+
+        // Fullscreen'e girildiğinde kontrolleri zorla göster
+        document.addEventListener('fullscreenchange', () => {
+            showControls();
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            showControls();
+        });
+
+        // Özel altyazı sistemi (Native ::cue desteği yetersiz olduğu için her tarayıcıda kullanıyoruz)
+        this.setupCustomSubtitles();
+
+        // Başlangıçta kontrolleri göster
+        showControls();
+    }
+
+    /**
+     * Özel altyazı render sistemi
+     * Native ::cue CSS'i gelişmiş stilleri desteklemediği için bu overlay'i kullanıyoruz.
+     */
+    setupCustomSubtitles() {
+        const subtitleOverlay = document.getElementById('custom-subtitle-overlay');
+        if (!subtitleOverlay) return;
+
+        // TextTrack cue değişikliklerini dinle
+        const updateSubtitleOverlay = () => {
+            const tracks = this.videoPlayer.textTracks;
+            let activeText = '';
+
+            for (let i = 0; i < tracks.length; i++) {
+                const track = tracks[i];
+                if (track.mode === 'showing' && track.activeCues) {
+                    for (let j = 0; j < track.activeCues.length; j++) {
+                        const cue = track.activeCues[j];
+                        if (cue.text) {
+                            // HTML tag'lerini temizle (VTT formatting)
+                            const cleanText = cue.text.replace(/<[^>]*>/g, '');
+                            activeText += (activeText ? '\n' : '') + cleanText;
+                        }
+                    }
+                }
+            }
+
+            if (activeText) {
+                subtitleOverlay.innerHTML = `<span>${activeText}</span>`;
+            } else {
+                subtitleOverlay.innerHTML = '';
+            }
+        };
+
+        // Her textTrack için cuechange event'i dinle
+        const bindTrackEvents = () => {
+            const tracks = this.videoPlayer.textTracks;
+            for (let i = 0; i < tracks.length; i++) {
+                tracks[i].removeEventListener('cuechange', updateSubtitleOverlay);
+                tracks[i].addEventListener('cuechange', updateSubtitleOverlay);
+            }
+        };
+
+        // Track'ler eklendiğinde event'leri bağla
+        this.videoPlayer.textTracks.addEventListener('addtrack', bindTrackEvents);
+
+        // Video yüklendiğinde track'leri bağla
+        this.videoPlayer.addEventListener('loadedmetadata', bindTrackEvents);
+
+        // Başlangıçta bağla
+        bindTrackEvents();
+    }
+
+    setupDiagnostics() {
+        if (this.toggleDiagnosticsBtn) {
+            // Panel göster/gizle
+            this.toggleDiagnosticsBtn.addEventListener('click', () => {
+                if (this.diagnosticsPanel.classList.contains('is-hidden')) {
+                    this.showElement(this.diagnosticsPanel);
+                    this.toggleDiagnosticsBtn.setAttribute('aria-expanded', 'true');
+                    this.logger.updateDiagnosticsPanel();
+                } else {
+                    this.hideElement(this.diagnosticsPanel);
+                    this.toggleDiagnosticsBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            // Logları temizle
+            document.getElementById('clear-logs').addEventListener('click', () => {
+                this.logger.clear();
+                this.logger.info('🧹', 'SYSTEM', 'Logs Cleared');
+            });
+
+            // Logları kopyala
+            document.getElementById('copy-logs').addEventListener('click', () => {
+                const logText = this.logger.getFormattedLogs();
+
+                // Clipboard API kullanılabilir mi kontrol et (HTTPS veya localhost gerektirir)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(logText)
+                        .then(() => {
+                            this.logger.info('📋', 'SYSTEM', 'Logs Copied to Clipboard');
+                        })
+                        .catch(err => {
+                            this.logger.error('❌', 'SYSTEM', 'Clipboard Error', { 'Details': err.message });
+                        });
+                } else {
+                    // Fallback: execCommand kullan (HTTP için)
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = logText;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-9999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        this.logger.info('📋', 'SYSTEM', 'Logs Copied to Clipboard');
+                    } catch (err) {
+                        this.logger.error('❌', 'SYSTEM', 'Clipboard Error', { 'Details': err.message });
+                    }
+                }
+            });
+
+            // Logları indir
+            document.getElementById('download-logs').addEventListener('click', () => {
+                const logText = this.logger.getFormattedLogs();
+                const blob = new Blob([logText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `video-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                this.logger.info('💾', 'SYSTEM', 'Logs Downloaded');
+            });
+        }
+    }
+
+    collectVideoLinks() {
+        this.logger.info('🔍', 'FETCHER', 'Link Extraction Started');
+        const container = document.getElementById('video-links-data');
+        this.proxyUrl = container?.dataset.proxyUrl;
+        this.proxyFallbackUrl = container?.dataset.proxyFallbackUrl;
+
+        const pageMediaMeta = {
+            provider_id: container?.dataset.providerId || '',
+            provider_base_url: container?.dataset.providerBaseUrl || '',
+            plugin_name: container?.dataset.pluginName || '',
+            content_id: container?.dataset.contentId || '',
+            content_url: container?.dataset.contentUrl || '',
+            poster_url: container?.dataset.posterUrl || '',
+            year: container?.dataset.year || '',
+            rating: container?.dataset.rating || '',
+            season: container?.dataset.season || '',
+            episode: container?.dataset.episode || ''
+        };
+        pageMediaMeta.is_live = this.isLiveYear(pageMediaMeta.year);
+
+        const videoLinks = Array.from(document.querySelectorAll('.video-link-item'));
+        this.videoData = videoLinks.map(link => {
+            // Altyazıları topla
+            const subtitles = Array.from(link.querySelectorAll('.subtitle-item')).map(sub => {
+                return {
+                    name: sub.dataset.name,
+                    url: sub.dataset.url
+                };
+            });
+
+            let extraHeaders = {};
+            try {
+                extraHeaders = link.dataset.extraHeaders ? JSON.parse(link.dataset.extraHeaders) : {};
+            } catch { /* bozuk JSON: extraHeaders yok say */ }
+
+            return {
+                name: link.dataset.name,
+                url: link.dataset.url,
+                referer: link.dataset.referer,
+                userAgent: link.dataset.userAgent,
+                extraHeaders: extraHeaders,
+                format: link.dataset.format || '',
+                subtitles: subtitles,
+                mediaMeta: { ...pageMediaMeta }
+            };
+        });
+
+        this.logger.info('✅', 'FETCHER', 'Links Found', { 'Count': this.videoData.length });
+        
+        // Oynatılabilirlik durumunu başlat
+        this.videoPlayability = this.videoData.map(() => ({
+            status: 'checking',
+            reason: ''
+        }));
+    }
+
+    renderVideoLinks() {
+        const sourcePanel = document.querySelector('.source-selection');
+
+        if (this.videoData.length <= 1) {
+            if (sourcePanel) sourcePanel.style.display = 'none';
+            return;
+        }
+
+        if (sourcePanel) sourcePanel.style.display = '';
+
+        if (this.videoData.length > 4) {
+            const sourceSelectBtn = document.createElement('button');
+            sourceSelectBtn.id = 'source-select-btn';
+            sourceSelectBtn.className = 'button button-primary';
+            sourceSelectBtn.setAttribute('data-i18n', 'selection_source');
+            sourceSelectBtn.innerHTML = `<i class="fas fa-server"></i> ${t('selection_source')} <i class="fas fa-ellipsis-v"></i>`;
+
+            const updateLabel = () => {
+                if (this.currentVideoIndex !== null) {
+                    const currentSource = this.videoData[this.currentVideoIndex];
+                    sourceSelectBtn.innerHTML = `<i class="fas fa-server"></i> ${currentSource.name} <i class="fas fa-ellipsis-v"></i>`;
+                }
+            };
+
+            sourceSelectBtn.onclick = () => {
+                const sourceOptions = this.videoData.map((video, index) => ({
+                    label: video.name,
+                    value: index,
+                    action: () => {
+                        this.logger.clear();
+                        this.loadVideo(index);
+                        updateLabel();
+                        this.hideSelectionModal();
+                    }
+                }));
+
+                this.showSelectionModal(t('selection_source'), 'fa-server', sourceOptions, sourceSelectBtn, this.currentVideoIndex);
+            };
+
+            this.videoLinksUI.appendChild(sourceSelectBtn);
+
+            // İlk yüklemede de etiketi güncellemek için bir event dinleyelim veya loadVideo içinde halledelim
+            window.addEventListener('video:loaded', updateLabel);
+        } else {
+            this.videoData.forEach((video, index) => {
+                const linkButton = document.createElement('button');
+                linkButton.className = 'button source-btn';
+                linkButton.dataset.index = index;
+                if (index === this.currentVideoIndex) {
+                    linkButton.classList.add('active');
+                }
+
+                const status = (this.videoPlayability && this.videoPlayability[index]) 
+                    ? this.videoPlayability[index].status 
+                    : 'checking';
+                const reason = (this.videoPlayability && this.videoPlayability[index])
+                    ? this.videoPlayability[index].reason
+                    : '';
+
+                linkButton.innerHTML = `<span class="playability-dot ${status}" title="${escapeHtml(reason)}"></span> ${escapeHtml(video.name)}`;
+                linkButton.onclick = () => {
+                    this.logger.clear();
+                    this.loadVideo(index);
+                };
+                this.videoLinksUI.appendChild(linkButton);
+            });
+        }
+    }
+
+    async checkAllPlayability() {
+        if (!this.videoData || this.videoData.length === 0) return;
+
+        this.logger.info('🔍', 'PLAYABILITY', 'Starting background playability checks for all sources...');
+        const proxyBase = this.proxyUrl || this.proxyFallbackUrl;
+
+        const checkPromises = this.videoData.map(async (video, index) => {
+            try {
+                const result = await isUrlPlayable(video.url, video.userAgent, video.referer, proxyBase, video.extraHeaders);
+                this.videoPlayability[index] = {
+                    status: result.playable ? 'online' : 'offline',
+                    reason: result.reason
+                };
+                this.logger.info('🔍', 'PLAYABILITY', `Source ${index} (${video.name}): ${result.playable ? 'ONLINE' : 'OFFLINE'} - ${result.reason}`);
+            } catch (err) {
+                this.videoPlayability[index] = {
+                    status: 'offline',
+                    reason: `Hata: ${err.message}`
+                };
+                this.logger.error('❌', 'PLAYABILITY', `Source ${index} (${video.name}) check failed`, { 'Error': err.message });
+            }
+
+            // UI güncelle (Eğer <= 4 buton modundaysak)
+            const dot = this.videoLinksUI.querySelector(`.source-btn[data-index="${index}"] .playability-dot`);
+            if (dot) {
+                dot.className = `playability-dot ${this.videoPlayability[index].status}`;
+                dot.setAttribute('title', this.videoPlayability[index].reason);
+            }
+        });
+
+        await Promise.all(checkPromises);
+        this.logger.info('✅', 'PLAYABILITY', 'All source checks completed.');
+    }
+
+    tryNextPlayableSource() {
+        if (!this.videoPlayability || this.videoPlayability.length <= 1) return false;
+
+        if (!this.triedIndices) {
+            this.triedIndices = new Set();
+        }
+        this.triedIndices.add(this.currentVideoIndex);
+
+        // Henüz denenmemiş ve 'online' olan ilk kaynağı bul
+        const nextIndex = this.videoData.findIndex((video, idx) => {
+            return !this.triedIndices.has(idx) && 
+                   this.videoPlayability[idx] && 
+                   this.videoPlayability[idx].status === 'online';
+        });
+
+        if (nextIndex !== -1) {
+            this.logger.warn('⚠️', 'PLAYER', `Current source failed. Auto-switching to working Source ${nextIndex}: ${this.videoData[nextIndex].name}`);
+
+            // Kullanıcıya bilgi mesajı göster
+            const infoMsg = document.createElement('div');
+            infoMsg.className = 'error-message auto-switch-msg';
+            infoMsg.innerHTML = `<strong>${t('video_error_title')}</strong><br>Çalışan diğer kaynağa otomatik geçiş yapılıyor... (${escapeHtml(this.videoData[nextIndex].name)})`;
+
+            const container = document.getElementById('video-player-container');
+            if (container) {
+                container.insertAdjacentElement('afterend', infoMsg);
+            }
+
+            // Mesajı temizle ve yeni kaynağı yükle
+            setTimeout(() => {
+                infoMsg.remove();
+                this.isLoadingVideo = false; // loadVideo kilidini aç
+                this.loadVideo(nextIndex, true); // true ile denenmiş index geçmişini koru
+
+                // Dropdown etiketini güncelle
+                const sourceSelectBtn = document.getElementById('source-select-btn');
+                if (sourceSelectBtn) {
+                    sourceSelectBtn.innerHTML = `<i class="fas fa-server"></i> ${this.videoData[nextIndex].name} <i class="fas fa-ellipsis-v"></i>`;
+                }
+            }, 2000);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    cleanup() {
+        // HLS instance'ı varsa temizle
+        if (this.currentHls) {
+            try {
+                this.currentHls.destroy();
+            } catch (e) {
+                this.logger.error('❌', 'HLS', 'Destroy Error', { 'Details': e.message });
+            }
+            this.currentHls = null;
+        }
+
+        // Zaman aşımı varsa temizle
+        if (this.loadingTimeout) {
+            clearTimeout(this.loadingTimeout);
+            this.loadingTimeout = null;
+        }
+
+        // Mevcut track'leri temizle (safely)
+        if (this.videoPlayer) {
+            this.videoPlayer.pause();
+            this.videoPlayer.removeAttribute('src');
+            this.videoPlayer.load();
+            while (this.videoPlayer.firstChild) {
+                this.videoPlayer.removeChild(this.videoPlayer.firstChild);
+            }
+        }
+    }
+
+    onVideoLoaded() {
+        this.logger.info('🎬', 'PLAYER', 'Metadata Loaded');
+    }
+
+    onVideoCanPlay() {
+        this.logger.info('▶️', 'PLAYER', 'Can Play Now');
+        this.hideElement(this.loadingOverlay);
+
+        // Timeout'u temizle
+        if (this.loadingTimeout) {
+            clearTimeout(this.loadingTimeout);
+            this.loadingTimeout = null;
+        }
+
+        // Video oynatmayı dene
+        if (this.videoPlayer.paused) {
+            this.videoPlayer.play().catch(e => {
+                this.logger.warn('⚠️', 'PLAYER', 'Autoplay Blocked', { 'Details': e.message });
+            });
+        }
+    }
+
+    // ── "Farklı Kaynaklarda" CTA helper ──────────────────────────────
+    _buildOtherSourcesCta() {
+        const container    = document.getElementById('video-links-data');
+        const rawTitle     = container?.dataset.contentTitle || '';
+        const contentTitle = rawTitle ? decodeURIComponent(rawTitle) : document.title || '';
+        if (!contentTitle) return null;
+
+        const params   = new URLSearchParams(window.location.search);
+        const provider = params.get('provider') || '';
+        const q        = encodeURIComponent(contentTitle);
+        const href     = provider ? `/?q=${q}&provider=${encodeURIComponent(provider)}` : `/?q=${q}`;
+
+        const cta = document.createElement('div');
+        cta.className = 'other-sources-cta';
+        cta.innerHTML = `
+            <i class="fas fa-search"></i>
+            <span class="other-sources-cta-text">${escapeHtml(t('try_other_sources'))}</span>
+            <a href="${escapeHtml(href)}" class="button button-secondary">
+                <i class="fas fa-external-link-alt"></i> ${escapeHtml(t('search_other_sources'))}
+            </a>`;
+        return cta;
+    }
+
+    _buildContributionCta() {
+        const cta = document.createElement('div');
+        cta.className = 'contribution-cta';
+        cta.innerHTML = `
+            <i class="fab fa-github"></i>
+            <span class="contribution-cta-text">${escapeHtml(t('video_error_contribution'))}</span>
+            <a href="https://github.com/keyiflerolsun/KekikStream" target="_blank" rel="noopener noreferrer" class="button button-ghost button-sm">
+                <i class="fas fa-code-branch"></i> Pull Request
+            </a>`;
+        return cta;
+    }
+
+    _buildErrorLogs(data) {
+        if (!data) return null;
+
+        const details = document.createElement('details');
+        details.className = 'error-logs-details';
+
+        const summary = document.createElement('summary');
+        summary.innerHTML = `<i class="fas fa-terminal"></i> ${escapeHtml(t('error_details_label'))}`;
+        details.appendChild(summary);
+
+        const content = document.createElement('div');
+        content.className = 'error-logs-content';
+
+        const infoList = document.createElement('div');
+        infoList.className = 'error-info-list';
+
+        const addRow = (label, value) => {
+            const row = document.createElement('div');
+            row.className = 'error-info-row';
+            row.innerHTML = `<span class="error-info-label">${escapeHtml(label)}</span><span class="error-info-value">${escapeHtml(value)}</span>`;
+            infoList.appendChild(row);
+        };
+
+        if (typeof data === 'object') {
+            if (data.source) {
+                let decodedSource = data.source;
+                try {
+                    decodedSource = decodeURIComponent(data.source);
+                } catch (e) {
+                    // Sessizce geç, orijinali kalsın
+                }
+                addRow('Source', decodedSource);
+            }
+            if (data.url) addRow('Stream', data.url);
+            if (data.userAgent) addRow('Browser', data.userAgent);
+            if (data.error) {
+                const errStr = typeof data.error === 'object' ?
+                    (data.error.code ? `${data.error.code}: ${data.error.message || 'Unknown'}` : data.error.message) :
+                    data.error;
+                addRow('Error', errStr);
+            }
+            if (data.timestamp) addRow('Time', new Date(data.timestamp).toLocaleString());
+        } else {
+            addRow('Info', data);
+        }
+
+        content.appendChild(infoList);
+        details.appendChild(content);
+        return details;
+    }
+
+    onVideoError(details = null, title = null, message = null) {
+        const error = this.videoPlayer.error;
+        this.hideElement(this.loadingOverlay);
+
+        // Timeout'u temizle
+        if (this.loadingTimeout) {
+            clearTimeout(this.loadingTimeout);
+            this.loadingTimeout = null;
+        }
+
+        // Oynatılabilecek başka çalışan kaynak var mı kontrol et ve otomatik geçiş yap
+        if (this.tryNextPlayableSource()) {
+            return;
+        }
+
+        let errorMessage = title || t('video_error_title');
+        let errorDetails = message || t('video_error_message');
+
+        if (error) {
+            this.logger.error('❌', 'PLAYER', `Physical Error: ${error.code}`, { 'Code': error.code });
+
+            switch (error.code) {
+                case MediaError.MEDIA_ERR_ABORTED:
+                    errorDetails = t('video_error_aborted');
+                    break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                    errorDetails = t('video_error_network');
+                    break;
+                case MediaError.MEDIA_ERR_DECODE:
+                    errorDetails = t('video_error_decode');
+                    break;
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    errorDetails = t('video_error_not_supported');
+                    break;
+            }
+        }
+
+        // Hata mesajını kullanıcıya göster
+        const errorEl = document.createElement('div');
+        errorEl.className = 'error-message';
+        errorEl.innerHTML = `<strong>${errorMessage}</strong><br>${errorDetails}<br>${t('video_error_try_another')}`;
+
+        // Hata loglarını ekle
+        const params = new URLSearchParams(window.location.search);
+        const logData = {
+            url: this.currentOriginalUrl || 'N/A',
+            proxy: this.currentLoadingUrl || this.videoPlayer.src || 'N/A',
+            source: params.get('url') || 'N/A',
+            error: details || (error ? { code: error.code, message: error.message } : 'Unknown'),
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+        };
+        const logs = this._buildErrorLogs(logData);
+        if (logs) errorEl.appendChild(logs);
+
+        const contribution = this._buildContributionCta();
+        if (contribution) errorEl.appendChild(contribution);
+
+        const cta = this._buildOtherSourcesCta();
+        if (cta) errorEl.appendChild(cta);
+
+        // Önceki hata mesajlarını temizle
+        document.querySelectorAll('.error-message').forEach(el => el.remove());
+
+        // Oynatıcıyı gizle ve hata mesajını ekle
+        const container = document.getElementById('video-player-container');
+        if (container) {
+            container.style.display = 'none';
+            container.insertAdjacentElement('afterend', errorEl);
+        }
+    }
+
+    loadVideo(index, isAutoSwitch = false) {
+        if (!isAutoSwitch) {
+            this.triedIndices = new Set();
+        }
+
+        // Kaynak butonlarının aktif durumunu güncelle
+        if (this.videoLinksUI) {
+            this.videoLinksUI.querySelectorAll('.source-btn').forEach(btn => {
+                if (parseInt(btn.dataset.index) === index) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Önceki hata mesajlarını temizle
+        document.querySelectorAll('.error-message').forEach(el => el.remove());
+
+        // Oynatıcıyı tekrar göster
+        const container = document.getElementById('video-player-container');
+        if (container) {
+            container.style.display = '';
+        }
+
+        // Video yükleniyor
+        if (this.isLoadingVideo) {
+            this.logger.info('⏳', 'PLAYER', 'Loading Already in Progress');
+            return;
+        }
+
+        this.isLoadingVideo = true;
+        this.currentVideoIndex = index;
+        this.selectedSubtitleUrl = null; // Yeni video için altyazı seçimini sıfırla
+        this.logger.info('📽️', 'PLAYER', `Loading Video: ${index}`, { 'Name': this.videoData[index].name });
+
+        if (!isAutoSwitch && this.videoData[index]?.name) {
+            localStorage.setItem('wb_preferred_source', this.videoData[index].name);
+        }
+
+        // Önceki kaynakları temizle
+        this.cleanup();
+
+        const selectedVideo = this.videoData[index];
+        this.isLiveStream = selectedVideo?.mediaMeta?.is_live === true || this.isLiveYear(selectedVideo?.mediaMeta?.year);
+        this.applyLiveModeUI();
+
+        // Loading overlay'i göster
+        this.showElement(this.loadingOverlay);
+
+        // Yükleme zaman aşımı kontrolü ekle (15 saniye)
+        this.loadingTimeout = setTimeout(() => {
+            if (this.loadingOverlay && !this.loadingOverlay.classList.contains('is-hidden')) {
+                this.hideElement(this.loadingOverlay);
+                this.logger.error('❌', 'PLAYER', 'Loading Timeout (15s)');
+
+                // Oynatılabilecek başka çalışan kaynak var mı kontrol et ve otomatik geçiş yap
+                if (this.tryNextPlayableSource()) {
+                    return;
+                }
+
+                const errorEl = document.createElement('div');
+                errorEl.className = 'error-message';
+                errorEl.innerHTML = `<strong>${t('video_timeout_title')}</strong><br>${t('video_timeout_message')}`;
+
+                const params = new URLSearchParams(window.location.search);
+                const logData = {
+                    url: this.currentOriginalUrl || 'N/A',
+                    proxy: this.currentLoadingUrl || this.videoPlayer.src || 'N/A',
+                    source: params.get('url') || 'N/A',
+                    error: 'Loading Timeout (15s)',
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString()
+                };
+                const logs = this._buildErrorLogs(logData);
+                if (logs) errorEl.appendChild(logs);
+
+                const timeoutCta = this._buildOtherSourcesCta();
+                if (timeoutCta) errorEl.appendChild(timeoutCta);
+                const container = document.getElementById('video-player-container');
+                if (container) {
+                    container.style.display = 'none';
+                    container.insertAdjacentElement('afterend', errorEl);
+                }
+
+                this.isLoadingVideo = false;
+            }
+        }, 15000);
+
+        // Video ayarları
+        this.videoPlayer.muted = false;
+
+        // Cleanup previous listeners if necessary or just use the same element
+        // Removing cloneNode because it breaks custom control listeners attached in setupCustomControls
+        // Re-attach core listeners to the same element (or better, use persistent ones)
+        const onLoadedMetadata = () => this.onVideoLoaded();
+        const onCanPlay = () => this.onVideoCanPlay();
+        const onError = () => this.onVideoError();
+        const onWaiting = () => {
+            if (this.loadingOverlay) this.showElement(this.loadingOverlay);
+            this.logger.info('⌛', 'PLAYER', 'Buffering...');
+        };
+        const onPlaying = () => {
+            if (this.loadingOverlay) this.hideElement(this.loadingOverlay);
+        };
+
+        // Clear old ones if they were specifically named, but since we replaced the element before,
+        // they were gone. Now we keep the same element.
+        this.videoPlayer.removeEventListener('loadedmetadata', this._lastOnLoadedMetadata);
+        this.videoPlayer.removeEventListener('canplay', this._lastOnCanPlay);
+        this.videoPlayer.removeEventListener('error', this._lastOnError);
+        this.videoPlayer.removeEventListener('waiting', this._lastOnWaiting);
+        this.videoPlayer.removeEventListener('playing', this._lastOnPlaying);
+
+        this._lastOnLoadedMetadata = onLoadedMetadata;
+        this._lastOnCanPlay = onCanPlay;
+        this._lastOnError = onError;
+        this._lastOnWaiting = onWaiting;
+        this._lastOnPlaying = onPlaying;
+
+        this.videoPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+        this.videoPlayer.addEventListener('canplay', onCanPlay);
+        this.videoPlayer.addEventListener('error', onError);
+        this.videoPlayer.addEventListener('waiting', onWaiting);
+        this.videoPlayer.addEventListener('playing', onPlaying);
+
+        // Orijinal URL'i al
+        const originalUrl = selectedVideo.url;
+        this.currentOriginalUrl = originalUrl;
+        this.currentLoadingUrl = originalUrl;
+        // Referer ve userAgent bilgilerini al (boşsa fallback kullanma)
+        const referer = selectedVideo.referer || '';
+        const userAgent = selectedVideo.userAgent || '';
+        const extraHeaders = selectedVideo.extraHeaders || null;
+
+        // Proxy URL'i oluştur (Go/Python fallback destekli)
+        let proxyUrl = this.buildProxyUrl(originalUrl, userAgent, referer, 'video', extraHeaders);
+
+        this.logger.info('🔌', 'PROXY', 'Generated URL', { 'Url': proxyUrl });
+        const setupPreviewForFormat = (format) => {
+            this.setupPreviewVideo({
+                ...selectedVideo,
+                format: format || selectedVideo.format || ''
+            });
+        };
+
+
+        // Video formatını proxy'den Content-Type ile belirle
+        this.logger.info('🔎', 'FETCHER', 'Detecting Format (HEAD Request)');
+
+        fetch(proxyUrl, { method: 'HEAD' })
+            .then(response => {
+                if (!response.ok) {
+                    this.logger.warn('⚠️', 'FETCHER', `HEAD Request Status Error: ${response.status}`);
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+
+                const contentType = response.headers.get('content-type') || '';
+                this.logger.info('📄', 'FETCHER', 'Content-Type Received', { 'Type': contentType });
+
+                // HLS formats
+                const isHLS = contentType.includes('mpegurl') || contentType.includes('x-mpegurl');
+                // MP4 / Generic
+                const isVideo = contentType.includes('video/') || contentType.includes('mp4');
+
+                if (isHLS) {
+                    setupPreviewForFormat('hls');
+                    this.loadHLSVideo(originalUrl, referer, userAgent, null, extraHeaders);
+                } else if (isVideo) {
+                    setupPreviewForFormat('mp4');
+                    this.loadNormalVideo(proxyUrl, originalUrl);
+                } else if (contentType.includes('text/html')) {
+                    this.logger.error('❌', 'FETCHER', 'Invalid Content-Type for Video', { 'Type': contentType });
+                    this.onVideoError();
+                } else {
+                    // Octet-stream veya bilinmeyen tip - URL uzantısına bak
+                    const urlFormat = detectFormat(originalUrl, selectedVideo.format || '');
+                    setupPreviewForFormat(urlFormat);
+                    if (urlFormat === 'hls') {
+                        this.loadHLSVideo(originalUrl, referer, userAgent, null, extraHeaders);
+                    } else {
+                        this.loadNormalVideo(proxyUrl, originalUrl);
+                    }
+                }
+            })
+            .catch(error => {
+                this.logger.warn('⚠️', 'FETCHER', 'HEAD Request Failed', { 'Details': error.message });
+
+                // Fallback: URL pattern'den format tespiti
+                const urlFormat = detectFormat(originalUrl, selectedVideo.format || '');
+                setupPreviewForFormat(urlFormat);
+                if (urlFormat === 'hls') {
+                    this.loadHLSVideo(originalUrl, referer, userAgent);
+                } else {
+                    this.loadNormalVideo(proxyUrl, originalUrl);
+                }
+            });
+
+        // Altyazıları ekle
+        const ccBtn = document.getElementById('custom-cc');
+
+        // Varsayılan altyazıyı önceden belirle (Buton metni ve track ayarları için)
+        let defaultIndex = 0;
+        const preferredSubName = localStorage.getItem('wb_preferred_subtitle');
+
+        if (!this.isLiveStream && selectedVideo.subtitles && selectedVideo.subtitles.length > 0) {
+            if (preferredSubName === 'off') {
+                defaultIndex = -1;
+            } else if (preferredSubName) {
+                const foundIdx = selectedVideo.subtitles.findIndex(s => s.name === preferredSubName);
+                if (foundIdx !== -1) defaultIndex = foundIdx;
+                else {
+                    // Fallback to TR or FORCED if preference not found
+                    const forcedIdx = selectedVideo.subtitles.findIndex(s => s.name === 'FORCED');
+                    const trIdx = selectedVideo.subtitles.findIndex(s => s.name === 'TR');
+                    if (forcedIdx !== -1) defaultIndex = forcedIdx;
+                    else if (trIdx !== -1) defaultIndex = trIdx;
+                }
+            } else {
+                const forcedIdx = selectedVideo.subtitles.findIndex(s => s.name === 'FORCED');
+                const trIdx = selectedVideo.subtitles.findIndex(s => s.name === 'TR');
+                if (forcedIdx !== -1) defaultIndex = forcedIdx;
+                else if (trIdx !== -1) defaultIndex = trIdx;
+            }
+        }
+
+        if (selectedVideo.subtitles && selectedVideo.subtitles.length > 0) {
+            this.logger.info('💬', 'SUBTITLE', 'Subtitles Loaded', { 'Count': selectedVideo.subtitles.length });
+            if (ccBtn) {
+                this.showElement(ccBtn);
+                ccBtn.classList.add('active');
+            }
+
+            let subtitleSelectBtn = document.getElementById('subtitle-select-btn');
+            // Birden fazla altyazı varsa, kaynak listesine altyazı seçim butonu ekle
+            if (selectedVideo.subtitles.length > 1) {
+                // Mevcut altyazı seçim butonunu kontrol et
+                if (!subtitleSelectBtn) {
+                    subtitleSelectBtn = document.createElement('button');
+                    subtitleSelectBtn.id = 'subtitle-select-btn';
+                    subtitleSelectBtn.className = 'button button-secondary';
+                    subtitleSelectBtn.style.marginLeft = 'auto'; // Sağa yasla
+                    subtitleSelectBtn.style.marginTop = 'var(--spacing-sm)';
+
+                    // Kaynak listesinin yanına ekle
+                    const sourceSelection = document.querySelector('.source-selection');
+                    if (sourceSelection) {
+                        sourceSelection.appendChild(subtitleSelectBtn);
+                    }
+                }
+
+                // Seçili altyazıyı güncelle (buton etiketinde göster)
+                const defaultSubName = selectedVideo.subtitles[defaultIndex]?.name || selectedVideo.subtitles[0].name;
+                const currentSubName = this.selectedSubtitleUrl
+                    ? selectedVideo.subtitles.find(s => s.url === this.selectedSubtitleUrl)?.name || t('selection_selected')
+                    : defaultSubName;
+                subtitleSelectBtn.innerHTML = `<i class="fas fa-closed-captioning"></i> ${currentSubName} <i class="fas fa-ellipsis-v"></i>`;
+
+                // Tıklama olayını güncelle
+                subtitleSelectBtn.onclick = (e) => {
+                    const subOptions = selectedVideo.subtitles.map(s => ({
+                        label: s.name,
+                        value: s.url,
+                        action: () => this.changeSubtitle(s)
+                    }));
+                    // "Kapalı" seçeneğini ekle
+                    subOptions.unshift({
+                        label: t('off'),
+                        value: null,
+                        action: () => this.changeSubtitle(null)
+                    });
+
+                    this.showSelectionModal(t('selection_subtitle'), 'fa-closed-captioning', subOptions, subtitleSelectBtn, this.selectedSubtitleUrl);
+                };
+            } else {
+                // Tek altyazı varsa butonu kaldır
+                if (subtitleSelectBtn) {
+                    subtitleSelectBtn.remove();
+                    subtitleSelectBtn = null;
+                }
+            }
+
+            // Seçili altyazı bilgisini hemen ayarla (modal açılırsa doğru gözüksün)
+            this.selectedSubtitleUrl = selectedVideo.subtitles[defaultIndex].url;
+
+            selectedVideo.subtitles.forEach((subtitle, index) => {
+                try {
+                    // Altyazı proxy URL'ini oluştur (Go/Python fallback destekli)
+                    let subtitleProxyUrl = this.buildProxyUrl(subtitle.url, userAgent, referer, 'subtitle');
+
+                    // Altyazı track elementini oluştur
+                    const track = document.createElement('track');
+                    track.kind = 'subtitles';
+                    track.label = subtitle.name;
+                    track.srclang = subtitle.name.toLowerCase();
+                    track.dataset.src = subtitleProxyUrl; // Proxy URL'ini dataset'e kaydet (hepsini bir anda indirmemek için)
+
+                    // Belirlenen altyazıyı varsayılan olarak işaretle ve src ataması yap
+                    if (index === defaultIndex) {
+                        track.src = subtitleProxyUrl;
+                        track.default = true;
+                    }
+
+                    // Error handling
+                    track.onerror = () => {
+                        this.logger.error('❌', 'SUBTITLE', 'Load Failed', { 'Name': subtitle.name });
+                        // Eğer başka başarılı track yoksa butonu gizleyelim
+                        const activeTracks = Array.from(this.videoPlayer.textTracks).filter(t => t.mode !== 'disabled');
+                        if (activeTracks.length === 0 && ccBtn) {
+                            this.hideElement(ccBtn);
+                            ccBtn.classList.remove('active');
+                        }
+                    };
+
+                    this.videoPlayer.appendChild(track);
+
+                    // Tarayıcı bazen default=true olsa da göstermez, zorla açalım
+                    if (index === defaultIndex) {
+                        setTimeout(() => {
+                            if (this.videoPlayer.textTracks && this.videoPlayer.textTracks[index]) {
+                                this.videoPlayer.textTracks[index].mode = 'showing';
+                                this.logger.info('✅', 'SUBTITLE', 'Auto-activated', { 'Name': subtitle.name });
+
+                                // Buton metnini ve tooltip'i güncelle
+                                const ssBtn = document.getElementById('subtitle-select-btn');
+                                if (ssBtn) {
+                                    ssBtn.innerHTML = `<i class="fas fa-closed-captioning"></i> ${subtitle.name} <i class="fas fa-ellipsis-v"></i>`;
+                                }
+                                this.setSubtitleTooltip(subtitle.name);
+                            }
+                        }, 200);
+                    }
+
+                    this.logger.info('➕', 'SUBTITLE', 'Added', { 'Name': subtitle.name });
+                } catch (error) {
+                    this.logger.error('❌', 'SUBTITLE', 'Addition Error', { 'Name': subtitle.name, 'Details': error.message });
+                }
+            });
+        } else if (ccBtn) {
+            this.hideElement(ccBtn);
+            ccBtn.classList.remove('active');
+            this.setSubtitleTooltip(null);
+            this.selectedSubtitleUrl = null;
+
+            // Altyazı butonu yoksa kaldır
+            const subtitleSelectBtn = document.getElementById('subtitle-select-btn');
+            if (subtitleSelectBtn) {
+                subtitleSelectBtn.remove();
+            }
+        }
+
+        // Aktif buton stilini güncelle
+        const allButtons = this.videoLinksUI.querySelectorAll('button');
+        allButtons.forEach((btn, i) => {
+            if (i === index) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Watch Buddy butonunun linkini güncelle
+        this.updateWatchPartyButtons();
+
+        // Video yükleme tamamlandı (asenkron işlemler devam edebilir ama UI hazır)
+        this.isLoadingVideo = false;
+
+        // Kaynak seçim butonu varsa etiketini güncellemek için event fırlat
+        window.dispatchEvent(new CustomEvent('video:loaded', { detail: { index } }));
+    }
+
+    /**
+     * WatchBuddy butonlarını güncelle
+     */
+    updateWatchPartyButtons() {
+        if (this.currentVideoIndex === null) return;
+
+        const selectedVideo = this.videoData[this.currentVideoIndex];
+        if (!selectedVideo) return;
+
+        const watchPartyButton = document.getElementById('watch-party-button');
+        const watchPartyAppButton = document.getElementById('watch-party-app-button');
+
+        if (!watchPartyButton && !watchPartyAppButton) return;
+
+        // Referer ve userAgent bilgilerini al
+        const referer = selectedVideo.referer || '';
+        const userAgent = selectedVideo.userAgent || '';
+        const extraHeaders = selectedVideo.extraHeaders || {};
+
+        // Generate strictly 8-character uppercase HEX ID
+        const newRoomId = (crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')).toUpperCase();
+        const wpParams = new URLSearchParams();
+        const mediaMeta = selectedVideo.mediaMeta || {};
+
+        const appendMetaParam = (key, value) => {
+            const safeValue = String(value || '').trim();
+            if (safeValue) {
+                wpParams.set(key, safeValue);
+            }
+        };
+
+        wpParams.set('url', selectedVideo.url);
+
+        // Sayfa başlığını al (player-title elementinden)
+        const playerTitleEl = document.querySelector('.player-title');
+        const pageTitle = playerTitleEl ? playerTitleEl.textContent.trim() : document.title;
+        wpParams.set('title', `${pageTitle} | ${selectedVideo.name}`);
+        wpParams.set('user_agent', userAgent || '');
+        wpParams.set('referer', referer || '');
+        if (extraHeaders && Object.keys(extraHeaders).length > 0) {
+            wpParams.set('extra_headers', JSON.stringify(extraHeaders));
+        }
+
+        // Seçilen altyazıyı kullan (yoksa ilk altyazıyı kullan)
+        const subtitleUrl = this.isLiveStream
+            ? null
+            : (this.selectedSubtitleUrl || (selectedVideo.subtitles && selectedVideo.subtitles.length > 0 ? selectedVideo.subtitles[0].url : null));
+
+        if (subtitleUrl) {
+            wpParams.set('subtitle', subtitleUrl);
+        }
+
+        if (this.proxyUrl) {
+            wpParams.set('proxy_url', this.proxyUrl);
+        }
+
+        appendMetaParam('provider_id', mediaMeta.provider_id);
+        appendMetaParam('provider_base_url', mediaMeta.provider_base_url);
+        appendMetaParam('plugin_name', mediaMeta.plugin_name);
+        appendMetaParam('content_id', mediaMeta.content_id);
+        appendMetaParam('content_url', mediaMeta.content_url);
+        appendMetaParam('poster_url', mediaMeta.poster_url);
+        appendMetaParam('year', mediaMeta.year);
+        appendMetaParam('rating', mediaMeta.rating);
+        appendMetaParam('source_name', selectedVideo.name || mediaMeta.source_name);
+        appendMetaParam('season', mediaMeta.season);
+        appendMetaParam('episode', mediaMeta.episode);
+
+
+        // Web Butonu guncelle
+        if (watchPartyButton) {
+            watchPartyButton.href = `https://watchbuddy.tv/room/${newRoomId}?${wpParams.toString()}`;
+        }
+
+        // Uygulama (Deep Link) Butonu guncelle
+        if (watchPartyAppButton) {
+            // Sadece mobil cihazlarda göster
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                this.showElement(watchPartyAppButton);
+                // watchbuddy://room/ROOM_ID?params...
+                watchPartyAppButton.href = `watchbuddy://room/${newRoomId}?${wpParams.toString()}`;
+            } else {
+                this.hideElement(watchPartyAppButton);
+            }
+        }
+
+        this.logger.info('🤝', 'UI', 'WatchBuddy Buttons Updated', { 'Subtitle': subtitleUrl ? 'Available' : 'None' });
+    }
+
+    /**
+     * HLS Ses izlerini kontrol et ve gerekirse UI oluştur
+     */
+    checkHlsAudioTracks(hls) {
+        const audioBtn = document.getElementById('custom-audio');
+
+        if (hls.audioTracks && hls.audioTracks.length > 1) {
+            this.logger.info('🔊', 'AUDIO', 'Audio Tracks Found', { 'Count': hls.audioTracks.length });
+            
+            // Restore preference
+            const preferredAudio = localStorage.getItem('wb_preferred_audio');
+            if (preferredAudio) {
+                const foundIdx = hls.audioTracks.findIndex(t => (t.name || t.lang) === preferredAudio);
+                if (foundIdx !== -1 && hls.audioTrack !== foundIdx) {
+                    hls.audioTrack = foundIdx;
+                    this.logger.info('🔊', 'AUDIO', 'Preference Restored', { 'Name': preferredAudio });
+                }
+            }
+
+            let currentIndex = typeof hls.audioTrack === 'number' ? hls.audioTrack : 0;
+            if (currentIndex < 0 || currentIndex >= hls.audioTracks.length) {
+                currentIndex = 0;
+            }
+            const currentTrack = hls.audioTracks[currentIndex];
+            const currentLabel = currentTrack?.name || currentTrack?.lang || t('audio_track_label', { index: currentIndex + 1 });
+            this.setAudioTooltip(currentLabel);
+
+            if (audioBtn) {
+                this.showElement(audioBtn);
+
+                const newBtn = audioBtn.cloneNode(true);
+                audioBtn.parentNode.replaceChild(newBtn, audioBtn);
+                this.showElement(newBtn);
+
+                newBtn.onclick = () => {
+                    this.showSelectionModal(
+                        t('selection_audio'),
+                        'fa-headphones-alt',
+                        hls.audioTracks.map((track, index) => ({
+                            label: track.name || track.lang || t('audio_track_label', { index: index + 1 }),
+                            value: index,
+                            action: () => {
+                                try {
+                                    hls.audioTrack = index;
+                                    const label = track.name || track.lang || t('audio_track_label', { index: index + 1 });
+                                    this.setAudioTooltip(label);
+                                    localStorage.setItem('wb_preferred_audio', label);
+                                    this.logger.info('🔊', 'AUDIO', 'Track Changed', { 'Target': label });
+                                    this.hideSelectionModal();
+                                } catch(e) {
+                                    this.logger.error('❌', 'AUDIO', 'Change Error', { 'Details': e.message });
+                                }
+                            }
+                        })),
+                        newBtn,
+                        hls.audioTrack
+                    );
+                };
+            }
+
+        } else if (audioBtn) {
+            this.hideElement(audioBtn);
+            this.setAudioTooltip(null);
+        }
+    }
+
+    loadHLSVideo(originalUrl, referer, userAgent, forceMode = null, extraHeaders = null) {
+        this.logger.info('🚀', 'HLS', 'Starting HLS.js', { 'Mode': forceMode ? `Forced ${forceMode}` : 'Smart' });
+        this.retryCount = 0;
+
+        // Uzak sunucunun origin'ini al (absolute path'leri çözümlemek için)
+        const { origin, baseUrl } = parseRemoteUrl(originalUrl);
+        this.lastLoadedOrigin = origin;
+        this.lastLoadedBaseUrl = baseUrl;
+
+        // HLS video için
+        if (Hls.isSupported()) {
+            try {
+                // HLS.js yapılandırması
+                let initialMode = forceMode;
+                if (forceMode === true) {
+                    initialMode = ProxyMode.FULL;
+                } else if (forceMode === false || forceMode === null) {
+                    initialMode = window.PROXY_ENABLED === false ? ProxyMode.NONE : suggestInitialMode(originalUrl, hasCustomHeaders(referer, extraHeaders));
+                }
+                this.currentProxyMode = initialMode; // video-utils xhrSetup bunu okuyacak
+                this.logger.info('⚙️', 'HLS', 'Initial Proxy Mode', { 'Mode': initialMode });
+
+                const hlsConfig = createHlsConfig(userAgent, referer, this, initialMode, extraHeaders);
+                const hls = new Hls(hlsConfig);
+                this.currentHls = hls;
+
+                // HLS hata olaylarını dinle
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        this.logger.error('❌', 'HLS', 'Fatal Error', { 'Details': data.details });
+
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                const getNextMode = (current) => {
+                                    if (current === ProxyMode.NONE) return ProxyMode.MANIFEST_ONLY;
+                                    if (current === ProxyMode.MANIFEST_ONLY) return ProxyMode.FULL;
+                                    return null;
+                                };
+                                const currentMode = this.currentProxyMode;
+                                const nextMode = window.PROXY_ENABLED !== false ? getNextMode(currentMode) : null;
+
+                                // Parse veya HTTP 4xx/5xx hataları için eğer başka mod kalmadıysa (veya proxy kapalıysa) anında dur
+                                if (!nextMode && (data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR || (data.response && data.response.code >= 400))) {
+                                    let errLabel = 'Invalid Manifest - Aborting Retries';
+                                    if (data.response && data.response.code >= 400) {
+                                        errLabel = `HTTP ${data.response.code} - ${data.response.text || 'Error'}`;
+                                    }
+                                    this.logger.error('❌', 'HLS', errLabel);
+                                    this.cleanup();
+                                    this.onVideoError(errLabel);
+                                    break;
+                                }
+
+                                // Eğer proxy henüz en üst seviyede değilse ve manifest parse/HTTP hatası aldıysak (örn: CORS/HTML engeli), direkt bir sonraki moda hemen geç
+                                if (nextMode && (data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR || (data.response && data.response.code >= 400))) {
+                                    this.logger.warn('🛡️', 'HLS', `Deterministic manifest error in ${currentMode} mode, escalating to ${nextMode} mode immediately...`);
+                                    this.cleanup();
+                                    this.loadHLSVideo(originalUrl, referer, userAgent, nextMode, extraHeaders);
+                                    break;
+                                }
+
+                                this.retryCount++;
+                                if (this.retryCount <= 2) {
+                                    this.logger.info('🔄', 'HLS', `Retrying Network Error (${this.retryCount}/2)`);
+                                    hls.startLoad();
+                                } else if (nextMode) {
+                                    this.logger.warn('🛡️', 'HLS', `Network issues in ${currentMode} mode, escalating to ${nextMode} mode...`);
+                                    this.cleanup();
+                                    this.loadHLSVideo(originalUrl, referer, userAgent, nextMode, extraHeaders);
+                                } else {
+                                    this.onVideoError(data.details);
+                                }
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                this.logger.info('🔧', 'HLS', 'Media Error, attempting recovery...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                this.cleanup();
+                                this.onVideoError(data.details);
+                                break;
+                        }
+                    }
+                });
+
+                hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                    this.logger.info('✅', 'HLS', 'Manifest Parsed Successfully');
+                    this.retryCount = 0;
+
+                    // Ses izlerini kontrol et
+                    this.checkHlsAudioTracks(hls);
+                });
+
+                // Ses izleri güncellendiğinde de kontrol et
+                hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+                     this.checkHlsAudioTracks(hls);
+                });
+
+                // Manifest kaynağını belirle
+                const loadUrl = buildProxyUrlWithMode(originalUrl, userAgent, referer, initialMode, this, extraHeaders);
+                this.currentLoadingUrl = loadUrl;
+                this.logger.info('🔑', 'HLS', 'Final Resource URL', { 'Origin': (initialMode === ProxyMode.NONE) ? 'Direct' : 'Proxy', 'Url': loadUrl });
+
+                hls.loadSource(loadUrl);
+                hls.attachMedia(this.videoPlayer);
+            } catch (error) {
+                this.logger.error('❌', 'HLS', 'Startup Error', { 'Details': error.message });
+                this.onVideoError();
+            }
+        } else if (this.videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS desteği (Safari/iOS)
+            this.logger.info('🍎', 'HLS', 'Native Engine Used');
+            // Native HLS de header'ları (UA/Referer/extra) taşıyabilmek için
+            // HLS.js yolundaki gibi provider proxy üzerinden yüklenmeli —
+            // proxyBase'siz çağrı ham URL döndürüp tüm başlıkları düşürüyordu.
+            const loadUrl = this.buildProxyUrl(originalUrl, userAgent, referer, 'video', extraHeaders);
+            this.currentLoadingUrl = loadUrl;
+            this.videoPlayer.src = loadUrl;
+            this.videoPlayer.load();
+        } else {
+            this.logger.error('❌', 'HLS', 'Engine Not Supported');
+            this.onVideoError();
+        }
+    }
+
+    loadNormalVideo(proxyUrl, originalUrl) {
+        this.logger.info('🎬', 'PLAYER', 'Loading MP4/Generic Format');
+        this.currentLoadingUrl = proxyUrl;
+
+        try {
+            // MKV dosyaları için ek seçenekler
+            if (originalUrl.includes('.mkv')) {
+                this.videoPlayer.setAttribute('type', 'video/x-matroska');
+                this.logger.info('📦', 'PLAYER', 'MKV Format Forced');
+            }
+
+            this.videoPlayer.src = proxyUrl;
+            this.videoPlayer.load(); // Bazı tarayıcılarda (Safari/Mobile) şart
+        } catch (error) {
+            this.logger.error('❌', 'PLAYER', 'Load Error', { 'Details': error.message });
+            this.onVideoError();
+        }
+    }
+
+    loadHlsLibrary() {
+        this.logger.info('📦', 'SYSTEM', 'Loading HLS.js Library...');
+        const hlsScript = document.createElement('script');
+        hlsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js';
+        hlsScript.onload = () => {
+            this.logger.info('✅', 'SYSTEM', 'HLS.js Library Loaded');
+            // Sayfa yüklendiğinde ilk videoyu yükle (HLS.js yüklendikten sonra)
+            if (this.videoData.length > 0) {
+                const preferredSource = localStorage.getItem('wb_preferred_source');
+                let startIndex = 0;
+                if (preferredSource) {
+                    const found = this.videoData.findIndex(v => v.name === preferredSource);
+                    if (found !== -1) {
+                        startIndex = found;
+                    }
+                }
+                this.loadVideo(startIndex);
+            } else {
+                this.logger.warn('⚠️', 'SYSTEM', 'No Video Sources Found');
+                this.onVideoError('No Video Sources Found', t('video_no_sources_title'), t('video_no_sources_message'));
+            }
+        };
+        hlsScript.onerror = () => {
+            this.logger.error('❌', 'SYSTEM', 'HLS.js Library Failed to Load');
+            this.onVideoError('HLS.js Library Failed to Load');
+        };
+        document.head.appendChild(hlsScript);
+    }
+
+    setupGlobalErrorHandling() {
+        this.videoPlayer.addEventListener('error', (e) => {
+            this.logger.error('❌', 'PLAYER', 'Global Video Error', { 'Details': e.message });
+        });
+    }
+
+    /**
+     * Seçim modalını ayarla (Genel)
+     */
+    setupSelectionModal() {
+        if (!this.selectionModal) return;
+
+        // Kapatma butonu
+        const closeBtn = document.getElementById('selection-close-btn');
+        closeBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.hideSelectionModal();
+        });
+
+        // Pencere boyutu değişince kapat (Responsive güvenliği)
+        window.addEventListener('resize', () => {
+            if (!this.selectionModal.classList.contains('is-hidden')) {
+                this.hideSelectionModal();
+            }
+        });
+
+        // ESC tuşu ile kapat
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.selectionModal.classList.contains('is-hidden')) {
+                this.hideSelectionModal();
+            }
+        });
+
+        // Dışına tıklayınca kapat
+        document.addEventListener('mousedown', (e) => {
+            if (!this.selectionModal.classList.contains('is-hidden')) {
+                const isClickInside = this.selectionModal.contains(e.target);
+                const isClickOnTrigger = e.target.closest('#custom-cc, #custom-audio, #subtitle-select-btn, #source-select-btn');
+
+                if (!isClickInside && !isClickOnTrigger) {
+                    this.hideSelectionModal();
+                }
+            }
+        });
+
+        // Click olaylarının arkaya (videoya) geçmesini engelle
+        this.selectionModal.addEventListener('click', (e) => e.stopPropagation());
+        this.selectionModal.addEventListener('mousedown', (e) => e.stopPropagation());
+    }
+
+    /**
+     * Seçim dropdownını göster (Genel)
+     * @param {string} title - Başlık
+     * @param {string} iconClass - İkon sınıfı
+     * @param {Array} items - { label, value, action } objeleri
+     * @param {HTMLElement} trigger - Tetikleyici element (konumlandırma için)
+     * @param {any} currentValue - Mevcut seçili değer
+     */
+    showSelectionModal(title, iconClass, items, trigger, currentValue = undefined) {
+        if (!this.selectionModal || !this.selectionList) return;
+
+        // Toggle Mantığı: Eğer zaten açıksa ve aynı trigger tıklandıysa kapat
+        if (!this.selectionModal.classList.contains('is-hidden') && this.lastSelectionTrigger === trigger) {
+            this.hideSelectionModal();
+            return;
+        }
+
+        // Aktif trigger'ı kaydet
+        this.lastSelectionTrigger = trigger;
+
+        // Başlık ve İkonu Güncelle
+        const titleEl = document.getElementById('modal-title');
+        const iconEl = document.getElementById('modal-icon');
+
+        if (titleEl) titleEl.querySelector('span').textContent = title;
+        if (iconEl) iconEl.className = `fas ${iconClass}`;
+
+        // Önceki listeyi temizle
+        this.selectionList.innerHTML = '';
+
+        // Altyazı seçimi ise Ayarlar butonu ekle
+        if (iconClass === 'fa-closed-captioning') {
+            const settingsBtn = document.createElement('button');
+            settingsBtn.className = 'subtitle-item-btn subtitle-settings-trigger';
+            settingsBtn.style.background = 'rgba(239, 127, 26, 0.1)';
+            settingsBtn.innerHTML = `
+                <i class="fas fa-cog" style="color:var(--primary-color)"></i>
+                <span style="color:var(--primary-color); font-weight:700;">${t('video_subtitle_settings')}</span>
+            `;
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showSubtitleSettings();
+            });
+            this.selectionList.appendChild(settingsBtn);
+
+            const divider = document.createElement('div');
+            divider.style.height = '1px';
+            divider.style.background = 'rgba(255,255,255,0.1)';
+            divider.style.margin = '4px 0';
+            this.selectionList.appendChild(divider);
+        }
+
+        items.forEach((item) => {
+            const btn = document.createElement('button');
+            btn.className = 'subtitle-item-btn';
+
+            // Aktif öğeyi işaretle
+            if (currentValue !== undefined && item.value === currentValue) {
+                btn.classList.add('active');
+            }
+
+            let dotHtml = '';
+            if (iconClass === 'fa-server' && this.videoPlayability && this.videoPlayability[item.value]) {
+                const status = this.videoPlayability[item.value].status;
+                const reason = this.videoPlayability[item.value].reason;
+                dotHtml = `<span class="playability-dot ${status}" title="${escapeHtml(reason)}" style="margin-left: auto;"></span>`;
+            }
+
+            btn.innerHTML = `
+                <i class="fas ${currentValue !== undefined && item.value === currentValue ? 'fa-check-circle' : iconClass}"></i>
+                <span>${item.label}</span>
+                ${dotHtml}
+            `;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (item.action) item.action();
+                else this.hideSelectionModal();
+            });
+            this.selectionList.appendChild(btn);
+        });
+
+        // Mobilde her zaman bottom-sheet davranisi kullan.
+        if (window.innerWidth <= 1024) {
+            this.showElement(this.selectionModal);
+            this.selectionModal.style.position = 'fixed';
+            this.selectionModal.style.top = 'auto';
+            this.selectionModal.style.left = '0';
+            this.selectionModal.style.right = '0';
+            this.selectionModal.style.bottom = '0';
+            return;
+        }
+
+        // Konumlandırma
+        if (trigger) {
+            const isInsidePlayer = trigger.closest('#video-player-wrapper');
+            const wrapper = document.getElementById('video-player-wrapper');
+
+            // Elemanı ilgili kapsayıcıya taşı (Tam ekran ve konumlandırma için)
+            if (isInsidePlayer) {
+                if (this.selectionModal.parentElement !== wrapper) {
+                    wrapper.appendChild(this.selectionModal);
+                }
+            } else {
+                const container = document.querySelector('.detail-container');
+                if (this.selectionModal.parentElement !== container) {
+                    container.appendChild(this.selectionModal);
+                }
+            }
+
+            this.showElement(this.selectionModal);
+            const rect = trigger.getBoundingClientRect();
+            const dropdownRect = this.selectionModal.getBoundingClientRect();
+
+            if (isInsidePlayer && wrapper) {
+                // Player içindeki kontrollerde trigger elementine göre pozisyon al
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const triggerLeft = rect.left - wrapperRect.left;
+                const triggerBottom = wrapperRect.bottom - rect.top;
+
+                this.selectionModal.style.position = 'absolute';
+                this.selectionModal.style.bottom = `${triggerBottom + 10}px`;
+                this.selectionModal.style.top = 'auto';
+
+                // Ortala ve sınırları koru
+                let leftPos = triggerLeft + (rect.width / 2) - (dropdownRect.width / 2);
+                if (leftPos < 10) leftPos = 10;
+                if (leftPos + dropdownRect.width > wrapperRect.width - 10) {
+                    leftPos = wrapperRect.width - dropdownRect.width - 10;
+                }
+
+                this.selectionModal.style.left = `${leftPos}px`;
+                this.selectionModal.style.right = 'auto';
+            } else {
+                // Player dışındaki buton - Body koordinatları
+                const scrollY = window.scrollY || window.pageYOffset;
+                const scrollX = window.scrollX || window.pageXOffset;
+
+                if (this.selectionModal.parentElement !== document.body) {
+                    document.body.appendChild(this.selectionModal);
+                }
+
+                this.selectionModal.style.position = 'absolute';
+                this.selectionModal.style.top = `${rect.bottom + scrollY + 5}px`;
+                this.selectionModal.style.bottom = 'auto';
+
+                let leftPos = rect.left + scrollX + (rect.width / 2) - (dropdownRect.width / 2);
+                if (leftPos < 10) leftPos = 10;
+                if (leftPos + dropdownRect.width > window.innerWidth - 10) {
+                    leftPos = window.innerWidth - dropdownRect.width - 10;
+                }
+
+                this.selectionModal.style.left = `${leftPos}px`;
+                this.selectionModal.style.right = 'auto';
+            }
+
+
+            // Ekran dışına taşma kontrolü
+            const finalRect = this.selectionModal.getBoundingClientRect();
+            if (finalRect.left < 10) {
+                this.selectionModal.style.left = '10px';
+            } else if (finalRect.right > window.innerWidth - 10) {
+                this.selectionModal.style.left = `${window.innerWidth - finalRect.width - 10}px`;
+            }
+        } else {
+            this.showElement(this.selectionModal);
+        }
+    }
+
+    /**
+     * Seçim dropdownını gizle
+     */
+    hideSelectionModal() {
+        if (this.selectionModal) {
+            this.hideElement(this.selectionModal);
+            this.lastSelectionTrigger = null;
+        }
+    }
+
+    /**
+     * Altyazıyı değiştir (Player ve UI)
+     */
+    changeSubtitle(subtitle) {
+        const tracks = Array.from(this.videoPlayer.textTracks);
+        const trackElements = Array.from(this.videoPlayer.querySelectorAll('track'));
+        const subtitleSelectBtn = document.getElementById('subtitle-select-btn');
+
+        if (!subtitle) {
+            // Altyazı kapat
+            this.selectedSubtitleUrl = null;
+            this.logger.info('🔇', 'SUBTITLE', 'Closed');
+            tracks.forEach(track => track.mode = 'hidden');
+            if (subtitleSelectBtn) subtitleSelectBtn.innerHTML = `<i class="fas fa-closed-captioning"></i> ${t('off')} <i class="fas fa-ellipsis-v"></i>`;
+            this.setSubtitleTooltip(t('off'));
+
+            const ccBtn = document.getElementById('custom-cc');
+            if (ccBtn) ccBtn.classList.remove('active');
+            localStorage.setItem('wb_preferred_subtitle', 'off');
+        } else {
+            // Altyazı aç/değiştir
+            this.selectedSubtitleUrl = subtitle.url;
+            this.logger.info('💬', 'SUBTITLE', 'Switched', { 'Name': subtitle.name });
+
+            trackElements.forEach(trackEl => {
+                if (trackEl.label === subtitle.name && !trackEl.getAttribute('src')) {
+                    trackEl.src = trackEl.dataset.src;
+                }
+            });
+
+            tracks.forEach(track => {
+                if (track.label === subtitle.name) {
+                    track.mode = this.subtitleSettings.enabled ? 'showing' : 'hidden';
+                } else {
+                    track.mode = 'hidden';
+                }
+            });
+
+            if (subtitleSelectBtn) subtitleSelectBtn.innerHTML = `<i class="fas fa-closed-captioning"></i> ${subtitle.name} <i class="fas fa-ellipsis-v"></i>`;
+            this.setSubtitleTooltip(subtitle.name);
+
+            const ccBtn = document.getElementById('custom-cc');
+            if (ccBtn) {
+                if (this.subtitleSettings.enabled) ccBtn.classList.add('active');
+                else ccBtn.classList.remove('active');
+            }
+            localStorage.setItem('wb_preferred_subtitle', subtitle.name);
+        }
+
+        this.updateWatchPartyButtons();
+        this.hideSelectionModal();
+    }
+
+    _saveResumePosition() {
+        try {
+            const video = this.videoPlayer;
+            if (!video || !video.duration || video.duration < 60) return;
+            if (video.currentTime < 10) return;
+
+            const metaContainer = document.getElementById('video-links-data');
+            const contentUrl = metaContainer?.dataset?.contentUrl || window.location.pathname;
+            const season  = metaContainer?.dataset?.season  || '';
+            const episode = metaContainer?.dataset?.episode || '';
+            const resumeKey = (season && episode) ? `${contentUrl}::s${season}::e${episode}` : contentUrl;
+
+            const resumeData = JSON.parse(localStorage.getItem('wb_resume_watching') || '{}');
+
+            if (video.currentTime / video.duration > 0.9) {
+                delete resumeData[resumeKey];
+            } else {
+                resumeData[resumeKey] = {
+                    time:      Math.floor(video.currentTime),
+                    duration:  Math.floor(video.duration),
+                    title:     metaContainer?.dataset?.contentTitle ? decodeURIComponent(metaContainer.dataset.contentTitle) : document.title,
+                    poster:    metaContainer?.dataset?.posterUrl || '',
+                    plugin:    metaContainer?.dataset?.pluginName || '',
+                    season,
+                    episode,
+                    timestamp: Date.now()
+                };
+            }
+
+            const entries = Object.entries(resumeData);
+            if (entries.length > 50) {
+                entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+                localStorage.setItem('wb_resume_watching', JSON.stringify(Object.fromEntries(entries.slice(0, 50))));
+            } else {
+                localStorage.setItem('wb_resume_watching', JSON.stringify(resumeData));
+            }
+        } catch (e) {
+            console.warn('Resume save failed:', e);
+        }
+    }
+
+    _markEpisodeWatched() {
+        try {
+            const meta = document.getElementById('video-links-data');
+            const contentUrl = meta?.dataset?.contentUrl;
+            const season     = meta?.dataset?.season;
+            const episode    = meta?.dataset?.episode;
+            if (!contentUrl || !season || !episode) return;
+
+            const key = `${season}x${episode}`;
+            const watchedData = JSON.parse(localStorage.getItem('wb_watched_episodes') || '{}');
+            if (!watchedData[contentUrl]) watchedData[contentUrl] = [];
+            if (!watchedData[contentUrl].includes(key)) {
+                watchedData[contentUrl].push(key);
+                localStorage.setItem('wb_watched_episodes', JSON.stringify(watchedData));
+            }
+
+            document.querySelectorAll(`.episode-card[data-season="${season}"][data-episode="${episode}"]`).forEach(el => {
+                el.classList.add('is-watched');
+            });
+        } catch (e) {
+            console.warn('Episode watched mark failed:', e);
+        }
+    }
+
+    /**
+     * Altyazı ayarlarını overlay'e ve preview'a uygula
+     */
+    applySubtitleSettings() {
+        const overlay = document.getElementById('custom-subtitle-overlay');
+        const preview = document.getElementById('subtitle-preview-text');
+        const settings = this.subtitleSettings;
+
+        if (overlay) {
+            const remSize = (settings.fontSize / 16).toFixed(3);
+            overlay.style.setProperty('--sub-color', settings.color);
+            overlay.style.setProperty('--sub-font-size', `${remSize}rem`);
+            overlay.style.setProperty('--sub-bg', settings.showBackground ? 'rgba(0, 0, 0, 0.25)' : 'transparent');
+            overlay.style.setProperty('--sub-backdrop', settings.showBackground ? 'blur(1px)' : 'none');
+            overlay.style.display = settings.enabled ? '' : 'none';
+        }
+
+        if (preview) {
+            preview.style.color = settings.color;
+            preview.style.fontSize = `${settings.fontSize}px`;
+            preview.style.background = settings.showBackground ? 'rgba(0, 0, 0, 0.25)' : 'transparent';
+            preview.style.backdropFilter = settings.showBackground ? 'blur(1px)' : 'none';
+            preview.style.webkitBackdropFilter = settings.showBackground ? 'blur(1px)' : 'none';
+        }
+    }
+
+    /**
+     * Altyazı ayarları panelini kur
+     */
+    setupSubtitleSettings() {
+        const panel            = document.getElementById('subtitle-settings-panel');
+        const closeBtn         = document.getElementById('subtitle-settings-close');
+        const enabledToggle    = document.getElementById('subtitle-enabled-toggle');
+        const bgToggle         = document.getElementById('subtitle-bg-toggle');
+        const colorOptions     = document.getElementById('subtitle-color-options');
+        const sizeSlider       = document.getElementById('subtitle-size-slider');
+        const sizeValue        = document.getElementById('subtitle-size-value');
+        const optionsContainer = document.getElementById('subtitle-settings-options');
+
+        if (!panel) return;
+
+        // localStorage'dan ayarları yükle
+        try {
+            const saved = localStorage.getItem('wb-subtitle-settings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.assign(this.subtitleSettings, parsed);
+                // UI'ı mevcut ayarlarla senkronize et
+                if (enabledToggle) enabledToggle.checked = this.subtitleSettings.enabled;
+                if (bgToggle)      bgToggle.checked = this.subtitleSettings.showBackground;
+                if (sizeSlider)    sizeSlider.value = this.subtitleSettings.fontSize;
+                if (sizeValue)     sizeValue.textContent = this.subtitleSettings.fontSize;
+                if (colorOptions) {
+                    colorOptions.querySelectorAll('.subtitle-color-btn').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.color === this.subtitleSettings.color);
+                    });
+                }
+                if (optionsContainer) {
+                    optionsContainer.classList.toggle('disabled', !this.subtitleSettings.enabled);
+                }
+            }
+        } catch { /* ilk kullanım */ }
+
+        // Ayarları kaydet
+        const saveSettings = () => {
+            try {
+                localStorage.setItem('wb-subtitle-settings', JSON.stringify(this.subtitleSettings));
+            } catch { /* quota exceeded */ }
+        };
+
+        // Başlangıç uygulaması
+        this.applySubtitleSettings();
+
+        // Kapat
+        closeBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.classList.add('is-hidden');
+        });
+
+        // Altyazı açma/kapama
+        enabledToggle?.addEventListener('change', () => {
+            this.subtitleSettings.enabled = enabledToggle.checked;
+            optionsContainer?.classList.toggle('disabled', !this.subtitleSettings.enabled);
+
+            // TextTrack'leri de kontrol et
+            if (this.videoPlayer) {
+                const tracks = Array.from(this.videoPlayer.textTracks);
+                if (!this.subtitleSettings.enabled) {
+                    tracks.forEach(t => t.mode = 'hidden');
+                    document.getElementById('custom-cc')?.classList.remove('active');
+                } else {
+                    // Eğer bir altyazı seçili ise onu aktif et
+                    if (this.selectedSubtitleUrl) {
+                        const currentSub = this.videoData[this.currentVideoIndex]?.subtitles.find(s => s.url === this.selectedSubtitleUrl);
+                        if (currentSub) {
+                            tracks.forEach(t => {
+                                if (t.label === currentSub.name) t.mode = 'showing';
+                                else t.mode = 'hidden';
+                            });
+                            document.getElementById('custom-cc')?.classList.add('active');
+                        }
+                    }
+                }
+            }
+
+            saveSettings();
+            this.applySubtitleSettings();
+        });
+
+        // Renk değişimi
+        colorOptions?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.subtitle-color-btn');
+            if (!btn) return;
+
+            colorOptions.querySelectorAll('.subtitle-color-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            this.subtitleSettings.color = btn.dataset.color;
+
+            saveSettings();
+            this.applySubtitleSettings();
+        });
+
+        // Boyut değişimi
+        sizeSlider?.addEventListener('input', () => {
+            this.subtitleSettings.fontSize = parseInt(sizeSlider.value, 10);
+            if (sizeValue) sizeValue.textContent = this.subtitleSettings.fontSize;
+
+            saveSettings();
+            this.applySubtitleSettings();
+        });
+
+        // Arka plan toggle
+        bgToggle?.addEventListener('change', () => {
+            this.subtitleSettings.showBackground = bgToggle.checked;
+
+            saveSettings();
+            this.applySubtitleSettings();
+        });
+
+        // Click olaylarının arkaya (videoya) geçmesini engelle
+        if (panel) {
+            panel.addEventListener('click', (e) => e.stopPropagation());
+            panel.addEventListener('mousedown', (e) => e.stopPropagation());
+        }
+    }
+
+    /**
+     * Altyazı ayarları panelini göster
+     */
+    showSubtitleSettings() {
+        const panel = document.getElementById('subtitle-settings-panel');
+        if (!panel) return;
+
+        // Selection modalı kapat
+        this.hideSelectionModal();
+
+        panel.classList.remove('is-hidden');
+
+        // Mobilde her zaman bottom-sheet davranisi kullan.
+        if (window.innerWidth <= 1024) {
+            panel.style.position = 'fixed';
+            panel.style.top = 'auto';
+            panel.style.left = '0';
+            panel.style.right = '0';
+            panel.style.bottom = '0';
+            panel.style.width = '100%';
+            panel.style.maxWidth = 'none';
+            panel.style.borderRadius = 'var(--border-radius-xl) var(--border-radius-xl) 0 0';
+            return;
+        }
+
+        // Konumlandırma (Dropdown gibi)
+        const ccBtn = document.getElementById('custom-cc');
+        if (ccBtn) {
+            const wrapper = document.getElementById('video-player-wrapper');
+            if (wrapper) {
+                if (panel.parentElement !== wrapper) {
+                    wrapper.appendChild(panel);
+                }
+
+                const rect = ccBtn.getBoundingClientRect();
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const triggerBottom = wrapperRect.bottom - rect.top;
+
+                panel.style.position = 'absolute';
+                panel.style.bottom = `${triggerBottom + 10}px`;
+                panel.style.right = '10px';
+                panel.style.left = 'auto';
+                panel.style.top = 'auto';
+                panel.style.width = '300px';
+                panel.style.maxWidth = '90%';
+                panel.style.borderRadius = 'var(--border-radius-xl)';
+            }
+        }
+    }
+}

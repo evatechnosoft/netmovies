@@ -1,0 +1,200 @@
+/* Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. */
+
+/* Tiny mobile - up to 360px (iPhone SE, small phones) */
+@media (max-width: 360px) {
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-xs);
+  }
+
+  .grid-plugins {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .hero-title {
+    font-size: var(--font-size-base);
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-xs);
+  }
+
+  .section-title {
+    font-size: var(--font-size-sm);
+  }
+
+  .badge {
+    font-size: 0.6rem;
+    padding: 2px var(--spacing-xs);
+  }
+
+  .button {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: var(--spacing-lg);
+  }
+
+  .modal-title {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Mobile - up to 480px */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 var(--spacing-md);
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, minmax(100px, 1fr));
+    gap: var(--spacing-sm);
+  }
+
+  .grid-plugins {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .hero-title {
+    font-size: var(--font-size-lg);
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-sm);
+  }
+
+  .page-hero-home {
+    padding-top: clamp(48px, 8vw, 80px);
+    padding-bottom: clamp(28px, 4vw, 48px);
+  }
+
+  .section-title {
+    font-size: var(--font-size-base);
+  }
+
+  .pagination-row {
+    gap: var(--spacing-xs);
+  }
+
+  .badge {
+    font-size: var(--font-size-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+}
+
+/* Mobile content-shell adjustment for fixed header */
+@media (max-width: 768px) {
+  .content-shell {
+    padding-top: calc(52px + var(--spacing-lg));
+    padding-bottom: var(--spacing-xxl);
+  }
+}
+
+/* Tablet - 481px to 768px */
+@media (min-width: 481px) and (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .grid-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .hero-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Small desktop - 769px to 1024px */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .grid-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+/* Large desktop - 1025px to 1200px */
+@media (min-width: 1025px) and (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .grid-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+/* Full desktop - 1201px+ */
+@media (min-width: 1201px) {
+  .container {
+    padding-inline: var(--spacing-xxl);
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .grid-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+/* Extra large desktop - 1440px+ */
+@media (min-width: 1440px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .grid-plugins {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  .poster-card:hover .poster-card-img img {
+    transform: none;
+  }
+  .poster-card:hover {
+    transform: none;
+  }
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Always show title overlay on touch devices */
+  .carousel-track .poster-card-overlay {
+    opacity: 1;
+  }
+  .carousel-track .poster-card:hover .poster-card-overlay {
+    opacity: 1;
+  }
+}

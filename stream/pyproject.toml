@@ -1,0 +1,27 @@
+[project]
+name            = "Stream"
+version         = "0.1.0"
+requires-python = ">=3.14"
+dependencies    = [
+    "Kekik",
+    "httpx[http2]",
+    "fastapi",
+    "uvicorn",
+    "uvloop; sys_platform != 'win32'",
+    "httptools",
+    "gunicorn",
+    "user_agents",
+    "PyYAML",
+    "Jinja2",
+    "python-multipart",
+    "python-dotenv",
+    "csscompressor",
+    "rjsmin",
+]
+
+[build-system]
+requires      = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []

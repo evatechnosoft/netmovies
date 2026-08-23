@@ -1,0 +1,145 @@
+/* Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. */
+
+:root {
+  /* Brand */
+  --primary-color: #ef7f1a;
+  --primary-light: #ff9a3c;
+  --primary-dark: #d16500;
+  --secondary-color: #0087a3;
+  --secondary-light: #00a0c2;
+  --secondary-dark: #005f73;
+  --primary-soft: rgba(239, 127, 26, 0.15);
+  --secondary-soft: rgba(0, 135, 163, 0.15);
+  --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+
+  /* Surfaces */
+  --background-color: #2B2A29;
+  --background-alt: #252423;
+  --card-bg-color: #333333;
+  --card-bg-hover: #3D3D3D;
+  --surface-variant: #2A2928;
+  --surface-lighter: #444444;
+
+  /* Text */
+  --text-color: #f5f5f5;
+  --text-muted: #b0b0b0;
+  --text-dim: #888888;
+
+  /* Borders & Shadows */
+  --border-color: #444444;
+  --border-light: rgba(255, 255, 255, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --shadow-color-hover: rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.3);
+  --shadow-primary-glow: 0 4px 16px rgba(239, 127, 26, 0.3);
+  --shadow-primary-glow-strong: 0 8px 24px rgba(239, 127, 26, 0.35);
+  --shadow-primary-glow-subtle: 0 2px 8px rgba(239, 127, 26, 0.2);
+  --shadow-inset: inset 0 0 20px rgba(255, 255, 255, 0.1);
+  --shadow-search-form: 0 16px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(239, 127, 26, 0.15), 0 0 24px rgba(239, 127, 26, 0.08);
+
+  /* Status */
+  --success-color: #10B981;
+  --info-color: #3498db;
+  --warning-color: #f59e0b;
+  --error-color: #EF4444;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --info-bg: rgba(52, 152, 219, 0.15);
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --error-bg: rgba(239, 68, 68, 0.15);
+
+  /* Spacing */
+  --border-radius-xxs: 2px;
+  --border-radius-xs: 6px;
+  --border-radius-sm: 8px;
+  --border-radius: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 20px;
+  --border-radius-xxl: 24px;
+  --border-radius-pill: 999px;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.5rem;
+  --spacing-xxl: 2rem;
+
+  /* Typography */
+  --font-family: "Inter", "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-display: "Space Grotesk", "Mulish", "Inter", sans-serif;
+  --font-size-2xs: 0.65rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-md: 1.125rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 2rem;
+  --font-size-3xl: 2.5rem;
+  --line-height-tight: 1.2;
+  --line-height-base: 1.5;
+  --line-height-loose: 1.75;
+
+  /* Effects */
+  --blur: 12px;
+  --blur-light: 8px;
+  --blur-hero: 15px;
+  --blur-overlay: 10px;
+
+  /* Animation */
+  --transition-speed-fast: 0.15s;
+  --transition-speed: 0.2s;
+  --transition-speed-slow: 0.35s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
+  --container-max-width: 1400px;
+  --z-index-dropdown: 1000;
+  --z-index-modal: 2000;
+
+  /* Glass */
+  --surface-glass: rgba(255, 255, 255, 0.04);
+  --glass-edge: rgba(255, 255, 255, 0.12);
+  --glass-specular: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  --glass-panel: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+                 radial-gradient(circle at 100% 0%, rgba(239, 127, 26, 0.14), rgba(239, 127, 26, 0) 50%),
+                 linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.016)),
+                 rgba(43, 42, 41, 0.78);
+  --shadow-card: 0 6px 16px rgba(0, 0, 0, 0.15);
+  --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --shadow-strong: 0 28px 60px rgba(0, 0, 0, 0.36);
+  --shadow-card-hover: 0 8px 32px rgba(239, 127, 26, 0.15);
+  --glass-panel-soft: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.016) 100%), rgba(43, 42, 41, 0.70);
+  --glass-panel-pressed: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%), linear-gradient(180deg, rgba(239, 127, 26, 0.11) 0%, rgba(255, 255, 255, 0.025) 100%), rgba(42, 41, 40, 0.82);
+  --glass-clear: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%), rgba(43, 42, 41, 0.35);
+  --glass-card: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(43, 42, 41, 0.60);
+
+  /* Apple-style inner shadow & vibrancy */
+  --inner-shadow-highlight: rgba(255, 255, 255, 0.12);
+  --inner-shadow-depth: rgba(0, 0, 0, 0.12);
+  --vibrancy-tint: rgba(239, 127, 26, 0.02);
+  --vibrancy-highlight: rgba(255, 255, 255, 0.06);
+  --inner-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.12), inset 0 -0.5px 0 rgba(0, 0, 0, 0.12);
+
+  /* Liquid Glass Filters (iOS 26 / macOS Tahoe) */
+  --glass-filter:         blur(12px) saturate(150%);
+  --glass-filter-light:   blur(8px) saturate(140%);
+  --glass-filter-hero:    blur(15px) saturate(160%);
+  --glass-filter-overlay: blur(10px) saturate(130%);
+
+  /* Plugin Card */
+  --plugin-icon-size: 56px;
+  --plugin-icon-radius: 16px;
+  --plugin-card-glow: 0 0 0 1px rgba(239, 127, 26, 0.3), 0 16px 48px rgba(239, 127, 26, 0.12);
+  --plugin-stagger-delay: 40ms;
+
+  /* Player */
+  --subtitle-color: #ffff00;
+  --player-bg: #000;
+  --progress-handle: var(--primary-color);
+  --log-info-color: var(--info-color);
+  --log-warn-color: var(--warning-color);
+  --log-error-color: var(--error-color);
+  --log-debug-color: var(--secondary-light);
+}

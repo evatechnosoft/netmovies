@@ -1,0 +1,32 @@
+# NetMovies — tek komutla ayağa kaldırma: docker compose up -d --build
+# stream : Web arayüzü + video proxy + API gateway (dışa açık :3310)
+# engine : KekikStream motoru (yalnızca iç ağ)
+
+networks:
+  internal:
+    driver: bridge
+
+services:
+  engine:
+    build          : ./engine
+    container_name : netmovies-engine
+    restart        : unless-stopped
+    expose:
+      - "3310"
+    networks:
+      - internal
+
+  stream:
+    build          : ./stream
+    container_name : netmovies-stream
+    restart        : unless-stopped
+    depends_on:
+      - engine
+    ports:
+      - "3310:3310"
+    environment:
+      PROVIDER_NAME        : NetMovies
+      PROVIDER_DESCRIPTION : Kişisel, reklamsız izleme arayüzü.
+      DEFAULT_PROVIDER_URL : http://engine:3310
+    networks:
+      - internal

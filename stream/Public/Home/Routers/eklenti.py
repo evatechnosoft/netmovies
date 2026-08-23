@@ -1,0 +1,46 @@
+# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+
+from Core         import Request, HTMLResponse
+from .            import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
+from urllib.parse import quote_plus
+
+@home_router.get("/eklenti/{eklenti_adi}", response_class=HTMLResponse)
+async def eklenti(request: Request, eklenti_adi: str):
+    context      = await build_context(request)
+    provider_url = context.get("provider_url")
+    plugin       = None
+
+    try:
+        if provider_url:
+            client = await get_provider_client(provider_url)
+            plugin = await client.get_plugin(eklenti_adi)
+            if not plugin:
+                raise ValueError(f"'{eklenti_adi}' Bulunamadı!")
+        else:
+            plugin = await fuck_dmca("/get_plugin", params={"plugin": eklenti_adi}, client_headers=get_client_headers(request))
+
+        context.update({
+            "title"       : context["tr"]("title_plugin", provider_name=context["provider_name"], name=plugin.get("name")),
+            "description" : context["tr"]("plugin_page_desc", name=plugin.get("name")),
+            "title_key"   : "title_plugin",
+            "title_vars"  : {"provider_name": context["provider_name"], "name": plugin.get("name")},
+            "desc_key"    : "plugin_page_desc",
+            "desc_vars"   : {"name": plugin.get("name")},
+            "plugin"      : plugin
+        })
+
+        return home_template.TemplateResponse(request=request, name="pages/plugin_detail.html.j2", context=context)
+    except Exception as hata:
+        context = await build_context(
+            request     = request,
+            title       = "",
+            description = "",
+            title_key   = "title_error",
+            title_vars  = {"context": plugin.get("name") if plugin else eklenti_adi},
+            desc_key    = "error_desc",
+            desc_vars   = {},
+            hata        = hata
+        )
+        context["title"]       = f"{context['tr']('error_title')} - {plugin.get('name') if plugin else eklenti_adi}"
+        context["description"] = context["tr"]("error_desc")
+        return home_template.TemplateResponse(request=request, name="pages/error.html.j2", context=context)

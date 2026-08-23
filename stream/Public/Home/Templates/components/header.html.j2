@@ -1,0 +1,27 @@
+{#- Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. -#}
+
+{#- Header Component -#}
+<header class="header">
+  <div class="container">
+    <div class="header-brand">
+      <a href="/" class="logo" aria-label="{{ tr('site_name') }}">
+        <span class="logo-wordmark" data-i18n="site_name">{{ tr('site_name') }}</span>
+      </a>
+    </div>
+    <nav class="header-nav">
+      <a href="/" class="header-nav-link active" data-i18n="nav_home">{{ tr('nav_home') }}</a>
+      <a href="/#plugins-list" class="header-nav-link" data-i18n="all_plugins">{{ tr('all_plugins') }}</a>
+    </nav>
+    <div class="header-actions">
+      <div class="lang-switch" role="group" aria-label="{{ tr('language_label') }}">
+        <button type="button" class="lang-btn{% if lang == 'tr' %} active{% endif %}" data-lang="tr" aria-pressed="{{ 'true' if lang == 'tr' else 'false' }}">TR</button>
+        <button type="button" class="lang-btn{% if lang == 'en' %} active{% endif %}" data-lang="en" aria-pressed="{{ 'true' if lang == 'en' else 'false' }}">EN</button>
+        <button type="button" class="lang-btn{% if lang == 'fr' %} active{% endif %}" data-lang="fr" aria-pressed="{{ 'true' if lang == 'fr' else 'false' }}">FR</button>
+        <button type="button" class="lang-btn{% if lang == 'ru' %} active{% endif %}" data-lang="ru" aria-pressed="{{ 'true' if lang == 'ru' else 'false' }}">RU</button>
+        <button type="button" class="lang-btn{% if lang == 'uk' %} active{% endif %}" data-lang="uk" aria-pressed="{{ 'true' if lang == 'uk' else 'false' }}">UK</button>
+        <button type="button" class="lang-btn{% if lang == 'hi' %} active{% endif %}" data-lang="hi" aria-pressed="{{ 'true' if lang == 'hi' else 'false' }}">HI</button>
+        <button type="button" class="lang-btn{% if lang == 'zh' %} active{% endif %}" data-lang="zh" aria-pressed="{{ 'true' if lang == 'zh' else 'false' }}">ZH</button>
+      </div>
+    </div>
+  </div>
+</header>

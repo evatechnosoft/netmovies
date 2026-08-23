@@ -34,3 +34,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python (stream/ ve engine/)
+__pycache__/
+*.py[cod]
+.venv/
+stream/.env
+engine/.env
+
+# basla.py'nin ürettiği minify çıktıları
+stream/Public/Home/Static/**/*.min.js
+stream/Public/Home/Static/**/*.min.css
+engine/Public/Home/Static/**/*.min.js
+engine/Public/Home/Static/**/*.min.css
