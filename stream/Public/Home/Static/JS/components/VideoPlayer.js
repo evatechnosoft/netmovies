@@ -2642,19 +2642,23 @@ export default class VideoPlayer {
 
     loadHlsLibrary() {
         this.logger.info('📦', 'SYSTEM', 'Loading HLS.js Library...');
-        const hlsScript = document.createElement('script');
-        hlsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js';
-        hlsScript.onload = () => {
+
+        // Engelli CDN'lere karşı çoklu kaynak: önce self-host (hiç dışa çıkmaz),
+        // sonra jsDelivr, sonra cdnjs. Biri açıksa oynatıcı çalışır.
+        const sources = [
+            '/static/home/JS/vendor/hls.min.js',
+            'https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js',
+        ];
+
+        const onReady = () => {
             this.logger.info('✅', 'SYSTEM', 'HLS.js Library Loaded');
-            // Sayfa yüklendiğinde ilk videoyu yükle (HLS.js yüklendikten sonra)
             if (this.videoData.length > 0) {
                 const preferredSource = localStorage.getItem('wb_preferred_source');
                 let startIndex = 0;
                 if (preferredSource) {
                     const found = this.videoData.findIndex(v => v.name === preferredSource);
-                    if (found !== -1) {
-                        startIndex = found;
-                    }
+                    if (found !== -1) startIndex = found;
                 }
                 this.loadVideo(startIndex);
             } else {
@@ -2662,11 +2666,25 @@ export default class VideoPlayer {
                 this.onVideoError('No Video Sources Found', t('video_no_sources_title'), t('video_no_sources_message'));
             }
         };
-        hlsScript.onerror = () => {
-            this.logger.error('❌', 'SYSTEM', 'HLS.js Library Failed to Load');
-            this.onVideoError('HLS.js Library Failed to Load');
+
+        const tryLoad = (i) => {
+            if (typeof Hls !== 'undefined') { onReady(); return; }
+            if (i >= sources.length) {
+                this.logger.error('❌', 'SYSTEM', 'HLS.js Library Failed to Load (tüm kaynaklar)');
+                this.onVideoError('HLS.js Library Failed to Load');
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = sources[i];
+            s.onload = onReady;
+            s.onerror = () => {
+                this.logger.warn('↩️', 'SYSTEM', `HLS.js kaynağı başarısız, sıradaki deneniyor: ${sources[i]}`);
+                tryLoad(i + 1);
+            };
+            document.head.appendChild(s);
         };
-        document.head.appendChild(hlsScript);
+
+        tryLoad(0);
     }
 
     setupGlobalErrorHandling() {

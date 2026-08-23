@@ -45,6 +45,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # * Gerekli Paketlerin Yüklenmesi
 RUN uv pip install --system --no-cache .
 
+# * hls.js'i self-host için indir (engelli CDN'lere karşı). İndirilemezse
+#   çalışma anında jsDelivr/cdnjs fallback devreye girer, build kırılmaz.
+RUN mkdir -p Public/Home/Static/JS/vendor && \
+    (curl -fsSL --max-time 30 https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js \
+        -o Public/Home/Static/JS/vendor/hls.min.js || \
+     curl -fsSL --max-time 30 https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js \
+        -o Public/Home/Static/JS/vendor/hls.min.js || \
+     echo "[uyarı] hls.js indirilemedi; çalışma anında CDN fallback kullanılacak")
+
 # * Sağlık Kontrolü
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://127.0.0.1:3310/api/v1/health || exit 1

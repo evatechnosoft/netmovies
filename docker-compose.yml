@@ -1,24 +1,46 @@
 # NetMovies — tek komutla ayağa kaldırma: docker compose up -d --build
-# stream : Web arayüzü + video proxy + API gateway (dışa açık :3310)
-# engine : KekikStream motoru + kendi eklentilerimiz + M3U listeleri (iç ağ)
+# stream  : Web arayüzü + video proxy + API gateway (dışa açık :3310)
+# engine  : KekikStream motoru + kendi eklentilerimiz + M3U listeleri (iç ağ)
+# doh     : DNS-over-HTTPS resolver — ISP'nin DNS engelini aşar (engelli kaynak siteler)
 
 networks:
   internal:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
 
 services:
+  # DNS-over-HTTPS: tüm konteynerlerin alan adı çözümlemesini HTTPS üzerinden
+  # (Cloudflare/Google) yapar; ISP'nin DNS ile engellediği siteler çözülür.
+  doh:
+    image          : cloudflare/cloudflared:latest
+    container_name : netmovies-doh
+    restart        : unless-stopped
+    command: >
+      proxy-dns
+      --address 0.0.0.0 --port 53
+      --upstream https://1.1.1.1/dns-query
+      --upstream https://1.0.0.1/dns-query
+      --upstream https://8.8.8.8/dns-query
+    networks:
+      internal:
+        ipv4_address: 172.28.0.53
+
   engine:
     build          : ./engine
     container_name : netmovies-engine
     restart        : unless-stopped
+    depends_on:
+      - doh
+    dns:
+      - 172.28.0.53          # DoH resolver (engelli domain'ler çözülsün)
     expose:
       - "3310"
     environment:
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
-      # ./lists altındaki dosyalar konteynerde /data/lists olarak görünür.
       M3U_SOURCES: ${M3U_SOURCES:-}
-      # RecTV domaini sık değişir (b.prectvNN.sbs). Kaynak "kırmızı/çekemiyor"
-      # olursa güncel domaini buraya yazıp `docker compose up -d` yeterli.
+      # RecTV domaini sık değişir (b.prectvNN.sbs). "Kırmızı/çekemiyor" olursa güncelle.
       RECTV_URL: ${RECTV_URL:-}
     volumes:
       - ./lists:/data/lists:ro
@@ -31,6 +53,9 @@ services:
     restart        : unless-stopped
     depends_on:
       - engine
+      - doh
+    dns:
+      - 172.28.0.53          # DoH resolver
     ports:
       - "3310:3310"
     environment:

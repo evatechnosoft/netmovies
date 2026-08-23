@@ -21,6 +21,7 @@ sadece `w.evaitec.com` adresini eve **tüneller**; kolay link + çalışan scrap
 
 ## 1. Evdeki makinede kurulum
 
+### Linux / macOS
 ```bash
 git clone https://github.com/evatechnosoft/netmovies.git
 cd netmovies
@@ -29,6 +30,21 @@ git checkout claude/stream-app-architecture-86q0sg   # (birleşene kadar)
 cp .env.example .env          # AUTH_USER=Dean, AUTH_PASS=... doldur
 docker compose up -d --build
 ```
+
+### Windows (D:\projects içine)
+Docker Desktop kurulu olmalı. PowerShell:
+```powershell
+cd D:\projects
+git clone https://github.com/evatechnosoft/netmovies.git
+cd netmovies
+git checkout claude/stream-app-architecture-86q0sg
+copy .env.example .env        # not defteri ile aç, AUTH_USER=Dean / AUTH_PASS gir
+docker compose up -d --build
+```
+Sonra tarayıcı: `http://localhost:3310` (Dean / 1234).
+
+> Not: Ben (asistan) senin bilgisayarına bağlı değilim; bu komutları **sen kendi
+> makinende** çalıştıracaksın. Kod GitHub'da hazır.
 
 - Yerel erişim: `http://<ev-ip>:3310` — kullanıcı **Dean**, şifre **1234** (`.env`).
 - `.env` git'e girmez (gitignored); şifre repoda tutulmaz.
@@ -70,7 +86,20 @@ Cloudflare kullanmak istemezsen, Azure DevOps/Azure ekosisteminde iki yol:
 
 ---
 
-## 4. Bakım
+## 4. Engelli siteler (DNS engeli) — otomatik aşılıyor
+
+Türkiye'de kaynak siteler genelde **ISP DNS engeli** ile kapatılır. Compose'a
+**DNS-over-HTTPS (DoH)** resolver'ı (`doh` servisi) eklendi: engine ve stream tüm
+alan adı çözümlemesini HTTPS üzerinden (Cloudflare 1.1.1.1 / Google) yapar, ISP DNS'i
+devre dışı kalır. Ekstra ayar gerekmez, `docker compose up` ile aktif.
+
+- Bir domain hâlâ açılmıyorsa **SNI/IP engeli** olabilir (DoH bunu çözmez); o durumda
+  giden trafiği `.env` → `HTTP_PROXY`/`HTTPS_PROXY` ile bir proxy'den geçir.
+- Oynatıcı kütüphanesi **hls.js** artık self-host (imaj içine indirilir); dış CDN
+  (cdnjs/jsDelivr) engellense bile oynatma çalışır. İndirilemezse çalışma anında
+  jsDelivr → cdnjs sırasıyla fallback dener.
+
+## 5. Bakım
 
 - **Kaynak kırmızı olduğunda:** `/admin` sağlık panelinde hangi site düştüğünü gör. RecTV domaini
   değiştiyse `.env` → `RECTV_URL=https://b.prectvNN.sbs` yazıp `docker compose up -d`.
