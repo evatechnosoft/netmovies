@@ -17,6 +17,9 @@ services:
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
       # ./lists altındaki dosyalar konteynerde /data/lists olarak görünür.
       M3U_SOURCES: ${M3U_SOURCES:-}
+      # RecTV domaini sık değişir (b.prectvNN.sbs). Kaynak "kırmızı/çekemiyor"
+      # olursa güncel domaini buraya yazıp `docker compose up -d` yeterli.
+      RECTV_URL: ${RECTV_URL:-}
     volumes:
       - ./lists:/data/lists:ro
     networks:
@@ -35,6 +38,8 @@ services:
       PROVIDER_DESCRIPTION : Kişisel, reklamsız izleme arayüzü.
       DEFAULT_PROVIDER_URL : http://engine:3310
       ADMIN_CONFIG_PATH    : /data/admin.json
+      # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
+      SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-256}
     volumes:
       - ./data:/data
     networks:
