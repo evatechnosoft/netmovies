@@ -1,0 +1,1 @@
+# NetMovies özel extractor'ları
