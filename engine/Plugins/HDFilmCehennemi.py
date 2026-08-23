@@ -23,10 +23,12 @@ from KekikStream.Core import (
 
 try:
     from Plugins.__kekik_domain import discover_main_url
+    from Plugins._js_player     import extract_player_config
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
     from __kekik_domain import discover_main_url
+    from _js_player     import extract_player_config
 
 # Güncel domain otomatik çekilir; HDFC_URL ile elle sabitlenebilir.
 _MAIN_URL = discover_main_url(
@@ -245,47 +247,69 @@ class HDFilmCehennemi(PluginBase):
         return self.deduplicate(results)
 
     async def _invoke_local_source(self, iframe_url: str, source_name: str) -> ExtractResult | None:
-        """Sitenin kendi player scriptinden m3u8 + altyazıları çözer."""
+        """Sitenin kendi player scriptinden m3u8 + altyazıları çözer.
+
+        Site oynatma linkini her istekte yapısı değişen bir JS obfuscation'ı
+        (dc_* fonksiyonları) ardında saklıyor. Sabitleri elle çözmek yerine
+        player script'ini gömülü V8 içinde çalıştırıp jwplayer config'ini alırız
+        (bkz. _js_player.extract_player_config). Eski "file_link=base64" şeması
+        için geriye dönük yedek de korunur.
+        """
         response = await self.httpx.get(iframe_url, headers={"Referer": f"{self.main_url}/"})
         html     = response.text
 
-        # "sources:" içeren script bloğunu bul
-        script = None
-        for m in re.finditer(r"<script[^>]*>(.*?)</script>", html, re.DOTALL):
-            body = m.group(1)
-            if "sources:" in body or "file_link" in body:
-                script = body
-                break
-        if not script:
-            return None
+        # Altyazı/video için göreli URL'ler player origin'ine göre düzeltilir.
+        origin = re.match(r"https?://[^/]+", iframe_url)
+        origin = origin.group(0) if origin else self.main_url
 
-        if _JSUnpacker.detect(script):
-            script = _JSUnpacker.unpack(script)
+        def _fix(u: str) -> str:
+            if not u:
+                return u
+            if u.startswith("http"):
+                return u
+            if u.startswith("//"):
+                return "https:" + u
+            return origin + ("" if u.startswith("/") else "/") + u
 
-        # file_link="<base64>";
-        link_match = re.search(r'file_link="([^"]+)"', script)
-        if not link_match:
-            return None
-        try:
-            video_url = base64.b64decode(link_match.group(1)).decode("utf-8")
-        except Exception:
-            return None
-
+        video_url: str | None = None
         subtitles: list[Subtitle] = []
-        tracks_match = re.search(r"tracks:\s*\[(.*?)\]", script, re.DOTALL)
-        if tracks_match:
-            try:
-                tracks = json.loads(f"[{tracks_match.group(1)}]")
-                for track in tracks:
-                    if track.get("kind") == "captions" and track.get("file"):
-                        subtitles.append(
-                            Subtitle(
-                                name = track.get("label") or "Altyazı",
-                                url  = self.fix_url(track["file"]),
-                            )
+
+        # 1) Birincil yol: sitenin kendi JS'ini V8'de çalıştır
+        config = extract_player_config(html)
+        if config:
+            sources = config.get("sources") or []
+            if sources:
+                first = sources[0]
+                video_url = _fix(first.get("file") or first.get("src") or "")
+            for track in config.get("tracks") or []:
+                if track.get("kind") == "captions" and track.get("file"):
+                    subtitles.append(
+                        Subtitle(
+                            name = track.get("label") or "Altyazı",
+                            url  = _fix(track["file"]),
                         )
-            except Exception:
-                pass
+                    )
+
+        # 2) Yedek: eski file_link="<base64>" şeması (P.A.C.K.E.R'lı)
+        if not video_url:
+            script = None
+            for m in re.finditer(r"<script[^>]*>(.*?)</script>", html, re.DOTALL):
+                body = m.group(1)
+                if "file_link" in body:
+                    script = body
+                    break
+            if script:
+                if _JSUnpacker.detect(script):
+                    script = _JSUnpacker.unpack(script)
+                link_match = re.search(r'file_link="([^"]+)"', script)
+                if link_match:
+                    try:
+                        video_url = base64.b64decode(link_match.group(1)).decode("utf-8")
+                    except Exception:
+                        video_url = None
+
+        if not video_url:
+            return None
 
         return ExtractResult(
             name      = f"{self.name} | {source_name}",

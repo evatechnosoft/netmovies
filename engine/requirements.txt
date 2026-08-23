@@ -13,4 +13,5 @@ python-dotenv
 pymongo
 csscompressor
 rjsmin
+py_mini_racer
 KekikStream>=2.5.0
