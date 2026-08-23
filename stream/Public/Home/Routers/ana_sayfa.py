@@ -2,6 +2,7 @@
 
 from Core import Request, HTMLResponse, JSONResponse
 from .    import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
+from ..Libs import admin_config
 
 @home_router.get("/health")
 @home_router.head("/health")
@@ -23,6 +24,10 @@ async def ana_sayfa(request: Request):
         else:
             plugins = await fuck_dmca("/get_all_plugins", request.state.veri, client_headers=get_client_headers(request))
 
+        # Admin panel süzmesi: gizli kaynak/kategoriler çıkarılır
+        admin_cfg = admin_config.load_config()
+        plugins   = admin_config.filter_plugins(plugins, admin_cfg)
+
         context.update({
             "title"       : context["tr"]("home_title", provider_name=context["provider_name"]),
             "description" : context["tr"]("home_desc"),
@@ -30,7 +35,8 @@ async def ana_sayfa(request: Request):
             "title_vars"  : {"provider_name": context["provider_name"]},
             "desc_key"    : "home_desc",
             "desc_vars"   : {},
-            "plugins"     : plugins
+            "plugins"     : plugins,
+            "featured"    : admin_cfg.get("featured", [])
         })
 
         response = home_template.TemplateResponse(request=request, name="pages/home.html.j2", context=context)

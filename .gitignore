@@ -47,3 +47,8 @@ stream/Public/Home/Static/**/*.min.js
 stream/Public/Home/Static/**/*.min.css
 engine/Public/Home/Static/**/*.min.js
 engine/Public/Home/Static/**/*.min.css
+
+# admin runtime config (volume)
+data/
+stream/admin.json
+engine/admin.json

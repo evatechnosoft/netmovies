@@ -2,6 +2,7 @@
 
 from Core         import Request, HTMLResponse
 from .            import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
+from ..Libs        import admin_config
 from urllib.parse import quote_plus, unquote
 
 @home_router.get("/kategori/{eklenti_adi}", response_class=HTMLResponse)
@@ -21,6 +22,9 @@ async def kategori(request: Request, eklenti_adi: str, kategori_url: str, katego
                 "encoded_url"      : kategori_url,
                 "encoded_category" : kategori_adi
             }, client_headers=get_client_headers(request))
+
+        # Admin puan eşiği süzmesi
+        items = admin_config.filter_items(items)
 
         context.update({
             "title"        : context["tr"]("title_category", provider_name=context["provider_name"], provider=eklenti_adi, category=kategori_adi),

@@ -145,6 +145,28 @@
 </section>
 
 {# Plugin List #}
+{% if featured %}
+<section id="featured-list">
+    <div class="section-heading">
+        <h2 class="section-title"><i class="fas fa-thumbtack"></i> Öne Çıkanlar <span class="section-count">{{ featured | length }}</span></h2>
+    </div>
+    <div class="grid grid-plugins">
+        {% for f in featured %}
+        <a href="/icerik/{{ f.provider }}?url={{ f.url | urlencode }}{{ provider_query_amp }}" class="card plugin-card">
+            <div class="card-icon">
+                {% if f.poster %}<img src="{{ f.poster }}" alt="{{ f.title }}" loading="lazy">{% else %}<i class="fas fa-star"></i>{% endif %}
+            </div>
+            <div class="card-body">
+                <h3 class="card-title">{{ f.title }}</h3>
+                {% if f.rating %}<span class="badge">★ {{ f.rating }}</span>{% endif %}
+            </div>
+            {% if f.provider %}<p class="card-desc">{{ f.provider }}</p>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <section id="plugins-list">
     <div class="section-heading">
         <h2 class="section-title"><i class="fas fa-plug"></i> <span data-i18n="all_plugins">{{ tr('all_plugins') }}</span> <span class="section-count">{{ plugins | length }}</span></h2>

@@ -512,9 +512,18 @@ export const createHlsConfig = (userAgent, referer, context, mode = null, extraH
         capLevelToPlayerSize: true,
         maxLoadingDelay: 4,
         minAutoBitrate: 0,
-        maxBufferLength: isApple ? 15 : 30, // Apple cihazlarda daha düşük buffer
+        maxBufferLength: isApple ? 15 : 60,      // daha çok ön-buffer → 4K'da kesintiye dayanıklı
         maxMaxBufferLength: isApple ? 30 : 600,
+        backBufferLength: 30,                     // geri buffer'ı sınırla (bellek dengesi)
         startLevel: -1,
+        // Geçici kaynak/CDN kesintilerinde (CloudStream'deki 2001/3001 benzeri) donmak
+        // yerine otomatik yeniden dene:
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 500,
+        fragLoadingMaxRetryTimeout: 64000,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
+        nudgeMaxRetry: 10,                        // stall (takılma) durumunda oynatıcıyı dürt
         xhrSetup: createHlsXhrSetup(userAgent, referer, context, context.currentProxyMode, extraHeaders),
         pLoader: SmartFallbackLoader,  // Playlist (manifest) loader - CORS fallback
         fLoader: SmartFallbackLoader   // Fragment loader

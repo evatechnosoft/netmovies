@@ -47,7 +47,45 @@
                 <button class="button-icon" id="share-content-btn" title="{{ tr('share') }}" data-i18n="share" data-i18n-attr="title">
                     <i class="fas fa-share-alt"></i>
                 </button>
+                <button type="button" class="button button-secondary" id="feature-content-btn"
+                    data-provider="{{ eklenti_adi }}"
+                    data-url="{{ content.url }}"
+                    data-title="{{ content.title }}"
+                    data-poster="{{ content.poster | default('', true) }}"
+                    data-rating="{{ content.rating | default('', true) }}">
+                    <i class="fas fa-thumbtack"></i> <span>Öne çıkar</span>
+                </button>
             </div>
+            <script>
+            (function () {
+                var btn = document.getElementById('feature-content-btn');
+                if (!btn) return;
+                btn.addEventListener('click', async function () {
+                    btn.disabled = true;
+                    try {
+                        var r = await fetch('/api/admin/featured', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                provider: btn.dataset.provider,
+                                url:      btn.dataset.url,
+                                title:    btn.dataset.title,
+                                poster:   btn.dataset.poster,
+                                rating:   btn.dataset.rating
+                            })
+                        });
+                        var data = await r.json();
+                        var label = btn.querySelector('span');
+                        if (data.ok && data.state === 'added')   label.textContent = 'Öne çıkarıldı ✓';
+                        if (data.ok && data.state === 'removed') label.textContent = 'Öne çıkar';
+                    } catch (e) {
+                        btn.querySelector('span').textContent = 'Hata';
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            })();
+            </script>
         </div>
     </div>
 </section>

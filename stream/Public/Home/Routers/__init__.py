@@ -17,5 +17,6 @@ from . import (
     kategori,
     icerik,
     ara,
-    izle
+    izle,
+    admin
 )

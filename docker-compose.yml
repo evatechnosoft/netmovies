@@ -34,5 +34,8 @@ services:
       PROVIDER_NAME        : NetMovies
       PROVIDER_DESCRIPTION : Kişisel, reklamsız izleme arayüzü.
       DEFAULT_PROVIDER_URL : http://engine:3310
+      ADMIN_CONFIG_PATH    : /data/admin.json
+    volumes:
+      - ./data:/data
     networks:
       - internal

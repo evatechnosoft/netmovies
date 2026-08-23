@@ -1,0 +1,87 @@
+{#- NetMovies — Yönetim Paneli -#}
+{% extends "_html_taban.html.j2" %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block icerik %}
+<style>
+.admin-shell { display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 3rem; }
+.admin-card { background: var(--surface, #16181d); border: 1px solid var(--border, #262a33); border-radius: 14px; padding: 1.25rem 1.4rem; }
+.admin-card-title { display: flex; align-items: center; gap: .5rem; font-size: 1.05rem; margin: 0 0 .35rem; }
+.admin-card-sub { color: var(--muted, #8b93a1); font-size: .85rem; margin: 0 0 1rem; }
+.admin-toggle-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .5rem; }
+.admin-toggle { display: flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border: 1px solid var(--border, #262a33); border-radius: 10px; cursor: pointer; }
+.admin-toggle small { color: var(--muted, #8b93a1); font-size: .72rem; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+.admin-health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.admin-health-item { display: flex; flex-direction: column; gap: .2rem; padding: .6rem .75rem; border-radius: 10px; border: 1px solid var(--border, #262a33); }
+.admin-health-item.down { border-color: #7f1d1d; background: rgba(127,29,29,.12); }
+.admin-health-item small { color: var(--muted, #8b93a1); font-size: .72rem; }
+.admin-rating-row { display: flex; align-items: center; gap: 1rem; }
+.admin-rating-row input[type=range] { flex: 1; }
+.admin-featured-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem .7rem; border: 1px solid var(--border, #262a33); border-radius: 10px; margin-bottom: .4rem; }
+.admin-featured-item small { color: var(--muted, #8b93a1); }
+.admin-actions { display: flex; align-items: center; gap: 1rem; }
+.admin-save-status { color: var(--muted, #8b93a1); font-size: .85rem; }
+.admin-muted { color: var(--muted, #8b93a1); }
+</style>
+<section class="page-hero">
+    <div class="home-hero-inner">
+        <span class="hero-kicker">NetMovies</span>
+        <h1 class="hero-title">Yönetim Paneli</h1>
+        <p class="hero-subtitle">Kaynakları, kategorileri ve öne çıkanları buradan yönetin.</p>
+    </div>
+</section>
+
+<main class="container admin-shell" id="admin-shell" data-status="loading">
+    <p class="admin-loading" id="admin-loading">Yükleniyor…</p>
+
+    <!-- Kaynak Sağlığı -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-heart-pulse"></i> Kaynak Sağlığı</h2>
+        <p class="admin-card-sub">Hangi siteler şu an canlı? Kırmızı olanların adresi değişmiş olabilir.</p>
+        <div id="admin-health" class="admin-health-grid"></div>
+        <button type="button" class="button button-secondary" id="admin-health-refresh">
+            <i class="fas fa-rotate"></i> Yeniden kontrol et
+        </button>
+    </section>
+
+    <!-- Kaynaklar -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-server"></i> Kaynaklar</h2>
+        <p class="admin-card-sub">Kapatılan kaynaklar arayüzde hiç görünmez.</p>
+        <div id="admin-providers" class="admin-toggle-list"></div>
+    </section>
+
+    <!-- Kategoriler -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-tags"></i> Tür / Kategoriler</h2>
+        <p class="admin-card-sub">İzlemek istemediğiniz türleri kapatın (ör. Asya, Anime).</p>
+        <div id="admin-categories" class="admin-toggle-list"></div>
+    </section>
+
+    <!-- Puan eşiği -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-star"></i> Puan Eşiği</h2>
+        <p class="admin-card-sub">Puanı olan içeriklerde bu değerin altındakiler gizlenir (0 = kapalı).</p>
+        <div class="admin-rating-row">
+            <input type="range" id="admin-min-rating" min="0" max="10" step="0.5" value="0">
+            <output id="admin-min-rating-val">0</output>
+        </div>
+    </section>
+
+    <!-- Öne çıkanlar -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-thumbtack"></i> Öne Çıkanlar / İzleneceklerim</h2>
+        <p class="admin-card-sub">Ana sayfanın en üstünde gösterilir. İçerik sayfasındaki “Öne çıkar” ile eklenir.</p>
+        <div id="admin-featured" class="admin-featured-list"></div>
+    </section>
+
+    <div class="admin-actions" hidden>
+        <button type="button" class="button button-primary" id="admin-save">
+            <i class="fas fa-check"></i> Kaydet
+        </button>
+        <span id="admin-save-status" class="admin-save-status"></span>
+    </div>
+</main>
+
+<script type="module" src="{{ url_for('static_home', path='JS/admin.min.js') }}" defer></script>
+{% endblock %}

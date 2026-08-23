@@ -11,9 +11,9 @@ class SegmentCache:
     - 5 dakika hard TTL
     """
 
-    def __init__(self, max_size_mb: int = 32, hard_ttl_seconds: int = 300):
+    def __init__(self, max_size_mb: int = 32, hard_ttl_seconds: int = 300, max_item_mb: int = 5):
         self.max_size_bytes   = max_size_mb * 1024 * 1024
-        self.max_item_bytes   = 5 * 1024 * 1024  # 5MB tekil segment limiti
+        self.max_item_bytes   = max_item_mb * 1024 * 1024  # tekil segment limiti (4K için büyük)
         self.hard_ttl_seconds = hard_ttl_seconds
 
         # Cache storage: {url: (content, created_at, last_access, size)}
@@ -94,5 +94,14 @@ class SegmentCache:
             "hard_ttl_minutes" : self.hard_ttl_seconds // 60,
         }
 
-# Global cache instance
-segment_cache = SegmentCache(max_size_mb=32, hard_ttl_seconds=300)
+# Global cache instance — 4K/yüksek bitrate için env ile büyütülebilir.
+#   SEGMENT_CACHE_MB : toplam cache boyutu (varsayılan 256MB)
+#   SEGMENT_ITEM_MB  : tekil segment limiti (varsayılan 20MB — 4K segmentleri sığar)
+#   SEGMENT_TTL_SEC  : cache ömrü (varsayılan 600sn)
+import os as _os
+
+segment_cache = SegmentCache(
+    max_size_mb      = int(_os.getenv("SEGMENT_CACHE_MB", "256")),
+    hard_ttl_seconds = int(_os.getenv("SEGMENT_TTL_SEC", "600")),
+    max_item_mb      = int(_os.getenv("SEGMENT_ITEM_MB", "20")),
+)

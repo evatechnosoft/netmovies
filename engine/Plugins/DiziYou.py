@@ -1,0 +1,193 @@
+# NetMovies — DiziYou eklentisi
+# KekikStream PluginBase formatına, keyiflerolsun/Kekik-cloudstream (Kotlin) referans
+# alınarak uyarlanmıştır. En temiz dizi kaynağı: harici extractor/iframe çözme yok;
+# oynatma linkini doğrudan sitenin storage m3u8'inden üretir (Orijinal + Türkçe Dublaj)
+# ve .vtt altyazılarını ekler.
+
+from __future__ import annotations
+
+import re
+
+from KekikStream.Core import (
+    PluginBase,
+    MainPageResult,
+    SearchResult,
+    SeriesInfo,
+    Episode,
+    ExtractResult,
+    Subtitle,
+    HTMLHelper,
+)
+
+
+class DiziYou(PluginBase):
+    name        = "DiziYou"
+    language    = "tr"
+    main_url    = "https://www.diziyou3.com"
+    favicon     = "https://www.google.com/s2/favicons?domain=https://www.diziyou3.com&sz=64"
+    description = "DiziYou — Türkçe dublaj/altyazı yerli ve yabancı diziler."
+
+    # get_main_page'de "SAYFA" placeholder'ı gerçek sayfa numarasıyla değiştirilir.
+    main_page = {
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Aksiyon"    : "Aksiyon",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Dram"       : "Dram",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Komedi"     : "Komedi",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Gerilim"    : "Gerilim",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Bilim+Kurgu": "Bilim Kurgu",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Fantazi"    : "Fantazi",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Macera"     : "Macera",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Korku"      : "Korku",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Gizem"      : "Gizem",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Belgesel"   : "Belgesel",
+        f"{main_url}/dizi-arsivi/page/SAYFA/?tur=Animasyon"  : "Animasyon",
+    }
+
+    # ------------------------------------------------------------------ Ana sayfa
+    async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
+        target   = url.replace("SAYFA", str(page or 1))
+        response = await self.httpx.get(target)
+        secici   = HTMLHelper(response.text)
+
+        results: list[MainPageResult] = []
+        for node in secici.select("div.single-item"):
+            link = node.select_first("div#categorytitle a")
+            if not link:
+                continue
+            title = link.text(strip=True)
+            href  = link.attrs.get("href")
+            if not title or not href:
+                continue
+            poster = node.select_attr("img", "src")
+            results.append(
+                MainPageResult(
+                    category = category,
+                    title    = title,
+                    url      = self.fix_url(href),
+                    poster   = self.fix_url(poster) if poster else None,
+                )
+            )
+        return results
+
+    # ------------------------------------------------------------------ Arama
+    async def search(self, query: str) -> list[SearchResult]:
+        response = await self.httpx.get(f"{self.main_url}/?s={query}")
+        secici   = HTMLHelper(response.text)
+
+        results: list[SearchResult] = []
+        # Arama sonuçları hem liste konteynerinde hem tekil kartlarda gelebilir.
+        for node in secici.select("div#list-series, div.single-item"):
+            link = node.select_first("div#categorytitle a") or node.select_first("a")
+            if not link:
+                continue
+            title = link.text(strip=True)
+            href  = link.attrs.get("href")
+            if not title or not href:
+                continue
+            poster = node.select_attr("img", "src")
+            results.append(
+                SearchResult(
+                    title  = title,
+                    url    = self.fix_url(href),
+                    poster = self.fix_url(poster) if poster else None,
+                )
+            )
+        return results
+
+    # ------------------------------------------------------------------ Detay
+    async def load_item(self, url: str) -> SeriesInfo:
+        response = await self.httpx.get(url)
+        secici   = HTMLHelper(response.text)
+
+        title       = secici.select_text("h1")
+        poster      = secici.select_attr("div.category_image img", "src")
+        description = None
+        desc_node   = secici.select_first("div.diziyou_desc")
+        if desc_node:
+            description = desc_node.select_direct_text() or desc_node.text(strip=True)
+        tags        = secici.select_texts("div.genres a")
+
+        episodes: list[Episode] = []
+        for a in secici.select("a"):
+            box = a.select_first("div.bolumust")
+            if not box:
+                continue
+            ep_title_node = box.select_first("div.baslik")
+            if not ep_title_node:
+                continue
+            ep_meta = ep_title_node.text(strip=True)
+            href    = a.attrs.get("href")
+            if not href:
+                continue
+            se = re.search(r"(\d+)\.\s*Sezon", ep_meta)
+            ep = re.search(r"(\d+)\.\s*Bölüm", ep_meta)
+            ep_name = box.select_text("div.bolumismi") or ep_meta
+            ep_name = ep_name.replace("(", "").replace(")", "").strip()
+            episodes.append(
+                Episode(
+                    season  = int(se.group(1)) if se else 1,
+                    episode = int(ep.group(1)) if ep else None,
+                    title   = ep_name,
+                    url     = self.fix_url(href),
+                )
+            )
+
+        return SeriesInfo(
+            url         = url,
+            title       = title,
+            poster      = self.fix_url(poster) if poster else None,
+            description = description,
+            tags        = tags,
+            episodes    = episodes,
+        )
+
+    # ------------------------------------------------------------------ Linkler
+    async def load_links(self, url: str) -> list[ExtractResult]:
+        response = await self.httpx.get(url)
+        secici   = HTMLHelper(response.text)
+
+        player = secici.select_first("iframe#diziyouPlayer")
+        if not player:
+            return []
+        src = player.attrs.get("src") or ""
+        item_id = src.rstrip("/").split("/")[-1].split(".html")[0]
+        if not item_id:
+            return []
+
+        storage = self.main_url.replace("www", "storage")
+        referer = f"{self.main_url}/"
+
+        # Mevcut dil seçeneklerini oku (span.diziyouOption id'leri)
+        option_ids = {
+            node.attrs.get("id")
+            for node in secici.select("span.diziyouOption")
+            if node.attrs.get("id")
+        }
+
+        subtitles: list[Subtitle] = []
+        if "turkceAltyazili" in option_ids:
+            subtitles.append(Subtitle(name="Türkçe", url=f"{storage}/subtitles/{item_id}/tr.vtt"))
+        if "ingilizceAltyazili" in option_ids:
+            subtitles.append(Subtitle(name="English", url=f"{storage}/subtitles/{item_id}/en.vtt"))
+
+        results: list[ExtractResult] = []
+        # Orijinal dil (Türkçe/İngilizce altyazı seçeneği varsa)
+        if option_ids & {"turkceAltyazili", "ingilizceAltyazili"}:
+            results.append(
+                ExtractResult(
+                    name      = f"{self.name} | Orijinal Dil",
+                    url       = f"{storage}/episodes/{item_id}/play.m3u8",
+                    referer   = referer,
+                    subtitles = list(subtitles),
+                )
+            )
+        # Türkçe dublaj
+        if "turkceDublaj" in option_ids:
+            results.append(
+                ExtractResult(
+                    name    = f"{self.name} | Türkçe Dublaj",
+                    url     = f"{storage}/episodes/{item_id}_tr/play.m3u8",
+                    referer = referer,
+                )
+            )
+
+        return self.deduplicate(results)
