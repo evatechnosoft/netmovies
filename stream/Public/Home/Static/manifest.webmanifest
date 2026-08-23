@@ -1,0 +1,19 @@
+{
+  "name": "NetMovies",
+  "short_name": "NetMovies",
+  "description": "Kişisel, reklamsız film/dizi izleme uygulaması",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d0f13",
+  "theme_color": "#0d0f13",
+  "icons": [
+    {
+      "src": "/static/home/ico/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -77,6 +77,14 @@
     <meta name="googlebot" content="{% block googlebot %}index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1{% endblock %}">
     <meta name="bingbot" content="{% block bingbot %}index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1{% endblock %}">
     <link rel="preconnect" href="{{ base_url }}" crossorigin>
+
+    <!-- ? PWA (ana ekrana ekle / tam ekran) -->
+    <link rel="manifest" href="{{ url_for('static_home', path='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#0d0f13">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{{ url_for('static_home', path='ico/logo.png') }}">
 </head>
 
 <body

@@ -153,3 +153,10 @@ ready(() => {
         document.documentElement.style.setProperty('--no-poster-text', `"${noPosterText}"`);
     }
 });
+
+// NetMovies — PWA service worker kaydı (ana ekrana ekle / tam ekran)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA yoksa sorun değil */ });
+    });
+}

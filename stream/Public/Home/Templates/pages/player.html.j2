@@ -35,6 +35,26 @@
         <div id="video-links-ui" class="source-list"></div>
     </div>
 
+    <!-- Harici oynatıcı (Nova / MX / VLC / Mibox) — tarayıcıda donmaya karşı en akıcı yol -->
+    <div class="external-player-bar player-panel-shell is-hidden" id="external-player-bar">
+        <h3><i class="fas fa-up-right-from-square"></i> Harici Oynatıcıda Aç</h3>
+        <p class="external-player-hint">Aktif kaynağı cihazındaki oynatıcıya gönderir (header'lar proxy üzerinden taşınır).</p>
+        <div class="external-player-buttons">
+            <button type="button" class="button button-secondary" data-player="nova"><i class="fas fa-play"></i> Nova</button>
+            <button type="button" class="button button-secondary" data-player="mx"><i class="fas fa-play"></i> MX Player</button>
+            <button type="button" class="button button-secondary" data-player="vlc"><i class="fas fa-play"></i> VLC</button>
+            <button type="button" class="button button-secondary" data-player="copy"><i class="fas fa-copy"></i> Linki kopyala</button>
+        </div>
+        <span class="external-player-status" id="external-player-status"></span>
+    </div>
+    <style>
+    .external-player-bar { margin-top: .75rem; }
+    .external-player-hint { color: var(--muted, #8b93a1); font-size: .82rem; margin: .25rem 0 .75rem; }
+    .external-player-buttons { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .external-player-status { display: block; margin-top: .5rem; color: var(--muted, #8b93a1); font-size: .82rem; }
+    </style>
+    <script type="module" src="{{ url_for('static_home', path='JS/external-player.min.js') }}" defer></script>
+
     <div id="video-player-container">
         <div id="video-player-wrapper">
             <div id="loading-overlay" class="player-loading is-hidden">

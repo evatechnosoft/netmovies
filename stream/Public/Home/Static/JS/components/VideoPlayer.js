@@ -2093,6 +2093,17 @@ export default class VideoPlayer {
         const userAgent = selectedVideo.userAgent || '';
         const extraHeaders = selectedVideo.extraHeaders || null;
 
+        // NetMovies: harici oynatıcı (Nova/MX/VLC) için o anki kaynağı yayınla
+        try {
+            window.dispatchEvent(new CustomEvent('netmovies:playback', { detail: {
+                url: originalUrl,
+                referer,
+                userAgent,
+                extraHeaders,
+                title: selectedVideo.name || document.title || ''
+            }}));
+        } catch (e) { /* yoksay */ }
+
         // Proxy URL'i oluştur (Go/Python fallback destekli)
         let proxyUrl = this.buildProxyUrl(originalUrl, userAgent, referer, 'video', extraHeaders);
 
