@@ -29,7 +29,7 @@ except Exception:
 # Güncel domain otomatik çekilir; DIZIYOU_URL ile elle sabitlenebilir.
 _MAIN_URL = discover_main_url(
     "DiziYou/src/main/kotlin/com/keyiflerolsun/DiziYou.kt",
-    "https://www.diziyou3.com",
+    "https://www.diziyou.one",
     "DIZIYOU_URL",
 )
 
