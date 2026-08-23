@@ -1,6 +1,6 @@
 # NetMovies — tek komutla ayağa kaldırma: docker compose up -d --build
 # stream : Web arayüzü + video proxy + API gateway (dışa açık :3310)
-# engine : KekikStream motoru (yalnızca iç ağ)
+# engine : KekikStream motoru + kendi eklentilerimiz + M3U listeleri (iç ağ)
 
 networks:
   internal:
@@ -13,6 +13,12 @@ services:
     restart        : unless-stopped
     expose:
       - "3310"
+    environment:
+      # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
+      # ./lists altındaki dosyalar konteynerde /data/lists olarak görünür.
+      M3U_SOURCES: ${M3U_SOURCES:-}
+    volumes:
+      - ./lists:/data/lists:ro
     networks:
       - internal
 

@@ -125,7 +125,7 @@ class SettingsManager {
         if (exampleBtn) {
             exampleBtn.addEventListener('click', () => {
                 if (input) {
-                    input.value = 'https://example.watchbuddy.tv';
+                    input.value = 'https://stream.watchbuddy.tv';
                     input.focus();
                     input.select();
                 }
