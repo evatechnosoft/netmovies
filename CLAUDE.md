@@ -10,9 +10,9 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 
 ## Çalıştırma (kullanıcının makinesinde — evde)
 ```bash
-cp .env.example .env      # AUTH_USER=Dean, AUTH_PASS=1234
+cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
 docker compose up -d --build
-# http://localhost:3310  (Dean / 1234)
+# http://localhost:3310  (dean / 1234)
 ```
 Kolay dış erişim (w.evaitec.com): `docs/DEPLOY.md` — hibrit (motor evde + Cloudflare Tunnel).
 Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.

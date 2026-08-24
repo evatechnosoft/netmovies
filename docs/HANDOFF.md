@@ -17,7 +17,7 @@ Reklamsız, kişisel, "tıkla-izle" odaklı **film / dizi / canlı TV** uygulama
 - **doh** — DNS-over-HTTPS resolver (ISP DNS engelini aşar), docker-compose servisi.
 - **cloudflared** — `w.evaitec.com` → eve tünel (profile: tunnel).
 
-Tek komut: `docker compose up -d --build` → `http://localhost:3310` (auth: **Dean / 1234**).
+Tek komut: `docker compose up -d --build` → `http://localhost:3310` (auth: **dean / 1234**).
 
 ---
 
@@ -47,7 +47,7 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 ---
 
 ## 4. Deploy modeli (kullanıcının kararı)
-**Hibrit:** motor **evde** çalışır (residential IP — kaynaklar datacenter/Azure IP'sini engelliyor), `w.evaitec.com` **Cloudflare Tunnel** ile eve bağlanır. Auth: Dean/1234 (`.env`, gitignored). Detay: `docs/DEPLOY.md`.
+**Hibrit:** motor **evde** çalışır (residential IP — kaynaklar datacenter/Azure IP'sini engelliyor), `w.evaitec.com` **Cloudflare Tunnel** ile eve bağlanır. Auth: dean/1234 (`.env`, gitignored). Detay: `docs/DEPLOY.md`.
 
 ---
 
@@ -84,7 +84,7 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 
 ## 7. Ortam notları
 - engine **Python 3.14** ister (KekikStream 3.8.x). Yerel geliştirme: `uv venv --python 3.14 .venv && uv pip install -r requirements.txt`. (Eski `uv` 3.14 stabil bilmiyordu; `pip install -U uv` ile güncellendi.)
-- `.env` gitignored (Dean/1234 içinde, repoya girmez). `.env.example` commit'li (şifresiz).
+- `.env` gitignored (dean/1234 içinde, repoya girmez). `.env.example` commit'li (şifresiz).
 - `basla.py` her açılışta JS/CSS minify eder (`*.min.js`/`*.min.css`, gitignored).
 - Bu sandbox'ta foreground `sleep` bloklu; servisleri `run_in_background` veya `nohup` + `curl --retry` ile test et. `pkill -f basla.py` shell'in kendini de öldürebilir — dikkat.
 

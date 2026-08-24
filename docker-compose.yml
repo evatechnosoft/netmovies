@@ -88,7 +88,9 @@ services:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
     depends_on:
       - stream
-    networks:
-      - internal
+    # cloudflared, stream'in ağ namespace'ini paylaşır → Cloudflare ingress'teki
+    # origin `http://localhost:3310` doğrudan stream'e denk gelir (ayrı container'da
+    # localhost boş kalıyordu → 502). Böylece dashboard config'e dokunmaya gerek yok.
+    network_mode: "service:stream"
     profiles:
       - tunnel
