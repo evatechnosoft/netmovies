@@ -17,6 +17,7 @@
 | F7 | **Favoriler & Takip** | Favori + takip listesi (veri + UI). | veri katmanı |
 | F8 | **VideoPlayer.js modülleştirme** | 3294 satır god-class → ES modülleri. Davranış korunur. | — |
 | F9 | **Backend mikro-modülleştirme** | Routers/Libs zaten ayrık; aggregate/servis mantığını Libs'e çek, ince tut. | — |
+| F10 | **Plugin ekleme UI** | Admin'de "kaynak ekle": GitHub linki yapıştır → otomatik yükle. ⚠️ Bizim engine **Python** plugin çalıştırır (`engine/Plugins/*.py`); CloudStream `.cs3` (Kotlin) farklı runtime — direkt çalıştırılamaz. Kapsam netleşmeli: (a) GitHub'dan Python `.py` plugin çek+yükle, (b) M3U/liste URL ekle (M3UPlaylist zaten var), (c) CloudStream kaynağını yarı-otomatik Python'a adapte et. | F9 |
 
 ## Veri katmanı kararı (ADR — F3/F4/F7'nin temeli)
 

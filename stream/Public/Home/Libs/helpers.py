@@ -10,8 +10,8 @@ from Settings         import PROVIDER_NAME, PRODUCTION
 from .provider_client import get_provider_client
 
 _TRANSLATIONS    = {}
-_SUPPORTED_LANGS = ("tr", "en", "fr", "ru", "uk", "hi", "zh")
-_DEFAULT_LANG    = "en"
+_SUPPORTED_LANGS = ("tr", "en")
+_DEFAULT_LANG    = "tr"
 
 def _load_translations():
     global _TRANSLATIONS
@@ -126,12 +126,7 @@ async def build_context(request: Request, **extra):
         "og_locale"          : {
             "tr"                 : "tr_TR",
             "en"                 : "en_US",
-            "fr"                 : "fr_FR",
-            "ru"                 : "ru_RU",
-            "uk"                 : "uk_UA",
-            "hi"                 : "hi_IN",
-            "zh"                 : "zh_CN",
-        }.get(lang, "en_US"),
+        }.get(lang, "tr_TR"),
         "provider_url"  : provider_url,
         "provider_name" : provider_name,
         "is_remote"     : bool(provider_url),
