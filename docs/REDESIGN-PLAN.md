@@ -69,6 +69,27 @@ Sayfa **geç açmamalı**, içerik **birden** yüklenmemeli:
 - **F5** ayar çark menüsü
 - **F7** favori/takip UI (veri Faz B'de hazır)
 
+## Oturum durumu — 2026-08-24 (devir)
+
+**Push'lanan (dalda canlı):**
+- ✅ Task 1 birleşik Yeni Çıkanlar (`0440ff9`) — NOT: senkron aggregate; B3'te client-side lazy'ye taşınacak
+- ✅ Kök ölü iskelet sil + README (`92232fc`)
+- ✅ F6 i18n → TR/EN (`9301a93`)
+- ✅ F8 VideoPlayer god-class böl, 8 mixin modül (`5b5b99d`)
+- ✅ B2 büyük banner (featured-hero) kaldır
+- ✅ B4 SQLite veri katmanı (watch_store.py + watch.py, site-agnostik content_key, doğrulandı)
+- ✅ Otonom dev reload (docker-compose.override.yml, watchmedo) — `docker compose config` OK
+
+**KALAN (sonraki oturum devralsın):**
+- ⏳ **B1** WatchBuddy provider artığı sök + ayar kalıcılığı (localStorage→admin_config). YAPILMADI.
+- ⏳ **B3** Ana sayfa rafları (İzlediklerim/Favoriler/Yeniler, client-side lazy) + `aggregate_new` client endpoint. YAPILMADI.
+  - Not: `home-redesign` subagent'i başlatıldı ama **working tree'ye çıktı üretmedi** (neden belirsiz);
+    sonraki oturum B1+B3'ü sıfırdan ele almalı. API'ler HAZIR: watch.py (/continue_watching, /favorites, /favorites/toggle).
+- ⏳ **B5** Kaynak istatistikleri (get_source_stats HAZIR, UI kaldı)
+- ⏳ **Faz C** F2 kategori-içi zıplama · F4 kart davranışı (ara ekran kaldır, son bölüme atla) · F5 ayar çark (dil dahil) · F7 favori/takip UI · F10 plugin ekleme UI
+
+**Doğrulanmamış (Dean'in evinde test şart):** F8 player gerçek oynatma · otonom reload runtime (watchmedo).
+
 ## Paralel çalışma disiplini
 - Subagent'ler **commit etmez**; dosya yazar, PM (ben) doğrular + commit'ler (kanıt kapısı).
 - İzole dosya setleri paralel; ortak dosyaya (ana sayfa, içerik, veri) dokunan işler sıralı.
