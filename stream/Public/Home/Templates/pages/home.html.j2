@@ -144,6 +144,32 @@
     <div id="results-grid" class="grid"></div>
 </section>
 
+{# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
+{% macro yeni_rafi(baslik, ikon, items) %}
+{% if items %}
+<section class="carousel-row yeni-rafi">
+    <div class="carousel-header">
+        <h2 class="carousel-title"><i class="fas {{ ikon }}"></i> {{ baslik }} <span class="section-count">{{ items | length }}</span></h2>
+    </div>
+    <div class="carousel-wrapper">
+        <div class="carousel-track">
+            {% for item in items %}
+            <a href="/icerik/{{ item.plugin }}?url={{ item.url }}{{ provider_query_amp }}" class="poster-card" aria-label="{{ item.title }}">
+                <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
+                    {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+                </div>
+                <div class="poster-card-overlay"><span class="poster-card-title">{{ item.title }}</span></div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler) }}
+{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler) }}
+
 {# Plugin List #}
 {% if featured %}
 <section id="featured-list">

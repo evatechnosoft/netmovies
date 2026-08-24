@@ -65,6 +65,14 @@ class RemoteProviderClient:
         })
         return res if isinstance(res, list) else []
 
+    async def get_aggregate_new(self, media_type: str = "movie", page: int = 1) -> dict[str, Any]:
+        """Tüm eklentilerin 'Yeni/Son' film|dizi kategorilerini tek listede birleştirir."""
+        res = await self._get("/api/v1/aggregate_new", params={
+            "type" : media_type,
+            "page" : str(page)
+        })
+        return res if isinstance(res, dict) else {}
+
     async def search(self, plugin_name: str, query: str, page: int = 1) -> list[dict[str, Any]]:
         res = await self._get("/api/v1/search", params={
             "plugin" : plugin_name,

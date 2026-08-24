@@ -116,3 +116,26 @@ def filter_items(items: list, cfg: dict | None = None) -> list:
         if rating is None or rating >= threshold:
             out.append(item)
     return out
+
+
+def filter_aggregate_items(items: list, cfg: dict | None = None) -> list:
+    """Birleşik 'Yeni Çıkanlar' öğelerini admin config'e göre süzer:
+    gizli kaynak (plugin) + gizli kategori dışlanır, sonra puan eşiği uygulanır.
+    Öğe şekli: {plugin, title, url, poster, category}."""
+    from urllib.parse import unquote_plus
+
+    cfg      = cfg or load_config()
+    hidden_p = set(cfg["hidden_providers"])
+    hidden_c = set(cfg["hidden_categories"])
+
+    out = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("plugin") in hidden_p:
+            continue
+        cat = item.get("category")
+        if cat is not None and (unquote_plus(str(cat)) in hidden_c or str(cat) in hidden_c):
+            continue
+        out.append(item)
+    return filter_items(out, cfg)
