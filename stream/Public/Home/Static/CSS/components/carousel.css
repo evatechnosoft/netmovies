@@ -311,7 +311,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 .carousel-row {
-  margin-bottom: var(--spacing-xxl);
+  margin-bottom: var(--spacing-lg);
 }
 
 .carousel-header {

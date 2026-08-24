@@ -73,8 +73,8 @@
   }
 
   .page-hero-home {
-    padding-top: clamp(48px, 8vw, 80px);
-    padding-bottom: clamp(28px, 4vw, 48px);
+    padding-top: clamp(8px, 2vw, 16px);
+    padding-bottom: clamp(14px, 3vw, 24px);
   }
 
   .section-title {
@@ -94,7 +94,7 @@
 /* Mobile content-shell adjustment for fixed header */
 @media (max-width: 768px) {
   .content-shell {
-    padding-top: calc(52px + var(--spacing-lg));
+    padding-top: calc(52px + var(--spacing-sm));
     padding-bottom: var(--spacing-xxl);
   }
 }

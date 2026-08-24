@@ -4,7 +4,7 @@
 
 .page-hero-home {
   position: relative;
-  padding: clamp(24px, 4vw, 48px) var(--spacing-lg) clamp(32px, 4vw, 56px);
+  padding: clamp(8px, 1.5vw, 16px) var(--spacing-lg) clamp(16px, 2.5vw, 28px);
   text-align: center;
   background: transparent;
 }
@@ -25,7 +25,7 @@
   align-self: center;
   gap: 6px;
   padding: var(--spacing-xs) var(--spacing-lg);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
   border-radius: var(--border-radius-pill);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.04));
   border: 1px solid rgba(139, 92, 246, 0.2);
@@ -39,7 +39,7 @@
 }
 
 .hero-title {
-  margin: 0 0 var(--spacing-md);
+  margin: 0 0 var(--spacing-sm);
   font-family: var(--font-family-display);
   font-size: clamp(1.85rem, 4.5vw, 2.75rem);
   font-weight: 800;
@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  margin-top: var(--spacing-xl);
+  margin-top: var(--spacing-md);
 }
 
 .home-search-row .search-form {
