@@ -30,6 +30,18 @@ bölüm, güncelleme_zamanı), favoriler, takip. İçerik kimliği **site-bağı
 olmalı (başlık+yıl normalizasyonu / imdb-tmdb eşleme; RİSK: kaynaklar farklı id
 veriyor → normalize katmanı gerek). HANDOFF backlog item 5 (ADR-3) ile aynı yön.
 
+## Kesişen ilke — P1: Progressive / lazy loading (Dean, 2026-08-24)
+
+Sayfa **geç açmamalı**, içerik **birden** yüklenmemeli:
+- İlk boyama HIZLI: server hafif iskelet + skeleton kartlar döner (bloke kaynağı beklemez).
+- **"İzlemeye devam / kaldığın yer" başta** açılır (F3 — SQLite hazır olunca).
+- Raflar **client-side async** dolar (skeleton → içerik); bir kaynak bloke/yavaşsa
+  sayfayı geciktirmez, o raf boş/gecikmeli gelir.
+- **Aşağı indikçe / bastıkça** daha fazla yüklenir (lazy / infinite / "daha fazla").
+- ⚠️ Mevcut task 1 aggregate'i ana_sayfa.py'de **senkron** — bloke kaynak (RecTV)
+  ana sayfayı bekletir. **Düzeltme: aggregate'i client-side lazy'ye taşı** (bu
+  ilkenin ilk somut adımı, SQLite gerektirmez, akşam-güvenli).
+
 ## Faz planı
 
 ### Faz A — İzole refactor (Dean onayı gerekmez, PARALEL — ⏳ BAŞLADI)
@@ -37,11 +49,19 @@ veriyor → normalize katmanı gerek). HANDOFF backlog item 5 (ADR-3) ile aynı 
 - **F6** i18n TR/EN → subagent `i18n-trim`
 - **F9** backend ince temizlik (aggregate mantığını Libs'e) → sıradaki
 
-### Faz B — Veri katmanı + ana sayfa (SQLite onayı sonrası)
-- Veri servisi: `/data/netmovies.db` + izleme/favori/takip API (engine veya stream)
-- İçerik kimliği normalize katmanı (site-agnostik eşleme)
-- **F1** ana sayfa segment pill + tile rafları (Yeni Çıkanlar zaten var → segment'e taşı)
-- **F3** izlemeye devam rafı + dakika takibi (player → API)
+### Faz B — Veri katmanı + ana sayfa (GENİŞLEDİ, Dean 2026-08-24)
+- **B1 Provider sadeleştirme** — WatchBuddy uzak-provider artığını sök: "Örnek
+  Sağlayıcıyı Dene" (uzak `stream.watchbuddy.tv` → "App Store/yoğunluk" hatası
+  BURADAN geliyor, bizden değil), ExampleProvider paneli, watch-party
+  (watchbuddy.tv/room), app-store linkleri (fetch.js). Kendi engine sabit varsayılan;
+  remote-provider mimarisi tamamen SÖKÜLMEZ (gizle/ileride kalsın — "geliştirilebilir").
+- **B2 Büyük banner kaldır** — featured-hero (yükleme uzun) kaldırılır.
+- **B3 Ana sayfa rafları** — direkt: **İzlediklerim (devam) · Favoriler · Yeniler**
+  (client-side lazy, P1). Yeniler SQLite'sız (aggregate); İzlediklerim/Favoriler B4'e bağlı.
+- **B4 Veri katmanı (SQLite `/data/netmovies.db`)** — izleme geçmişi (content_key,
+  dakika, bölüm), favoriler, istatistik. stream tarafı (auth arkası, /data mount).
+  İçerik kimliği **site-agnostik** normalize (başlık+yıl) — RİSK.
+- **B5 Kaynak istatistikleri** — site başına içerik sayısı + izlenme (B4 üstünde).
 
 ### Faz C — Etkileşim cila
 - **F4** kart davranışı (ara ekran kaldır, son bölüme atla) — F8 + F3 sonrası

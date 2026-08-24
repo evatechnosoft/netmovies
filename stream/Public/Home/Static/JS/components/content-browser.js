@@ -82,7 +82,9 @@ class ContentBrowser {
             this._observer.observe(row);
         });
 
-        this._buildFeaturedHero(entries);
+        // B2: büyük banner (featured-hero) kaldırıldı — yüklemeyi uzatıyordu (Dean).
+        // İlgili _buildFeaturedHero/_renderFeaturedHero/_startHeroRotation metodları
+        // artık çağrılmıyor (ölü kod, ayrı temizlik turunda silinecek).
     }
 
     _createRowShell(catName, catUrl) {
