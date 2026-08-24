@@ -53,5 +53,10 @@ data/
 stream/admin.json
 engine/admin.json
 
+# SQLite veri (runtime, /data volume) — izleme geçmişi/favoriler
+*.db
+*.db-journal
+*.db-wal
+
 # yerel gizli env (sifreler)
 /.env
