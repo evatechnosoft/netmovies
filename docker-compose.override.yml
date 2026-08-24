@@ -1,0 +1,37 @@
+# docker-compose.override.yml — GELİŞTİRME (otonom reload)
+#
+# `docker compose up` bu dosyayı OTOMATİK okur (ana compose ile birleşir).
+# Amaç: kod (host) değiştiğinde container kendini yeniden kaldırsın — elle
+# `--build` GEREKMEZ. `git pull` yeter; watchmedo değişikliği görür, basla.py'yi
+# baştan çalıştırır → minify_assets + bundle_css + uvicorn yeniden (JS/CSS dahil).
+#
+# Prod / tünel (otonom istemiyorsan, temiz çalıştır):
+#   docker compose -f docker-compose.yml up -d
+#
+# Not: kod artık image'dan değil host'tan (volume) okunur; ilk kurulumda yine
+# bir kez `docker compose up -d --build` gerekir (bağımlılıklar image'da kurulu).
+
+services:
+  engine:
+    # Kod mount (base'deki ./lists mount'u ile birleşir)
+    volumes:
+      - ./engine:/usr/src/KekikStreamAPI
+    command: >
+      sh -c "pip install --no-cache-dir watchdog >/dev/null 2>&1 &&
+             watchmedo auto-restart
+             --directory=/usr/src/KekikStreamAPI --recursive
+             --patterns='*.py'
+             --ignore-patterns='*/.git/*;*/__pycache__/*'
+             -- python3 basla.py"
+
+  stream:
+    # Kod mount (base'deki ./data mount'u ile birleşir)
+    volumes:
+      - ./stream:/usr/src/Stream
+    command: >
+      sh -c "pip install --no-cache-dir watchdog >/dev/null 2>&1 &&
+             watchmedo auto-restart
+             --directory=/usr/src/Stream --recursive
+             --patterns='*.py;*.j2;*.js;*.css'
+             --ignore-patterns='*/.git/*;*/__pycache__/*;*.min.js;*.min.css'
+             -- python3 basla.py"
