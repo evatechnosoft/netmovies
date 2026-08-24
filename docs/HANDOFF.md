@@ -68,7 +68,7 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 - Yapı **modern/genişletilebilir** olsun; aşağıdaki roadmap sonradan eklenecek.
 
 ### Yakın backlog
-1. **Birleşik "Yeni Çıkanlar" UI (task 1, YAPILMADI):** engine `GET /api/v1/aggregate_new?type=movie|serie` HAZIR. Stream tarafı bağlanacak: `ana_sayfa.py` iki çağrı → `home.html.j2`'ye "🎬 Yeni Filmler"/"📺 Yeni Diziler" yatay rafı + admin filtresi. **Kaynak-bağımsız liste hedefi bu.**
+1. ~~**Birleşik "Yeni Çıkanlar" UI (task 1):**~~ ✅ **YAPILDI** (commit `0440ff9`). `provider_client.get_aggregate_new` + `ana_sayfa.py` iki çağrıyı `asyncio.gather` ile paralel çekiyor, `admin_config.filter_aggregate_items` (gizli kaynak/kategori + puan eşiği) süzüyor, `home.html.j2` `yeni_rafi` makrosu iki yatay raf (carousel CSS reuse, JS'siz). Kaynak-bağımsız liste hedefi tamam. **Runtime doğrulaması Dean'in evinde** (engine residential IP + Py3.14 gerekir): `git pull && docker compose up -d --build` → localhost:3310. En az HDFilmCehennemi "Yeni Filmler" rafını doldurmalı.
 2. **RecTV güncel domain** bul (bloke) → `RECTV_URL`.
 3. **DiziYou uçtan uca** doğrula (diziyou.one selector'ları) + V8 extractor gerekiyorsa `_js_player`'a bağla.
 4. **Daha çok kaynak port et** (recloudstream/extensions'tan): FullHDFilmizlesene (RapidVid ailesi — V8 ile hazır çözülür), JetFilmizle, Dizilla, SezonlukDizi...
