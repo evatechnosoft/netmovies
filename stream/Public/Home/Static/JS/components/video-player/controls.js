@@ -576,16 +576,24 @@ export const controlsMixin = {
             const now = Date.now();
             const rect = wrapper.getBoundingClientRect();
             const x = e.clientX - rect.left;
-            const side = x < rect.width / 2 ? 'left' : 'right';
+            // Üç bölge: sol 1/3 = geri sar, orta 1/3 = büyüt/küçült, sağ 1/3 = ileri sar
+            const third = rect.width / 3;
+            const side = x < third ? 'left' : (x > third * 2 ? 'right' : 'center');
 
             if (now - lastTapTime < 300 && lastTapSide === side) {
-                // Double-tap → Seek
+                // Çift dokunuş
                 clearTimeout(singleTapTimeout);
                 lastTapTime = 0;
                 lastTapSide = null;
+                this.userGestureUntil = Date.now() + 1200;
+
+                if (side === 'center') {
+                    // Orta çift dokunuş → büyüt / küçült (tam ekran aç/kapa)
+                    this.toggleFullscreen();
+                    return;
+                }
 
                 if (!Number.isFinite(this.videoPlayer.duration) || this.videoPlayer.duration <= 0) return;
-                this.userGestureUntil = Date.now() + 1200;
 
                 if (side === 'left') {
                     this.videoPlayer.currentTime = Math.max(0, this.videoPlayer.currentTime - SEEK_STEP);
@@ -598,14 +606,12 @@ export const controlsMixin = {
                 lastTapTime = now;
                 lastTapSide = side;
                 singleTapTimeout = setTimeout(() => {
-                    // Single-tap → Toggle controls
+                    // Tek dokunuş → oynat / duraklat (+ ortada gösterge, kontrolleri göster)
                     lastTapTime = 0;
                     lastTapSide = null;
-                    if (wrapper.classList.contains('show-controls')) {
-                        hideControls(true); // Mobile tap: force hide (paused olsa bile)
-                    } else {
-                        showControls();
-                    }
+                    togglePlay();
+                    triggerAnimation(this.videoPlayer.paused ? 'fa-pause' : 'fa-play');
+                    showControls();
                 }, 300);
             }
         };
