@@ -10,6 +10,47 @@
 
 ---
 
+## 0. SON OTURUM — 2026-08-24 akşam (canlı + oynatıcı/UI iyileştirmeleri)
+
+**Durum: ÇALIŞIYOR.** İzleme her yerden: `localhost:3310`, `192.168.0.28:3310` (LAN),
+`w.evaitec.com` (tünel). Auth: **`dean` / 1234** (kullanıcı adı KÜÇÜK harf). Web player'da
+film oynuyor (Dean doğruladı). `.env` içinde `CF_TUNNEL_TOKEN` dolu (netmovies tunnel `46f5bbe3`).
+
+**Bu oturumun commit'leri:**
+- `2fb5cb1` dev-reload YAML katlama fix + cloudflared origin (network_mode: service:stream)
+- `4822141` oynatıcı Türkçe dublaj/altyazı otomatik (yeni `lang-utils.js`) + i18n header reload
+- `c422fa6` mobil dokunmatik: tek dokunuş oynat/duraklat + orta çift-dokunuş tam ekran (sol/sağ seek)
+- `7695919` pagination: "sonraki sayfa" yalnızca `SAYFA` placeholder'lı (gerçek sayfalayan) kaynaklarda
+- `f99eff0` layout: ana sayfa/player üst boşluğu azaldı, ilk raf arama çubuğu altına
+- `5228bea` canlı arama (yazdıkça, 300ms debounce, min 3 karakter)
+- `3b7891d` harici oynatıcı (Nova/VLC/MX): `force_proxy=1` ile segmentlere header enjekte
+
+### ⚠️ KRİTİK ORTAM NOTLARI (Windows'ta geliştirenler için)
+1. **watchmedo (otonom reload) Windows/Docker Desktop'ta ÇALIŞMIYOR** (volume inotify container'a
+   geçmiyor). Kaynak `.js/.css` değişince `.min.js/.min.css` OTOMATİK üretilmez. Elle tetikle
+   (container restart YOK → tünel korunur):
+   ```
+   MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream \
+     python3 -c "from build_assets import minify_assets, bundle_css; minify_assets(); bundle_css()"
+   ```
+   (Git Bash'te `MSYS_NO_PATHCONV=1` şart, yoksa `-w` path'i bozulur: "Cwd must be absolute".)
+2. **cloudflared `network_mode: service:stream`** → stream her `restart`/`recreate` olduğunda tünel
+   KOPAR (`w.evaitec.com` → HTTP 530). Düzeltme: `docker compose --profile tunnel up -d
+   --force-recreate cloudflared`. **Kalıcı çözüm (yapılmadı):** Cloudflare panelinde tünel origin'i
+   `localhost:3310` → `stream:3310` yap, cloudflared'i normal `internal` network'e al → restart'lara dayanır.
+
+### Kalan iş (aciliyet sırası)
+1. **Harici oynatıcı testi** — Dean force_proxy sonrası Nova/VLC ile film başlıyor mu doğrulayacak.
+2. **Kalıcı tünel** — CF panel origin `stream:3310` (yukarıda; Dean panel erişimi).
+3. **ZimaOS 7/24 deploy** — PC şu an ZimaOS ağında DEĞİL ("Deancjx"/`192.168.1.x` WiFi menzilde yok;
+   PC "Huntercjx"/`192.168.0.x`'te). `ssh deanos` timeout. PC o ağa gelince: `ssh deanos` → git clone
+   `/DATA/AppData/netmovies` + `.env` (dean/1234 + CF_TUNNEL_TOKEN) + `docker compose --profile tunnel up -d --build`.
+4. **Mi Box** — JioSphere/TubeMate genel web açamıyor; **TV Bro** (Android TV browser) öner. w.evaitec.com çalışıyor.
+5. **"Smallville" gibi eski diziler** — kaynak ana sayfa sıralaması; "yeni çıkanlar önceliği" olarak ele alınacak (pagination'dan AYRI).
+6. Mi Box native D-pad oynatıcı kontrolleri — ertelendi (TV Bro imleç modu yeterli olabilir).
+
+---
+
 ## 1. Proje nedir?
 Reklamsız, kişisel, "tıkla-izle" odaklı **film / dizi / canlı TV** uygulaması. İki servis + iki yardımcı:
 - **engine/** — KekikStream 3.8.x (Python **3.14**) sağlayıcı API. Kendi eklentilerimiz `engine/Plugins/`.
