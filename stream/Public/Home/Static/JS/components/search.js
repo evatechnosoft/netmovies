@@ -33,6 +33,11 @@ class GlobalSearch {
         this.searchResultsByPlugin = new Map();
         this.activeFilters  = new Set();
         this.pendingPlugins = new Set();
+
+        // Live (type-ahead) search
+        this.liveSearchDebounceMs = 300; // her tuşta değil, yazma durunca ara
+        this.liveSearchMinChars   = 3;   // en az 3 karakterde tetikle (engine yükü)
+        this.liveSearchTimer      = null;
     }
 
     loadPluginsData() {
@@ -70,8 +75,15 @@ class GlobalSearch {
         this.syncPlugins();
 
         this.searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.performSearch();
+            if (e.key === 'Enter') {
+                // Enter: bekleyen debounce'u iptal et, tam aramayı hemen yap.
+                if (this.liveSearchTimer) { clearTimeout(this.liveSearchTimer); this.liveSearchTimer = null; }
+                this.performSearch();
+            }
         });
+
+        // Canlı (type-ahead) arama: yazdıkça, debounce'lu, önceki istek iptalli.
+        this.searchInput.addEventListener('input', () => this.handleLiveInput());
 
         this.searchButton.addEventListener('click', () => this.performSearch());
         this.clearSearchButton.addEventListener('click', () => this.clearSearch());
@@ -149,6 +161,38 @@ class GlobalSearch {
     }
 
     // ──────────────────── Search ────────────────────
+
+    // Canlı arama girişi: her tuşta çağrılır, debounce ile performSearch'e bağlanır.
+    handleLiveInput() {
+        if (this.liveSearchTimer) { clearTimeout(this.liveSearchTimer); this.liveSearchTimer = null; }
+
+        const query = this.searchInput.value.trim();
+
+        // Boş / çok kısa sorgu: bekleyen isteği iptal et, sonuç panelini temizle,
+        // eklenti listesini geri getir (input değerini SİLME — kullanıcı yazmaya devam edebilir).
+        if (query.length < this.liveSearchMinChars) {
+            this.fetchHelper.abort();
+            this.currentSearch = null;
+            this.searchResultsByPlugin.clear();
+            this.activeFilters.clear();
+            this.pendingPlugins.clear();
+            this.resultsGrid.innerHTML = '';
+            this.searchResults.classList.add('is-hidden');
+            this.pluginsList.classList.remove('is-hidden');
+            this.pluginFilters.classList.add('is-hidden');
+            this.filtersContainer.innerHTML = '';
+            this.showStatus('');
+            return;
+        }
+
+        // Debounce: yazma durunca (≈300ms) performSearch tetiklenir.
+        // performSearch içindeki this.fetchHelper.abort() önceki bekleyen isteği iptal eder,
+        // this.currentSearch guard'ı da eski sonuçların karışmasını engeller.
+        this.liveSearchTimer = setTimeout(() => {
+            this.liveSearchTimer = null;
+            this.performSearch();
+        }, this.liveSearchDebounceMs);
+    }
 
     async performSearch() {
         this.syncPlugins();
@@ -507,6 +551,7 @@ class GlobalSearch {
     }
 
     clearSearch() {
+        if (this.liveSearchTimer) { clearTimeout(this.liveSearchTimer); this.liveSearchTimer = null; }
         this.searchInput.value = '';
         this.searchResults.classList.add('is-hidden');
         this.pluginsList.classList.remove('is-hidden');
