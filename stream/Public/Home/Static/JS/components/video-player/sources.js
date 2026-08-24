@@ -3,6 +3,7 @@
 import { detectFormat } from '../../video-utils.min.js';
 import { t, escapeHtml } from '../../utils/dom.min.js';
 import { isUrlPlayable } from '../../utils/playability.min.js';
+import { isTurkish, isForced, isTurkishDub } from './lang-utils.min.js';
 
 // Kaynak toplama / oynatılabilirlik / video yükleme orkestrasyonu / hata UI /
 // WatchBuddy buton üretimi. VideoPlayer.prototype'a mixin olarak eklenir.
@@ -633,9 +634,10 @@ export const sourcesMixin = {
         // Altyazıları ekle
         const ccBtn = document.getElementById('custom-cc');
 
-        // Varsayılan altyazı: KAPALI. İçerik çoğunlukla Türkçe dublaj; altyazıyı
-        // (özellikle "Forced") kendiliğinden açmak istenmiyor. Yalnızca kullanıcı
-        // daha önce açıkça bir altyazı seçtiyse onu geri yükleriz.
+        // Varsayılan altyazı seçimi. Öncelik: (1) kullanıcının elle seçtiği tercih,
+        // (2) tercih yoksa VE kaynak Türkçe dublaj DEĞİLSE → Türkçe altyazıyı otomatik
+        // aç ("Forced" hariç; zorlanmış altyazı kendiliğinden açılmaz). Dublaj kaynağında
+        // ses zaten Türkçe olduğundan altyazı kapalı kalır. Hiçbiri yoksa → kapalı (-1).
         let defaultIndex = -1;
         const preferredSubName = localStorage.getItem('wb_preferred_subtitle');
 
@@ -643,8 +645,12 @@ export const sourcesMixin = {
             if (preferredSubName && preferredSubName !== 'off') {
                 const foundIdx = selectedVideo.subtitles.findIndex(s => s.name === preferredSubName);
                 if (foundIdx !== -1) defaultIndex = foundIdx;
+            } else if (!preferredSubName && !isTurkishDub(selectedVideo.name)) {
+                // Tercih yok ve dublaj kaynağı değil → Türkçe (forced olmayan) altyazıyı aç.
+                const trIdx = selectedVideo.subtitles.findIndex(s => isTurkish(s.name) && !isForced(s.name));
+                if (trIdx !== -1) defaultIndex = trIdx;
             }
-            // Tercih yok / 'off' / bulunamadı → -1 (altyazı kapalı)
+            // 'off' tercihi / Türkçe altyazı yok → -1 (altyazı kapalı)
         }
 
         if (selectedVideo.subtitles && selectedVideo.subtitles.length > 0) {
@@ -703,8 +709,9 @@ export const sourcesMixin = {
                 }
             }
 
-            // Seçili altyazı bilgisini hemen ayarla (modal açılırsa doğru gözüksün)
-            this.selectedSubtitleUrl = selectedVideo.subtitles[defaultIndex].url;
+            // Seçili altyazı bilgisini hemen ayarla (modal açılırsa doğru gözüksün).
+            // defaultIndex -1 (altyazı kapalı) olabilir → indekse erişmeden null bırak.
+            this.selectedSubtitleUrl = defaultIndex >= 0 ? selectedVideo.subtitles[defaultIndex].url : null;
 
             selectedVideo.subtitles.forEach((subtitle, index) => {
                 try {

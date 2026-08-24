@@ -101,6 +101,11 @@ const setupLanguageSwitch = () => {
             });
 
             setLanguage(lang);
+
+            // Görünür metinlerin çoğu data-i18n taşımıyor; sunucuda sabit render
+            // ediliyor. Sunucu cookie'deki lang'e göre TÜM sayfayı çeviriyor
+            // (detect_lang), o yüzden dili gerçekten uygulamak için taze render iste.
+            window.location.reload();
         });
     });
 };

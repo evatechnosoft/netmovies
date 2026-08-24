@@ -2,6 +2,7 @@
 
 import { parseRemoteUrl, createHlsConfig, suggestInitialMode, hasCustomHeaders, ProxyMode, buildProxyUrlWithMode } from '../../video-utils.min.js';
 import { t } from '../../utils/dom.min.js';
+import { isTurkish, isTurkishDub } from './lang-utils.min.js';
 
 // HLS.js motoru, ses/kalite track yönetimi ve kütüphane yükleme mantığı.
 // VideoPlayer.prototype'a mixin olarak eklenir; `this` bağlamı birebir korunur.
@@ -22,6 +23,20 @@ export const hlsSetupMixin = {
                 if (foundIdx !== -1 && hls.audioTrack !== foundIdx) {
                     hls.audioTrack = foundIdx;
                     this.logger.info('🔊', 'AUDIO', 'Preference Restored', { 'Name': preferredAudio });
+                }
+            } else {
+                // Tercih yok → çok-dilli m3u8'de Türkçe ses izi varsa otomatik seç.
+                const trIdx = hls.audioTracks.findIndex(t => isTurkish(t.name || t.lang));
+                if (trIdx !== -1) {
+                    if (hls.audioTrack !== trIdx) hls.audioTrack = trIdx;
+                    this.logger.info('🔊', 'AUDIO', 'Turkish Auto-Selected', { 'Index': trIdx });
+                    // Türkçe ses aktifleşti → otomatik açılmış altyazıyı kapat (kullanıcı
+                    // altyazı tercihi belirtmediyse). Türkçe ses varken altyazı gereksiz.
+                    if (!localStorage.getItem('wb_preferred_subtitle')) {
+                        Array.from(this.videoPlayer.textTracks).forEach((tt) => {
+                            if (tt.mode === 'showing') tt.mode = 'disabled';
+                        });
+                    }
                 }
             }
 
@@ -309,6 +324,10 @@ export const hlsSetupMixin = {
                 if (preferredSource) {
                     const found = this.videoData.findIndex(v => v.name === preferredSource);
                     if (found !== -1) startIndex = found;
+                } else {
+                    // Kullanıcı tercihi yok → Türkçe dublaj kaynağı varsa otomatik onu başlat.
+                    const dubIdx = this.videoData.findIndex(v => isTurkishDub(v.name));
+                    if (dubIdx !== -1) startIndex = dubIdx;
                 }
                 this.loadVideo(startIndex);
             } else {
