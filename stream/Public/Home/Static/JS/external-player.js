@@ -19,6 +19,12 @@ window.addEventListener("netmovies:playback", (e) => {
 });
 
 // Kaynağı proxy URL'ine çevir (header'lar proxy'de enjekte edilir → native oynatıcı temiz URL alır)
+// KRİTİK: Harici oynatıcı (Nova/VLC/MX) tarayıcı gibi hls.js XHR hook'una sahip DEĞİL.
+// Manifest'i olduğu gibi takip eder. Varsayılan proxy modunda segment (.ts/.m4s) URL'leri
+// bant-genişliği tasarrufu için DOĞRUDAN CDN'e (header'sız) yazılır → header isteyen
+// Kekik kaynakları segmentleri 403 ile reddeder → VLC "açılıyor"da takılır, Nova başlamaz.
+// force_proxy=1 ile TÜM zincir (master → media → segment) proxy'den geçer ve Referer/UA
+// enjekte edilir. HLS olmayan tekil MP4'lerde de zararı yok (proxy sadece stream'ler).
 function proxiedUrl(src) {
     const p = new URLSearchParams();
     p.append("url", src.url);
@@ -29,7 +35,10 @@ function proxiedUrl(src) {
     }
     // Header yoksa doğrudan kaynağı vermek daha hızlı; header varsa proxy şart.
     const needsProxy = src.referer || src.userAgent || (src.extraHeaders && Object.keys(src.extraHeaders).length);
-    return needsProxy ? `${window.location.origin}/proxy/video?${p.toString()}` : src.url;
+    if (!needsProxy) return src.url;
+    // Harici oynatıcıda segmentler de proxy'den geçmeli (header enjeksiyonu için).
+    p.append("force_proxy", "1");
+    return `${window.location.origin}/proxy/video?${p.toString()}`;
 }
 
 function buildIntent(pkg, url, title) {
