@@ -40,7 +40,7 @@
     </a>
     {% endif %}
     <span class="pagination-current" data-i18n="page_label_with_number" data-i18n-vars='{"page": "{{ sayfa }}"}'>{{ tr('page_label_with_number', page=sayfa) }}</span>
-    {% if items | length >= 20 %}
+    {% if can_paginate and items | length >= 10 %}
     <a href="/kategori/{{ eklenti_adi }}?kategori_url={{ kategori_url }}&kategori_adi={{ kategori_adi }}&sayfa={{ sayfa + 1 }}{{ provider_query_amp }}" class="button button-secondary pagination-btn">
         <span data-i18n="next_page">{{ tr('next_page') }}</span> <i class="fas fa-chevron-right"></i>
     </a>

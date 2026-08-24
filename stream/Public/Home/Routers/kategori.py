@@ -26,6 +26,12 @@ async def kategori(request: Request, eklenti_adi: str, kategori_url: str, katego
         # Admin puan eşiği süzmesi
         items = admin_config.filter_items(items)
 
+        # Sayfalama yeteneği: yalnızca kategori URL'inde "SAYFA" placeholder'ı olan
+        # kaynaklar gerçek sayfalama yapar (DiziYou, RecTV). HDFilmCehennemi gibi
+        # placeholder'sız kaynaklar her sayfada AYNI içeriği döndürür — bu durumda
+        # "sonraki sayfa" butonu gösterilmez (aksi halde tıklayınca içerik tekrar eder).
+        can_paginate = "SAYFA" in unquote(kategori_url or "")
+
         context.update({
             "title"        : context["tr"]("title_category", provider_name=context["provider_name"], provider=eklenti_adi, category=kategori_adi),
             "description"  : context["tr"]("category_desc", provider=eklenti_adi, category=kategori_adi),
@@ -38,7 +44,8 @@ async def kategori(request: Request, eklenti_adi: str, kategori_url: str, katego
             "items"        : items,
             "kategori_url" : kategori_url,
             "kategori_adi" : kategori_adi,
-            "sayfa"        : sayfa
+            "sayfa"        : sayfa,
+            "can_paginate" : can_paginate
         })
 
         return home_template.TemplateResponse(request=request, name="pages/category.html.j2", context=context)

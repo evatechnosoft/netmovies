@@ -138,8 +138,11 @@ class ContentBrowser {
 
             this._setupCarouselArrows(rowEl);
 
-            // Infinite scroll: load next page when scrolled near end
-            if (items.length >= 15) {
+            // Infinite scroll: load next page when scrolled near end.
+            // Yalnızca kategori URL'inde "SAYFA" placeholder'ı olan kaynaklar gerçek
+            // sayfalama yapar; placeholder yoksa engine her sayfada AYNI içeriği
+            // döndürür ve sonsuz kaydırma kartları tekrar tekrar eklerdi.
+            if (items.length >= 10 && catUrl.includes('SAYFA')) {
                 this._setupInfiniteScroll(rowEl, catUrl, catName, 1);
             }
         } catch (err) {
@@ -196,7 +199,7 @@ class ContentBrowser {
                     if (rightArr) rightArr.classList.remove('is-hidden');
                 }
 
-                if (items.length < 15) {
+                if (items.length < 10) {
                     exhausted = true;
                 }
             } catch (err) {
