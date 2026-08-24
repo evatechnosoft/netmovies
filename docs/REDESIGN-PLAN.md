@@ -90,6 +90,27 @@ Sayfa **geç açmamalı**, içerik **birden** yüklenmemeli:
 
 **Doğrulanmamış (Dean'in evinde test şart):** F8 player gerçek oynatma · otonom reload runtime (watchmedo).
 
+## Canlıya alma (w.evaitec.com) — DURUM 2026-08-24
+
+**Kod tarafı hazır:** stream/engine/doh localhost:3310'da çalışıyor (healthy). docker-compose'da
+cloudflared servisi (profile: tunnel) + `.env` `CF_TUNNEL_TOKEN` mevcut (şu an BOŞ).
+
+**⚠️ GÜVENLİK — yapılacak:** Bir denemede paylaşımlı **production** evaitec tunnel'ının
+(id `1d2e8f02`, "evaiteclabs" — ingress'i api/prod/dash/ha/db… ile dolu) connector token'ı
+yanlışlıkla `.env`'e konup başlatıldı; ikinci connector eklendi → **hemen geri alındı**
+(netmovies-tunnel stop+rm), servisler sağlam, `.env` temizlendi. **O token chat'e açık yazıldı →
+Cloudflare'de ROTATE edilmeli** (production tünel token'ı).
+
+**Doğru yol (bekleyen):** netmovies'e **AYRI/boş tunnel** (production'a dokunma):
+1. Cloudflare Zero Trust → Tunnels → **Create a tunnel** (yeni, "netmovies-app", mevcut seçme)
+2. Public Hostname: `w.evaitec.com` → HTTP → `stream:3310`
+3. Connector token → `.env` `CF_TUNNEL_TOKEN` → `docker compose --profile tunnel up -d --no-deps cloudflared`
+4. Test: `curl -I https://w.evaitec.com` (401=canlı+auth)
+
+**Not:** Cloudflare API token'ları (cf-dns-token + verilen cfut_) `Tunnel:Edit` içermiyordu
+(kanıt: create=10000) → yeni tunnel yalnızca dashboard'dan veya Tunnel:Edit'li token'la kurulur.
+KV write yetkisi de yok (opsguardai@outlook.com = Secrets User, Officer değil).
+
 ## Paralel çalışma disiplini
 - Subagent'ler **commit etmez**; dosya yazar, PM (ben) doğrular + commit'ler (kanıt kapısı).
 - İzole dosya setleri paralel; ortak dosyaya (ana sayfa, içerik, veri) dokunan işler sıralı.
