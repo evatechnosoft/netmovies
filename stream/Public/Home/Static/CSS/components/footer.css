@@ -1,0 +1,107 @@
+/* Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. */
+
+.footer {
+  flex-shrink: 0;
+  padding: var(--spacing-xl) 0;
+  border-top: 1px solid var(--border-light);
+  background: var(--background-alt);
+}
+
+.footer .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-lg);
+}
+
+.footer-copy {
+  font-size: var(--font-size-sm);
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.footer-copy p {
+  margin: 0;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.footer-links a {
+  color: var(--text-muted);
+  transition: color var(--transition-speed) var(--transition-timing);
+}
+
+.footer-links a:hover {
+  color: var(--primary-color);
+}
+
+.social-links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--text-dim);
+  background: var(--surface-glass);
+  border: 1px solid var(--border-light);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.social-link:hover {
+  color: var(--primary-color);
+  background: var(--primary-soft);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .footer .container {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-md);
+  }
+
+  .footer-copy {
+    align-items: center;
+  }
+
+  .footer-links {
+    justify-content: center;
+  }
+
+  .social-links {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .footer {
+    padding: var(--spacing-md) 0;
+  }
+
+  .footer-links {
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+  }
+
+  .social-link {
+    width: 30px;
+    height: 30px;
+    font-size: var(--font-size-xs);
+  }
+}

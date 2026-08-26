@@ -1,0 +1,118 @@
+# NetMovies — Admin Panel (route + API)
+# Merkezi yapılandırma: kaynak/kategori gizleme, öne çıkanlar, puan eşiği ve
+# canlı kaynak sağlık durumu. Ayarlar sunucuda saklanır (admin_config).
+
+from Core         import Request, HTMLResponse, JSONResponse
+from .            import home_router, home_template, build_context, fuck_dmca, get_client_headers, get_provider_client
+from ..Libs       import admin_config
+from urllib.parse import unquote_plus
+
+
+# --------------------------------------------------------------------------- Sayfa
+@home_router.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    context = await build_context(request)
+    context.update({
+        "title"       : "Yönetim - NetMovies",
+        "description" : "Kaynak, kategori ve içerik yönetimi",
+        "admin_config": admin_config.load_config(),
+    })
+    return home_template.TemplateResponse(request=request, name="pages/admin.html.j2", context=context)
+
+
+# --------------------------------------------------------------------------- Config
+@home_router.get("/api/admin/config")
+async def admin_get_config():
+    return JSONResponse(admin_config.load_config())
+
+
+@home_router.post("/api/admin/config")
+async def admin_set_config(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
+    saved = admin_config.save_config(body)
+    return JSONResponse({"ok": True, "config": saved})
+
+
+@home_router.post("/api/admin/featured")
+async def admin_toggle_featured(request: Request):
+    """Bir içeriği öne çıkanlara ekler/çıkarır (içerik sayfasındaki 'Öne çıkar' butonu)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
+
+    url = (body or {}).get("url")
+    if not url:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "url gerekli"})
+
+    cfg      = admin_config.load_config()
+    featured = cfg.get("featured", [])
+    existing = next((f for f in featured if f.get("url") == url), None)
+    if existing:
+        featured = [f for f in featured if f.get("url") != url]
+        state = "removed"
+    else:
+        featured.append({
+            "provider": body.get("provider", ""),
+            "url":      url,
+            "title":    body.get("title", url),
+            "poster":   body.get("poster", ""),
+            "rating":   body.get("rating", ""),
+        })
+        state = "added"
+    cfg["featured"] = featured
+    admin_config.save_config(cfg)
+    return JSONResponse({"ok": True, "state": state, "count": len(featured)})
+
+
+# --------------------------------------------------------------------------- Katalog (ham)
+@home_router.get("/api/admin/catalog")
+async def admin_catalog(request: Request):
+    """Tüm kaynak ve kategorileri (gizlenmemiş ham hali) döndürür — admin işaretleme için."""
+    context      = await build_context(request)
+    provider_url = context.get("provider_url")
+    try:
+        if provider_url:
+            client  = await get_provider_client(provider_url)
+            plugins = await client.get_plugins()
+        else:
+            plugins = await fuck_dmca("/get_all_plugins", request.state.veri, client_headers=get_client_headers(request))
+    except Exception as hata:
+        return JSONResponse(status_code=502, content={"ok": False, "error": str(hata)})
+
+    catalog = []
+    for p in plugins or []:
+        cats = [unquote_plus(str(c)) for c in (p.get("main_page") or {}).values()]
+        catalog.append({"name": p.get("name"), "main_url": p.get("main_url", ""), "categories": sorted(set(cats))})
+    return JSONResponse({"ok": True, "plugins": catalog})
+
+
+# --------------------------------------------------------------------------- Sağlık
+@home_router.get("/api/admin/health")
+async def admin_health(request: Request):
+    """Yerel motor eklenti sağlığı + (varsa) uzak sağlayıcı erişilebilirliği."""
+    context      = await build_context(request)
+    provider_url = context.get("provider_url")
+
+    if provider_url:
+        # Uzak sağlayıcı: tekil erişilebilirlik kontrolü
+        try:
+            client = await get_provider_client(provider_url)
+            await client.get_provider_name()
+            return JSONResponse({"ok": True, "mode": "remote", "provider": provider_url,
+                                 "result": {"total": 1, "healthy": 1, "unhealthy": 0,
+                                            "plugins": [{"plugin": "Uzak Sağlayıcı", "main_url": provider_url, "ok": True, "status": "reachable"}]}})
+        except Exception as hata:
+            return JSONResponse({"ok": True, "mode": "remote", "provider": provider_url,
+                                 "result": {"total": 1, "healthy": 0, "unhealthy": 1,
+                                            "plugins": [{"plugin": "Uzak Sağlayıcı", "main_url": provider_url, "ok": False, "status": "unreachable", "note": str(hata)}]}})
+
+    # Yerel motor: engine'in plugin_health endpoint'ini forward et
+    try:
+        result = await fuck_dmca("/plugin_health", client_headers=get_client_headers(request))
+        return JSONResponse({"ok": True, "mode": "local", "result": result})
+    except Exception as hata:
+        return JSONResponse(status_code=502, content={"ok": False, "error": str(hata)})

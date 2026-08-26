@@ -1,0 +1,264 @@
+{#- Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. -#}
+{% extends "_html_taban.html.j2" %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block icerik %}
+
+<div id="home-settings-drawer" class="home-settings-drawer is-hidden">
+{# Provider Settings Panel (Collapsible) #}
+<section id="provider-settings-panel" class="settings-panel is-hidden">
+    <div class="settings-panel-shell">
+        <div class="settings-panel-head">
+            <div class="settings-panel-copy">
+                <span class="settings-panel-kicker" data-i18n="provider_kicker">{{ tr('provider_kicker') }}</span>
+                <h2 class="settings-panel-title" data-i18n="provider_settings">{{ tr('provider_settings') }}</h2>
+                <p class="settings-panel-subtitle" data-i18n="provider_help_text">{{ tr('provider_help_text') }}</p>
+            </div>
+
+            {% if is_remote %}
+            <div class="status-badge status-badge-success provider-status-card">
+                <i class="fas fa-link"></i>
+                <div class="status-badge-copy">
+                    <strong>{{ provider_name }}</strong>
+                    <small class="status-url">{{ provider_url }}</small>
+                </div>
+            </div>
+            {% else %}
+            <div class="status-badge status-badge-info provider-status-card">
+                <i class="fas fa-home"></i>
+                <div class="status-badge-copy">
+                    <strong data-i18n="local_provider">{{ tr('local_provider') }}</strong>
+                    <small class="status-url" data-i18n="local_provider_meta">{{ tr('local_provider_meta') }}</small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="settings-panel-body">
+            <div class="provider-input-group">
+                <div class="provider-input-wrapper">
+                    <i class="fas fa-server"></i>
+                    <input type="url" id="provider-url-input" class="search-input"
+                        placeholder="{{ tr('provider_url_placeholder') }}"
+                        data-i18n="provider_url_placeholder" data-i18n-attr="placeholder"
+                        value="{{ provider_url or '' }}">
+                </div>
+                <button type="button" id="set-provider-button" class="button button-primary">
+                    <i class="fas fa-check"></i> <span data-i18n="apply">{{ tr('apply') }}</span>
+                </button>
+                {% if is_remote %}
+                <button type="button" id="reset-provider-button" class="button button-secondary">
+                    <i class="fas fa-undo"></i> <span data-i18n="reset">{{ tr('reset') }}</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="provider-support-row">
+                <div class="provider-help-card">
+                    <i class="fab fa-github"></i>
+                    <div class="provider-help-copy">
+                        <strong data-i18n="example_provider_info">{{ tr('example_provider_info') }}</strong>
+                        <a href="https://github.com/WatchBuddy-tv/ExampleProvider" target="_blank" rel="noopener noreferrer" class="provider-help-link">
+                            <span data-i18n="learn_more">{{ tr('learn_more') }}</span>
+                            <i class="fas fa-external-link-alt provider-help-link-icon"></i>
+                        </a>
+                    </div>
+                </div>
+                {% if not is_remote %}
+                <button type="button" id="try-example-button" class="button button-secondary button-small">
+                    <i class="fas fa-magic"></i> <span data-i18n="try_example">{{ tr('try_example') }}</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{# Plugin Management Panel (Collapsible) #}
+<section id="plugin-settings-panel" class="settings-panel is-hidden">
+    <div class="settings-panel-shell">
+        <div class="settings-panel-head">
+            <div class="settings-panel-copy">
+                <span class="settings-panel-kicker" data-i18n="plugin_management">{{ tr('plugin_management') }}</span>
+                <h2 class="settings-panel-title" data-i18n="all_plugins">{{ tr('all_plugins') }}</h2>
+                <p class="settings-panel-subtitle" data-i18n="plugin_management_subtitle">{{ tr('plugin_management_subtitle') }}</p>
+            </div>
+        </div>
+        <div id="plugin-preferences-list" class="plugin-preferences-list"></div>
+    </div>
+</section>
+ </div>
+
+{# Search Results (hidden, filled by search.js) #}
+<section id="search-results" class="search-results is-hidden">
+    <div class="search-results-head">
+        <h2><i class="fas fa-search"></i> <span data-i18n="search_results_title">{{ tr('search_results_title') }}</span>: <span id="search-query-display"></span></h2>
+        <button id="clear-search" class="button button-secondary button-small">
+            <i class="fas fa-times"></i> <span data-i18n="search_clear">{{ tr('search_clear') }}</span>
+        </button>
+    </div>
+    <div id="plugin-filters" class="plugin-filters is-hidden">
+        <div class="filters-header">
+            <h3><i class="fas fa-filter"></i> <span data-i18n="plugins_filter_title">{{ tr('plugins_filter_title') }}</span></h3>
+            <button id="clear-filters" class="button button-small button-secondary">
+                <i class="fas fa-times"></i> <span data-i18n="filters_clear">{{ tr('filters_clear') }}</span>
+            </button>
+        </div>
+        <div id="filters-container" class="filters-container"></div>
+    </div>
+    <div id="search-status" class="search-status"></div>
+    <div id="results-grid" class="grid"></div>
+</section>
+
+{# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
+{% macro yeni_rafi(baslik, ikon, items, media_type) %}
+{% if items %}
+<section class="carousel-row yeni-rafi">
+    <div class="carousel-header">
+        <h2 class="carousel-title"><i class="fas {{ ikon }}"></i> {{ baslik }} <span class="section-count">{{ items | length }}</span></h2>
+    </div>
+    <div class="carousel-wrapper">
+        <div class="carousel-track">
+            {% for item in items %}
+            <a href="/icerik/{{ item.plugin }}?url={{ item.url }}{{ provider_query_amp }}"
+               class="poster-card tv-focusable"
+               aria-label="{{ item.title }}"
+               data-tv-item="true"
+               data-media-type="{{ media_type }}"
+               data-plugin="{{ item.plugin }}"
+               data-content-url="{{ item.url }}"
+               data-content-title="{{ item.title }}"
+               data-poster="{{ item.poster or '' }}">
+                <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
+                    {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+                </div>
+                <div class="poster-card-overlay"><span class="poster-card-title">{{ item.title }}</span></div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler, 'movie') }}
+{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler, 'serie') }}
+
+{# Resmi yayıncı sayfaları: doğrudan yayın manifesti/proxy yerine kaynak sahibine yönlendirir. #}
+{% if official_sources %}
+<section id="official-sources" class="official-sources">
+    <div class="section-heading">
+        <h2 class="section-title"><i class="fas fa-broadcast-tower"></i> Resmi Kaynaklar</h2>
+        <p class="section-subtitle">Canlı TV, dizi ve film yayıncılarının resmi sayfaları</p>
+    </div>
+    <div class="grid grid-plugins official-source-grid">
+        {% for source in official_sources %}
+        <a class="card plugin-card official-source-card"
+           href="/resmi-kaynak?url={{ source.url | urlencode }}"
+           aria-label="{{ source.title }} — {{ source.broadcaster }}">
+            <div class="card-icon official-source-icon"><i class="fas {{ source.icon }}"></i></div>
+            <div class="card-body">
+                <h3 class="card-title">{{ source.title }}</h3>
+                <span class="badge badge-lang">{{ source.category }}</span>
+            </div>
+            <p class="card-desc">{{ source.description }}</p>
+            <span class="official-source-link">{{ source.broadcaster }} <i class="fas fa-external-link-alt"></i></span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{# Plugin List #}
+{% if featured %}
+<section id="featured-list">
+    <div class="section-heading">
+        <h2 class="section-title"><i class="fas fa-thumbtack"></i> Öne Çıkanlar <span class="section-count">{{ featured | length }}</span></h2>
+    </div>
+    <div class="grid grid-plugins">
+        {% for f in featured %}
+        <a href="/icerik/{{ f.provider }}?url={{ f.url | urlencode }}{{ provider_query_amp }}" class="card plugin-card">
+            <div class="card-icon">
+                {% if f.poster %}<img src="{{ f.poster }}" alt="{{ f.title }}" loading="lazy">{% else %}<i class="fas fa-star"></i>{% endif %}
+            </div>
+            <div class="card-body">
+                <h3 class="card-title">{{ f.title }}</h3>
+                {% if f.rating %}<span class="badge">★ {{ f.rating }}</span>{% endif %}
+            </div>
+            {% if f.provider %}<p class="card-desc">{{ f.provider }}</p>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section id="plugins-list">
+    <div class="section-heading">
+        <h2 class="section-title"><i class="fas fa-plug"></i> <span data-i18n="all_plugins">{{ tr('all_plugins') }}</span> <span class="section-count">{{ plugins | length }}</span></h2>
+    </div>
+    <div class="grid grid-plugins">
+        {% for plugin in plugins %}
+        <a href="/eklenti/{{ plugin.name }}{{ provider_query }}" class="card plugin-card" data-plugin-name="{{ plugin.name }}" style="--card-index:{{ loop.index0 }}">
+            <div class="card-icon">
+                {% if plugin.favicon %}
+                <img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='');var i=document.createElement('i');i.className='fas fa-film';this.parentElement.appendChild(i);this.remove()">
+                {% else %}
+                <i class="fas fa-film"></i>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <h3 class="card-title">{{ plugin.name }}</h3>
+                <span class="badge badge-lang badge-lang-{{ plugin.language | lower }}">{{ plugin.language | upper }}</span>
+            </div>
+            <p class="card-desc">{{ plugin.description }}</p>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+
+{% endblock %}
+
+{% block js %}
+<script id="plugins-data" type="application/json">{{ plugins | tojson }}</script>
+<script type="module" src="{{ url_for('static_home', path='JS/global-search.min.js') }}" defer></script>
+<script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.js') }}" defer></script>
+<script type="module" src="{{ url_for('static_home', path='JS/tv-home-actions.js') }}" defer></script>
+<style>
+  .carousel-track .poster-card { width: 130px; }
+  .carousel-track .poster-card:hover { transform: translateY(-3px); }
+  .carousel-track .poster-card.tv-focusable { position: relative; }
+  .carousel-track .poster-card.tv-focusable:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 4px; }
+  .home-settings-drawer { width: min(100%, 900px); margin: 0 auto; }
+  .official-sources { margin-top: 2rem; }
+  .official-source-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .official-source-card { position: relative; }
+  .official-source-icon { color: var(--primary-light); }
+  .official-source-link { display: block; margin-top: .65rem; color: var(--primary-light); font-size: .78rem; font-weight: 700; }
+  .official-source-link i { margin-left: .25rem; font-size: .7rem; }
+  .tv-episode-picker { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; }
+  .tv-episode-backdrop { position: absolute; inset: 0; background: rgba(8, 6, 20, .82); backdrop-filter: blur(5px); }
+  .tv-episode-panel { position: relative; width: min(640px, calc(100vw - 48px)); max-height: 78vh; overflow: auto; padding: 28px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius-xl); background: var(--glass-panel); box-shadow: var(--shadow-strong); }
+  .tv-episode-panel h2 { margin: 4px 0 20px; color: var(--text-color); }
+  .tv-episode-kicker { color: var(--primary-light); font-size: var(--font-size-xs); font-weight: 800; letter-spacing: .14em; }
+  .tv-episode-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--text-muted); font-size: 28px; cursor: pointer; }
+  .tv-episode-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .tv-episode-item { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius); color: var(--text-color); text-decoration: none; background: rgba(255,255,255,.03); }
+  .tv-episode-item:hover, .tv-episode-item:focus-visible { border-color: var(--primary-color); background: rgba(139,92,246,.13); outline: none; }
+  .tv-episode-number { color: var(--primary-light); font-weight: 800; min-width: 28px; }
+  .tv-joystick { position: absolute; left: 50%; top: 50%; z-index: 8; width: 92px; height: 92px; transform: translate(-50%, -50%); pointer-events: auto; }
+  .tv-joystick-plus, .tv-joystick-action { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: var(--text-color); background: rgba(20,16,35,.94); box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: pointer; }
+  .tv-joystick-plus { left: 32px; top: 32px; z-index: 2; font-size: 20px; line-height: 1; color: #fff; background: linear-gradient(135deg, var(--primary-color), #a855f7); }
+  .tv-joystick-actions { position: absolute; inset: 0; }
+  .tv-joystick-action i { color: var(--primary-light); font-size: 11px; }
+  .tv-joystick-action:hover, .tv-joystick-action:focus-visible, .tv-joystick-action.is-selected { border-color: var(--primary-light); background: rgba(139,92,246,.9); outline: none; }
+  .tv-joystick-action.is-selected i { color: #fff; }
+  .tv-joystick-up { left: 32px; top: 0; }
+  .tv-joystick-left { left: 0; top: 32px; }
+  .tv-joystick-right { right: 0; top: 32px; }
+  .tv-joystick-down { left: 32px; bottom: 0; }
+  .tv-joystick-lists { position: absolute; top: 96px; left: 50%; display: none; gap: 3px; transform: translateX(-50%); }
+  .tv-joystick.is-lists-open .tv-joystick-lists { display: flex; }
+  .tv-joystick-list-button { position: static; width: 24px; height: 24px; font-size: 9px; }
+  .tv-joystick-list-button i { color: var(--primary-light); }
+  .tv-joystick-status { position: absolute; top: 124px; left: 50%; width: max-content; max-width: 160px; transform: translateX(-50%); color: var(--primary-light); font-size: 10px; text-align: center; pointer-events: none; }
+</style>
+{% endblock %}

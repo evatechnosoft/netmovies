@@ -1,0 +1,100 @@
+# NetMovies — tek komutla ayağa kaldırma: docker compose up -d --build
+# stream  : Web arayüzü + video proxy + API gateway (dışa açık :3310)
+# engine  : KekikStream motoru + kendi eklentilerimiz + M3U listeleri (iç ağ)
+# doh     : DNS-over-HTTPS resolver — ISP'nin DNS engelini aşar (engelli kaynak siteler)
+
+networks:
+  internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
+
+services:
+  # DNS-over-HTTPS: tüm konteynerlerin alan adı çözümlemesini HTTPS üzerinden
+  # (Cloudflare/Google) yapar; ISP'nin DNS ile engellediği siteler çözülür.
+  doh:
+    # proxy-dns 2026.2.0'da kaldırıldı; son destekleyen sürüme pinlendi.
+    image          : cloudflare/cloudflared:2026.1.2
+    container_name : netmovies-doh
+    restart        : unless-stopped
+    command: >
+      proxy-dns
+      --address 0.0.0.0 --port 53
+      --upstream https://1.1.1.1/dns-query
+      --upstream https://1.0.0.1/dns-query
+      --upstream https://8.8.8.8/dns-query
+    networks:
+      internal:
+        ipv4_address: 172.31.0.53
+
+  engine:
+    build          : ./engine
+    container_name : netmovies-engine
+    restart        : unless-stopped
+    depends_on:
+      - doh
+    dns:
+      - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
+    expose:
+      - "3310"
+    environment:
+      # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
+      M3U_SOURCES: ${M3U_SOURCES:-}
+      # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
+      # Aşağıdakiler yalnızca elle SABİTLEMEK istersen; boşsa otomatik çalışır.
+      RECTV_URL: ${RECTV_URL:-}
+      HDFC_URL: ${HDFC_URL:-}
+      DIZIYOU_URL: ${DIZIYOU_URL:-}
+    volumes:
+      - ./lists:/data/lists:ro
+    networks:
+      - internal
+
+  stream:
+    build          : ./stream
+    container_name : netmovies-stream
+    restart        : unless-stopped
+    depends_on:
+      - engine
+      - doh
+    dns:
+      - 172.31.0.53          # DoH resolver
+    ports:
+      - "3310:3310"
+    environment:
+      PROVIDER_NAME        : NetMovies
+      PROVIDER_DESCRIPTION : Kişisel, reklamsız izleme arayüzü.
+      DEFAULT_PROVIDER_URL : http://engine:3310
+      ADMIN_CONFIG_PATH    : /data/admin.json
+      # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
+      SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
+      SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
+      WEB_WORKERS          : ${WEB_WORKERS:-1}
+      # Public erişim için kullanıcı/şifre (boşsa auth kapalı).
+      AUTH_USER            : ${AUTH_USER:-}
+      AUTH_PASS            : ${AUTH_PASS:-}
+      PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
+    volumes:
+      - ./data:/data
+    networks:
+      - internal
+
+  # Hibrit: içerik evde kalır, w.evaitec.com Cloudflare Tunnel ile eve bağlanır.
+  # Etkinleştirmek için: CF_TUNNEL_TOKEN ver ve `docker compose --profile tunnel up -d`
+  cloudflared:
+    image          : cloudflare/cloudflared:latest
+    container_name : netmovies-tunnel
+    restart        : unless-stopped
+    # UDP/QUIC bu makinede erişilebilir değil; TCP/HTTP2 ile tünel bağlantısı.
+    command        : tunnel --no-autoupdate --protocol http2 run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      - stream
+    # cloudflared, stream'in ağ namespace'ini paylaşır → Cloudflare ingress'teki
+    # origin `http://localhost:3310` doğrudan stream'e denk gelir (ayrı container'da
+    # localhost boş kalıyordu → 502). Böylece dashboard config'e dokunmaya gerek yok.
+    network_mode: "service:stream"
+    profiles:
+      - tunnel

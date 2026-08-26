@@ -34,3 +34,29 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python (stream/ ve engine/)
+__pycache__/
+*.py[cod]
+.venv/
+stream/.env
+engine/.env
+
+# basla.py'nin ürettiği minify çıktıları
+stream/Public/Home/Static/**/*.min.js
+stream/Public/Home/Static/**/*.min.css
+engine/Public/Home/Static/**/*.min.js
+engine/Public/Home/Static/**/*.min.css
+
+# admin runtime config (volume)
+data/
+stream/admin.json
+engine/admin.json
+
+# SQLite veri (runtime, /data volume) — izleme geçmişi/favoriler
+*.db
+*.db-journal
+*.db-wal
+
+# yerel gizli env (sifreler)
+/.env
