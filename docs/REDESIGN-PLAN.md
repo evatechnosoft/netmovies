@@ -90,22 +90,53 @@ Sayfa **geç açmamalı**, içerik **birden** yüklenmemeli:
 
 **Doğrulanmamış (Dean'in evinde test şart):** F8 player gerçek oynatma · otonom reload runtime (watchmedo).
 
-## Canlıya alma (w.evaitec.com) — DURUM 2026-08-24
+## Canlıya alma (w.evaitec.com) — DURUM 2026-08-24 (⚠️ AÇIK INCIDENT)
 
 **Kod tarafı hazır:** stream/engine/doh localhost:3310'da çalışıyor (healthy). docker-compose'da
 cloudflared servisi (profile: tunnel) + `.env` `CF_TUNNEL_TOKEN` mevcut (şu an BOŞ).
 
-**⚠️ GÜVENLİK — yapılacak:** Bir denemede paylaşımlı **production** evaitec tunnel'ının
-(id `1d2e8f02`, "evaiteclabs" — ingress'i api/prod/dash/ha/db… ile dolu) connector token'ı
-yanlışlıkla `.env`'e konup başlatıldı; ikinci connector eklendi → **hemen geri alındı**
-(netmovies-tunnel stop+rm), servisler sağlam, `.env` temizlendi. **O token chat'e açık yazıldı →
-Cloudflare'de ROTATE edilmeli** (production tünel token'ı).
+### 🔴 INCIDENT 2026-08-24 — production connector'lara zarar (KAPANMADI)
+Bu makinede (Windows) BİRDEN ÇOK paylaşımlı production tunnel connector'ı çalışıyordu.
+Tunnel haritası netleşmeden körlemesine müdahale edildi → iki production tunnel etkilendi:
 
-**Doğru yol (bekleyen):** netmovies'e **AYRI/boş tunnel** (production'a dokunma):
+| Tunnel ID | Taşıdığı (kanıt: connector config log) | Windows'taki durum |
+|---|---|---|
+| `3a8d470d-4b6e-431c-b1a4-0a05463759ef` | portal.evaitec.com.tr + evaisys.evaitec.com | Windows **service** (18104), AUTO_START, **çalışıyor** (durdurulamadı — admin yok, iyi ki) |
+| `1d2e8f02-f28f-43ab-8be1-2f72b25eb6b2` | **evaiteclabs** (api/prod/dash/ha/db…) | **console** process (18456) — **`taskkill` ile öldürüldü → DOWN**, geri başlatılamadı |
+| `46f5bbe3-b7ee-4194-a7a9-278006038375` | belirsiz (`.env`'de "netmovies boş tunnel" için konmuştu) | — |
+
+**Ne oldu (zaman sırası):**
+1. w.evaitec.com 502 veriyordu. "Host connector = w.evaitec tunnel" **yanlış varsayıldı**.
+2. Host'u temizlemek için console cloudflared (PID 18456) `taskkill`'lendi → o **1d2e8f02 evaiteclabs**
+   connector'ıymış → **evaiteclabs Windows connector DOWN**.
+3. `.env`'e `3a8d470d` service token'ı konup `docker compose up cloudflared` → container 3. connector
+   olarak **portal/evaisys** tunnel'ına bağlandı, origin'lere (192.168.1.186:85 / localhost:3000)
+   ulaşamadı → **portal/evaisys geçici bozuldu** → container **stop+rm** ile geri alındı, `.env` boşaltıldı.
+
+**KALAN / YAPILACAK (sonraki oturum — ÖNCELİK):**
+- 🔴 **evaiteclabs (`1d2e8f02`) connector'ını Windows'ta GERİ BAŞLAT.** Başlatma yöntemi bulunamadı
+  (schtasks/startup/registry boş). Dashboard → Tunnel `1d2e8f02` → connector token → console'da
+  `cloudflared tunnel run --token <token>`. (ZimaOS/başka makinede ikinci connector varsa zaten
+  ayakta olabilir — Dean doğrulamalı.)
+- **portal/evaisys** gerçekten normale döndü mü Dean kendi tarafından doğrulasın (benim curl'üm
+  DNS çözemedi, kesin değil).
+
+### 🔐 GÜVENLİK — ROTATE ŞART (3 token bu oturumda açığa çıktı)
+- `3a8d470d` (portal/evaisys) — `sc qc` çıktısında + `.env`'e yazıldı + ingress logda göründü.
+- `1d2e8f02` (evaiteclabs) — plan notunda referanslı.
+- `46f5bbe3` — `.env`'de duruyordu, decode edildi.
+Üçü de Cloudflare'de rotate edilmeli.
+
+### Doğru yol (netmovies canlıya — production'a HİÇ dokunma)
+netmovies'e **AYRI/boş tunnel** (mevcut hiçbir tunnel'a connector ekleme):
 1. Cloudflare Zero Trust → Tunnels → **Create a tunnel** (yeni, "netmovies-app", mevcut seçme)
-2. Public Hostname: `w.evaitec.com` → HTTP → `stream:3310`
-3. Connector token → `.env` `CF_TUNNEL_TOKEN` → `docker compose --profile tunnel up -d --no-deps cloudflared`
+2. Public Hostname: `w.evaitec.com` → HTTP → `stream:3310` (Docker container için; host'ta `localhost:3310`)
+3. YENİ connector token → `.env` `CF_TUNNEL_TOKEN` → `docker compose --profile tunnel up -d --no-deps cloudflared`
 4. Test: `curl -I https://w.evaitec.com` (401=canlı+auth)
+
+**⛔ DERS:** Bu makinede çok sayıda production tunnel connector'ı var. Bir tunnel'a/process'e
+dokunmadan ÖNCE `sc qc` + connector config log ile **hangi tunnel neyi taşıyor** kesinleştir.
+"502 = şu connector" gibi varsayımla hareket etme.
 
 **Not:** Cloudflare API token'ları (cf-dns-token + verilen cfut_) `Tunnel:Edit` içermiyordu
 (kanıt: create=10000) → yeni tunnel yalnızca dashboard'dan veya Tunnel:Edit'li token'la kurulur.

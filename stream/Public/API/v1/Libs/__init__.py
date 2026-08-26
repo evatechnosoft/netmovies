@@ -45,7 +45,7 @@ _CACHE_TTL = {
 _CACHE_MAX_ENTRIES = 512
 
 _cache    : dict[str, tuple[float, Any]] = {}
-_inflight : dict[str, asyncio.Task]      = {}
+_inflight : dict[str, asyncio.Task[Any]] = {}
 
 
 class ProviderRequestError(Exception):
@@ -95,27 +95,28 @@ async def fuck_dmca(
     client_headers: dict[str, str] | None = None,
 ):
     ttl = _CACHE_TTL.get(endpoint)
-    if not ttl:
-        return await _fetch(endpoint, params, timeout, client_headers)
+    key = _cache_key(endpoint, params)
+    if ttl:
+        entry = _cache.get(key)
+        if entry and entry[0] > time.monotonic():
+            return entry[1]
 
-    key   = _cache_key(endpoint, params)
-    entry = _cache.get(key)
-    if entry and entry[0] > time.monotonic():
-        return entry[1]
-
-    if key in _inflight:
-        return await _inflight[key]
+    # Aynı film 3-4 tarayıcıda aynı anda açılırsa upstream'e 3-4 extractor
+    # isteği gönderme; ilk istek tamamlanana kadar diğerleri aynı Task'ı bekler.
+    inflight_key = f"{endpoint}|{key}"
+    if inflight_key in _inflight:
+        return await _inflight[inflight_key]
 
     async def _do_fetch():
         result = await _fetch(endpoint, params, timeout, client_headers)
-        if result:
+        if ttl and result:
             _cache[key] = (time.monotonic() + ttl, result)
             _prune(_cache, _CACHE_MAX_ENTRIES)
         return result
 
     task = asyncio.create_task(_do_fetch())
-    _inflight[key] = task
+    _inflight[inflight_key] = task
     try:
         return await task
     finally:
-        _inflight.pop(key, None)
+        _inflight.pop(inflight_key, None)

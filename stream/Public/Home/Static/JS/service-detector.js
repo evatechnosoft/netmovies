@@ -74,6 +74,8 @@ export const buildProxyUrl = (url, userAgent = '', referer = '', endpoint = 'vid
     if (endpoint === 'video' && extraHeaders && Object.keys(extraHeaders).length > 0) {
         params.append('extra_headers', JSON.stringify(extraHeaders));
     }
+    const proxyToken = document.getElementById('video-links-data')?.dataset.proxyToken || '';
+    if (proxyToken) params.append('proxy_token', proxyToken);
 
     // Subtitle için her zaman aynı origin (Python proxy) kullan
     // Video <track> elementleri cross-origin kısıtlamalarına tabidir

@@ -21,7 +21,8 @@ def parse_extra_headers(raw: str | None) -> dict[str, str] | None:
 # Global shared AsyncClient for video and subtitle proxying
 shared_client = httpx.AsyncClient(
     follow_redirects = True,
-    timeout          = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+    timeout          = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=10.0),
+    limits           = httpx.Limits(max_connections=100, max_keepalive_connections=40, keepalive_expiry=30.0),
     verify           = False,
     proxy            = _proxy_url,
 )
@@ -150,7 +151,7 @@ def is_hls_segment(url: str) -> bool:
     segment_indicators = (".ts", ".m4s", ".aac", "seg-", "chunk-", "fragment", ".png", ".jpg", ".jpeg")
     return any(indicator in url_lower for indicator in segment_indicators)
 
-def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, user_agent: str = None, force_proxy: bool = False, extra_headers: dict[str, str] | None = None) -> bytes:
+def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, user_agent: str = None, force_proxy: bool = False, extra_headers: dict[str, str] | None = None, proxy_token: str | None = None) -> bytes:
     """
     HLS manifest içindeki göreceli URL'leri işler.
 
@@ -170,6 +171,7 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
     lines           = text.split('\n')
     new_lines       = []
     extra_headers_q = f'&extra_headers={quote(json.dumps(extra_headers), safe="")}' if extra_headers else ''
+    proxy_token_q   = f'&proxy_token={quote(proxy_token, safe="")}' if proxy_token else ''
 
     for line in lines:
         stripped = line.strip()
@@ -191,6 +193,7 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
                     if force_proxy:
                         proxy_url += '&force_proxy=1'
                     proxy_url += extra_headers_q
+                    proxy_url += proxy_token_q
                     return f'URI="{proxy_url}"'
 
                 # Segment ise doğrudan CDN
@@ -216,6 +219,7 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
                 if force_proxy:
                     proxy_url += '&force_proxy=1'
                 proxy_url += extra_headers_q
+                proxy_url += proxy_token_q
                 new_lines.append(proxy_url)
 
         else:

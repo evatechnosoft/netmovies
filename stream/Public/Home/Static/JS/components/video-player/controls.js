@@ -25,6 +25,29 @@ export const controlsMixin = {
         }
     },
 
+    async cyclePictureInPictureSize() {
+        const button = document.getElementById('custom-pip');
+        const video = this.videoPlayer;
+        if (!button || !video) return;
+
+        if (!document.pictureInPictureEnabled || typeof video.requestPictureInPicture !== 'function') {
+            button.title = 'Bu tarayıcı PiP desteklemiyor';
+            return;
+        }
+
+        try {
+            if (document.pictureInPictureElement === video) {
+                await document.exitPictureInPicture();
+                button.title = 'Picture-in-Picture aç';
+                return;
+            }
+            await video.requestPictureInPicture();
+            button.title = 'Picture-in-Picture kapat';
+        } catch (error) {
+            button.title = 'Picture-in-Picture açılamadı';
+        }
+    },
+
     applyLiveModeUI() {
         const isLive = this.isLiveStream === true;
         document.body.classList.toggle('is-live-stream', isLive);
@@ -182,9 +205,13 @@ export const controlsMixin = {
         const currentTimeEl = document.getElementById('current-time');
         const durationTimeEl = document.getElementById('duration-time');
         const fullscreenBtn = document.getElementById('custom-fullscreen');
+        const pipBtn = document.getElementById('custom-pip');
         const backwardBtn = document.getElementById('custom-backward');
         const forwardBtn = document.getElementById('custom-forward');
         const ccBtn = document.getElementById('custom-cc');
+        const settingsBtn = document.getElementById('player-settings-button');
+        const settingsPanel = document.getElementById('player-settings-panel');
+        const speedValue = document.getElementById('player-speed-value');
         const actionAnimation = document.getElementById('action-animation');
 
         const htmlEl = document.documentElement;
@@ -471,9 +498,88 @@ export const controlsMixin = {
             triggerAnimation('fa-redo');
         });
 
+        // TV kumandasında ok düğmesine basılı tutunca arka arkaya sar.
+        const bindSeekHold = (button, direction) => {
+            if (!button) return;
+            let repeatTimer = 0;
+            let repeatInterval = 0;
+            const stop = () => {
+                window.clearTimeout(repeatTimer);
+                window.clearInterval(repeatInterval);
+                repeatTimer = 0;
+                repeatInterval = 0;
+            };
+            const seek = () => {
+                if (this.isLiveStream || !Number.isFinite(this.videoPlayer.duration)) return;
+                this.userGestureUntil = Date.now() + 1200;
+                const delta = direction * SEEK_STEP;
+                this.videoPlayer.currentTime = Math.max(0, Math.min(this.videoPlayer.duration, this.videoPlayer.currentTime + delta));
+                triggerAnimation(direction < 0 ? 'fa-undo' : 'fa-redo');
+            };
+            button.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+                button.setPointerCapture?.(event.pointerId);
+                stop();
+                repeatTimer = window.setTimeout(() => {
+                    repeatInterval = window.setInterval(seek, 180);
+                }, 350);
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach((name) => button.addEventListener(name, stop));
+        };
+        bindSeekHold(backwardBtn, -1);
+        bindSeekHold(forwardBtn, 1);
+
+        // Tek çark: dil, altyazı, görünüm, hız ve kalite.
+        const speedSteps = [0.75, 1, 1.25, 1.5, 2];
+        let playbackRate = Number(localStorage.getItem('netmovies_playback_rate') || '1');
+        if (!speedSteps.includes(playbackRate)) playbackRate = 1;
+        this.videoPlayer.playbackRate = playbackRate;
+        if (speedValue) speedValue.textContent = `${playbackRate}x`;
+
+        const closeSettings = () => {
+            settingsPanel?.classList.add('is-hidden');
+            settingsBtn?.setAttribute('aria-expanded', 'false');
+        };
+        settingsBtn?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const open = settingsPanel?.classList.toggle('is-hidden') === false;
+            settingsBtn.setAttribute('aria-expanded', String(open));
+        });
+        settingsPanel?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const button = event.target.closest('[data-player-setting]');
+            if (!button) return;
+            const setting = button.dataset.playerSetting;
+            if (setting === 'audio') document.getElementById('custom-audio')?.click();
+            if (setting === 'subtitle') ccBtn?.click();
+            if (setting === 'subtitle-size') this.showSubtitleSettings?.();
+            if (setting === 'quality') document.getElementById('custom-quality')?.click();
+            if (setting === 'speed') {
+                const currentIndex = speedSteps.indexOf(playbackRate);
+                playbackRate = speedSteps[(currentIndex + 1) % speedSteps.length];
+                this.videoPlayer.playbackRate = playbackRate;
+                localStorage.setItem('netmovies_playback_rate', String(playbackRate));
+                if (speedValue) speedValue.textContent = `${playbackRate}x`;
+            }
+            if (setting !== 'speed') closeSettings();
+        });
+        document.addEventListener('click', (event) => {
+            if (!settingsPanel?.contains(event.target) && event.target !== settingsBtn) closeSettings();
+        });
+
         // Fullscreen with mobile orientation support
         fullscreenBtn?.addEventListener('click', async () => {
             await this.toggleFullscreen();
+        });
+
+        pipBtn?.addEventListener('click', () => this.cyclePictureInPictureSize());
+        this.videoPlayer?.addEventListener('enterpictureinpicture', () => {
+            pipBtn?.setAttribute('aria-label', 'Picture-in-Picture kapat');
+            if (pipBtn) pipBtn.title = 'Picture-in-Picture kapat';
+        });
+        this.videoPlayer?.addEventListener('leavepictureinpicture', () => {
+            pipBtn?.setAttribute('aria-label', 'Picture-in-Picture aç');
+            if (pipBtn) pipBtn.title = 'Picture-in-Picture aç';
         });
 
         const handleFullscreenChange = () => {

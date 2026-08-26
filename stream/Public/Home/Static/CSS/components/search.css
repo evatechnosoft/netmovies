@@ -4,7 +4,7 @@
 
 .page-hero-home {
   position: relative;
-  padding: clamp(8px, 1.5vw, 16px) var(--spacing-lg) clamp(16px, 2.5vw, 28px);
+  padding: clamp(10px, 1.2vw, 18px) var(--spacing-lg) clamp(10px, 1.5vw, 18px);
   text-align: center;
   background: transparent;
 }
@@ -16,7 +16,7 @@
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
 }
 
 .hero-kicker {
@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  margin-top: var(--spacing-md);
+  margin-top: 0;
 }
 
 .home-search-row .search-form {
@@ -151,7 +151,12 @@
   justify-content: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-sm);
+}
+
+.home-settings-drawer {
+  width: min(100%, 900px);
+  margin: 0 auto;
 }
 
 .hero-settings-toggle {

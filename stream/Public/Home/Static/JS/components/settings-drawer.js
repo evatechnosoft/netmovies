@@ -39,6 +39,7 @@ class SettingsManager {
         if (providerBtn && providerPanel) {
             providerBtn.addEventListener('click', () => {
                 const willOpen = providerPanel.classList.contains('is-hidden');
+                $('#home-settings-drawer')?.classList.remove('is-hidden');
                 syncPanel(providerBtn, providerPanel, willOpen);
                 if (willOpen) syncPanel(pluginBtn, pluginPanel, false);
             });
@@ -47,6 +48,7 @@ class SettingsManager {
         if (pluginBtn && pluginPanel) {
             pluginBtn.addEventListener('click', () => {
                 const willOpen = pluginPanel.classList.contains('is-hidden');
+                $('#home-settings-drawer')?.classList.remove('is-hidden');
                 syncPanel(pluginBtn, pluginPanel, willOpen);
                 if (willOpen) syncPanel(providerBtn, providerPanel, false);
             });

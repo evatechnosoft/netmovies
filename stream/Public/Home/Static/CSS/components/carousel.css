@@ -437,7 +437,7 @@
 
 .carousel-track .poster-card {
   flex-shrink: 0;
-  width: 160px;
+  width: 130px;
   border-radius: var(--border-radius-lg);
   overflow: hidden;
   position: relative;
@@ -512,10 +512,56 @@
 }
 
 .carousel-track .poster-card:hover {
-  transform: scale(1.05);
+  transform: translateY(-3px);
   box-shadow: var(--inner-shadow), var(--shadow-card-hover);
   z-index: 5;
 }
+
+.carousel-track .poster-card.tv-focusable:focus-visible {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 4px;
+  transform: translateY(-3px);
+}
+
+.carousel-track .poster-card.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.tv-episode-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+}
+
+.tv-episode-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 6, 20, 0.82);
+  backdrop-filter: blur(5px);
+}
+
+.tv-episode-panel {
+  position: relative;
+  width: min(640px, calc(100vw - 48px));
+  max-height: 78vh;
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--border-radius-xl);
+  background: var(--glass-panel);
+  box-shadow: var(--shadow-strong);
+}
+
+.tv-episode-panel h2 { margin: 4px 0 20px; color: var(--text-color); }
+.tv-episode-kicker { color: var(--primary-light); font-size: var(--font-size-xs); font-weight: 800; letter-spacing: .14em; }
+.tv-episode-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--text-muted); font-size: 28px; cursor: pointer; }
+.tv-episode-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.tv-episode-item { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius); color: var(--text-color); text-decoration: none; background: rgba(255,255,255,.03); }
+.tv-episode-item:hover, .tv-episode-item:focus-visible { border-color: var(--primary-color); background: rgba(139,92,246,.13); outline: none; }
+.tv-episode-number { color: var(--primary-light); font-weight: 800; min-width: 28px; }
 
 /* Skeleton poster cards (carousel) */
 .carousel-track .poster-card.skeleton {
@@ -828,7 +874,7 @@
 
 @media (max-width: 1024px) {
   .carousel-track .poster-card {
-    width: 130px;
+    width: 112px;
   }
 
   .featured-hero {
@@ -1112,7 +1158,7 @@
 
 @media (min-width: 1440px) {
   .carousel-track .poster-card {
-    width: 180px;
+    width: 130px;
   }
 
   .featured-hero {

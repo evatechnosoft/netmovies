@@ -4,10 +4,10 @@
 
 .content-hero {
   position: relative;
-  min-height: 60vh;
+  min-height: min(46vh, 560px);
   display: flex;
   align-items: flex-end;
-  padding: var(--spacing-xxl);
+  padding: var(--spacing-xl);
   width: 100vw;
   margin-left: calc(-50vw + 50%);
   overflow-x: hidden;
@@ -177,7 +177,7 @@
 /* ==================== BÖLÜMLER ==================== */
 
 .episodes-section {
-  padding: var(--spacing-xxl) 0;
+  padding: var(--spacing-lg) 0;
   max-width: var(--container-max-width);
   margin: 0 auto;
   width: min(100% - 32px, var(--container-max-width));

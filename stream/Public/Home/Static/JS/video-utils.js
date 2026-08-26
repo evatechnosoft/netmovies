@@ -512,8 +512,8 @@ export const createHlsConfig = (userAgent, referer, context, mode = null, extraH
         capLevelToPlayerSize: true,
         maxLoadingDelay: 4,
         minAutoBitrate: 0,
-        maxBufferLength: isApple ? 15 : 60,      // daha çok ön-buffer → 4K'da kesintiye dayanıklı
-        maxMaxBufferLength: isApple ? 30 : 600,
+        maxBufferLength: isApple ? 15 : 45,      // 3-4 eşzamanlı izleyicide bellek dengesi
+        maxMaxBufferLength: isApple ? 30 : 180,
         backBufferLength: 30,                     // geri buffer'ı sınırla (bellek dengesi)
         startLevel: -1,
         // Geçici kaynak/CDN kesintilerinde (CloudStream'deki 2001/3001 benzeri) donmak

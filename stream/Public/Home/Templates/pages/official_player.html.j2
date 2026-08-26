@@ -1,0 +1,38 @@
+{% extends "_html_taban.html.j2" %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="/" class="breadcrumbs-link"><i class="fas fa-home"></i> Ana Sayfa</a>
+    <span class="breadcrumbs-sep">/</span>
+    <span class="breadcrumbs-current"><i class="fas fa-broadcast-tower"></i> {{ official_source.title }}</span>
+</nav>
+{% endblock %}
+
+{% block icerik %}
+<div class="detail-container official-player-page">
+    <div class="player-header player-panel-shell">
+        <h1 class="player-title"><i class="fas {{ official_source.icon }}"></i> {{ official_source.title }}</h1>
+    </div>
+    <div class="official-player-frame player-panel-shell">
+        <iframe
+            src="{{ official_source.url }}"
+            title="{{ official_source.title }}"
+            loading="eager"
+            allow="autoplay; fullscreen; picture-in-picture"
+            referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+    <div class="player-controls-section official-player-actions">
+        <p>{{ official_source.description }} Yayıncı iframe kullanımını engellerse aşağıdaki resmi sayfayı açabilirsin.</p>
+        <a class="button button-primary" href="{{ official_source.url }}" target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-external-link-alt"></i> Resmi sayfayı aç
+        </a>
+        <a class="button button-secondary" href="/">Ana sayfaya dön</a>
+    </div>
+</div>
+<style>
+  .official-player-frame { overflow: hidden; padding: 0; background: #090711; }
+  .official-player-frame iframe { display: block; width: 100%; min-height: min(72vh, 760px); border: 0; background: #090711; }
+  .official-player-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+  .official-player-actions p { width: 100%; color: var(--text-muted); }
+</style>
+{% endblock %}

@@ -68,10 +68,13 @@ services:
       DEFAULT_PROVIDER_URL : http://engine:3310
       ADMIN_CONFIG_PATH    : /data/admin.json
       # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
-      SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-256}
+      SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
+      SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
+      WEB_WORKERS          : ${WEB_WORKERS:-1}
       # Public erişim için kullanıcı/şifre (boşsa auth kapalı).
       AUTH_USER            : ${AUTH_USER:-}
       AUTH_PASS            : ${AUTH_PASS:-}
+      PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
     volumes:
       - ./data:/data
     networks:
@@ -83,7 +86,8 @@ services:
     image          : cloudflare/cloudflared:latest
     container_name : netmovies-tunnel
     restart        : unless-stopped
-    command        : tunnel --no-autoupdate run
+    # UDP/QUIC bu makinede erişilebilir değil; TCP/HTTP2 ile tünel bağlantısı.
+    command        : tunnel --no-autoupdate --protocol http2 run
     environment:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
     depends_on:

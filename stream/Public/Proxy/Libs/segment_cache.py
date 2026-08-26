@@ -2,6 +2,9 @@
 
 from time import time
 import asyncio
+import hashlib
+import os
+from pathlib import Path
 
 class SegmentCache:
     """
@@ -11,10 +14,16 @@ class SegmentCache:
     - 5 dakika hard TTL
     """
 
-    def __init__(self, max_size_mb: int = 32, hard_ttl_seconds: int = 300, max_item_mb: int = 5):
+    def __init__(self, max_size_mb: int = 32, hard_ttl_seconds: int = 300, max_item_mb: int = 5, disk_size_mb: int = 2048, disk_dir: str = "/data/cache/segments"):
         self.max_size_bytes   = max_size_mb * 1024 * 1024
         self.max_item_bytes   = max_item_mb * 1024 * 1024  # tekil segment limiti (4K için büyük)
         self.hard_ttl_seconds = hard_ttl_seconds
+        self.disk_size_bytes  = disk_size_mb * 1024 * 1024
+        self.disk_dir         = Path(disk_dir)
+        try:
+            self.disk_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.disk_dir = None
 
         # Cache storage: {url: (content, created_at, last_access, size)}
         self._cache      : dict[str, tuple[bytes, float, float, int]] = {}
@@ -25,7 +34,11 @@ class SegmentCache:
         """Cache'den segment al ve access time'ı güncelle"""
         async with self._lock:
             if url not in self._cache:
-                return None
+                disk_content = await asyncio.to_thread(self._read_disk, url)
+                if disk_content is None:
+                    return None
+                await self._set_memory(url, disk_content)
+                return disk_content
 
             content, created_at, _, size = self._cache[url]
 
@@ -60,6 +73,50 @@ class SegmentCache:
 
             # LRU eviction - boyut limiti aşıldıysa en az kullanılanları sil
             await self._evict_if_needed()
+        await asyncio.to_thread(self._write_disk, url, content)
+
+    def _path_for(self, url: str) -> Path:
+        digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        return self.disk_dir / digest
+
+    def _read_disk(self, url: str) -> bytes | None:
+        if self.disk_dir is None or not self.disk_dir.exists():
+            return None
+        path = self._path_for(url)
+        try:
+            if time() - path.stat().st_mtime > self.hard_ttl_seconds:
+                path.unlink(missing_ok=True)
+                return None
+            return path.read_bytes()
+        except OSError:
+            return None
+
+    def _write_disk(self, url: str, content: bytes):
+        if self.disk_dir is None or len(content) > self.max_item_bytes:
+            return
+        path = self._path_for(url)
+        temp = path.with_suffix(".tmp")
+        try:
+            temp.write_bytes(content)
+            temp.replace(path)
+            files = sorted(self.disk_dir.iterdir(), key=lambda item: item.stat().st_mtime)
+            total = sum(item.stat().st_size for item in files if item.is_file())
+            for item in files:
+                if total <= self.disk_size_bytes:
+                    break
+                size = item.stat().st_size
+                item.unlink(missing_ok=True)
+                total -= size
+        except OSError:
+            temp.unlink(missing_ok=True)
+
+    async def _set_memory(self, url: str, content: bytes):
+        if len(content) > self.max_item_bytes:
+            return
+        current_time = time()
+        self._cache[url] = (content, current_time, current_time, len(content))
+        self._total_size += len(content)
+        await self._evict_if_needed()
 
     async def _evict_if_needed(self):
         """Gerekirse en az kullanılan ve süresi dolmuş itemları sil"""
@@ -104,4 +161,6 @@ segment_cache = SegmentCache(
     max_size_mb      = int(_os.getenv("SEGMENT_CACHE_MB", "256")),
     hard_ttl_seconds = int(_os.getenv("SEGMENT_TTL_SEC", "600")),
     max_item_mb      = int(_os.getenv("SEGMENT_ITEM_MB", "20")),
+    disk_size_mb     = int(_os.getenv("SEGMENT_DISK_CACHE_MB", "2048")),
+    disk_dir         = _os.getenv("SEGMENT_DISK_CACHE_DIR", "/data/cache/segments"),
 )

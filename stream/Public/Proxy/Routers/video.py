@@ -7,12 +7,15 @@ from fastapi.responses    import StreamingResponse
 from .                    import proxy_router
 from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, shared_client, parse_extra_headers
 from ..Libs.segment_cache import segment_cache
+from ..Libs.proxy_token   import validate_proxy_token
 
 @proxy_router.get("/video")
 @proxy_router.head("/video")
-async def video_proxy(request: Request, url: str, referer: str = None, user_agent: str = None, force_proxy: str = None, title: str = None, subtitle_url: str = None, extra_headers: str = None):
+async def video_proxy(request: Request, url: str, proxy_token: str = None, referer: str = None, user_agent: str = None, force_proxy: str = None, title: str = None, subtitle_url: str = None, extra_headers: str = None):
     """Video proxy endpoint'i"""
     target_url           = url
+    if not proxy_token or not validate_proxy_token(proxy_token, target_url):
+        return Response(status_code=403, content="Geçersiz veya süresi dolmuş proxy token")
     parsed_extra_headers = parse_extra_headers(extra_headers)
     request_headers      = prepare_request_headers(request, target_url, referer, user_agent, parsed_extra_headers)
     is_force_proxy       = force_proxy == "1"
@@ -72,7 +75,7 @@ async def video_proxy(request: Request, url: str, referer: str = None, user_agen
             await response.aclose()
 
             # Manifest URL'lerini yeniden yaz
-            rewritten_content = rewrite_hls_manifest(content, target_url, referer, user_agent, is_force_proxy, parsed_extra_headers)
+            rewritten_content = rewrite_hls_manifest(content, target_url, referer, user_agent, is_force_proxy, parsed_extra_headers, proxy_token)
 
             # Content-Length güncelle
             final_headers["Content-Length"] = str(len(rewritten_content))

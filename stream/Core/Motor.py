@@ -8,12 +8,12 @@ import os, uvicorn, subprocess
 def basla():
     surum   = f"{version_info[0]}.{version_info[1]}"
     cpu     = os.cpu_count() or 1
-    workers = 2 * cpu + 1
+    workers = int(os.getenv("WEB_WORKERS", "2"))
 
     konsol.print(f"\n[bold gold1]{AYAR['PROJE']}[/] [yellow]:bird:[/] [turquoise2]Python {surum}[/] [bold yellow2]gunicorn × {workers}[/]", width=70, justify="center")
     konsol.print(f"[red]{HOST}[light_coral]:[/]{PORT}[pale_green1] başlatılmıştır...[/]\n", width=70, justify="center")
 
-    uvicorn.run("Core:kekik_FastAPI", host=HOST, port=PORT, proxy_headers=True, forwarded_allow_ips="*", workers=1, log_level="error")
+    uvicorn.run("Core:kekik_FastAPI", host=HOST, port=PORT, proxy_headers=True, forwarded_allow_ips="*", workers=workers, log_level="error")
 
     # komut = [
     #     "gunicorn",

@@ -5,6 +5,7 @@ import asyncio
 from Core import Request, HTMLResponse, JSONResponse
 from .    import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
 from ..Libs import admin_config
+from ..Libs.official_sources import get_official_sources
 
 @home_router.get("/health")
 @home_router.head("/health")
@@ -60,6 +61,7 @@ async def ana_sayfa(request: Request):
             "desc_vars"    : {},
             "plugins"      : plugins,
             "featured"     : admin_cfg.get("featured", []),
+            "official_sources": get_official_sources(),
             "yeni_filmler" : yeni_filmler,
             "yeni_diziler" : yeni_diziler
         })

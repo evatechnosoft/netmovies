@@ -1,12 +1,14 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
-from Core import Request, HTMLResponse
+from Core import Request, HTMLResponse, HTTPException
 from uuid import NAMESPACE_URL, uuid5
 from .    import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
 
 from json         import loads, dumps
 from urllib.parse import urlparse, parse_qs, unquote, unquote_plus
 from Settings     import PROXY_URL, PROXY_FALLBACK_URL
+from Public.Proxy.Libs.proxy_token import issue_proxy_token
+from ..Libs.official_sources import get_official_sources
 
 
 def _normalize_encoded_payload(value: str | None) -> str:
@@ -25,6 +27,26 @@ def _normalize_encoded_payload(value: str | None) -> str:
         pass
 
     return unquote_plus(str(value))
+
+
+@home_router.get("/resmi-kaynak", response_class=HTMLResponse)
+async def resmi_kaynak(request: Request, url: str):
+    """Render an allowlisted broadcaster page inside the PWA player shell."""
+    source = next((item for item in get_official_sources() if item["url"] == url), None)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Resmi kaynak bulunamadı")
+
+    context = await build_context(request)
+    context.update({
+        "title": f"{source['title']} - {context['provider_name']}",
+        "description": source["description"],
+        "official_source": source,
+    })
+    return home_template.TemplateResponse(
+        request=request,
+        name="pages/official_player.html.j2",
+        context=context,
+    )
 
 
 @home_router.get("/izle/{eklenti_adi}", response_class=HTMLResponse)
@@ -102,6 +124,7 @@ async def izle(
                         "subtitles"     : link.get("subtitles") or [],
                     }
                 )
+
             else:
                 subtitles = []
                 if link.subtitles:
@@ -117,6 +140,15 @@ async def izle(
                         "subtitles"     : subtitles,
                     }
                 )
+
+        proxy_urls_for_token = [str(item.get("url") or "") for item in links]
+        proxy_urls_for_token += [
+            str(subtitle.get("url") or "")
+            for item in links
+            for subtitle in item.get("subtitles", [])
+            if isinstance(subtitle, dict)
+        ]
+        proxy_token = issue_proxy_token(proxy_urls_for_token)
 
         referer    = request.headers.get("referer")
         icerik_url = None
@@ -146,6 +178,7 @@ async def izle(
                 "provider_name"      : context.get("provider_name"),
                 "proxy_url"          : proxy_urls["proxy_url"],
                 "proxy_fallback_url" : proxy_urls["proxy_fallback_url"],
+                "proxy_token"        : proxy_token,
                 "media_meta"         : {
                     "provider_id"        : resolved_provider_id,
                     "provider_base_url"  : provider_base_url or "",

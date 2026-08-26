@@ -20,6 +20,7 @@ _EXEMPT_PREFIXES = (
     "/sw.js",
     "/favicon",
     "/manifest",
+    "/resmi-kaynak",  # allowlisted broadcaster iframe player shell
     "/health",
     "/api/v1/health",
 )

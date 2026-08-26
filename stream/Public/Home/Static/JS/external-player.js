@@ -33,6 +33,8 @@ function proxiedUrl(src) {
     if (src.extraHeaders && Object.keys(src.extraHeaders).length) {
         p.append("extra_headers", JSON.stringify(src.extraHeaders));
     }
+    const proxyToken = document.getElementById("video-links-data")?.dataset.proxyToken || "";
+    if (proxyToken) p.append("proxy_token", proxyToken);
     // Header yoksa doğrudan kaynağı vermek daha hızlı; header varsa proxy şart.
     const needsProxy = src.referer || src.userAgent || (src.extraHeaders && Object.keys(src.extraHeaders).length);
     if (!needsProxy) return src.url;

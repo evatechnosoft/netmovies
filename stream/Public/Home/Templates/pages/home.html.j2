@@ -4,42 +4,7 @@
 
 {% block icerik %}
 
-{# Hero — compact, centered #}
-<section class="page-hero page-hero-home">
-    <div class="home-hero-inner">
-        <span class="hero-kicker">{{ provider_name }}</span>
-        <h1 class="hero-title"><span class="hero-title-wordmark">{{ tr('site_name') }}</span></h1>
-        <p class="hero-subtitle" data-i18n="site_tagline">{{ tr('site_tagline') }}</p>
-
-        <div class="home-search-row">
-            <div class="search-form" id="global-search-form">
-                <input type="text" id="global-search-input" class="search-input"
-                    placeholder="{{ tr('search_all_placeholder') }}"
-                    data-i18n="search_all_placeholder" data-i18n-attr="placeholder"
-                    autocomplete="off">
-                <button type="button" id="global-search-button" class="search-button">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="hero-settings-actions">
-            <button type="button" id="toggle-provider-settings" class="button button-secondary button-small hero-settings-toggle"
-                aria-expanded="false" aria-controls="provider-settings-panel">
-                <i class="fas fa-server"></i>
-                <span data-i18n="provider_settings">{{ tr('provider_settings') }}</span>
-                <i class="fas fa-chevron-down toggle-chevron"></i>
-            </button>
-            <button type="button" id="toggle-plugin-settings" class="button button-secondary button-small hero-settings-toggle"
-                aria-expanded="false" aria-controls="plugin-settings-panel">
-                <i class="fas fa-puzzle-piece"></i>
-                <span data-i18n="plugin_management">{{ tr('plugin_management') }}</span>
-                <i class="fas fa-chevron-down toggle-chevron"></i>
-            </button>
-        </div>
-    </div>
-</section>
-
+<div id="home-settings-drawer" class="home-settings-drawer is-hidden">
 {# Provider Settings Panel (Collapsible) #}
 <section id="provider-settings-panel" class="settings-panel is-hidden">
     <div class="settings-panel-shell">
@@ -108,7 +73,6 @@
         </div>
     </div>
 </section>
-
 {# Plugin Management Panel (Collapsible) #}
 <section id="plugin-settings-panel" class="settings-panel is-hidden">
     <div class="settings-panel-shell">
@@ -122,6 +86,7 @@
         <div id="plugin-preferences-list" class="plugin-preferences-list"></div>
     </div>
 </section>
+ </div>
 
 {# Search Results (hidden, filled by search.js) #}
 <section id="search-results" class="search-results is-hidden">
@@ -145,7 +110,7 @@
 </section>
 
 {# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
-{% macro yeni_rafi(baslik, ikon, items) %}
+{% macro yeni_rafi(baslik, ikon, items, media_type) %}
 {% if items %}
 <section class="carousel-row yeni-rafi">
     <div class="carousel-header">
@@ -154,7 +119,15 @@
     <div class="carousel-wrapper">
         <div class="carousel-track">
             {% for item in items %}
-            <a href="/icerik/{{ item.plugin }}?url={{ item.url }}{{ provider_query_amp }}" class="poster-card" aria-label="{{ item.title }}">
+            <a href="/icerik/{{ item.plugin }}?url={{ item.url }}{{ provider_query_amp }}"
+               class="poster-card tv-focusable"
+               aria-label="{{ item.title }}"
+               data-tv-item="true"
+               data-media-type="{{ media_type }}"
+               data-plugin="{{ item.plugin }}"
+               data-content-url="{{ item.url }}"
+               data-content-title="{{ item.title }}"
+               data-poster="{{ item.poster or '' }}">
                 <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
                     {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
                 </div>
@@ -167,8 +140,33 @@
 {% endif %}
 {% endmacro %}
 
-{{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler) }}
-{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler) }}
+{{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler, 'movie') }}
+{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler, 'serie') }}
+
+{# Resmi yayıncı sayfaları: doğrudan yayın manifesti/proxy yerine kaynak sahibine yönlendirir. #}
+{% if official_sources %}
+<section id="official-sources" class="official-sources">
+    <div class="section-heading">
+        <h2 class="section-title"><i class="fas fa-broadcast-tower"></i> Resmi Kaynaklar</h2>
+        <p class="section-subtitle">Canlı TV, dizi ve film yayıncılarının resmi sayfaları</p>
+    </div>
+    <div class="grid grid-plugins official-source-grid">
+        {% for source in official_sources %}
+        <a class="card plugin-card official-source-card"
+           href="/resmi-kaynak?url={{ source.url | urlencode }}"
+           aria-label="{{ source.title }} — {{ source.broadcaster }}">
+            <div class="card-icon official-source-icon"><i class="fas {{ source.icon }}"></i></div>
+            <div class="card-body">
+                <h3 class="card-title">{{ source.title }}</h3>
+                <span class="badge badge-lang">{{ source.category }}</span>
+            </div>
+            <p class="card-desc">{{ source.description }}</p>
+            <span class="official-source-link">{{ source.broadcaster }} <i class="fas fa-external-link-alt"></i></span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
 
 {# Plugin List #}
 {% if featured %}
@@ -222,5 +220,45 @@
 {% block js %}
 <script id="plugins-data" type="application/json">{{ plugins | tojson }}</script>
 <script type="module" src="{{ url_for('static_home', path='JS/global-search.min.js') }}" defer></script>
-<script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.min.js') }}" defer></script>
+<script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.js') }}" defer></script>
+<script type="module" src="{{ url_for('static_home', path='JS/tv-home-actions.js') }}" defer></script>
+<style>
+  .carousel-track .poster-card { width: 130px; }
+  .carousel-track .poster-card:hover { transform: translateY(-3px); }
+  .carousel-track .poster-card.tv-focusable { position: relative; }
+  .carousel-track .poster-card.tv-focusable:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 4px; }
+  .home-settings-drawer { width: min(100%, 900px); margin: 0 auto; }
+  .official-sources { margin-top: 2rem; }
+  .official-source-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .official-source-card { position: relative; }
+  .official-source-icon { color: var(--primary-light); }
+  .official-source-link { display: block; margin-top: .65rem; color: var(--primary-light); font-size: .78rem; font-weight: 700; }
+  .official-source-link i { margin-left: .25rem; font-size: .7rem; }
+  .tv-episode-picker { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; }
+  .tv-episode-backdrop { position: absolute; inset: 0; background: rgba(8, 6, 20, .82); backdrop-filter: blur(5px); }
+  .tv-episode-panel { position: relative; width: min(640px, calc(100vw - 48px)); max-height: 78vh; overflow: auto; padding: 28px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius-xl); background: var(--glass-panel); box-shadow: var(--shadow-strong); }
+  .tv-episode-panel h2 { margin: 4px 0 20px; color: var(--text-color); }
+  .tv-episode-kicker { color: var(--primary-light); font-size: var(--font-size-xs); font-weight: 800; letter-spacing: .14em; }
+  .tv-episode-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--text-muted); font-size: 28px; cursor: pointer; }
+  .tv-episode-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .tv-episode-item { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius); color: var(--text-color); text-decoration: none; background: rgba(255,255,255,.03); }
+  .tv-episode-item:hover, .tv-episode-item:focus-visible { border-color: var(--primary-color); background: rgba(139,92,246,.13); outline: none; }
+  .tv-episode-number { color: var(--primary-light); font-weight: 800; min-width: 28px; }
+  .tv-joystick { position: absolute; left: 50%; top: 50%; z-index: 8; width: 92px; height: 92px; transform: translate(-50%, -50%); pointer-events: auto; }
+  .tv-joystick-plus, .tv-joystick-action { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: var(--text-color); background: rgba(20,16,35,.94); box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: pointer; }
+  .tv-joystick-plus { left: 32px; top: 32px; z-index: 2; font-size: 20px; line-height: 1; color: #fff; background: linear-gradient(135deg, var(--primary-color), #a855f7); }
+  .tv-joystick-actions { position: absolute; inset: 0; }
+  .tv-joystick-action i { color: var(--primary-light); font-size: 11px; }
+  .tv-joystick-action:hover, .tv-joystick-action:focus-visible, .tv-joystick-action.is-selected { border-color: var(--primary-light); background: rgba(139,92,246,.9); outline: none; }
+  .tv-joystick-action.is-selected i { color: #fff; }
+  .tv-joystick-up { left: 32px; top: 0; }
+  .tv-joystick-left { left: 0; top: 32px; }
+  .tv-joystick-right { right: 0; top: 32px; }
+  .tv-joystick-down { left: 32px; bottom: 0; }
+  .tv-joystick-lists { position: absolute; top: 96px; left: 50%; display: none; gap: 3px; transform: translateX(-50%); }
+  .tv-joystick.is-lists-open .tv-joystick-lists { display: flex; }
+  .tv-joystick-list-button { position: static; width: 24px; height: 24px; font-size: 9px; }
+  .tv-joystick-list-button i { color: var(--primary-light); }
+  .tv-joystick-status { position: absolute; top: 124px; left: 50%; width: max-content; max-width: 160px; transform: translateX(-50%); color: var(--primary-light); font-size: 10px; text-align: center; pointer-events: none; }
+</style>
 {% endblock %}

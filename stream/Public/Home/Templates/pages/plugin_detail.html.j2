@@ -2,40 +2,9 @@
 {% extends "_html_taban.html.j2" %}
 
 {% block breadcrumbs %}
-<nav class="breadcrumbs">
-    <a href="/{{ provider_query if provider_query else '' }}" class="breadcrumbs-link">
-        <i class="fas fa-home"></i> <span data-i18n="nav_home">{{ tr('nav_home') }}</span>
-    </a>
-    <span class="breadcrumbs-sep">/</span>
-    <span class="breadcrumbs-current">{{ plugin.name }}</span>
-</nav>
 {% endblock %}
 
 {% block icerik %}
-
-{# Plugin Header — compact info bar #}
-<div class="plugin-header">
-    <div class="plugin-header-info">
-        {% if plugin.favicon %}
-        <img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" class="plugin-header-icon" onerror="this.style.display='none'">
-        {% endif %}
-        <div>
-            <h1 class="plugin-header-name">{{ plugin.name }}</h1>
-            <p class="plugin-header-desc">{{ plugin.description }}</p>
-        </div>
-    </div>
-    <div class="plugin-header-actions">
-        <form method="GET" action="/ara/{{ plugin.name }}" class="search-form plugin-search-form">
-            <input type="hidden" name="lang" value="{{ lang }}">
-            {% if provider_url %}<input type="hidden" name="provider" value="{{ provider_url }}">{% endif %}
-            <input type="text" name="sorgu" class="search-input" placeholder="{{ tr('search_plugin_placeholder') }}" data-i18n="search_plugin_placeholder" data-i18n-attr="placeholder" required>
-            <button type="submit" class="search-button"><i class="fas fa-search"></i></button>
-        </form>
-        <a href="{{ plugin.main_url }}" target="_blank" class="button button-secondary button-small">
-            <i class="fas fa-external-link-alt"></i> <span data-i18n="site_button">{{ tr('site_button') }}</span>
-        </a>
-    </div>
-</div>
 
 {# Dynamic Content Area — content-browser.js fills this #}
 <section id="dynamic-content">
