@@ -246,7 +246,7 @@
 
 .page-header-title {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xxl);
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-color);
   margin: 0;
@@ -284,10 +284,20 @@
   color: var(--text-muted);
 }
 
-/* Results grid — consistent naming */
+/* Results grid — TÜM poster sayfalarında (kategori/arama/eklenti) tutarlı 6'lı grid.
+   `.grid.grid-results` (2 class) responsive `.grid` kurallarını specificity ile geçer,
+   böylece "her sayfa aynı" olur; küçük ekranlarda kademeli azalır. */
 .grid-results {
   animation: fadeInUp 0.4s ease-out;
 }
+.grid.grid-results {
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--spacing-md);
+}
+@media (max-width: 1100px) { .grid.grid-results { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 900px)  { .grid.grid-results { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 680px)  { .grid.grid-results { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 440px)  { .grid.grid-results { grid-template-columns: repeat(2, 1fr); } }
 
 /* Card fade-in stagger animation */
 @keyframes cardFadeIn {
