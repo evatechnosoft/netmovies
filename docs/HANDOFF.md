@@ -35,8 +35,14 @@
 çözüm değil). Karar: **Kotlin + Compose for TV + Media3/ExoPlayer** (TV'de D-pad+HLS en olgun/resmi-stable).
 Kapsam: Android (TV öncelik + telefon); **web=mevcut PWA kalır**. Mi Box'a sideload (ARM ABI). Engine DEĞİŞMEZ
 (client-agnostic) — client sadece API tüketir. Detay: `memory/client-tech-decision.md`.
-**İlk adım (POC):** Compose-TV projesi → engine API'ye HTTP (`aggregate_new`) → bir HLS filmi Media3 ile oynat →
-Mi Box test. **Bu yeni iş taze oturumda başlamalı** (bu oturum uzun).
+**Cast/kumanda (WatchBuddy modeli — Dean isteği):** Telefon (mevcut PWA) = **controller** (hızlı arama/seç,
+OYNATMAZ → sadece "TV'de oynat" komutu); TV (Compose) = **player** (oynatır + kendi D-pad'i); Engine = **relay**
+(telefon `POST /api/v1/cast` → TV `GET /cast` long-poll/WS dinler; merkezî, tünelle uzaktan da çalışır). Telefon
+PWA controller rolünde ideal (oynatma yok → TV kısıtı yok). Backlog'daki "kendi watch-party" bu.
+
+**İlk adım (POC, 3 parça):** (1) Compose-TV app: `aggregate_new` listele + HLS oynat (Media3) + `/cast` dinle;
+(2) Telefon PWA'ya "TV'de oynat" butonu → `POST /cast`; (3) Engine `/cast` relay endpoint (scrape/proxy DEĞİŞMEZ).
+Mi Box + telefon uçtan uca test. **Bu yeni iş taze oturumda başlamalı** (bu oturum uzun). Detay: `memory/client-tech-decision.md`.
 
 ### Bekleyen (bu oturumdan devir)
 1. **Sıralama/"eski diziler"**: aggregate DiziBox "Yerli Diziler" ARŞİVİ çekiyor (eski dahil), "yeni eklenen"
