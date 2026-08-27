@@ -119,11 +119,10 @@
       installButton?.classList.add('is-hidden');
       if (installStatus) installStatus.textContent = 'Uygulama eklendi.';
     });
-    if (isStandalone()) {
-      installButton?.classList.add('is-hidden');
-    } else {
-      installButton?.classList.remove('is-hidden');
-    }
+    // TV Bro / JioSphere gibi TV tarayıcıları PWA kurulumunu (beforeinstallprompt)
+    // desteklemez; ölü/yanıltıcı buton göstermemek için buton yalnızca gerçekten
+    // kurulabilir olduğunda görünür (yukarıdaki beforeinstallprompt açar).
+    if (isStandalone()) installButton?.classList.add('is-hidden');
     installButton?.addEventListener('click', async () => {
       if (!deferredInstallPrompt) {
         if (installStatus) installStatus.textContent = 'Tarayıcı menüsü → Ana ekrana ekle seçeneğini kullanın.';

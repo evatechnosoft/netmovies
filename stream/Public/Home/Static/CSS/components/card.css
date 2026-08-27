@@ -343,3 +343,31 @@
     font-size: var(--font-size-lg);
   }
 }
+
+/* ---------------------------------------------------------------- mouse-mode
+   Mi Box / TV Bro / JioSphere imleç modu: imlecin üstündeki tıklanabilir
+   öğe NET parlasın (D-pad :focus-visible'ın imleç karşılığı). Hafif basma
+   (:active) belirgin bir parlama versin ki ne seçildiği anlaşılsın. */
+body.mouse-mode a.poster-card:hover,
+body.mouse-mode .card:hover,
+body.mouse-mode .plugin-card:hover,
+body.mouse-mode .button:hover,
+body.mouse-mode .badge-link:hover,
+body.mouse-mode .tv-focusable:hover,
+body.mouse-mode .continue-watching-item:hover,
+body.mouse-mode .channel-card:hover {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 3px;
+  transition: outline-color .05s linear, filter .05s linear;
+  z-index: 6;
+}
+
+body.mouse-mode a.poster-card:active,
+body.mouse-mode .card:active,
+body.mouse-mode .plugin-card:active,
+body.mouse-mode .button:active,
+body.mouse-mode .continue-watching-item:active,
+body.mouse-mode .channel-card:active {
+  outline-color: var(--primary-color);
+  filter: brightness(1.18);
+}

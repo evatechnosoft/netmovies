@@ -74,9 +74,10 @@ services:
       SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
       SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
       WEB_WORKERS          : ${WEB_WORKERS:-1}
-      # Public erişim için kullanıcı/şifre (boşsa auth kapalı).
-      AUTH_USER            : ${AUTH_USER:-}
-      AUTH_PASS            : ${AUTH_PASS:-}
+      # Kişisel kullanım: auth bilerek KAPALI (kumandayla giriş zahmetsiz olsun).
+      # Public erişim istenirse .env'de AUTH_USER/AUTH_PASS doldur + burayı ${AUTH_USER:-} yap.
+      AUTH_USER            : ""
+      AUTH_PASS            : ""
       PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
     volumes:
       - ./data:/data
