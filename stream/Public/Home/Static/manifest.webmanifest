@@ -1,10 +1,12 @@
 {
   "name": "NetMovies",
   "short_name": "NetMovies",
+  "id": "/",
   "description": "Kişisel, reklamsız film/dizi izleme uygulaması",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#0d0f13",
   "theme_color": "#0d0f13",

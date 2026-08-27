@@ -180,13 +180,18 @@
 }
 
 .poster-card:hover {
-  transform: scale(1.05);
-  box-shadow: var(--shadow-card-hover);
-  z-index: 2;
+  transform: none;
+  box-shadow: none;
 }
 
 .poster-card:hover .poster-card-img img {
-  transform: scale(1.1);
+  transform: none;
+}
+
+.poster-card:active,
+.card:active,
+.plugin-card:active {
+  transform: translateY(1px) scale(.985);
 }
 
 /* ==================== ARAMA SONUÇ KARTLARI ==================== */

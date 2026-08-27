@@ -217,6 +217,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const item = readItem(card);
+            if (document.body.classList.contains('mouse-mode')) {
+                event.preventDefault();
+                if (item.mediaType === 'serie') {
+                    window.location.href = `/icerik/${encode(item.plugin)}?url=${encode(item.url)}`;
+                } else {
+                    window.location.href = watchUrl(item);
+                }
+                return;
+            }
             if (item.mediaType === 'serie') {
                 event.preventDefault();
                 openSeries(item);

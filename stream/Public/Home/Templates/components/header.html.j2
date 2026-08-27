@@ -46,6 +46,9 @@
       </div>
     </div>
     <div class="global-settings-actions">
+      <button type="button" id="install-pwa-button" class="global-settings-item is-hidden" aria-describedby="install-pwa-status"><i class="fas fa-download"></i><span>Uygulama olarak ekle</span></button>
+      <button type="button" id="toggle-mouse-mode" class="global-settings-item" aria-pressed="false"><i class="fas fa-mouse-pointer"></i><span>Mouse modu: Kapalı</span></button>
+      <small id="install-pwa-status" class="global-settings-status" aria-live="polite"></small>
       <button type="button" id="toggle-provider-settings" class="global-settings-item"><i class="fas fa-server"></i><span>Sağlayıcı</span><i class="fas fa-chevron-down toggle-chevron"></i></button>
       <button type="button" id="toggle-plugin-settings" class="global-settings-item"><i class="fas fa-puzzle-piece"></i><span>Eklentiler</span><i class="fas fa-chevron-down toggle-chevron"></i></button>
       <a href="/#plugins-list" class="global-settings-item"><i class="fas fa-layer-group"></i><span>Tüm kaynaklar</span></a>
@@ -69,12 +72,13 @@
   .voice-search-status { position: absolute; top: 44px; color: var(--primary-light); font-size: .72rem; pointer-events: none; }
   .global-settings-trigger { width: 38px; height: 38px; border: 1px solid var(--glass-edge); border-radius: 50%; background: var(--surface-glass); color: var(--text-muted); cursor: pointer; font-size: 1rem; }
   .global-settings-trigger:hover, .global-settings-trigger[aria-expanded="true"] { color: var(--primary-light); border-color: var(--primary-color); background: var(--primary-soft); }
-  .global-settings-panel { position: absolute; top: calc(100% + 10px); right: max(16px, calc((100vw - 1180px) / 2)); width: min(330px, calc(100vw - 28px)); padding: 16px; border: 1px solid var(--glass-edge); border-radius: 18px; background: var(--glass-panel); box-shadow: var(--shadow-strong); backdrop-filter: blur(18px); }
+  .global-settings-panel { position: absolute; top: calc(100% + 10px); right: max(16px, calc((100vw - 1180px) / 2)); width: min(330px, calc(100vw - 28px)); padding: 16px; border: 1px solid var(--glass-edge); border-radius: 18px; background: var(--glass-panel); box-shadow: var(--shadow-sm); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .global-settings-heading, .global-settings-language, .global-settings-item { display: flex; align-items: center; }
   .global-settings-heading { justify-content: space-between; color: var(--primary-light); font-size: .7rem; font-weight: 800; letter-spacing: .12em; margin-bottom: 14px; }
   .global-settings-heading button { border: 0; background: transparent; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
   .global-settings-language { justify-content: space-between; padding: 10px 0 14px; border-bottom: 1px solid var(--glass-edge); color: var(--text-muted); }
   .global-settings-actions { display: grid; gap: 6px; padding-top: 10px; }
+  .global-settings-status { min-height: 1.2em; color: var(--text-muted); font-size: .72rem; padding: 0 10px; }
   .global-settings-item { width: 100%; gap: 10px; padding: 11px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--text-color); text-decoration: none; text-align: left; cursor: pointer; font: inherit; }
   .global-settings-item i:first-child { width: 18px; color: var(--primary-light); }
   .global-settings-item .toggle-chevron { margin-left: auto; font-size: .7rem; }
@@ -85,12 +89,51 @@
     const trigger = document.getElementById('toggle-global-settings');
     const panel = document.getElementById('global-settings-panel');
     const close = document.getElementById('close-global-settings');
+    const installButton = document.getElementById('install-pwa-button');
+    const installStatus = document.getElementById('install-pwa-status');
+    const mouseButton = document.getElementById('toggle-mouse-mode');
+    let deferredInstallPrompt = null;
     const setOpen = (open) => {
       panel?.classList.toggle('is-hidden', !open);
       trigger?.setAttribute('aria-expanded', String(open));
     };
     trigger?.addEventListener('click', () => setOpen(panel?.classList.contains('is-hidden')));
     close?.addEventListener('click', () => setOpen(false));
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const setMouseMode = (enabled) => {
+      document.body.classList.toggle('mouse-mode', enabled);
+      mouseButton?.setAttribute('aria-pressed', String(enabled));
+      const label = mouseButton?.querySelector('span');
+      if (label) label.textContent = `Mouse modu: ${enabled ? 'Açık' : 'Kapalı'}`;
+      localStorage.setItem('netmovies_mouse_mode', enabled ? '1' : '0');
+    };
+    setMouseMode(localStorage.getItem('netmovies_mouse_mode') === '1');
+    mouseButton?.addEventListener('click', () => setMouseMode(!document.body.classList.contains('mouse-mode')));
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      installButton?.classList.remove('is-hidden');
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      installButton?.classList.add('is-hidden');
+      if (installStatus) installStatus.textContent = 'Uygulama eklendi.';
+    });
+    if (isStandalone()) {
+      installButton?.classList.add('is-hidden');
+    } else {
+      installButton?.classList.remove('is-hidden');
+    }
+    installButton?.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) {
+        if (installStatus) installStatus.textContent = 'Tarayıcı menüsü → Ana ekrana ekle seçeneğini kullanın.';
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice.outcome === 'accepted') installStatus.textContent = 'Kurulum başlatıldı.';
+      deferredInstallPrompt = null;
+    });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
     const searchInput = document.getElementById('global-search-input');
     const searchButton = document.getElementById('global-search-button');

@@ -13,7 +13,7 @@
   border: 2px solid transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.25s var(--transition-timing);
+  transition: transform 0.08s ease-out;
   text-decoration: none;
   position: relative;
   overflow: hidden;
@@ -29,36 +29,28 @@
 
 .button-primary:hover,
 .button:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-primary-glow-strong);
-  filter: brightness(1.08);
   color: #fff;
 }
 
 .button-primary:active,
 .button:active {
-  transform: scale(0.96);
-  box-shadow: var(--shadow-primary-glow-subtle);
+  transform: translateY(1px) scale(.985);
 }
 
 .button-secondary {
   background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: var(--text-color);
   border-color: var(--border-light);
 }
 
 .button-secondary:hover {
-  border-color: rgba(139, 92, 246, 0.35);
-  color: var(--primary-light);
-  background: var(--primary-soft);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  color: var(--text-color);
 }
 
 .button-secondary:active {
-  transform: scale(0.96);
+  transform: translateY(1px) scale(.985);
 }
 
 .button-small {
