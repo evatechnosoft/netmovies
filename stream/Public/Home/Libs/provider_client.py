@@ -73,6 +73,11 @@ class RemoteProviderClient:
         })
         return res if isinstance(res, dict) else {}
 
+    async def get_home_categories(self) -> list[dict[str, Any]]:
+        """Ana sayfa sabit kategori kartları (resolved kategori URL'leriyle)."""
+        res = await self._get("/api/v1/home_categories")
+        return res if isinstance(res, list) else []
+
     async def get_quick_channels(self) -> list[dict[str, Any]]:
         res = await self._get("/api/v1/quick_channels")
         return res if isinstance(res, list) else []

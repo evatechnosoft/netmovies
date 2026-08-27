@@ -27,7 +27,11 @@ def _is_alive(url: str) -> bool:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 return getattr(resp, "status", 200) < 500
         except urllib.error.HTTPError as exc:
-            # 4xx bile dönse sunucu ayakta demektir (bot koruması vb.)
+            # 403/451/404/410 = bloke veya kayıp: scraper içerik çekemez → ÖLÜ say.
+            # (Eskiden "sunucu ayakta = canlı" sayılıyordu; bu, bloke domaini seçip
+            #  içeriksiz kart/raf üretiyordu.) Diğer 4xx'ler geçici olabilir → canlı.
+            if exc.code in (403, 451, 404, 410):
+                return False
             return exc.code < 500
         except Exception:
             continue

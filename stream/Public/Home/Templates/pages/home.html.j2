@@ -126,6 +126,23 @@
     <div id="results-grid" class="grid"></div>
 </section>
 
+{# Sabit kategori kartları — her zaman görünür, tıklanabilir giriş noktaları.
+   İçerik döndürmese bile çalışır: tıkla → o kategorinin sayfasına gider. #}
+{% if home_categories %}
+<section id="home-categories" class="home-categories">
+    <div class="home-cat-strip">
+        {% for cat in home_categories %}
+        <a class="home-cat-card tv-focusable"
+           href="/kategori/{{ cat.plugin }}?kategori_url={{ cat.kategori_url }}&kategori_adi={{ cat.kategori_adi | urlencode }}{{ provider_query_amp }}"
+           aria-label="{{ cat.title }}">
+            <i class="fas {{ cat.icon }}"></i>
+            <span>{{ cat.title }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 {# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
 {% macro yeni_rafi(baslik, ikon, items, media_type) %}
 {% if items %}
@@ -167,7 +184,8 @@
 {% endmacro %}
 
 {{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler, 'movie') }}
-{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler, 'serie') }}
+{{ yeni_rafi('Yeni Türk Diziler', 'fa-tv', yeni_turk_diziler, 'serie_local') }}
+{{ yeni_rafi('Yeni Yabancı Diziler', 'fa-globe', yeni_yabanci_diziler, 'serie_foreign') }}
 
 {# Resmi yayıncı sayfaları: doğrudan yayın manifesti/proxy yerine kaynak sahibine yönlendirir. #}
 {% if official_sources %}
@@ -263,6 +281,14 @@
 <script type="module" src="{{ url_for('static_home', path='JS/global-search.min.js') }}" defer></script>
 <script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.js') }}" defer></script>
 <style>
+  /* Sabit kategori kartları şeridi */
+  .home-categories { margin: 0 0 18px; }
+  .home-cat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .home-cat-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 18px 10px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--surface-glass); color: var(--text-color); text-decoration: none; font-weight: 700; text-align: center; transition: border-color .15s ease, background-color .15s ease; }
+  .home-cat-card i { font-size: 1.6rem; color: var(--primary-light); }
+  .home-cat-card:hover { border-color: var(--primary-color); background: var(--primary-soft); }
+  .home-cat-card:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 3px; }
+  @media (max-width: 640px) { .home-cat-strip { grid-template-columns: repeat(2, 1fr); } }
   .carousel-wrapper { min-width: 0; max-width: 100%; overflow: hidden; }
   .carousel-track { width: 100%; max-width: 100%; min-width: 0; gap: 8px; overflow: hidden; }
   .poster-rail { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 8px; }
