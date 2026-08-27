@@ -10,7 +10,50 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-24 akşam (canlı + oynatıcı/UI iyileştirmeleri)
+## 0. SON OTURUM — 2026-08-27 (TV/kumanda UX + sinema player + yeni kaynaklar + local deploy)
+
+**Durum: AYAKTA + DOĞRULANDI (ev makinesi).** `localhost:3310` → HTTP 200 (home + `/api/v1/health`).
+Auth **bilerek KAPALI** (Dean kararı — kumandayla şifresiz giriş). Container'lar rebuild edildi;
+9 commit push'landı (`e9d6acc..547c496`), dal `origin` ile eşit.
+
+**Bu oturumun commit'leri (yeni→eski):**
+- `547c496` sayfalar: basılı-tutma menüsü + odak çerçevesi HER sayfada (tv-home-actions base'e taşındı; `link` modu = arama/kategori kartında tek tık AÇAR, gezinme korunur)
+- `73f0929` **player sinema modu**: `body.cinema-mode` → sadece video (header/footer/başlık/kaynak-listesi/benzer/geri gizli, video 100dvh contain). Kaynak + Harici oynatıcı **dişli menüsüne** taşındı (overlay, `data-cinema-open`). sources.js/loadVideo'ya DOKUNULMADI. Geri-alma: body sınıfı kalksın.
+- `e181c0c` global `:focus-visible` çerçevesi (her sayfa, D-pad+klavye+arama kutusu) + kanallar hafif metin listesine çevrildi
+- `7e9371e` mouse-modu güçlü imleç vurgusu + **auth KAPALI** (compose'da `AUTH_USER/PASS: ""`) + kurulamayan tarayıcıda ölü PWA butonu gizle
+- `335ab86` PWA kur butonu + mouse modu + dokunma efekti
+- `c23c53b` merkezi izleme ilerlemesi (content_url migration + `/api/v1/progress`) + kullanıcı listeleri (izlenecek/planlandı/takip, SQLite `user_lists`)
+- `caac111` hızlı kanallar rafı + izlemeye-devam kutusu + aggregate timeout(6s/3s) + "Son Bölümler" kategori yakalama
+- `8de0d0e` **yeni kaynaklar**: DiziBox, Dizilla, DiziMom + ortak `__dizi_common.py` (engine'de YÜKLÜ doğrulandı)
+- (`docs/DENETIM-2026-08-26.md` = eski `search.md` salt-okunur denetim raporu, docs'a taşındı)
+
+### ⚠️ Doğrulama durumu (kanıtlı)
+- CSS bundle canlı: `mouse-mode`/`focus-visible`/`channels-list-item` bundle'da mevcut (grep).
+- Player cinema + linkMode image'da mevcut (container grep).
+- 3 dizi plugin engine'de yüklü (`get_plugin_names`).
+- **Runtime tam test EDİLMEDİ**: film oynatma/sinema modu/overlay'ler tarayıcıda Dean'in gözüyle doğrulanacak.
+
+### 🔴 Kanallar BOŞ (kök neden: data, kod değil)
+`quick_channels` → `result:[]`. Sebep: `.env`'de **`M3U_SOURCES` boş** + RecTV bloke. Liste UI'si hazır
+ama kaynak yok. Çözüm: `.env`'e M3U listesi ekle VEYA güncel `RECTV_URL` bul.
+
+### ⚙️ Deploy operasyon notları (ÖNEMLİ)
+- **watchmedo dev-override Windows'ta ÇALIŞMIYOR** → startup takıldı. Stream **base compose** ile kaldırıldı:
+  `docker compose -f docker-compose.yml up -d --force-recreate stream` (doğrudan `basla.py`).
+  Kaynak değişince yeniden derle: `docker compose -f docker-compose.yml up -d --build --force-recreate stream`.
+- **Tünel:** stream recreate → `w.evaitec.com` düşmüş olabilir. Geri: `docker compose --profile tunnel up -d --force-recreate cloudflared`.
+- Engine container'ı bir ara `<hash>_netmovies-engine` adıyla kaldı (kozmetik); `docker compose -f docker-compose.yml up -d` normalize eder.
+
+### Kalan iş (bu oturumdan)
+1. **Dean runtime testi**: film aç → sinema modu (sadece video), kontroller TV Bro imleç modunda çıkıyor mu, dişli→Kaynak/Harici oynatıcı overlay + Nova/VLC çalışıyor mu, "ana sayfa açıyor" hâlâ var mı (varsa hangi film/kaynak).
+2. **Kanal kaynağı**: `M3U_SOURCES` veya `RECTV_URL` gir.
+3. Yeni dizi kaynakları (DiziBox/Dizilla/DiziMom) + DiziYou **uçtan uca** test (içerik dönüyor mu, selector tutuyor mu).
+4. P0 (devam): CF token rotate + kalıcı tünel origin `stream:3310` (Dean CF panel).
+5. ZimaOS 7/24 deploy (PC o ağa gelince).
+
+---
+
+## SON OTURUM — 2026-08-24 akşam (canlı + oynatıcı/UI iyileştirmeleri)
 
 **Durum: ÇALIŞIYOR.** İzleme her yerden: `localhost:3310`, `192.168.0.28:3310` (LAN),
 `w.evaitec.com` (tünel). Auth: **`dean` / 1234** (kullanıcı adı KÜÇÜK harf). Web player'da
