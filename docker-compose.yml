@@ -46,6 +46,9 @@ services:
       RECTV_URL: ${RECTV_URL:-}
       HDFC_URL: ${HDFC_URL:-}
       DIZIYOU_URL: ${DIZIYOU_URL:-}
+      DIZIBOX_URL: ${DIZIBOX_URL:-}
+      DIZILLA_URL: ${DIZILLA_URL:-}
+      DIZIMOM_URL: ${DIZIMOM_URL:-}
     volumes:
       - ./lists:/data/lists:ro
     networks:
