@@ -88,6 +88,7 @@
 </head>
 
 <body
+    class="{% block body_class %}{% endblock %}"
     data-provider-name="{{ provider_name | default('KekikStream', true) }}"
     data-proxy-url="{{ proxy_url | default('', true) }}"
     data-proxy-fallback-url="{{ proxy_fallback_url | default('', true) }}"
@@ -131,6 +132,9 @@
 
     <!-- ? Statik JS -->
     <script type="module" src="{{ url_for('static_home', path='JS/main.min.js') }}" defer crossorigin="anonymous"></script>
+
+    <!-- ? Kart aksiyonları: basılı-tutma menüsü + odak (her sayfada; kartı olmayan sayfada no-op) -->
+    <script type="module" src="{{ url_for('static_home', path='JS/tv-home-actions.js') }}" defer></script>
 
     <!-- ? Ek JS -->
     {%- block js %}
