@@ -10,7 +10,44 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-27 (TV/kumanda UX + sinema player + yeni kaynaklar + local deploy)
+## 0. SON OTURUM — 2026-08-27 (akşam) — cloudstream UI + ölü-kaynak dayanıklılığı + CLIENT KARARI
+
+**Durum: AYAKTA + DOĞRULANDI (ev makinesi, `localhost:3310`).** UI yeniden düzenlendi, deploy `docker cp`
++ Jinja auto-reload / CSS minify ile yapıldı (restart YOK → tünel korundu). Commit'ler: `c48cbd7..9c224ef`.
+
+**Bu oturumun işleri (commit'li):**
+- `c48cbd7` **ölü kaynak dayanıklılığı** (KÖK NEDEN): `home_categories` sadece SAĞLIKLI kaynağı kart yapar;
+  `aggregate_new` ölü kaynağı `plugin_health`'ten atlar (30s→~6s hız); `_is_alive` 403/451/404/410'u ÖLÜ
+  sayar (eskiden bloke domaini "canlı" seçip içeriksiz kart üretiyordu). Engine: `/home_categories` endpoint
+  + `serie_local`/`serie_foreign`/`live` ipuçları. **Kanıt:** 4/7 kaynak canlı (HDFC/DiziBox/DiziYou/M3U),
+  home 200/191 poster; ölü DiziMom/RecTV kartları gizlendi.
+- `86ddafa` **cloudstream tarzı kompakt ana sayfa**: üstte tek satır ince pill buton bandı (`quick-nav`) —
+  kategoriler + Favori/İzlenecek/Devam + Kaynaklar + Kanallar. Büyük kutular (Resmi Kaynaklar/Öne Çıkanlar/
+  Kanallar dropdown) kaldırıldı → butona basınca PANEL açar (accordion + JS lazy fetch: `/api/v1/favorites`,
+  `/lists/izlenecek`). Header'a "reklamsız izle" tagline.
+- `68fc088` **player**: sinema modunda geri butonu autohide (sol-üst köşe hover/focus'ta çıkar; hep görünmüyordu).
+- `9c224ef` **tutarlı 6'lı grid**: `.grid.grid-results` sabit `repeat(6,1fr)` (küçük ekran 5/4/3/2), specificity
+  ile responsive `.grid`'i geçer → kategori/arama/eklenti "her sayfa aynı". `.page-header-title` xxl→lg (küçüldü).
+  **Not:** CSS bundle değişti → tarayıcıda hard refresh (Ctrl+F5) gerekir.
+
+### 🎯 YENİ YÖN — CLIENT: Kotlin + Jetpack Compose for TV (2026-08-27 kararı)
+**PWA Android TV'de çalışmıyor** (Chrome yok → TWA sağlayıcı yok; "bubblespan"=Bubblewrap da TWA ürettiği için
+çözüm değil). Karar: **Kotlin + Compose for TV + Media3/ExoPlayer** (TV'de D-pad+HLS en olgun/resmi-stable).
+Kapsam: Android (TV öncelik + telefon); **web=mevcut PWA kalır**. Mi Box'a sideload (ARM ABI). Engine DEĞİŞMEZ
+(client-agnostic) — client sadece API tüketir. Detay: `memory/client-tech-decision.md`.
+**İlk adım (POC):** Compose-TV projesi → engine API'ye HTTP (`aggregate_new`) → bir HLS filmi Media3 ile oynat →
+Mi Box test. **Bu yeni iş taze oturumda başlamalı** (bu oturum uzun).
+
+### Bekleyen (bu oturumdan devir)
+1. **Sıralama/"eski diziler"**: aggregate DiziBox "Yerli Diziler" ARŞİVİ çekiyor (eski dahil), "yeni eklenen"
+   feed'i değil → yeni sıralama yok. Kaynak feed davranışı incelenmeli (dikkatli, içerik bozmadan).
+2. Yabancı dizi kartı: DiziMom (yabancı kaynağı) sandbox'ta ölü → ev'de canlı mı doğrula.
+3. Kalıcı image: değişiklikler `docker cp` ile canlı + git commit'te; image güncel değil → müsaitken
+   `git pull && docker compose up -d --build` (build Docker Desktop'ta ara ara 500/asılma yaşadı).
+
+---
+
+## SON OTURUM — 2026-08-27 (TV/kumanda UX + sinema player + yeni kaynaklar + local deploy)
 
 **Durum: AYAKTA + DOĞRULANDI (ev makinesi).** `localhost:3310` → HTTP 200 (home + `/api/v1/health`).
 Auth **bilerek KAPALI** (Dean kararı — kumandayla şifresiz giriş). Container'lar rebuild edildi;
