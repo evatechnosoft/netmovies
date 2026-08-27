@@ -206,7 +206,11 @@ function readItem(card) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-tv-item="true"]').forEach((card) => {
+    // data-tv-item="true" → ana sayfa davranışı (tek tık odaklar, açmak için OK/çift-tık).
+    // data-tv-item="link" → liste sayfaları (arama/kategori): tek tık href'i AÇAR;
+    //   sadece basılı-tutma menüsü + odak çerçevesi eklenir, gezinme bozulmaz.
+    document.querySelectorAll('[data-tv-item]').forEach((card) => {
+        const linkMode = card.dataset.tvItem === 'link';
         let longPressTimer = 0;
         let longPressTriggered = false;
 
@@ -216,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 longPressTriggered = false;
                 return;
             }
+            if (linkMode) return; // liste sayfası: anchor'ın normal gezinmesi çalışsın
             const item = readItem(card);
             if (document.body.classList.contains('mouse-mode')) {
                 event.preventDefault();
@@ -234,12 +239,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.focus();
             }
         });
-        card.addEventListener('dblclick', (event) => {
-            event.preventDefault();
-            const item = readItem(card);
-            if (item.mediaType === 'serie') openSeries(item);
-            else window.location.href = watchUrl(item);
-        });
+        if (!linkMode) {
+            card.addEventListener('dblclick', (event) => {
+                event.preventDefault();
+                const item = readItem(card);
+                if (item.mediaType === 'serie') openSeries(item);
+                else window.location.href = watchUrl(item);
+            });
+            card.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                const item = readItem(card);
+                if (item.mediaType === 'serie') openSeries(item);
+                else window.location.href = watchUrl(item);
+            });
+        }
         card.addEventListener('pointerdown', (event) => {
             if (event.button !== 0 && event.pointerType === 'mouse') return;
             longPressTriggered = false;
@@ -251,13 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         ['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
             card.addEventListener(eventName, () => window.clearTimeout(longPressTimer));
-        });
-        card.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            const item = readItem(card);
-            if (item.mediaType === 'serie') openSeries(item);
-            else window.location.href = watchUrl(item);
         });
     });
 });
