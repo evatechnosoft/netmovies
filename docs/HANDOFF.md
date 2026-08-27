@@ -38,10 +38,14 @@ Auth **bilerek KAPALI** (Dean kararı — kumandayla şifresiz giriş). Containe
 ama kaynak yok. Çözüm: `.env`'e M3U listesi ekle VEYA güncel `RECTV_URL` bul.
 
 ### ⚙️ Deploy operasyon notları (ÖNEMLİ)
-- **watchmedo dev-override Windows'ta ÇALIŞMIYOR** → startup takıldı. Stream **base compose** ile kaldırıldı:
-  `docker compose -f docker-compose.yml up -d --force-recreate stream` (doğrudan `basla.py`).
-  Kaynak değişince yeniden derle: `docker compose -f docker-compose.yml up -d --build --force-recreate stream`.
-- **Tünel:** stream recreate → `w.evaitec.com` düşmüş olabilir. Geri: `docker compose --profile tunnel up -d --force-recreate cloudflared`.
+- **watchmedo override → `docker-compose.dev.yml` (OPT-IN) olarak yeniden adlandırıldı.**
+  Eskiden `docker-compose.override.yml` otomatik uygulanıyordu → Windows'ta startup'ı kilitliyordu.
+  Artık **varsayılan `docker compose up -d --build` = temiz production** (her yerde güvenli, doğrulandı: 0 watchmedo).
+  - **Production / ZimaOS 7/24:** `docker compose -f docker-compose.yml up -d --build` (güncelleme: `git pull && ... up -d --build`).
+  - **Dev auto-reload (opt-in, sadece Linux/ZimaOS):** `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d`.
+    Windows'ta KULLANMA (inotify geçmez) → base + elle rebuild.
+- **w.evaitec.com CANLI** (bu oturumda tünel yeniden bağlandı, HTTP 200 doğrulandı). Tünel `network_mode: service:stream`
+  → stream her recreate olunca kopar; geri: `docker compose -f docker-compose.yml --profile tunnel up -d --no-deps --force-recreate cloudflared`.
 - Engine container'ı bir ara `<hash>_netmovies-engine` adıyla kaldı (kozmetik); `docker compose -f docker-compose.yml up -d` normalize eder.
 
 ### Kalan iş (bu oturumdan)
