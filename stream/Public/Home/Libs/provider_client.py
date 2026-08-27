@@ -73,6 +73,10 @@ class RemoteProviderClient:
         })
         return res if isinstance(res, dict) else {}
 
+    async def get_quick_channels(self) -> list[dict[str, Any]]:
+        res = await self._get("/api/v1/quick_channels")
+        return res if isinstance(res, list) else []
+
     async def search(self, plugin_name: str, query: str, page: int = 1) -> list[dict[str, Any]]:
         res = await self._get("/api/v1/search", params={
             "plugin" : plugin_name,

@@ -14,7 +14,16 @@ from urllib.parse import quote_plus
 # type -> kategori adı ipuçları (öncelik sırasıyla)
 _HINTS = {
     "movie": [("son", "film"), ("yeni", "film"), ("film",)],
-    "serie": [("son", "dizi"), ("yeni", "dizi"), ("dizi",)],
+    # Some providers label their freshest feed as "Son Bölümler" rather
+    # than "Yeni Diziler". Keep this provider-independent so a source's
+    # naming convention cannot hide it from the home page.
+    "serie": [
+        ("son", "dizi"),
+        ("yeni", "dizi"),
+        ("son", "bölüm"),
+        ("dizi",),
+        ("bölüm",),
+    ],
 }
 
 
@@ -38,12 +47,20 @@ async def _fetch_from(name: str, page: int, media_type: str):
     results = await plugin.get_main_page(page, url, cat)
     out = []
     for item in results or []:
+        item_url = getattr(item, "url", "") or ""
+        item_title = getattr(item, "title", None)
+        item_category = str(getattr(item, "category", cat) or cat)
+        media_hint = f"{item_title or ''} {item_url} {item_category}".lower()
+        if "dublaj" in media_hint and "dublaj" not in item_category.lower():
+            item_category = f"{item_category} · Dublaj"
+        elif ("altyaz" in media_hint or "sub" in media_hint) and "altyaz" not in item_category.lower():
+            item_category = f"{item_category} · Altyazı"
         out.append({
             "plugin":   name,
-            "title":    getattr(item, "title", None),
-            "url":      quote_plus(getattr(item, "url", "") or ""),
+            "title":    item_title,
+            "url":      quote_plus(item_url),
             "poster":   getattr(item, "poster", None),
-            "category": getattr(item, "category", cat),
+            "category": item_category,
         })
     return out
 
