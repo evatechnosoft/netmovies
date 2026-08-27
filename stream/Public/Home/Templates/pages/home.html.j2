@@ -88,23 +88,6 @@
 </section>
 </div>
 
-{% if continue_watching %}
-<details class="continue-watching-tile" open>
-    <summary><i class="fas fa-history"></i> İzlemeye devam et <span class="section-count">{{ continue_watching | length }}</span></summary>
-    <div class="continue-watching-row">
-        {% for item in continue_watching %}
-        <a class="continue-watching-item tv-focusable" href="/icerik/{{ item.plugin }}?url={{ item.content_url | default('', true) | urlencode }}{{ provider_query_amp }}" aria-label="{{ item.title }}">
-            <div class="continue-watching-poster">
-                {% if item.poster %}<img src="{{ item.poster }}" alt="" loading="lazy">{% else %}<i class="fas fa-film"></i>{% endif %}
-                {% if item.duration_seconds and item.duration_seconds > 0 %}<span class="continue-watching-progress" style="--progress:{{ ((item.position_seconds / item.duration_seconds) * 100) | round(0) }}%"></span>{% endif %}
-            </div>
-            <span class="continue-watching-title">{{ item.title }}{% if item.episode %}<small>{{ item.episode }}</small>{% endif %}</span>
-        </a>
-        {% endfor %}
-    </div>
-</details>
-{% endif %}
-
 {# Search Results (hidden, filled by search.js) #}
 <section id="search-results" class="search-results is-hidden">
     <div class="search-results-head">
@@ -126,22 +109,83 @@
     <div id="results-grid" class="grid"></div>
 </section>
 
-{# Sabit kategori kartları — her zaman görünür, tıklanabilir giriş noktaları.
-   İçerik döndürmese bile çalışır: tıkla → o kategorinin sayfasına gider. #}
-{% if home_categories %}
-<section id="home-categories" class="home-categories">
-    <div class="home-cat-strip">
-        {% for cat in home_categories %}
-        <a class="home-cat-card tv-focusable"
-           href="/kategori/{{ cat.plugin }}?kategori_url={{ cat.kategori_url }}&kategori_adi={{ cat.kategori_adi | urlencode }}{{ provider_query_amp }}"
-           aria-label="{{ cat.title }}">
-            <i class="fas {{ cat.icon }}"></i>
-            <span>{{ cat.title }}</span>
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
+{# Üst bant — tek satır, boydan boya ince pill butonlar (cloudstream tarzı).
+   Kategoriler doğrudan sayfaya gider; kullanıcı listeleri / kaynaklar / kanallar
+   butona basınca PANEL açar (aşağı inmeye gerek yok). #}
+<nav id="quick-nav" class="quick-nav" aria-label="Hızlı erişim">
+    {% for cat in home_categories %}
+    <a class="qn-btn tv-focusable"
+       href="/kategori/{{ cat.plugin }}?kategori_url={{ cat.kategori_url }}&kategori_adi={{ cat.kategori_adi | urlencode }}{{ provider_query_amp }}"
+       aria-label="{{ cat.title }}">
+        <i class="fas {{ cat.icon }}"></i><span>{{ cat.title }}</span>
+    </a>
+    {% endfor %}
+    <span class="qn-sep" aria-hidden="true"></span>
+    <button type="button" class="qn-btn tv-focusable" data-panel="devam"><i class="fas fa-history"></i><span>Devam</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="favori"><i class="fas fa-heart"></i><span>Favori</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="izlenecek"><i class="fas fa-bookmark"></i><span>İzlenecek</span></button>
+    <span class="qn-sep" aria-hidden="true"></span>
+    <button type="button" class="qn-btn tv-focusable" data-panel="kaynaklar"><i class="fas fa-plug"></i><span>Kaynaklar</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="kanallar"><i class="fas fa-broadcast-tower"></i><span>Kanallar</span></button>
+</nav>
+
+{# Panel gövdeleri — varsayılan gizli, üstteki buton toggle eder. #}
+<div id="qn-panels" class="qn-panels">
+    <section class="qn-panel is-hidden" data-panel-body="devam">
+        <div class="qn-panel-head"><h2><i class="fas fa-history"></i> İzlemeye Devam Et</h2></div>
+        {% if continue_watching %}
+        <div class="continue-watching-row">
+            {% for item in continue_watching %}
+            <a class="continue-watching-item tv-focusable" href="/icerik/{{ item.plugin }}?url={{ item.content_url | default('', true) | urlencode }}{{ provider_query_amp }}" aria-label="{{ item.title }}">
+                <div class="continue-watching-poster">
+                    {% if item.poster %}<img src="{{ item.poster }}" alt="" loading="lazy">{% else %}<i class="fas fa-film"></i>{% endif %}
+                    {% if item.duration_seconds and item.duration_seconds > 0 %}<span class="continue-watching-progress" style="--progress:{{ ((item.position_seconds / item.duration_seconds) * 100) | round(0) }}%"></span>{% endif %}
+                </div>
+                <span class="continue-watching-title">{{ item.title }}{% if item.episode %}<small>{{ item.episode }}</small>{% endif %}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}<p class="qn-empty">Henüz izlemeye başladığın bir şey yok.</p>{% endif %}
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="favori">
+        <div class="qn-panel-head"><h2><i class="fas fa-heart"></i> Favorilerim</h2></div>
+        <div class="qn-lazy" data-endpoint="/api/v1/favorites"><p class="qn-empty">Yükleniyor…</p></div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="izlenecek">
+        <div class="qn-panel-head"><h2><i class="fas fa-bookmark"></i> İzlenecekler</h2></div>
+        <div class="qn-lazy" data-endpoint="/api/v1/lists/izlenecek"><p class="qn-empty">Yükleniyor…</p></div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="kaynaklar">
+        <div class="qn-panel-head"><h2><i class="fas fa-plug"></i> Kaynaklar <span class="section-count">{{ plugins | length }}</span></h2></div>
+        <div class="grid grid-plugins qn-plugin-grid">
+            {% for plugin in plugins %}
+            <a href="/eklenti/{{ plugin.name }}{{ provider_query }}" class="card plugin-card plugin-poster-card" data-plugin-name="{{ plugin.name }}" style="--card-index:{{ loop.index0 }}">
+                <div class="plugin-poster">
+                    {% if plugin.favicon %}<img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" loading="lazy" onerror="this.style.display='none'">{% else %}<i class="fas fa-film"></i>{% endif %}
+                </div>
+                <div class="card-body plugin-poster-body">
+                    <h3 class="card-title">{{ plugin.name }}</h3>
+                    <span class="badge badge-lang badge-lang-{{ plugin.language | lower }}">{{ plugin.language | upper }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="kanallar">
+        <div class="qn-panel-head"><h2><i class="fas fa-broadcast-tower"></i> Kanallar <span class="section-count">{{ quick_channels | length }}</span></h2></div>
+        {% if quick_channels %}
+        <ul class="channels-list">
+            {% for channel in quick_channels %}
+            <li>
+                <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
+                    <i class="fas fa-broadcast-tower"></i><span class="channels-list-title">{{ channel.title }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="qn-empty">Kanal kaynağı tanımlı değil (M3U_SOURCES / RECTV_URL).</p>{% endif %}
+    </section>
+</div>
 
 {# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
 {% macro yeni_rafi(baslik, ikon, items, media_type) %}
@@ -187,93 +231,6 @@
 {{ yeni_rafi('Yeni Türk Diziler', 'fa-tv', yeni_turk_diziler, 'serie_local') }}
 {{ yeni_rafi('Yeni Yabancı Diziler', 'fa-globe', yeni_yabanci_diziler, 'serie_foreign') }}
 
-{# Resmi yayıncı sayfaları: doğrudan yayın manifesti/proxy yerine kaynak sahibine yönlendirir. #}
-{% if official_sources %}
-<section id="official-sources" class="official-sources">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-broadcast-tower"></i> Resmi Kaynaklar</h2>
-        <p class="section-subtitle">Canlı TV, dizi ve film yayıncılarının resmi sayfaları</p>
-    </div>
-    <div class="grid grid-plugins official-source-grid">
-        {% for source in official_sources %}
-        <a class="card plugin-card official-source-card"
-           href="/resmi-kaynak?url={{ source.url | urlencode }}"
-           aria-label="{{ source.title }} — {{ source.broadcaster }}">
-            <div class="card-icon official-source-icon"><i class="fas {{ source.icon }}"></i></div>
-            <div class="card-body">
-                <h3 class="card-title">{{ source.title }}</h3>
-                <span class="badge badge-lang">{{ source.category }}</span>
-            </div>
-            <p class="card-desc">{{ source.description }}</p>
-            <span class="official-source-link">{{ source.broadcaster }} <i class="fas fa-external-link-alt"></i></span>
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-{# Plugin List #}
-{% if featured %}
-<section id="featured-list">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-thumbtack"></i> Öne Çıkanlar <span class="section-count">{{ featured | length }}</span></h2>
-    </div>
-    <div class="grid grid-plugins">
-        {% for f in featured %}
-        <a href="/icerik/{{ f.provider }}?url={{ f.url | urlencode }}{{ provider_query_amp }}" class="card plugin-card">
-            <div class="card-icon">
-                {% if f.poster %}<img src="{{ f.poster }}" alt="{{ f.title }}" loading="lazy">{% else %}<i class="fas fa-star"></i>{% endif %}
-            </div>
-            <div class="card-body">
-                <h3 class="card-title">{{ f.title }}</h3>
-                {% if f.rating %}<span class="badge">★ {{ f.rating }}</span>{% endif %}
-            </div>
-            {% if f.provider %}<p class="card-desc">{{ f.provider }}</p>{% endif %}
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-<section id="plugins-list">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-plug"></i> <span data-i18n="all_plugins">{{ tr('all_plugins') }}</span> <span class="section-count">{{ plugins | length }}</span></h2>
-    </div>
-    <div class="grid grid-plugins">
-        {% if quick_channels %}
-        <details class="channels-dropdown">
-            <summary><i class="fas fa-broadcast-tower"></i> Kanallar <span class="section-count">{{ quick_channels | length }}</span></summary>
-            <ul class="channels-list">
-        {% for channel in quick_channels %}
-            <li>
-                <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
-                    <i class="fas fa-broadcast-tower"></i>
-                    <span class="channels-list-title">{{ channel.title }}</span>
-                </a>
-            </li>
-        {% endfor %}
-            </ul>
-        </details>
-        {% endif %}
-        {% for plugin in plugins %}
-        <a href="/eklenti/{{ plugin.name }}{{ provider_query }}" class="card plugin-card plugin-poster-card" data-plugin-name="{{ plugin.name }}" style="--card-index:{{ loop.index0 }}">
-            <div class="plugin-poster">
-                {% if plugin.favicon %}
-                <img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='');var i=document.createElement('i');i.className='fas fa-film';this.parentElement.appendChild(i);this.remove()">
-                {% else %}
-                <i class="fas fa-film"></i>
-                {% endif %}
-            </div>
-            <div class="card-body plugin-poster-body">
-                <h3 class="card-title">{{ plugin.name }}</h3>
-                <span class="badge badge-lang badge-lang-{{ plugin.language | lower }}">{{ plugin.language | upper }}</span>
-            </div>
-            <p class="card-desc">{{ plugin.description }}</p>
-        </a>
-        {% endfor %}
-    </div>
-</section>
-
 {% endblock %}
 
 {% block js %}
@@ -281,14 +238,28 @@
 <script type="module" src="{{ url_for('static_home', path='JS/global-search.min.js') }}" defer></script>
 <script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.js') }}" defer></script>
 <style>
-  /* Sabit kategori kartları şeridi */
-  .home-categories { margin: 0 0 18px; }
-  .home-cat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .home-cat-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 18px 10px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--surface-glass); color: var(--text-color); text-decoration: none; font-weight: 700; text-align: center; transition: border-color .15s ease, background-color .15s ease; }
-  .home-cat-card i { font-size: 1.6rem; color: var(--primary-light); }
-  .home-cat-card:hover { border-color: var(--primary-color); background: var(--primary-soft); }
-  .home-cat-card:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 3px; }
-  @media (max-width: 640px) { .home-cat-strip { grid-template-columns: repeat(2, 1fr); } }
+  /* Üst bant — ince pill buton nav (cloudstream tarzı, tek satır boydan boya) */
+  .quick-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; padding: 8px; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface-glass); }
+  .qn-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid var(--glass-edge); border-radius: 999px; background: var(--card-bg-color); color: var(--text-color); text-decoration: none; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: border-color .12s ease, background-color .12s ease; }
+  .qn-btn i { font-size: .8rem; color: var(--primary-light); }
+  .qn-btn:hover { border-color: var(--primary-color); background: var(--primary-soft); }
+  .qn-btn.is-active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+  .qn-btn.is-active i { color: #fff; }
+  .qn-btn:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 2px; }
+  .qn-sep { width: 1px; align-self: stretch; margin: 2px 4px; background: var(--glass-edge); }
+  @media (max-width: 640px) { .qn-btn span { font-size: .78rem; } .qn-sep { display: none; } }
+  /* Paneller — üstteki buton toggle eder */
+  .qn-panels { margin: 0 0 18px; }
+  .qn-panel { margin: 0 0 12px; padding: 14px; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface-glass); }
+  .qn-panel.is-hidden { display: none; }
+  .qn-panel-head { margin: 0 0 10px; }
+  .qn-panel-head h2 { margin: 0; font-size: 1rem; color: var(--text-color); }
+  .qn-panel-head h2 i { color: var(--primary-light); margin-right: 6px; }
+  .qn-empty { color: var(--text-muted); font-size: .85rem; padding: 6px 2px; }
+  .qn-plugin-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  /* Raf başlığı — sadeleştir (kocaman değil) */
+  .yeni-rafi .carousel-title { font-size: .95rem; font-weight: 700; }
+  .yeni-rafi .carousel-title i { font-size: .85rem; }
   .carousel-wrapper { min-width: 0; max-width: 100%; overflow: hidden; }
   .carousel-track { width: 100%; max-width: 100%; min-width: 0; gap: 8px; overflow: hidden; }
   .poster-rail { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 8px; }
@@ -375,4 +346,53 @@
   @media (max-width: 900px) { .poster-rail { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .poster-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); } .carousel-track .poster-card { width: 100%; } }
 </style>
+<script>
+// Üst bant panel toggle (accordion) + kullanıcı listelerini lazy fetch.
+(function () {
+  var nav = document.getElementById('quick-nav');
+  var panels = document.getElementById('qn-panels');
+  if (!nav || !panels) return;
+  var allPanels = panels.querySelectorAll('.qn-panel');
+
+  nav.addEventListener('click', function (e) {
+    var btn = e.target.closest('.qn-btn[data-panel]');
+    if (!btn) return;
+    var key = btn.getAttribute('data-panel');
+    var panel = panels.querySelector('.qn-panel[data-panel-body="' + key + '"]');
+    if (!panel) return;
+    var willOpen = panel.classList.contains('is-hidden');
+    allPanels.forEach(function (p) { p.classList.add('is-hidden'); });
+    nav.querySelectorAll('.qn-btn').forEach(function (b) { b.classList.remove('is-active'); });
+    if (willOpen) {
+      panel.classList.remove('is-hidden');
+      btn.classList.add('is-active');
+      var lazy = panel.querySelector('.qn-lazy[data-endpoint]:not(.loaded)');
+      if (lazy) loadLazy(lazy);
+    }
+  });
+
+  function loadLazy(box) {
+    box.classList.add('loaded');
+    fetch(box.getAttribute('data-endpoint'), { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        var items = (d && d.result) || [];
+        if (!items.length) { box.innerHTML = '<p class="qn-empty">Liste boş.</p>'; return; }
+        box.className = 'qn-lazy grid grid-plugins qn-plugin-grid loaded';
+        box.innerHTML = items.map(function (it) {
+          var url = encodeURIComponent(it.content_url || it.url || '');
+          var poster = it.poster
+            ? '<img src="' + it.poster + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+            : '<i class="fas fa-film"></i>';
+          return '<a class="card plugin-card plugin-poster-card" href="/icerik/'
+            + encodeURIComponent(it.plugin || '') + '?url=' + url + '">'
+            + '<div class="plugin-poster">' + poster + '</div>'
+            + '<div class="card-body plugin-poster-body"><h3 class="card-title">'
+            + (it.title || '') + '</h3></div></a>';
+        }).join('');
+      })
+      .catch(function () { box.innerHTML = '<p class="qn-empty">Yüklenemedi.</p>'; });
+  }
+})();
+</script>
 {% endblock %}
