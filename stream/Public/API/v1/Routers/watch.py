@@ -63,6 +63,7 @@ async def save_progress(request: Request):
         title            = str(veri.get("title") or ""),
         poster           = str(veri.get("poster") or ""),
         media_type       = str(veri.get("media_type") or ""),
+        content_url      = str(veri.get("content_url") or ""),
         episode          = str(veri.get("episode") or ""),
         position_seconds = _num(veri.get("position_seconds")),
         duration_seconds = _num(veri.get("duration_seconds")),
@@ -85,6 +86,46 @@ async def get_favorites(request: Request):
     """Tüm favorileri listeler."""
     result = watch_store.list_favorites()
     return {**api_v1_global_message, "result": result}
+
+
+# ------------------------------------------------------------------------- lists
+@api_v1_router.get("/lists/{list_name}")
+async def get_user_list(request: Request, list_name: str):
+    """Kullanıcının izlenecek, planlandı veya takip listesini döndürür."""
+    if list_name not in watch_store.ALLOWED_LISTS:
+        return {**api_v1_global_message, "result": [], "error": "Geçersiz liste"}
+    veri = request.state.veri or {}
+    try:
+        limit = int(veri.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    return {**api_v1_global_message, "result": watch_store.list_user_list(list_name, limit)}
+
+
+@api_v1_router.post("/lists/toggle")
+async def toggle_user_list(request: Request):
+    """İçeriği seçilen kullanıcı listesine ekler veya çıkarır."""
+    veri = request.state.veri or {}
+    list_name = str(veri.get("list_name") or "")
+    ck = _key_from(veri)
+    if list_name not in watch_store.ALLOWED_LISTS or not ck:
+        return {**api_v1_global_message, "result": {"ok": False, "error": "Geçerli liste ve içerik gerekli"}}
+    state = watch_store.toggle_user_list(
+        ck, list_name,
+        plugin=str(veri.get("plugin") or ""),
+        title=str(veri.get("title") or ""),
+        poster=str(veri.get("poster") or ""),
+        media_type=str(veri.get("media_type") or ""),
+    )
+    return {**api_v1_global_message, "result": {"ok": True, "list_name": list_name, "saved": state}}
+
+
+@api_v1_router.get("/favorites/status")
+async def favorite_status(request: Request):
+    """Tek içeriğin merkezi listede olup olmadığını döndürür."""
+    veri = request.state.veri or {}
+    ck = _key_from(veri)
+    return {**api_v1_global_message, "result": {"content_key": ck, "is_favorite": watch_store.is_favorite(ck) if ck else False}}
 
 
 @api_v1_router.post("/favorites")

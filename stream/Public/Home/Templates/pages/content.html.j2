@@ -47,6 +47,19 @@
                 <button class="button-icon" id="share-content-btn" title="{{ tr('share') }}" data-i18n="share" data-i18n-attr="title">
                     <i class="fas fa-share-alt"></i>
                 </button>
+                <button type="button" class="button button-secondary content-library-btn" id="content-library-btn"
+                    data-title="{{ content.title }}"
+                    data-year="{{ content.year | default('', true) }}"
+                    data-media-type="{{ 'serie' if content.episodes and content.episodes|length > 0 else 'movie' }}"
+                    data-plugin="{{ eklenti_adi }}"
+                    data-poster="{{ content.poster | default('', true) }}">
+                    <i class="fas fa-bookmark"></i> <span>Listeme ekle</span>
+                </button>
+                <div class="content-list-actions" data-title="{{ content.title }}" data-year="{{ content.year | default('', true) }}" data-media-type="{{ 'serie' if content.episodes and content.episodes|length > 0 else 'movie' }}" data-plugin="{{ eklenti_adi }}" data-poster="{{ content.poster | default('', true) }}">
+                    <button type="button" class="button button-secondary user-list-btn" data-list-name="izlenecek">İzlenecek</button>
+                    <button type="button" class="button button-secondary user-list-btn" data-list-name="planlandi">Planlandı</button>
+                    <button type="button" class="button button-secondary user-list-btn" data-list-name="takip">Takip</button>
+                </div>
                 <button type="button" class="button button-secondary" id="feature-content-btn"
                     data-provider="{{ eklenti_adi }}"
                     data-url="{{ content.url }}"
@@ -83,6 +96,61 @@
                     } finally {
                         btn.disabled = false;
                     }
+                });
+            })();
+            </script>
+            <script>
+            (function () {
+                var wrap = document.querySelector('.content-list-actions');
+                if (!wrap) return;
+                var payload = function (name) { return {
+                    list_name: name, title: wrap.dataset.title, year: wrap.dataset.year,
+                    media_type: wrap.dataset.mediaType, plugin: wrap.dataset.plugin, poster: wrap.dataset.poster
+                }; };
+                wrap.querySelectorAll('.user-list-btn').forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        button.disabled = true;
+                        fetch('/api/v1/lists/toggle', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload(button.dataset.listName))
+                        }).then(function (response) { return response.json(); }).then(function (data) {
+                            if (data.result && data.result.ok) {
+                                button.classList.toggle('is-active', Boolean(data.result.saved));
+                            }
+                        }).finally(function () { button.disabled = false; });
+                    });
+                });
+            })();
+            </script>
+            <script>
+            (function () {
+                var btn = document.getElementById('content-library-btn');
+                if (!btn) return;
+                var label = btn.querySelector('span');
+                var payload = function () { return {
+                    title: btn.dataset.title, year: btn.dataset.year,
+                    media_type: btn.dataset.mediaType, plugin: btn.dataset.plugin,
+                    poster: btn.dataset.poster
+                }; };
+                var setState = function (saved) {
+                    btn.classList.toggle('is-active', saved);
+                    label.textContent = saved ? 'Listeden çıkar' : 'Listeme ekle';
+                    btn.querySelector('i').className = saved ? 'fas fa-bookmark' : 'far fa-bookmark';
+                };
+                var query = new URLSearchParams(payload());
+                fetch('/api/v1/favorites/status?' + query.toString())
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) { setState(Boolean(data.result && data.result.is_favorite)); })
+                    .catch(function () {});
+                btn.addEventListener('click', function () {
+                    btn.disabled = true;
+                    fetch('/api/v1/favorites/toggle', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload())
+                    }).then(function (response) { return response.json(); })
+                      .then(function (data) {
+                          if (data.result && data.result.ok) setState(Boolean(data.result.is_favorite));
+                      }).catch(function () { label.textContent = 'Tekrar dene'; })
+                      .finally(function () { btn.disabled = false; });
                 });
             })();
             </script>
