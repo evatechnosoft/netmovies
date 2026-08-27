@@ -371,3 +371,41 @@ body.mouse-mode .channel-card:active {
   outline-color: var(--primary-color);
   filter: brightness(1.18);
 }
+
+/* ------------------------------------------------------------ global focus
+   Kumandayla (D-pad/OK), klavye (Tab) veya imleçle gezerken HANGİ öğede
+   olduğun her sayfada net görünsün — mouse moduna bağlı DEĞİL. Arama kutusu
+   dahil. outline layout'u tetiklemez → performansı yavaşlatmaz. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.poster-card:focus-visible,
+.card:focus-visible,
+.plugin-card:focus-visible,
+.channels-list-item:focus-visible {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 3px;
+  border-radius: 8px;
+  z-index: 6;
+}
+
+/* Arama kutusu odakta belirgin olsun (odak imleç modunda da görünür). */
+.global-search-input:focus,
+input[type="search"]:focus,
+.search-input:focus {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+/* Hafif basma (:active) geri bildirimi TÜM sayfalarda — mouse moduyla sınırlı
+   değil. Dokunma/tık anında ne seçtiğin belli olsun. */
+a.poster-card:active,
+.card:active,
+.plugin-card:active,
+.button:active,
+.channels-list-item:active {
+  filter: brightness(1.15);
+}

@@ -225,16 +225,16 @@
         {% if quick_channels %}
         <details class="channels-dropdown">
             <summary><i class="fas fa-broadcast-tower"></i> Kanallar <span class="section-count">{{ quick_channels | length }}</span></summary>
-            <div class="channels-dropdown-list">
-        {% for channel in quick_channels[:8] %}
-        <a class="card plugin-card plugin-poster-card channel-card" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
-            <div class="plugin-poster channel-poster">
-                {% if channel.poster %}<img src="{{ channel.poster }}" alt="{{ channel.title }}" loading="lazy">{% else %}<i class="fas fa-broadcast-tower"></i>{% endif %}
-            </div>
-            <div class="card-body plugin-poster-body"><h3 class="card-title">{{ channel.title }}</h3><span class="badge">Kanal</span></div>
-        </a>
+            <ul class="channels-list">
+        {% for channel in quick_channels %}
+            <li>
+                <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span class="channels-list-title">{{ channel.title }}</span>
+                </a>
+            </li>
         {% endfor %}
-            </div>
+            </ul>
         </details>
         {% endif %}
         {% for plugin in plugins %}
@@ -275,6 +275,15 @@
   .carousel-track .poster-card.tv-focusable { position: relative; }
   .carousel-track .poster-card.tv-focusable:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 4px; }
   .quick-channel-card { width: 112px; flex: 0 0 112px; }
+  /* Kanallar: hafif metin listesi (poster yok → lag yok), grid'i tam kaplar */
+  .channels-dropdown { grid-column: 1 / -1; }
+  .channels-dropdown > summary { cursor: pointer; padding: 10px 12px; border-radius: 12px; background: var(--surface-variant); font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .channels-dropdown > summary::-webkit-details-marker { display: none; }
+  .channels-list { list-style: none; margin: 8px 0 0; padding: 4px; max-height: 340px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; content-visibility: auto; }
+  .channels-list-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text-color); text-decoration: none; font-size: .85rem; background: var(--card-bg-color); }
+  .channels-list-item i { color: var(--primary-light); flex: 0 0 auto; font-size: .8rem; }
+  .channels-list-item:hover { background: var(--primary-soft); }
+  .channels-list-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .plugin-poster-card { min-height: 260px; }
   #plugins-list .grid-plugins { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   #plugins-list .plugin-card { min-height: 0; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: var(--shadow-sm); transition: border-color .15s ease, background-color .15s ease; }
