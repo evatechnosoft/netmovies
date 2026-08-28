@@ -30,8 +30,19 @@ Dean'in bildirdiği 4 web şikayetinin kök-neden çözümü + Compose-TV client
   header enjekte, proxy'siz). Retrofit+kotlinx.serialization. gradlew ile buildable (wrapper jar dahil).
 - Java21/AGP8.5.2/Kotlin2.0.20/Gradle8.9, minSdk26. Build+sideload: `client-tv/README.md`.
 - stream'e `/api/v1/aggregate_new` client-facing proxy eklendi (client bunu çekebilsin diye).
-- ⚠️ **Bu makinede DERLENMEDİ** (gradle+SDK indirmesi gerekir). İlk `./gradlew.bat assembleDebug`
-  versiyon/API uyumunda ufak düzeltme isteyebilir. Oynatma uçtan uca Mi Box'ta doğrulanacak.
+- ✅ **BUILD DOĞRULANDI** (`524d13d`): temiz checkout'tan `./gradlew.bat assembleDebug` → BUILD
+  SUCCESSFUL, `app-debug.apk` ~12.7MB. Stack (AGP8.5.2/Kotlin2.0.20/Gradle8.9/Java21) tutuyor.
+- ⚠️ **OYNATMA (HLS) doğrulanmadı** — sadece DERLEME doğrulandı. Uçtan uca Mi Box'ta test edilecek
+  (encoded_url çift-kodlama + segment header riskleri `client-tv/README.md`).
+- **İyileştirmeler** (hepsi derlenip doğrulandı): kategori-raylı home + player yükleniyor/hata-retry
+  + posterler `/proxy/image`'den + `keepScreenOn`.
+- 🐞 **GITIGNORE TUZAĞI (gelecek oturumlar dikkat):** kök `.gitignore`'daki `data/` kuralı Kotlin
+  `tv/data/` KAYNAK paketini de gizliyordu → ilk commit'te data katmanı sessizce atlanmıştı.
+  `client-tv/.gitignore`'a negasyon eklendi (`!.../tv/data/`). Yeni `data/` adlı KAYNAK dizini
+  eklerken aynı tuzağa dikkat.
+
+**POC'un sıradaki adımı:** Diziler (serie) sekmesi — `aggregate_new type=serie` + `load_item` →
+bölüm seçimi → oynat. **ÖNCE oynatma Mi Box'ta doğrulanmalı** (üstüne feature bindirmeden).
 
 **Dean'in yapacağı doğrulama:**
 1. Web fix'lerini canlıya al (restart yok, tünel korunur):
