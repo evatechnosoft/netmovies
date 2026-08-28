@@ -284,20 +284,19 @@
   color: var(--text-muted);
 }
 
-/* Results grid — TÜM poster sayfalarında (kategori/arama/eklenti) tutarlı 6'lı grid.
-   `.grid.grid-results` (2 class) responsive `.grid` kurallarını specificity ile geçer,
-   böylece "her sayfa aynı" olur; küçük ekranlarda kademeli azalır. */
+/* Results grid — TÜM poster sayfalarında (kategori/arama/eklenti) ana sayfayla
+   TUTARLI kompakt poster boyu. Ana sayfa/provider carousel posterleri 130px
+   (bkz. carousel.css `.carousel-track .poster-card`); burada da 130px auto-fill
+   kullanınca arama/kategori "ana sayfa gibi küçük" olur — ekran genişledikçe
+   sütun sayısı otomatik artar, poster boyu sabit küçük kalır. */
 .grid-results {
   animation: fadeInUp 0.4s ease-out;
 }
 .grid.grid-results {
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: var(--spacing-md);
 }
-@media (max-width: 1100px) { .grid.grid-results { grid-template-columns: repeat(5, 1fr); } }
-@media (max-width: 900px)  { .grid.grid-results { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 680px)  { .grid.grid-results { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 440px)  { .grid.grid-results { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 440px) { .grid.grid-results { grid-template-columns: repeat(3, 1fr); } }
 
 /* Card fade-in stagger animation */
 @keyframes cardFadeIn {
