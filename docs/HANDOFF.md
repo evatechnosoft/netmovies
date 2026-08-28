@@ -10,7 +10,38 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-27 (akşam) — cloudstream UI + ölü-kaynak dayanıklılığı + CLIENT KARARI
+## 0. SON OTURUM — 2026-08-28 — 4 web şikayeti fix + Kotlin Compose-TV POC iskeleti
+
+**Durum: KODLANDI + COMMIT'Lİ, runtime doğrulaması Dean'de.** Commit'ler: `a1b63fa..a052479`.
+Dean'in bildirdiği 4 web şikayetinin kök-neden çözümü + Compose-TV client POC'u başlatıldı.
+
+**Web fix'leri (stream):**
+- `a1b63fa` **Sayfa düzeni birliği**: `.grid.grid-results` sabit 6-grid (geniş ekranda ~190px büyük)
+  → `repeat(auto-fill, minmax(130px,1fr))` = ana sayfa/provider (130px carousel) ile aynı küçük boy.
+  **Deploy:** bundle yeniden üret + hard refresh (aşağıda).
+- `c445633` **#2 Poster proxy** (`/proxy/image`, SSRF korumalı: http(s)+public IP, 8MB, 7g cache) —
+  posterler artık stream/residential IP + doğru Referer ile; Jinja `poster()` global + JS wrap ile
+  TÜM poster sayfalarında. **#3 Kaynak dayanıklılığı**: provider_client split timeout (connect=5s,
+  read=20s) → ölü kaynak hızlı düşer; error.html.j2'ye "Tekrar dene". **#4 Nav**: ilk mousemove'da
+  mouse-mode otomatik (D-pad tetiklemez → TV korunur).
+
+**Kotlin Compose-TV POC (`client-tv/`)** — `a052479`:
+- Liste (`aggregate_new` → 6'lı poster grid, D-pad) + Media3/ExoPlayer HLS (load_links referer/UA
+  header enjekte, proxy'siz). Retrofit+kotlinx.serialization. gradlew ile buildable (wrapper jar dahil).
+- Java21/AGP8.5.2/Kotlin2.0.20/Gradle8.9, minSdk26. Build+sideload: `client-tv/README.md`.
+- stream'e `/api/v1/aggregate_new` client-facing proxy eklendi (client bunu çekebilsin diye).
+- ⚠️ **Bu makinede DERLENMEDİ** (gradle+SDK indirmesi gerekir). İlk `./gradlew.bat assembleDebug`
+  versiyon/API uyumunda ufak düzeltme isteyebilir. Oynatma uçtan uca Mi Box'ta doğrulanacak.
+
+**Dean'in yapacağı doğrulama:**
+1. Web fix'lerini canlıya al (restart yok, tünel korunur):
+   `MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python3 -c "from build_assets import minify_assets, bundle_css; minify_assets(); bundle_css()"`
+   → Ctrl+F5. (Yeni Python endpoint'ler/timeout için stream restart de gerekir: `docker compose up -d`.)
+2. TV client: `cd client-tv` → `gradle.properties`'e ev IP → `./gradlew.bat assembleDebug` → `adb install`.
+
+---
+
+## 0.1 ÖNCEKİ OTURUM — 2026-08-27 (akşam) — cloudstream UI + ölü-kaynak dayanıklılığı + CLIENT KARARI
 
 **Durum: AYAKTA + DOĞRULANDI (ev makinesi, `localhost:3310`).** UI yeniden düzenlendi, deploy `docker cp`
 + Jinja auto-reload / CSS minify ile yapıldı (restart YOK → tünel korundu). Commit'ler: `c48cbd7..9c224ef`.
