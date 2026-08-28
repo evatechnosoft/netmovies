@@ -17,4 +17,4 @@ proxy_global_message = {
 async def get_proxy_router(request: Request):
     return proxy_global_message
 
-from . import video, subtitle
+from . import video, subtitle, image

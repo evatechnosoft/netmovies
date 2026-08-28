@@ -25,6 +25,9 @@
         </div>
         {% endif %}
         <div class="error-actions">
+            <button type="button" class="button button-secondary" onclick="history.length > 1 ? history.back() : location.reload()">
+                <i class="fas fa-rotate-right"></i> <span>Tekrar dene</span>
+            </button>
             <a href="/{{ provider_query if provider_query else '' }}" class="button button-primary">
                 <i class="fas fa-home"></i> <span data-i18n="back_home">{{ tr('back_home') }}</span>
             </a>

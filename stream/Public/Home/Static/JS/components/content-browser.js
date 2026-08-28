@@ -442,7 +442,7 @@ class ContentBrowser {
         const imgWrap = createElement('div', { className: 'poster-card-img' });
         if (item.poster) {
             const img = createElement('img', {
-                src: item.poster,
+                src: '/proxy/image?url=' + encodeURIComponent(item.poster),
                 alt: item.title || '',
                 loading: 'lazy'
             });

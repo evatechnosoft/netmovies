@@ -113,6 +113,13 @@
     };
     setMouseMode(localStorage.getItem('netmovies_mouse_mode') === '1');
     mouseButton?.addEventListener('click', () => setMouseMode(!document.body.classList.contains('mouse-mode')));
+    // Kullanıcı daha önce elle ayarlamadıysa, İLK gerçek fare/imleç hareketinde
+    // mouse modunu otomatik aç → tek tık poster açar. D-pad (ok tuşları) kullanıcısı
+    // mousemove tetiklemez, dolayısıyla TV davranışı bozulmaz; kullanıcı menüden
+    // kapatırsa ('0') bir daha otomatik açılmaz.
+    if (localStorage.getItem('netmovies_mouse_mode') === null) {
+      window.addEventListener('mousemove', () => setMouseMode(true), { once: true });
+    }
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
       deferredInstallPrompt = event;

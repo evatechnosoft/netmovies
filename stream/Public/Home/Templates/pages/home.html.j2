@@ -138,7 +138,7 @@
             {% for item in continue_watching %}
             <a class="continue-watching-item tv-focusable" href="/icerik/{{ item.plugin }}?url={{ item.content_url | default('', true) | urlencode }}{{ provider_query_amp }}" aria-label="{{ item.title }}">
                 <div class="continue-watching-poster">
-                    {% if item.poster %}<img src="{{ item.poster }}" alt="" loading="lazy">{% else %}<i class="fas fa-film"></i>{% endif %}
+                    {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="" loading="lazy">{% else %}<i class="fas fa-film"></i>{% endif %}
                     {% if item.duration_seconds and item.duration_seconds > 0 %}<span class="continue-watching-progress" style="--progress:{{ ((item.position_seconds / item.duration_seconds) * 100) | round(0) }}%"></span>{% endif %}
                 </div>
                 <span class="continue-watching-title">{{ item.title }}{% if item.episode %}<small>{{ item.episode }}</small>{% endif %}</span>
@@ -209,7 +209,7 @@
                data-content-title="{{ item.title }}"
                data-poster="{{ item.poster or '' }}">
                 <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
-                    {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+                    {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
                 </div>
                 <div class="poster-card-overlay">
                     <span class="poster-card-title">{{ item.title }}</span>
@@ -382,7 +382,7 @@
         box.innerHTML = items.map(function (it) {
           var url = encodeURIComponent(it.content_url || it.url || '');
           var poster = it.poster
-            ? '<img src="' + it.poster + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+            ? '<img src="/proxy/image?url=' + encodeURIComponent(it.poster) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
             : '<i class="fas fa-film"></i>';
           return '<a class="card plugin-card plugin-poster-card" href="/icerik/'
             + encodeURIComponent(it.plugin || '') + '?url=' + url + '">'
