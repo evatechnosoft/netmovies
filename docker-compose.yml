@@ -49,6 +49,8 @@ services:
       DIZIBOX_URL: ${DIZIBOX_URL:-}
       DIZILLA_URL: ${DIZILLA_URL:-}
       DIZIMOM_URL: ${DIZIMOM_URL:-}
+      ENGINE_WORKERS: ${ENGINE_WORKERS:-2}
+      AUTO_DISCOVER_DOMAINS: ${AUTO_DISCOVER_DOMAINS:-0}
     volumes:
       - ./lists:/data/lists:ro
     networks:
