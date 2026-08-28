@@ -30,6 +30,7 @@ import coil.compose.AsyncImage
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
 import com.evaitec.netmovies.tv.data.MediaItem
+import com.evaitec.netmovies.tv.data.proxiedPoster
 
 private val POSTER_WIDTH = 118.dp   // ana sayfa carousel poster boyuyla uyumlu (küçük)
 
@@ -102,7 +103,7 @@ private fun PosterCard(item: MediaItem, onClick: () -> Unit) {
     ) {
         Box(Modifier.fillMaxSize()) {
             AsyncImage(
-                model = item.poster,
+                model = proxiedPoster(item.poster),
                 contentDescription = item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

@@ -100,6 +100,7 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
                 PlayerView(ctx).apply {
                     player = exo
                     useController = true
+                    keepScreenOn = true   // film oynarken ekran uykuya dalmasın
                 }
             },
             modifier = Modifier.fillMaxSize(),
