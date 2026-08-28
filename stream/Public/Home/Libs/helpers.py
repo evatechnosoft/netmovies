@@ -13,6 +13,23 @@ _TRANSLATIONS    = {}
 _SUPPORTED_LANGS = ("tr", "en")
 _DEFAULT_LANG    = "tr"
 
+_STATIC_DIR = Path(__file__).resolve().parents[1] / "Static"
+
+def _asset_version() -> str:
+    """Cache-bust token from bundle mtimes. Değişince URL değişir → tarayıcı
+    bayat cache yerine güncel bundle'ı çeker (aksi halde CSS/JS güncellemeleri
+    hard-refresh olmadan görünmez). Bundle rebuild'de (boot veya elle minify)
+    otomatik güncellenir."""
+    try:
+        candidates = (
+            _STATIC_DIR / "CSS" / "style.bundle.min.css",
+            _STATIC_DIR / "JS"  / "main.min.js",
+        )
+        latest = max((p.stat().st_mtime for p in candidates if p.exists()), default=0)
+        return str(int(latest))
+    except Exception:
+        return "0"
+
 def _load_translations():
     global _TRANSLATIONS
     if _TRANSLATIONS:
@@ -130,7 +147,8 @@ async def build_context(request: Request, **extra):
         "provider_url"  : provider_url,
         "provider_name" : provider_name,
         "is_remote"     : bool(provider_url),
-        "production"    : PRODUCTION
+        "production"    : PRODUCTION,
+        "asset_version" : _asset_version(),
     }
     context.update(extra)
     return context
