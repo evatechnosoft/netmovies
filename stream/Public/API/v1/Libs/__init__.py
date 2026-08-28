@@ -60,6 +60,14 @@ class ProviderRequestError(Exception):
 def _cache_key(endpoint: str, params: dict | None) -> str:
     return f"{endpoint}?{sorted((params or {}).items())}"
 
+def _cacheable(endpoint: str, result) -> bool:
+    """Boş agregasyon sonucunu CACHE'LEME. Geçici kaynak hatası (timeout) sırasında
+    aggregate 0 item döndürüp bunu 10dk cache'lerse, kaynak düzelse bile ana sayfa
+    boş kalıyordu. Boş sonuç cache'lenmez → bir sonraki istek taze dener."""
+    if endpoint == "/aggregate_new":
+        return bool(result and result.get("items"))
+    return True
+
 def _prune(cache: dict, max_entries: int):
     now     = time.monotonic()
     expired = [k for k, (exp, _) in cache.items() if exp <= now]
@@ -92,7 +100,7 @@ async def _fetch(
 async def fuck_dmca(
     endpoint: str,
     params: dict | None = None,
-    timeout: float | None = None,
+    timeout: float | None = 30.0,
     client_headers: dict[str, str] | None = None,
 ):
     ttl = _CACHE_TTL.get(endpoint)
@@ -110,7 +118,7 @@ async def fuck_dmca(
 
     async def _do_fetch():
         result = await _fetch(endpoint, params, timeout, client_headers)
-        if ttl and result:
+        if ttl and result and _cacheable(endpoint, result):
             _cache[key] = (time.monotonic() + ttl, result)
             _prune(_cache, _CACHE_MAX_ENTRIES)
         return result

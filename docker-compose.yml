@@ -73,7 +73,7 @@ services:
       # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
       SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
       SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
-      WEB_WORKERS          : ${WEB_WORKERS:-1}
+      WEB_WORKERS          : ${WEB_WORKERS:-2}
       # Kişisel kullanım: auth bilerek KAPALI (kumandayla giriş zahmetsiz olsun).
       # Public erişim istenirse .env'de AUTH_USER/AUTH_PASS doldur + burayı ${AUTH_USER:-} yap.
       AUTH_USER            : ""
