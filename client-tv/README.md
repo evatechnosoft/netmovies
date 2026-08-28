@@ -49,6 +49,29 @@ Uygulama TV launcher'da (Leanback) ve telefonda görünür.
   (referer/UA query ile) — web player böyle yapıyor.
 - Dizi (serie) akışı POC dışı: `type=movie`. Dizi için `load_item` → bölüm seçimi eklenecek.
 
+## Release & OTA (kendini güncelleme)
+Repo **public** → release APK'sı girişsiz indirilebilir. Uygulama açılışta GitHub
+`/releases`'i kontrol eder; en yeni tag `BuildConfig.RELEASE_TAG`'den farklıysa üstte
+"Güncelleme mevcut" şeridi çıkar → İndir & Kur (FileProvider + REQUEST_INSTALL_PACKAGES).
+
+**Son release:** https://github.com/evatechnosoft/netmovies/releases
+**Direkt APK:** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.0-poc/netmovies-tv-v0.1.0-poc.apk
+(TV tarayıcısından bu linki aç → indir → kur; veya `adb install -r`.)
+
+### Yeni sürüm çıkarma reçetesi
+```bash
+# 1) app/build.gradle.kts → RELEASE_TAG'i yeni tag'e güncelle (örn. "v0.1.1-poc")
+# 2) derle
+cd client-tv && ./gradlew.bat assembleDebug
+cp app/build/outputs/apk/debug/app-debug.apk /tmp/netmovies-tv-v0.1.1-poc.apk
+# 3) release oluştur (eski sürümdeki app "güncelleme var" görür)
+gh release create v0.1.1-poc /tmp/netmovies-tv-v0.1.1-poc.apk \
+  -R evatechnosoft/netmovies --target claude/stream-app-architecture-86q0sg \
+  --prerelease --title "NetMovies TV v0.1.1" --notes "…"
+```
+> Not: `gh release create --target` **kısa SHA kabul etmez** → dal adı ver.
+> `/releases/latest` prerelease'i atlar → OTA `/releases` listesini kullanır.
+
 ## Mimari notu
 Engine residential (ev) egress'te kalır — kaynaklar datacenter IP'sini engeller. TV client
 LAN'da stream:3310'a bağlanır; uzaktan Cloudflare Tunnel (`w.evaitec.com`) ile de çalışır
