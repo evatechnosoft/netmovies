@@ -1,0 +1,3 @@
+# Bunu `local.properties` olarak kopyala ve Android SDK yolunu gir.
+# Windows örnek (bu makinede tespit edildi):
+sdk.dir=C\:\\Users\\Deacjx\\AppData\\Local\\Android\\Sdk
