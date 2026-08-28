@@ -3,9 +3,10 @@
 Kotlin + Jetpack Compose for TV + Media3/ExoPlayer. Engine/stream'i **client-agnostik**
 API olarak tüketir (scrape/proxy DEĞİŞMEZ). POC hedefi: **Yeni Filmler listesi → seç → HLS oynat.**
 
-> ⚠️ **Build durumu: bu makinede derlenmedi** (gradle sistemde yok; wrapper ilk çalışmada
-> gradle'ı indirir + Android SDK bileşenleri gerekir). Versiyon/API uyumları ilk `assembleDebug`'da
-> ufak düzeltme isteyebilir. Aşağıdaki adımlarla sen derleyip Mi Box'a kur.
+> ✅ **Build DOĞRULANDI** (2026-08-28, bu makine): `./gradlew.bat assembleDebug` → BUILD SUCCESSFUL,
+> `app-debug.apk` (~12.7MB) üretildi. Versiyon stack'i (AGP8.5.2/Kotlin2.0.20/Gradle8.9/Java21) tutuyor.
+> ⚠️ **Oynatma (HLS)** uçtan uca Mi Box'ta doğrulanacak — derleme ≠ oynatma. `local.properties`'te SDK
+> yolunda **forward-slash** kullan (backslash Java properties'te kaçış → "path syntax incorrect").
 
 ## Gereksinimler (bu makinede tespit edildi)
 - Java 21 ✓ (`java -version`)
