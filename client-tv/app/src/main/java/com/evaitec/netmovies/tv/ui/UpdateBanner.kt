@@ -19,14 +19,17 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.UpdateUi
 import com.evaitec.netmovies.tv.UpdateViewModel
 
+private val BANNER_BG = Color(0xFF2A2140)
+private val BANNER_TEXT = Color(0xFFF3F1FA)   // açık — koyu banner üstünde okunur
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun UpdateBanner(vm: UpdateViewModel = viewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     when (val s = ui) {
-        is UpdateUi.Available -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir & Kur") { vm.download(s.info) }
-        is UpdateUi.Downloading -> Bar("İndiriliyor: ${s.tag}…", null, null)
-        is UpdateUi.Failed -> Bar("Güncelleme hatası: ${s.message}", "Tekrar") { vm.check() }
+        is UpdateUi.Available -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir") { vm.download(s.info) }
+        is UpdateUi.Opened    -> Bar("İndirme tarayıcıda açıldı (${s.tag}) — inince kur.", null, null)
+        is UpdateUi.Failed    -> Bar("Güncelleme hatası: ${s.message}", "Tekrar") { vm.check() }
         UpdateUi.Idle -> {} // banner yok
     }
 }
@@ -37,12 +40,12 @@ private fun Bar(message: String, actionLabel: String?, onAction: (() -> Unit)?) 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF2A2140))
-            .padding(horizontal = 24.dp, vertical = 10.dp),
+            .background(BANNER_BG)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(message, modifier = Modifier.padding(end = 8.dp))
+        Text(message, color = BANNER_TEXT, modifier = Modifier.padding(end = 8.dp))
         if (actionLabel != null && onAction != null) {
             Button(onClick = onAction) { Text(actionLabel) }
         }

@@ -15,7 +15,7 @@ data class UpdateInfo(val tag: String, val url: String)
 sealed interface UpdateUi {
     data object Idle : UpdateUi
     data class Available(val info: UpdateInfo) : UpdateUi
-    data class Downloading(val tag: String) : UpdateUi
+    data class Opened(val tag: String) : UpdateUi
     data class Failed(val message: String) : UpdateUi
 }
 
@@ -41,13 +41,11 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun download(info: UpdateInfo) {
-        _ui.value = UpdateUi.Downloading(info.tag)
-        viewModelScope.launch {
-            try {
-                Updater.downloadAndInstall(getApplication(), info.url)
-            } catch (e: Exception) {
-                _ui.value = UpdateUi.Failed(e.message ?: "İndirme hatası")
-            }
+        try {
+            Updater.openDownload(getApplication(), info.url)
+            _ui.value = UpdateUi.Opened(info.tag)
+        } catch (e: Exception) {
+            _ui.value = UpdateUi.Failed(e.message ?: "Tarayıcı açılamadı")
         }
     }
 }
