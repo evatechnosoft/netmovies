@@ -16,6 +16,7 @@ import androidx.tv.material3.MaterialTheme
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
+import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
 
@@ -31,7 +32,10 @@ class MainActivity : ComponentActivity() {
                     var selected by remember { mutableStateOf<MediaItem?>(null) }
                     val current = selected
                     if (current == null) {
-                        HomeScreen(onSelect = { selected = it })
+                        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                            UpdateBanner()   // güncelleme varsa üstte şerit
+                            HomeScreen(onSelect = { selected = it })
+                        }
                     } else {
                         PlayerScreen(item = current, onBack = { selected = null })
                     }

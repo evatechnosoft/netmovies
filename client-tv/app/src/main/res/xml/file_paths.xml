@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- getExternalFilesDir(null) → indirilen update.apk buradan paylaşılır -->
+    <external-files-path name="apk" path="." />
+</paths>

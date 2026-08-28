@@ -20,6 +20,9 @@ android {
         val baseUrl = (project.findProperty("NETMOVIES_BASE_URL") as String?)
             ?.takeIf { it.isNotBlank() } ?: "http://192.168.0.28:3310"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
+        // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
+        buildConfigField("String", "RELEASE_TAG", "\"v0.1.0-poc\"")
     }
 
     buildFeatures {
@@ -69,6 +72,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Poster görselleri
