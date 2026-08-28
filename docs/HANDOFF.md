@@ -10,7 +10,50 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-28 — 4 web şikayeti fix + Kotlin Compose-TV POC iskeleti
+## 0. SON OTURUM — 2026-08-28 (2. yarı) — POC BUILD DOĞRULANDI + PUBLIC/RELEASE/OTA + İÇERİK FIX (canlı)
+
+**Durum: UÇTAN UCA ÇALIŞIYOR + DOĞRULANDI (ev makinesi + tünel).** Bu oturumda POC gerçekten
+derlendi, GitHub'a public + release + OTA kondu ve "ana ekran boş" kök nedeni bulunup canlıya alındı.
+
+### Client (Compose-TV) — derlendi + yayında
+- **BUILD DOĞRULANDI:** temiz checkout'tan `./gradlew.bat assembleDebug` → BUILD SUCCESSFUL,
+  `app-debug.apk`. Stack: AGP8.5.2/Kotlin2.0.20/Gradle8.9/Java21, minSdk26.
+- **Repo PUBLIC yapıldı** (önce 78 commit secret taraması TEMİZ — `.env`/token yok).
+- **Release + OTA:** `v0.1.0..v0.1.3-poc` release'leri. OTA = app açılışta GitHub `/releases`
+  kontrol → "Güncelleme mevcut" şeridi → **İndir (tarayıcıda)** → kur. (In-app FileProvider kurulum
+  telefonda tökezledi → tarayıcı-indirmeye çevrildi.) `/releases/latest` prerelease'i atlar → `/releases` listesi.
+- **v0.1.3 kilit sürüm:** `BASE_URL=w.evaitec.com` (tünel) → **her ağdan çalışır**, ev WiFi şart değil.
+  Ayrıca dark tema (tv `darkColorScheme`), adaptive/yuvarlak ikon, okunur banner.
+- **İyileştirmeler:** kategori-raylı home, player yükleniyor/hata-retry + keepScreenOn, posterler `/proxy/image`.
+- APK direkt: `https://github.com/evatechnosoft/netmovies/releases/download/v0.1.3-poc/netmovies-tv-v0.1.3-poc.apk`
+
+### 🔴 "Ana ekran boş" KÖK NEDEN + FIX (PR #5, canlı) — en kritik
+1. **Route bug:** stream'de `/api/v1/aggregate_new` route'u **kayıtlı değildi** (ilk build docker-cache
+   registration'ı atlamıştı) → istek `/`'a **302** → app hiç veri almıyordu. Düzeltildi (Routers/__init__ cp + rebuild; artık image'da kalıcı, grep=1).
+2. **Boş-cache zehiri (asıl içerik fix, `_cacheable`):** `fuck_dmca` boş agregasyonu da 10dk cache'liyordu →
+   geçici kaynak timeout'unda 0 cache'lenip kaynak düzelse bile boş servis. Fix: `/aggregate_new` yalnız
+   `items` doluysa cache'lenir. **KANIT: stream `aggregate_new?type=movie` → count=20** (serie_local=15).
+3. **Dayanıklılık:** engine `_istek.py` aggregate timeout 30→120s; `WEB_WORKERS 1→2` (tek worker yavaş
+   agregasyonda blokluyordu); `load_links` timeout 10→25s; provider_client split timeout.
+- **PR #5 merge edildi** → `claude/...` (`a4cfd76`). Stream image merged kodla rebuild → **durable**.
+
+### Kaynak sağlığı (kanıt) + kalan
+- **4/7 canlı:** HDFilmCehennemi, DiziBox, DiziYou, M3U · **ÖLÜ:** DiziMom, Dizilla, RecTV.
+- HDFC `get_main_page` ham çağrıda **20 film** dönüyor (çalışıyor). DiziBox **yavaş** (ReadTimeout, bazen düşer).
+- **Kalan (bloke değil):** DiziYou kategorileri tür-bazlı → generic "serie" hint'ine uymuyor (serie_local/foreign çalışıyor);
+  DiziBox scrape hızı. İçerik zenginliği için sonraki tur.
+
+### ⚙️ Operasyon dersleri (bu oturumdan — gelecek dikkat)
+- **Stream restart = `basla.py` her açılışta 51 dosya minify (~1dk boot)** → restart sonrası 3310 geç 200 verir; "down" sanma.
+- **`docker compose up --build stream` engine'i de recreate edebilir** → engine cold-boot (~40s domain keşfi) → o an aggregate boş.
+  Kod değişikliğini **restart'la boğmadan** yay: tek `docker cp` + tek restart; art arda eşzamanlı probe = tek-worker'ı tıkar.
+- **Git Bash docker exec/cp mutlak yol** `/usr/src/...` → `MSYS_NO_PATHCONV=1` şart (yoksa `C:/Program Files/Git/usr/...` olur).
+- Stream kök: `/usr/src/Stream`, Engine kök: `/usr/src/KekikStreamAPI`.
+- Reusable rehber: `~/.ai/guides/android-client-engine-ota.md` (gitignore `data/` tuzağı + OTA/release reçetesi).
+
+---
+
+## 0.1 ÖNCEKİ OTURUM — 2026-08-28 (1. yarı) — 4 web şikayeti fix + Kotlin Compose-TV POC iskeleti
 
 **Durum: KODLANDI + COMMIT'Lİ, runtime doğrulaması Dean'de.** Commit'ler: `a1b63fa..a052479`.
 Dean'in bildirdiği 4 web şikayetinin kök-neden çözümü + Compose-TV client POC'u başlatıldı.
