@@ -440,12 +440,25 @@ class ContentBrowser {
         });
 
         const imgWrap = createElement('div', { className: 'poster-card-img' });
+        // Kaynak posteri hotlink-korumalı/lazy-load → sık boş/kırık gelir.
+        // Bozuk veya boşsa TMDB'den başlıkla poster çekeriz (tek deneme).
+        const tmdbUrl = item.title
+            ? '/tmdb-poster?title=' + encodeURIComponent(item.title)
+            : '';
         if (item.poster) {
             const img = createElement('img', {
                 src: '/proxy/image?url=' + encodeURIComponent(item.poster),
                 alt: item.title || '',
                 loading: 'lazy'
             });
+            img.onerror = () => {
+                if (tmdbUrl && !img.dataset.tmdb) { img.dataset.tmdb = '1'; img.src = tmdbUrl; }
+                else { imgWrap.classList.add('has-error'); }
+            };
+            imgWrap.appendChild(img);
+        } else if (tmdbUrl) {
+            const img = createElement('img', { src: tmdbUrl, alt: item.title || '', loading: 'lazy' });
+            img.dataset.tmdb = '1';
             img.onerror = () => { imgWrap.classList.add('has-error'); };
             imgWrap.appendChild(img);
         } else {

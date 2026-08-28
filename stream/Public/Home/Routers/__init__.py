@@ -31,5 +31,6 @@ from . import (
     icerik,
     ara,
     izle,
-    admin
+    admin,
+    tmdb
 )

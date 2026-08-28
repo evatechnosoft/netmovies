@@ -79,6 +79,8 @@ services:
       AUTH_USER            : ""
       AUTH_PASS            : ""
       PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
+      # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
+      TMDB_API_KEY         : ${TMDB_API_KEY:-}
     volumes:
       - ./data:/data
     networks:
