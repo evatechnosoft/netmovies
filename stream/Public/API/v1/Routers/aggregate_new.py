@@ -8,10 +8,12 @@ from ..Libs import fuck_dmca, get_client_headers
 
 @api_v1_router.get("/aggregate_new")
 async def aggregate_new(request: Request):
+    # Soğuk agregasyon yavaş olabilir (movie ~40s: bir kaynak ağır scrape). Timeout
+    # cömert; ilk çağrı sonrası fuck_dmca cache'i (aşağıda _CACHE_TTL) anında döndürür.
     result = await fuck_dmca(
         "/aggregate_new",
         params         = request.state.veri,
-        timeout        = 15.0,
+        timeout        = 45.0,
         client_headers = get_client_headers(request),
     )
     return {**api_v1_global_message, "result": result}
