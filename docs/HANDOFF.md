@@ -10,7 +10,44 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-28 (2. yarı) — POC BUILD DOĞRULANDI + PUBLIC/RELEASE/OTA + İÇERİK FIX (canlı)
+## 0. SON OTURUM — 2026-08-28 (3. çeyrek) — "dizi sayfası eski düzen" = tarayıcı cache (KÖK NEDEN + kalıcı fix)
+
+**Durum: KÖK NEDEN BULUNDU + DOĞRULANDI, kalıcı önlem commit'li (`de54619`). Kod bug'ı DEĞİLDİ.**
+
+### Şikâyet
+Dean: "Diziler/Türkçe diziler sayfasına girince eski düzene geçiyor, posterler her sayfada aynı
+boyutta olsun." (Poster boyutu sorunu.) Dean tercihi: **hepsi küçük 130px, her sayfada** (AskUserQuestion).
+
+### Kök neden (kanıtlı) — sunucu DEĞİL, tarayıcı cache
+- Küçük 130px grid kuralı (`a1b63fa`, "arama/kategori posterleri... 130px") **zaten canlıda**.
+- **KANIT (curl, uçtan uca):** `curl localhost:3310/static/home/CSS/style.bundle.min.css` →
+  `grid.grid-results{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}` — sunucu doğru servis ediyor.
+- **Asıl sorun:** `_html_taban.html.j2` L66/L134'te CSS/JS bundle linkinde **cache-bust YOKTU**
+  (`style.bundle.min.css` sabit URL). Bundle içeriği değişse de URL sabit → tarayıcı eski bundle'ı
+  süresiz cache'liyor → Dean hard-refresh yapmadan eski büyük grid düzenini görüyordu. Dizi sayfasında
+  fark etmesi: o sayfayı fix'ten sonra ilk kez o cache'le açtığı için.
+- Not: host diskindeki `style.bundle.min.css` (08-27) `card.css`'ten (08-28) bayat GÖRÜNÜYOR ama önemsiz —
+  bundle gitignored, boot'ta `basla.py` üretiyor; **container'ın bundle'ı doğruydu** (grep=1).
+
+### Fix (commit `de54619`)
+- `helpers.py` → `build_context`'e `asset_version` (CSS+JS bundle mtime'ının max'ı, `_asset_version()`).
+- `_html_taban.html.j2` → CSS (L66) + JS main (L134) linkleri `?v={{ asset_version }}` ile versiyonlandı.
+- Etki: bundle her rebuild'de (boot/elle minify) URL değişir → tarayıcı otomatik taze çeker.
+  Sözdizimi doğrulandı (`py_compile` OK). **Bir sonraki rebuild'de aktif olur** (bu oturumda restart YAPILMADI → tünel korundu).
+
+### Dean'in yapacağı (anında çözer, deploy beklemeden)
+1. **Tarayıcıda Ctrl+Shift+R (hard refresh)** → posterler her sayfada 130px olur (sunucu zaten doğru).
+   Telefon/TV Bro: önbelleği temizle.
+2. Cache-bust'ı kalıcı aktive etmek için müsaitken normal deploy: `git pull && docker compose up -d --build`.
+
+### Uygulama (native TV) durum özeti — Dean sordu (bu oturum başı)
+- **Web (PWA): HAZIR/canlı.** **Native Compose-TV: POC** — derleniyor, OTA'lı release var, içerik listeleniyor;
+  🔴 HLS oynatma Mi Box'ta uçtan uca DOĞRULANMADI (risk kapısı). Süre tahmini: oynatma bugün geçerse
+  "izlenebilir native app" ~1 hafta; cast+diziler+arama tam cila ~2-3 hafta. Detay: `memory/client-tech-decision.md`.
+
+---
+
+## 0.1 ÖNCEKİ OTURUM — 2026-08-28 (2. yarı) — POC BUILD DOĞRULANDI + PUBLIC/RELEASE/OTA + İÇERİK FIX (canlı)
 
 **Durum: UÇTAN UCA ÇALIŞIYOR + DOĞRULANDI (ev makinesi + tünel).** Bu oturumda POC gerçekten
 derlendi, GitHub'a public + release + OTA kondu ve "ana ekran boş" kök nedeni bulunup canlıya alındı.
