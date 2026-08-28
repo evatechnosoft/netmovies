@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.darkColorScheme
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
@@ -24,7 +25,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            MaterialTheme(
+                colorScheme = darkColorScheme(
+                    primary        = Color(0xFF8B5CF6),
+                    onPrimary      = Color(0xFFFFFFFF),
+                    background     = Color(0xFF0F0F14),
+                    onBackground   = Color(0xFFEDEDF2),
+                    surface        = Color(0xFF1A1726),
+                    onSurface      = Color(0xFFEDEDF2),
+                    surfaceVariant = Color(0xFF241F33),
+                )
+            ) {
                 androidx.compose.foundation.layout.Box(
                     Modifier.fillMaxSize().background(Color(0xFF0F0F14))
                 ) {

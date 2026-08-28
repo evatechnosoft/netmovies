@@ -22,7 +22,7 @@ android {
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
-        buildConfigField("String", "RELEASE_TAG", "\"v0.1.0-poc\"")
+        buildConfigField("String", "RELEASE_TAG", "\"v0.1.1-poc\"")
     }
 
     buildFeatures {
