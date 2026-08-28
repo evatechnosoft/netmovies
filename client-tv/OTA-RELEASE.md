@@ -56,8 +56,8 @@ gh release upload v0.1.0-poc /tmp/yeni.apk -R evatechnosoft/netmovies --clobber
 ---
 
 ## 3. Sürüm/BASE_URL notları
-- **BASE_URL derleme zamanı gömülür.** Evde LAN için `gradle.properties → NETMOVIES_BASE_URL=http://<ev-ip>:3310`,
-  uzaktan için `https://w.evaitec.com`. Boşsa varsayılan `http://192.168.0.28:3310`.
+- **BASE_URL derleme zamanı gömülür.** Boşsa varsayılan `https://w.evaitec.com` kullanılır.
+  Yalnız LAN'a sabitlemek için `gradle.properties → NETMOVIES_BASE_URL=http://<ev-ip>:3310` girilir.
 - Bu yüzden "uzak sürüm" ayrı bir build/release olur (farklı BASE_URL). OTA yine çalışır.
 
 ---
