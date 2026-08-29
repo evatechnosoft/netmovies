@@ -13,16 +13,20 @@ android {
         applicationId = "com.evaitec.netmovies.tv"
         minSdk        = 26        // Android TV / Mi Box
         targetSdk     = 34
-        versionCode   = 6
-        versionName   = "0.1.7"
+        versionCode   = 7
+        versionName   = "0.1.8"
 
         // Stream taban URL — gradle.properties'ten okunur, yoksa public tunnel kullanılır.
         val baseUrl = (project.findProperty("NETMOVIES_BASE_URL") as String?)
             ?.takeIf { it.isNotBlank() } ?: "https://w.evaitec.com"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        // Yerel (ev ağı) sunucu — önce bu denenir, ulaşılamazsa BASE_URL'e düşülür.
+        val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310"
+        buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
-        buildConfigField("String", "RELEASE_TAG", "\"v0.1.7-poc\"")
+        buildConfigField("String", "RELEASE_TAG", "\"v0.1.8-poc\"")
     }
 
     buildFeatures {

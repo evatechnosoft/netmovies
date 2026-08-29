@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
+import com.evaitec.netmovies.tv.data.ServerResolver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ class HomeViewModel : ViewModel() {
 
     fun load() {
         _state.value = HomeState.Loading
+        ServerResolver.reset()   // her (yeniden) yüklemede local/uzak'ı taze seç
         viewModelScope.launch {
             _state.value = try {
                 val res = Network.api.aggregateNew(type = "movie")

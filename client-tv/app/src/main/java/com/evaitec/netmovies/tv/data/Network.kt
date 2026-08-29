@@ -16,7 +16,8 @@ object Network {
     }
 
     private val client = OkHttpClient.Builder()
-        .dns(PreferIpv4Dns)   // TV/Mibox'ta bozuk IPv6 → w.evaitec.com bağlanamıyordu
+        .dns(PreferIpv4Dns)               // bozuk IPv6 → IPv4 önceliği
+        .addInterceptor(BaseUrlInterceptor())  // önce local, olmazsa uzak
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
