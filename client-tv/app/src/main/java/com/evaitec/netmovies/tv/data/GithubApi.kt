@@ -5,6 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -33,9 +34,12 @@ interface GithubApi {
 object Github {
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val client = OkHttpClient.Builder().dns(PreferIpv4Dns).build()
+
     val api: GithubApi by lazy {
         Retrofit.Builder()
             .baseUrl("https://api.github.com/")
+            .client(client)   // OTA kontrolü de IPv4 (bozuk IPv6 ağlarında çalışsın)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(GithubApi::class.java)

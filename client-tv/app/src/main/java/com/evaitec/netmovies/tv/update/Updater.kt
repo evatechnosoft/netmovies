@@ -3,6 +3,7 @@ package com.evaitec.netmovies.tv.update
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import com.evaitec.netmovies.tv.data.PreferIpv4Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -14,7 +15,7 @@ object Updater {
     // Mibox'ta tarayıcı olmadığından çalışmıyordu ("indir butonu çalışmıyor").
     // Bu yol tarayıcı gerektirmez.
 
-    private val http = OkHttpClient()
+    private val http = OkHttpClient.Builder().dns(PreferIpv4Dns).build()
 
     /** APK'yı indirir ve dosyayı döndürür (ağ işi — IO dispatcher'da çağır). */
     fun downloadApk(context: Context, url: String): File {
