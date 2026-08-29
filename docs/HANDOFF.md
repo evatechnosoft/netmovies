@@ -6,9 +6,10 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.7-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.7-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.7-poc/netmovies-tv-v0.1.7-poc.apk
-> v0.1.7: Bağlantı fix — cihaz w.evaitec.com'u Cloudflare **IPv6**'ya çözüp bağlanamıyordu ("Failed to connect .../[2a06:98c1..]:443"). OkHttp'ye `PreferIpv4Dns` (içerik+OTA+indirme). Ekran görüntüsüyle UI fix (kontrast/focus) DOĞRULANDI. **Artık OTA ile dağıtılıyor — elle APK yok.**
+**Son Release (TV client, POC):** `v0.1.8-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.8-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.8-poc/netmovies-tv-v0.1.8-poc.apk
+> v0.1.8: "önce local, olmazsa uzak" — Cloudflare TR'de cihaza bloklu IP (188.114.x) döndürüyordu. `ServerResolver` önce `LOCAL_URL` (192.168.1.185:3310, /api/v1/health 1.5s probe) dener, ulaşamazsa `BASE_URL` (w.evaitec.com). `BaseUrlInterceptor` tüm istekleri + posterleri aktif sunucuya yönlendirir. NOT: yerel yol için Windows'ta **3310 inbound firewall izni** gerekebilir (`New-NetFirewallRule -DisplayName "NetMovies 3310" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3310`).
+> v0.1.7: IPv6 fix — `PreferIpv4Dns` (içerik+OTA+indirme). UI fix (kontrast/focus) ekran görüntüsüyle DOĞRULANDI. OTA ile dağıtım.
 > v0.1.6: OTA "İndir" fix — TV'de tarayıcı yok, ACTION_VIEW(url) çalışmıyordu → APK uygulama-içi OkHttp ile indirilip FileProvider ile kuruluyor. Eski buggy sürüm OTA edemez → v0.1.6 bir kez elle kuruldu, sonrası OTA.
 > v0.1.5: UI fix — siyah-üstüne-siyah yazı (tv-material3 LocalContentColor=#EDEDF2) + D-pad ilk kart initial focus. (kod fix, ekranda DOĞRULANMADI — kullanıcı testinde)
 > v0.1.4: BASE_URL `https://w.evaitec.com` (v0.1.3 yanlışlıkla 192.168 ile derlenmişti). Debug-imzalı → ilk geçişte önce kaldır; sonraki OTA'lar aynı keystore ile sorunsuz.
