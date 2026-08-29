@@ -2,4 +2,6 @@
 <paths>
     <!-- getExternalFilesDir(null) → indirilen update.apk buradan paylaşılır -->
     <external-files-path name="apk" path="." />
+    <!-- Fallback: dış depolama yoksa iç filesDir'den paylaş -->
+    <files-path name="internal_apk" path="." />
 </paths>

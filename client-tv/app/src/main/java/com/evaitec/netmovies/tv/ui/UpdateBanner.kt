@@ -27,9 +27,10 @@ private val BANNER_TEXT = Color(0xFFF3F1FA)   // açık — koyu banner üstünd
 fun UpdateBanner(vm: UpdateViewModel = viewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     when (val s = ui) {
-        is UpdateUi.Available -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir") { vm.download(s.info) }
-        is UpdateUi.Opened    -> Bar("İndirme tarayıcıda açıldı (${s.tag}) — inince kur.", null, null)
-        is UpdateUi.Failed    -> Bar("Güncelleme hatası: ${s.message}", "Tekrar") { vm.check() }
+        is UpdateUi.Available   -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir") { vm.download(s.info) }
+        is UpdateUi.Downloading -> Bar("İndiriliyor (${s.tag})… kurulum ekranı birazdan açılır.", null, null)
+        is UpdateUi.Opened      -> Bar("Kurulum başlatıldı (${s.tag}). İzin isterse onayla.", null, null)
+        is UpdateUi.Failed      -> Bar("Güncelleme hatası: ${s.message}", "Tekrar") { vm.check() }
         UpdateUi.Idle -> {} // banner yok
     }
 }

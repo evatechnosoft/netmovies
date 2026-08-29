@@ -5,16 +5,19 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.Github
 import com.evaitec.netmovies.tv.update.Updater
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class UpdateInfo(val tag: String, val url: String)
 
 sealed interface UpdateUi {
     data object Idle : UpdateUi
     data class Available(val info: UpdateInfo) : UpdateUi
+    data class Downloading(val tag: String) : UpdateUi
     data class Opened(val tag: String) : UpdateUi
     data class Failed(val message: String) : UpdateUi
 }
@@ -41,11 +44,17 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun download(info: UpdateInfo) {
-        try {
-            Updater.openDownload(getApplication(), info.url)
-            _ui.value = UpdateUi.Opened(info.tag)
-        } catch (e: Exception) {
-            _ui.value = UpdateUi.Failed(e.message ?: "Tarayıcı açılamadı")
+        _ui.value = UpdateUi.Downloading(info.tag)
+        viewModelScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    Updater.downloadApk(getApplication(), info.url)
+                }
+                Updater.installApk(getApplication(), file)
+                _ui.value = UpdateUi.Opened(info.tag)
+            } catch (e: Exception) {
+                _ui.value = UpdateUi.Failed(e.message ?: "İndirme/kurulum başarısız")
+            }
         }
     }
 }
