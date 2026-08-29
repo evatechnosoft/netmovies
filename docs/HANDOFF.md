@@ -10,7 +10,58 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-28 (3. çeyrek) — "dizi sayfası eski düzen" = tarayıcı cache (KÖK NEDEN + kalıcı fix)
+## 0. SON OTURUM — 2026-08-29 — Uzak Sağlayıcı (Geniş Katalog) + Canlı Sağlık + Tünel Fix (CANLI, DOĞRULANDI)
+
+**Durum: TAMAM, Docker'da uçtan uca doğrulandı. 2 commit dalda (`d90cea2`, `61c4a81`). Yerel app ✅ · w.evaitec.com ✅.**
+
+### Talep (Dean)
+"DiziPal ekleyelim ya da KekikAPI'yi ekleyip eklenti seçimi sunalım + 'eklentileri güncelle' butonu;
+180 küsur eklenti var, hepsini alıp o yenileyince bizde de otomatik yenilensin."
+
+### Kanıtla çürütülen 3 varsayım (araştırma + Docker testi)
+- ❌ CloudStream'in 180 eklentisi = **Kotlin**, Python motoruna yüklenemez (`.cs3` Android).
+- ❌ pip `KekikStream>=2.5.0` paketi eklenti **bundle etmiyor** — `Plugins/` klasöründe sadece `__init__.py`
+  (container'da kanıtlandı: `GLOBAL_COUNT: 0`). Her scraper el-porttur; hazır Python kataloğu YOK.
+- ❌ **DiziPal self-host portu YAPILMADI:** `dizipal950` domaini ölü + site **Cloudflare 403**
+  (profesyonel watchbuddy sunucusunda bile DiziPal 403). Bozuk eklenti eklenmedi.
+
+### Çözüm — Uzak Sağlayıcı "Geniş Katalog" (Dean'in fikrinin çalışan hali)
+Motora dokunmadan, stream'in mevcut remote-provider desteği üzerine kuruldu:
+- **`provider_url`** admin_config'e eklendi (sunucu-taraflı → telefon/Mibox/PC hepsi aynı sağlayıcıyı görür).
+  `detect_provider` sırası: query > cookie > **admin.provider_url** > yerel.
+- Admin panelde **"Uzak Sağlayıcı"** kartı: URL alanı + **"watchbuddy"** hızlı-set + **"Yerel'e dön"**.
+- **KANIT (Docker uçtan uca):** `provider_url=https://stream.watchbuddy.tv` → `/api/admin/catalog`
+  **203 eklenti** (DiziPal dahil!) netmovies'in kendi `RemoteProviderClient`'ıyla geldi. CF/domain
+  bakımı upstream'de. DiziPal remote katalogda otomatik gelir — bizde iş gerektirmez.
+- **"Şimdi canlı tara"** butonu: `/api/admin/health?force=1` → engine'in 6 saatlik cache'ini atlar
+  (kanıt: yerel 7 kaynak, 4 canlı).
+
+### KÖK NEDEN #1 — remote provider URL (fix `61c4a81`)
+`RemoteProviderClient` uç noktalara `/api/v1/...`'i **kendi ekler**. provider_url'e `/api/v1` yazmak →
+`.../api/v1/api/v1/get_all_plugins` çift path → **403**. **Kök adres ver** (`https://stream.watchbuddy.tv`,
+`/api/v1` YOK). watchbuddy UA/TLS değil, path bug'ıydı. → Memory: `remote-provider-url-root`.
+
+### KÖK NEDEN #2 — tünel netns (bu oturumda operasyonel, kod değil)
+`docker compose up -d --build stream` (tek servis rebuild) → stream container recreate → cloudflared
+`network_mode: service:stream` ile eski stream'e pinli kaldı → öksüz ("network is unreachable",
+restart edilemiyor) → **w.evaitec.com 530**. **Fix:** `docker rm -f netmovies-tunnel &&
+docker compose --profile tunnel up -d cloudflared` → tünel 4 bağlantı kaydetti, `w.evaitec.com`→200.
+→ Memory: `stream-tunnel-netns-rebuild`. **Kural:** stream'i tek başına rebuild ettiysen tüneli recreate et.
+
+### Değişen dosyalar
+- `stream/Public/Home/Libs/admin_config.py` — `provider_url` default + normalize
+- `stream/Public/Home/Libs/helpers.py` — `detect_provider` admin fallback
+- `stream/Public/Home/Routers/admin.py` — `admin_health ?force=1` forward
+- `stream/Public/Home/Static/JS/admin.js` — provider alanı render/collect + watchbuddy(kök) + force health
+- `stream/Public/Home/Templates/pages/admin.html.j2` — Uzak Sağlayıcı kartı + dürüst notlar
+
+### Canlı durum (bu oturum sonu)
+- Yerel: stream+engine `healthy`, `/api/v1/health`→200, ana sayfa(auth)→200, provider=**yerel** (varsayılan).
+- Dış: `https://w.evaitec.com/`→200 (tünel yeniden bağlandı).
+
+---
+
+## 0.1 ÖNCEKİ OTURUM — 2026-08-28 (3. çeyrek) — "dizi sayfası eski düzen" = tarayıcı cache (KÖK NEDEN + kalıcı fix)
 
 **Durum: KÖK NEDEN BULUNDU + DOĞRULANDI, kalıcı önlem commit'li (`de54619`). Kod bug'ı DEĞİLDİ.**
 
