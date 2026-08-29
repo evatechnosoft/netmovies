@@ -9,9 +9,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import com.evaitec.netmovies.tv.data.MediaItem
@@ -36,19 +38,24 @@ class MainActivity : ComponentActivity() {
                     surfaceVariant = Color(0xFF241F33),
                 )
             ) {
-                androidx.compose.foundation.layout.Box(
-                    Modifier.fillMaxSize().background(Color(0xFF0F0F14))
-                ) {
-                    // POC: harici nav kütüphanesi yok — tek state ile Home <-> Player.
-                    var selected by remember { mutableStateOf<MediaItem?>(null) }
-                    val current = selected
-                    if (current == null) {
-                        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
-                            UpdateBanner()   // güncelleme varsa üstte şerit
-                            HomeScreen(onSelect = { selected = it })
+                // tv-material3 Text rengini LocalContentColor'dan okur; içerik bir Surface
+                // içinde olmadığından varsayılan Color.Black kalıyordu → koyu zeminde yazı
+                // görünmüyordu. Tema onBackground rengini tüm içeriğe zorla.
+                CompositionLocalProvider(LocalContentColor provides Color(0xFFEDEDF2)) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.fillMaxSize().background(Color(0xFF0F0F14))
+                    ) {
+                        // POC: harici nav kütüphanesi yok — tek state ile Home <-> Player.
+                        var selected by remember { mutableStateOf<MediaItem?>(null) }
+                        val current = selected
+                        if (current == null) {
+                            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                                UpdateBanner()   // güncelleme varsa üstte şerit
+                                HomeScreen(onSelect = { selected = it })
+                            }
+                        } else {
+                            PlayerScreen(item = current, onBack = { selected = null })
                         }
-                    } else {
-                        PlayerScreen(item = current, onBack = { selected = null })
                     }
                 }
             }

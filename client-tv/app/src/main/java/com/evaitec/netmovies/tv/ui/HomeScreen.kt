@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +66,12 @@ private fun CategoryRows(items: List<MediaItem>, onSelect: (MediaItem) -> Unit) 
     val groups = remember(items) {
         items.groupBy { it.category?.takeIf { c -> c.isNotBlank() } ?: "Yeni Çıkanlar" }
     }
+    // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
+    val firstFocus    = remember { FocusRequester() }
+    val firstCategory = groups.keys.firstOrNull()
+    LaunchedEffect(firstCategory) {
+        runCatching { firstFocus.requestFocus() }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 24.dp),
@@ -87,7 +97,13 @@ private fun CategoryRows(items: List<MediaItem>, onSelect: (MediaItem) -> Unit) 
                     contentPadding = PaddingValues(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(list) { item -> PosterCard(item, onClick = { onSelect(item) }) }
+                    itemsIndexed(list) { index, item ->
+                        val cardModifier =
+                            if (category == firstCategory && index == 0)
+                                Modifier.focusRequester(firstFocus)
+                            else Modifier
+                        PosterCard(item, onClick = { onSelect(item) }, modifier = cardModifier)
+                    }
                 }
             }
         }
@@ -96,10 +112,10 @@ private fun CategoryRows(items: List<MediaItem>, onSelect: (MediaItem) -> Unit) 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun PosterCard(item: MediaItem, onClick: () -> Unit) {
+private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         onClick = onClick,
-        modifier = Modifier.width(POSTER_WIDTH).aspectRatio(2f / 3f),
+        modifier = modifier.width(POSTER_WIDTH).aspectRatio(2f / 3f),
     ) {
         Box(Modifier.fillMaxSize()) {
             AsyncImage(
