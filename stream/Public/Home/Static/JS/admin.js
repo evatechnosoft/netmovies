@@ -173,8 +173,9 @@ async function init() {
     $("#admin-health-refresh").addEventListener("click", () => loadHealth(true));
 
     $("#admin-provider-watchbuddy")?.addEventListener("click", () => {
-        $("#admin-provider-url").value = "https://stream.watchbuddy.tv/api/v1";
-        $("#admin-provider-status").textContent = "Kaydet + sayfayı yenile → uzak sağlayıcı aktif olur.";
+        // NOT: kök adres (/api/v1 EKLEME) — client uç noktaları kendi ekler.
+        $("#admin-provider-url").value = "https://stream.watchbuddy.tv";
+        $("#admin-provider-status").textContent = "Kaydet + sayfayı yenile → uzak sağlayıcı aktif olur (203 eklenti).";
     });
     $("#admin-provider-clear")?.addEventListener("click", () => {
         $("#admin-provider-url").value = "";
