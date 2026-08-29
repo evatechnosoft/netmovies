@@ -6,9 +6,10 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.4-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.4-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.4-poc/netmovies-tv-v0.1.4-poc.apk
-> v0.1.4 fix: BASE_URL artık `https://w.evaitec.com` (v0.1.3 yanlışlıkla 192.168 yerel IP ile derlenmişti → dışarıdan bağlanmıyordu). Debug-imzalı → eski sürümden geçişte önce kaldır.
+**Son Release (TV client, POC):** `v0.1.5-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.5-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.5-poc/netmovies-tv-v0.1.5-poc.apk
+> v0.1.5: UI fix — siyah-üstüne-siyah yazı (tv-material3 LocalContentColor=#EDEDF2) + D-pad ilk kart initial focus. (kod fix, ekranda DOĞRULANMADI — kullanıcı testinde)
+> v0.1.4: BASE_URL `https://w.evaitec.com` (v0.1.3 yanlışlıkla 192.168 ile derlenmişti). Debug-imzalı → ilk geçişte önce kaldır; sonraki OTA'lar aynı keystore ile sorunsuz.
 **Kullanıcı:** Dean (deancjx@gmail.com) — Türkçe konuşuyor. Kişisel, reklamsız kullanım.
 
 ---
