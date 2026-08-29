@@ -7,6 +7,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
 
 object Network {
 
@@ -16,8 +17,13 @@ object Network {
     }
 
     private val client = OkHttpClient.Builder()
-        .dns(PreferIpv4Dns)               // bozuk IPv6 → IPv4 önceliği
+        .dns(PreferIpv4Dns)               // IPv4 + çalışan CF IP pin (TR bloklu 188.114 baypas)
         .addInterceptor(BaseUrlInterceptor())  // önce local, olmazsa uzak
+        // Timeout'lar: ölü bağlantı hızlı düşsün (connect 6s), soğuk aggregate için
+        // read cömert (45s), hiçbir çağrı sonsuz asılmasın (call 50s) → "Yükleniyor"da kalmaz.
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(50, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
