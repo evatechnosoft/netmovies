@@ -5,7 +5,7 @@
 
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
-**Açık PR:** #3 → https://github.com/evatechnosoft/netmovies/pull/3 (base: master, henüz merge edilmedi)
+**PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
 **Son Release (TV client, POC):** `v0.1.3-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.3-poc
 **APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.3-poc/netmovies-tv-v0.1.3-poc.apk
 **Kullanıcı:** Dean (deancjx@gmail.com) — Türkçe konuşuyor. Kişisel, reklamsız kullanım.
