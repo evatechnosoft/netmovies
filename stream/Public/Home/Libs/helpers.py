@@ -89,6 +89,16 @@ def detect_provider(request: Request) -> Optional[str]:
             _url = f"https://{_url}"
         return _url
 
+    # Admin'de kayıtlı "geniş katalog" sağlayıcısı (sunucu-taraflı, tüm cihazlar için).
+    # Query/cookie yoksa devreye girer; boşsa yerel motora düşer.
+    try:
+        from . import admin_config
+        saved = admin_config.load_config().get("provider_url") or ""
+        if saved:
+            return saved.rstrip("/")
+    except Exception:
+        pass
+
     return None
 
 async def build_context(request: Request, **extra):

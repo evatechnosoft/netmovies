@@ -28,6 +28,10 @@ DEFAULT_CONFIG: dict = {
     ],
     "featured": [],      # [{provider, url, title, poster, rating}]
     "min_rating": 0.0,
+    # Uzak KekikStreamAPI "geniş katalog" sağlayıcısı (opsiyonel). Boşsa yerel motor
+    # kullanılır. Doluysa tüm cihazlar (telefon/Mibox/PC) bu sağlayıcıyı görür —
+    # 200+ eklenti + CF/domain bakımı upstream'de. Bedeli: istekler o sunucudan geçer.
+    "provider_url": "",
 }
 
 
@@ -41,6 +45,11 @@ def _normalize(cfg: dict) -> dict:
         out["min_rating"] = float(out.get("min_rating") or 0.0)
     except (TypeError, ValueError):
         out["min_rating"] = 0.0
+    # provider_url: normalize (strip, protokol ekle). Boş bırakılabilir → yerel motor.
+    _pu = str(out.get("provider_url") or "").strip().rstrip("/")
+    if _pu and not _pu.startswith(("http://", "https://")):
+        _pu = f"https://{_pu}"
+    out["provider_url"] = _pu
     return out
 
 

@@ -110,9 +110,13 @@ async def admin_health(request: Request):
                                  "result": {"total": 1, "healthy": 0, "unhealthy": 1,
                                             "plugins": [{"plugin": "Uzak Sağlayıcı", "main_url": provider_url, "ok": False, "status": "unreachable", "note": str(hata)}]}})
 
-    # Yerel motor: engine'in plugin_health endpoint'ini forward et
+    # Yerel motor: engine'in plugin_health endpoint'ini forward et.
+    # ?force=1 → engine'in 6 saatlik cache'ini atla, tüm domainleri CANLI yeniden tara
+    # ("Yeniden kontrol et"/Tazele butonu bunu tetikler).
+    force  = request.query_params.get("force") == "1"
+    veri   = {"force": "1"} if force else None
     try:
-        result = await fuck_dmca("/plugin_health", client_headers=get_client_headers(request))
+        result = await fuck_dmca("/plugin_health", veri, client_headers=get_client_headers(request))
         return JSONResponse({"ok": True, "mode": "local", "result": result})
     except Exception as hata:
         return JSONResponse(status_code=502, content={"ok": False, "error": str(hata)})
