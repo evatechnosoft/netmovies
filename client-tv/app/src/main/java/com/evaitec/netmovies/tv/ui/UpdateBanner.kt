@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.UpdateUi
@@ -48,7 +47,7 @@ private fun Bar(message: String, actionLabel: String?, onAction: (() -> Unit)?) 
     ) {
         Text(message, color = BANNER_TEXT, modifier = Modifier.padding(end = 8.dp))
         if (actionLabel != null && onAction != null) {
-            Button(onClick = onAction) { Text(actionLabel) }
+            TouchButton(actionLabel, onAction)
         }
     }
 }

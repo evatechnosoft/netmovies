@@ -1,5 +1,7 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -26,8 +31,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.tv.material3.Button
-import androidx.tv.material3.Card
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -113,9 +116,14 @@ private fun CategoryRows(items: List<MediaItem>, onSelect: (MediaItem) -> Unit) 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.width(POSTER_WIDTH).aspectRatio(2f / 3f),
+    // Box + foundation clickable → hem dokunmatik (telefon) hem D-pad (TV) çalışır.
+    Box(
+        modifier = modifier
+            .width(POSTER_WIDTH)
+            .aspectRatio(2f / 3f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF241F33))
+            .clickable { onClick() },
     ) {
         Box(Modifier.fillMaxSize()) {
             AsyncImage(
@@ -144,7 +152,7 @@ private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(message)
             androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
-            Button(onClick = onRetry) { Text("Tekrar dene") }
+            TouchButton("Tekrar dene", onRetry)
         }
     }
 }

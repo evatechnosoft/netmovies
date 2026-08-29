@@ -151,7 +151,7 @@ private fun PlayerOverlay(
 @Composable
 private fun Row(onAction: () -> Unit, actionLabel: String, onBack: () -> Unit) {
     androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onAction) { Text(actionLabel) }
-        Button(onClick = onBack) { Text("Geri") }
+        TouchButton(actionLabel, onAction)
+        TouchButton("Geri", onBack)
     }
 }
