@@ -6,9 +6,11 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.9-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.9-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.9-poc/netmovies-tv-v0.1.9-poc.apk
-> v0.1.9: Dokunmatik desteği — tv-material3 Card/Button D-pad odaklıydı, telefonda basılamıyordu → foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box+clickable). Telefon+TV her ikisi. Eski buton dokunmatikte OTA yapamadığı için v0.1.9 telefona bir kez elle kuruldu, sonrası OTA.
+**Son Release (TV client, POC):** `v0.1.10-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.10-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.10-poc/netmovies-tv-v0.1.10-poc.apk
+> **EV ÇÖZÜMÜ (asıl):** Windows'ta **3310 inbound firewall kuralı AÇILDI** ("NetMovies 3310"). TV aynı WiFi'da (192.168.1.x) → app yerel sunucuya (192.168.1.185:3310) düşer, **Cloudflare hiç devreye girmez** → CF-TR IP blokları (188.114.x) sorunu evde biter. TV'de app'i kapat-aç (veya "Tekrar dene") ile yerele geçer.
+> v0.1.10: OkHttp timeout (connect6/read45/call50s → sonsuz "Yükleniyor" biter) + CF IP-pin (w.evaitec.com → 172.67.143.235/104.21.55.13, TR bloklu 188.114 baypas — uzaktayken).
+> v0.1.9: Dokunmatik desteği — tv-material3 Card/Button D-pad odaklıydı, telefonda basılamıyordu → foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box+clickable). Telefon+TV her ikisi.
 > v0.1.8: "önce local, olmazsa uzak" — Cloudflare TR'de cihaza bloklu IP (188.114.x) döndürüyordu. `ServerResolver` önce `LOCAL_URL` (192.168.1.185:3310, /api/v1/health 1.5s probe) dener, ulaşamazsa `BASE_URL` (w.evaitec.com). `BaseUrlInterceptor` tüm istekleri + posterleri aktif sunucuya yönlendirir. NOT: yerel yol için Windows'ta **3310 inbound firewall izni** gerekebilir (`New-NetFirewallRule -DisplayName "NetMovies 3310" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3310`).
 > v0.1.7: IPv6 fix — `PreferIpv4Dns` (içerik+OTA+indirme). UI fix (kontrast/focus) ekran görüntüsüyle DOĞRULANDI. OTA ile dağıtım.
 > v0.1.6: OTA "İndir" fix — TV'de tarayıcı yok, ACTION_VIEW(url) çalışmıyordu → APK uygulama-içi OkHttp ile indirilip FileProvider ile kuruluyor. Eski buggy sürüm OTA edemez → v0.1.6 bir kez elle kuruldu, sonrası OTA.
@@ -56,7 +58,22 @@ restart edilemiyor) → **w.evaitec.com 530**. **Fix:** `docker rm -f netmovies-
 docker compose --profile tunnel up -d cloudflared` → tünel 4 bağlantı kaydetti, `w.evaitec.com`→200.
 → Memory: `stream-tunnel-netns-rebuild`. **Kural:** stream'i tek başına rebuild ettiysen tüneli recreate et.
 
-### Değişen dosyalar
+### TV CLIENT ÇİLESİ (aynı oturum, ikinci yarı) — v0.1.4 → v0.1.10 + firewall
+Dean APK'yı kurdu, sırayla çıkan sorunlar ve kökleri (hepsi client-tv, `client-tv/app/src/main`):
+1. **192 bağlanmıyor** → yayınlı v0.1.3 APK `NETMOVIES_BASE_URL=192.168.x` ile derlenmişti. Fix: boş bırak → varsayılan `w.evaitec.com` (v0.1.4). `build.gradle.kts`.
+2. **Siyah-üstüne-siyah yazı** → tv-material3 `Text` rengini `LocalContentColor`'dan alır, içerik Surface'te değildi → varsayılan siyah. Fix: `MainActivity` `CompositionLocalProvider(LocalContentColor=#EDEDF2)` (v0.1.5). Ekran görüntüsüyle DOĞRULANDI.
+3. **D-pad'de seçilemiyor** → ilk karta focus yok. Fix: `HomeScreen` `FocusRequester`+`requestFocus` (v0.1.5).
+4. **OTA "İndir" çalışmıyor (TV)** → `Updater.openDownload` `ACTION_VIEW(url)` = tarayıcı, TV'de tarayıcı YOK. Fix: uygulama-içi OkHttp indir + `FileProvider` ile kur (v0.1.6). `Updater.kt`+`UpdateViewModel.kt`.
+5. **IPv6 bağlanamıyor** (`.../[2a06:98c1..]:443`) → CF IPv6, ağda bozuk. Fix: `PreferIpv4Dns` (v0.1.7). `data/HttpDns.kt`.
+6. **Dokunmatik yok (telefon)** → tv-material3 D-pad odaklı. Fix: foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box) (v0.1.9).
+7. **CF-TR IP bloku** (`188.114.96.7:443` açmıyor) → Cloudflare cihaz ağına TR'de bloklu IP döndürüyor; gerçek kayıtlar 172.67.143.235/104.21.55.13 çalışıyor. **KÖK ÇÖZÜM = yerel yol** (aşağıda) + palyatif IP-pin/timeout (v0.1.10).
+
+**ASIL ÇÖZÜM — "önce local, olmazsa uzak" (v0.1.8) + firewall:**
+`data/ServerResolver.kt`: açılışta `LOCAL_URL` (192.168.1.185:3310) `/api/v1/health` 1.5s probe → canlıysa yerel, değilse `BASE_URL`. `BaseUrlInterceptor` tüm istekleri+posterleri aktif sunucuya yönlendirir. `HomeViewModel.load` başında `ServerResolver.reset()` (retry taze seçer). **Windows firewall "NetMovies 3310" inbound AÇILDI** (bu oturum, admin PS). TV aynı WiFi → yerele düşer, CF bypass. → Memory: `client-cf-tr-local-first`.
+
+**Not:** `LOCAL_URL` gradle property `NETMOVIES_LOCAL_URL` (vars. `http://192.168.1.185:3310`). PC LAN IP değişirse burayı güncelle. OTA download da CF/GitHub IP'ye takılabiliyor → gerek/kesin durumda APK elle.
+
+### Değişen dosyalar (stream tarafı)
 - `stream/Public/Home/Libs/admin_config.py` — `provider_url` default + normalize
 - `stream/Public/Home/Libs/helpers.py` — `detect_provider` admin fallback
 - `stream/Public/Home/Routers/admin.py` — `admin_health ?force=1` forward
