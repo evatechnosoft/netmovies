@@ -6,8 +6,9 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.8-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.8-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.8-poc/netmovies-tv-v0.1.8-poc.apk
+**Son Release (TV client, POC):** `v0.1.9-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.9-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.9-poc/netmovies-tv-v0.1.9-poc.apk
+> v0.1.9: Dokunmatik desteği — tv-material3 Card/Button D-pad odaklıydı, telefonda basılamıyordu → foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box+clickable). Telefon+TV her ikisi. Eski buton dokunmatikte OTA yapamadığı için v0.1.9 telefona bir kez elle kuruldu, sonrası OTA.
 > v0.1.8: "önce local, olmazsa uzak" — Cloudflare TR'de cihaza bloklu IP (188.114.x) döndürüyordu. `ServerResolver` önce `LOCAL_URL` (192.168.1.185:3310, /api/v1/health 1.5s probe) dener, ulaşamazsa `BASE_URL` (w.evaitec.com). `BaseUrlInterceptor` tüm istekleri + posterleri aktif sunucuya yönlendirir. NOT: yerel yol için Windows'ta **3310 inbound firewall izni** gerekebilir (`New-NetFirewallRule -DisplayName "NetMovies 3310" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3310`).
 > v0.1.7: IPv6 fix — `PreferIpv4Dns` (içerik+OTA+indirme). UI fix (kontrast/focus) ekran görüntüsüyle DOĞRULANDI. OTA ile dağıtım.
 > v0.1.6: OTA "İndir" fix — TV'de tarayıcı yok, ACTION_VIEW(url) çalışmıyordu → APK uygulama-içi OkHttp ile indirilip FileProvider ile kuruluyor. Eski buggy sürüm OTA edemez → v0.1.6 bir kez elle kuruldu, sonrası OTA.
