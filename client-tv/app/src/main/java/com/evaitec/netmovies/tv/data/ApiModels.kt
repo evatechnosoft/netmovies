@@ -39,4 +39,12 @@ data class StreamLink(
     val url: String = "",
     val referer: String = "",
     @SerialName("user_agent") val userAgent: String = "",
+    val subtitles: List<Subtitle> = emptyList(),
+)
+
+// KekikStream Subtitle → { "name": "Türkçe", "url": ".../tr.vtt" }
+@Serializable
+data class Subtitle(
+    val name: String = "",
+    val url: String = "",
 )
