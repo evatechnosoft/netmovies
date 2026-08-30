@@ -34,4 +34,11 @@ interface NetMoviesApi {
         @Query("encoded_url", encoded = true) encodedUrl: String,
         @Query("encoded_category", encoded = true) encodedCategory: String,
     ): MainPageResponse
+
+    // Tek eklentide arama. Gözat çoklu eklentide paralel çağırıp birleştirir.
+    @GET("api/v1/search")
+    suspend fun search(
+        @Query("plugin") plugin: String,
+        @Query("query") query: String,
+    ): MainPageResponse
 }

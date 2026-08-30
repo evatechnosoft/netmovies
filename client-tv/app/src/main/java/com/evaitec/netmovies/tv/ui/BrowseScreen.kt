@@ -20,6 +20,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,11 +37,15 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -46,6 +53,9 @@ import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PluginInfo
 import com.evaitec.netmovies.tv.data.proxiedPoster
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
 
@@ -62,10 +72,11 @@ fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Seçilen kategori görünümü (null → kategori listesi).
+    // Seçilen kategori / arama sonucu görünümü (null → kategori listesi).
     var catItems by remember { mutableStateOf<List<MediaItem>?>(null) }
     var catTitle by remember { mutableStateOf("") }
     var catLoading by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
@@ -96,18 +107,73 @@ fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        when {
-            catItems != null -> ItemGrid(
-                title = catTitle,
-                items = catItems!!,
-                loading = catLoading,
-                onSelect = onSelect,
-            )
-            loading -> Center("Eklentiler yükleniyor…")
-            error != null -> Center(error!!)
-            else -> CategoryList(plugins, onOpen = ::openCategory)
+    // Tüm eklentilerde paralel ara, birleştir.
+    fun doSearch(q: String) {
+        val query2 = q.trim()
+        if (query2.isEmpty()) return
+        catTitle = "Arama: $query2"
+        catItems = emptyList()
+        catLoading = true
+        scope.launch {
+            val names = plugins.map { it.name }
+            catItems = if (names.isEmpty()) emptyList() else coroutineScope {
+                names.map { n ->
+                    async {
+                        runCatching { Network.api.search(n, query2).result.map { it.copy(plugin = n) } }
+                            .getOrDefault(emptyList())
+                    }
+                }.awaitAll().flatten()
+            }
+            catLoading = false
         }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        SearchBar(query = query, onQueryChange = { query = it }, onSearch = { doSearch(query) })
+        Box(Modifier.fillMaxSize()) {
+            when {
+                catItems != null -> ItemGrid(
+                    title = catTitle,
+                    items = catItems!!,
+                    loading = catLoading,
+                    onSelect = onSelect,
+                )
+                loading -> Center("Eklentiler yükleniyor…")
+                error != null -> Center(error!!)
+                else -> CategoryList(plugins, onOpen = ::openCategory)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp)
+            .clip(shape)
+            .background(Color(0xFF1A1726))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(color = Color(0xFFEDEDF2), fontSize = 16.sp),
+            cursorBrush = SolidColor(Color(0xFF8B5CF6)),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }, onDone = { onSearch() }),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                if (query.isEmpty()) {
+                    Text("Ara — tüm kaynaklarda…", color = Color(0x88EDEDF2))
+                }
+                inner()
+            },
+        )
     }
 }
 
