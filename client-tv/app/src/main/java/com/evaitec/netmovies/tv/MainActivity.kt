@@ -5,6 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,9 +19,13 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
+import androidx.compose.ui.platform.LocalContext
 import com.evaitec.netmovies.tv.data.MediaItem
+import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.HomeScreen
+import com.evaitec.netmovies.tv.ui.KeyMapScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
+import com.evaitec.netmovies.tv.ui.TouchButton
 import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
@@ -45,16 +52,26 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.foundation.layout.Box(
                         Modifier.fillMaxSize().background(Color(0xFF0F0F14))
                     ) {
-                        // POC: harici nav kütüphanesi yok — tek state ile Home <-> Player.
+                        // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
+                        var showKeyMap by remember { mutableStateOf(false) }
+                        val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val current = selected
-                        if (current == null) {
-                            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
-                                UpdateBanner()   // güncelleme varsa üstte şerit
-                                HomeScreen(onSelect = { selected = it })
-                            }
-                        } else {
-                            PlayerScreen(item = current, onBack = { selected = null })
+                        when {
+                            current != null ->
+                                PlayerScreen(item = current, bindings = bindings, onBack = { selected = null })
+                            showKeyMap ->
+                                KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
+                            else ->
+                                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                                    UpdateBanner()   // güncelleme varsa üstte şerit
+                                    androidx.compose.foundation.layout.Row(
+                                        Modifier.fillMaxWidth().padding(start = 24.dp, top = 12.dp),
+                                    ) {
+                                        TouchButton("⚙ Buton Eşleme", onClick = { showKeyMap = true })
+                                    }
+                                    HomeScreen(onSelect = { selected = it })
+                                }
                         }
                     }
                 }

@@ -8,9 +8,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -22,13 +24,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,15 +61,19 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.StreamLink
+import com.evaitec.netmovies.tv.input.KeyBindings
+import com.evaitec.netmovies.tv.input.RemoteAction
+import com.evaitec.netmovies.tv.input.RemoteInputController
+import kotlinx.coroutines.delay
 
 // Oynatma hızı seçenekleri (çark → Hız).
 private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
+fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
     val context = LocalContext.current
-    // 10sn ileri/geri: Media3 transport kontrolündeki FF/RW butonları bu artışı gösterir.
+    val scope = rememberCoroutineScope()
     val exo = remember {
         ExoPlayer.Builder(context)
             .setSeekBackIncrementMs(10_000)
@@ -72,32 +85,74 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
     var ready by remember { mutableStateOf(false) }
     var retryKey by remember { mutableIntStateOf(0) }
 
-    // Çoklu kaynak: load_links birden çok sunucu/kalite döndürebilir → hepsini tut.
+    // Çoklu kaynak.
     var links by remember { mutableStateOf<List<StreamLink>>(emptyList()) }
     var currentLinkIndex by remember { mutableIntStateOf(0) }
 
-    // Çark menüsü durumu + oynatıcı track/hız durumu.
+    // Oynatıcı UI durumu.
     var showSettings by remember { mutableStateOf(false) }
     var tracks by remember { mutableStateOf<Tracks?>(null) }
     var speed by remember { mutableFloatStateOf(1.0f) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var showControls by remember { mutableStateOf(false) }
+    var controlsTick by remember { mutableIntStateOf(0) }
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var seekHint by remember { mutableStateOf<String?>(null) }
+    var hintTick by remember { mutableIntStateOf(0) }
 
-    // Ayar menüsü açıksa Geri onu kapatsın; değilse ekrandan çık.
+    val rootFocus = remember { FocusRequester() }
+    val panelFocus = remember { FocusRequester() }
+
+    // ---- Aksiyon dağıtıcı: eşlenen tuş → oynatıcı davranışı ----
+    fun flashControls() { showControls = true; controlsTick++ }
+    fun seekBy(deltaMs: Long) {
+        val dur = exo.duration
+        val target = (exo.currentPosition + deltaMs).let {
+            if (dur > 0) it.coerceIn(0, dur) else it.coerceAtLeast(0)
+        }
+        exo.seekTo(target)
+        position = target
+        seekHint = (if (deltaMs > 0) "+" else "−") + "${kotlin.math.abs(deltaMs) / 1000}sn"
+        hintTick++
+        flashControls()
+    }
+    fun dispatch(a: RemoteAction) {
+        when (a) {
+            RemoteAction.NONE -> Unit
+            RemoteAction.PLAY_PAUSE -> { if (exo.isPlaying) exo.pause() else exo.play(); flashControls() }
+            RemoteAction.SEEK_FWD_10 -> seekBy(10_000)
+            RemoteAction.SEEK_BACK_10 -> seekBy(-10_000)
+            RemoteAction.SEEK_FWD_60 -> seekBy(60_000)
+            RemoteAction.SEEK_BACK_60 -> seekBy(-60_000)
+            RemoteAction.SEEK_HOLD_FWD -> seekBy(8_000)
+            RemoteAction.SEEK_HOLD_BACK -> seekBy(-8_000)
+            RemoteAction.OPEN_SETTINGS -> showSettings = true
+            RemoteAction.SHOW_CONTROLS -> flashControls()
+            RemoteAction.BACK -> onBack()
+        }
+    }
+    val controller = remember { RemoteInputController(bindings, scope) { dispatch(it) } }
+
+    // Ayar menüsü açıksa Geri onu kapatsın; kontroller görünürse gizlesin; yoksa çık.
     BackHandler(enabled = true) {
-        if (showSettings) showSettings = false else onBack()
+        when {
+            showSettings -> showSettings = false
+            showControls -> showControls = false
+            else -> onBack()
+        }
     }
 
-    // Player durum/hata/track dinleyicisi.
     DisposableEffect(exo) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) ready = true
             }
+            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
                 error = e.message ?: "Oynatma hatası (${e.errorCodeName})"
             }
-            override fun onTracksChanged(t: Tracks) {
-                tracks = t
-            }
+            override fun onTracksChanged(t: Tracks) { tracks = t }
         }
         exo.addListener(listener)
         onDispose {
@@ -106,16 +161,13 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
         }
     }
 
-    // İçeriğin kaynak listesini bir kez çek (retry ile tazelenir).
+    // Kaynak listesini çek.
     LaunchedEffect(item.url, retryKey) {
         error = null
         ready = false
         try {
             val resp = Network.api.loadLinks(item.plugin, item.url)
-            if (resp.result.isEmpty()) {
-                error = "Oynatılacak kaynak bulunamadı"
-                return@LaunchedEffect
-            }
+            if (resp.result.isEmpty()) { error = "Oynatılacak kaynak bulunamadı"; return@LaunchedEffect }
             links = resp.result
             currentLinkIndex = 0
         } catch (e: Exception) {
@@ -123,20 +175,13 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
         }
     }
 
-    // Seçili kaynağı hazırla (kaynak değişince yeniden oynatılır).
+    // Seçili kaynağı hazırla.
     LaunchedEffect(links, currentLinkIndex) {
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
-        if (link.url.isBlank()) {
-            error = "Geçersiz kaynak"
-            return@LaunchedEffect
-        }
+        if (link.url.isBlank()) { error = "Geçersiz kaynak"; return@LaunchedEffect }
         try {
-            ready = false
-            error = null
-
-            val headers = buildMap {
-                if (link.referer.isNotBlank()) put("Referer", link.referer)
-            }
+            ready = false; error = null
+            val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
             val ua = link.userAgent.ifBlank { "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)" }
             val dataSourceFactory = DefaultHttpDataSource.Factory()
                 .setUserAgent(ua)
@@ -146,7 +191,6 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
             val hls = HlsMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(ExoMediaItem.fromUri(link.url))
 
-            // Altyazıları yan-yükle (sideload) → çark → Altyazı listesinde çıkar.
             val subSources = link.subtitles
                 .filter { it.url.isNotBlank() }
                 .map { sub ->
@@ -156,14 +200,10 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
                         .setLanguage(guessLang(sub.name))
                         .setSelectionFlags(0)
                         .build()
-                    SingleSampleMediaSource.Factory(dataSourceFactory)
-                        .createMediaSource(cfg, C.TIME_UNSET)
+                    SingleSampleMediaSource.Factory(dataSourceFactory).createMediaSource(cfg, C.TIME_UNSET)
                 }
 
-            val source =
-                if (subSources.isEmpty()) hls
-                else MergingMediaSource(hls, *subSources.toTypedArray())
-
+            val source = if (subSources.isEmpty()) hls else MergingMediaSource(hls, *subSources.toTypedArray())
             exo.setMediaSource(source)
             exo.prepare()
             exo.playWhenReady = true
@@ -173,29 +213,63 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    // Konum takibi.
+    LaunchedEffect(ready) {
+        while (true) {
+            position = exo.currentPosition
+            duration = exo.duration.coerceAtLeast(0)
+            delay(500)
+        }
+    }
+
+    // Kontrol overlay otomatik gizleme.
+    LaunchedEffect(controlsTick, showControls) {
+        if (showControls) { delay(3500); showControls = false }
+    }
+    // Sarma göstergesi otomatik gizleme.
+    LaunchedEffect(hintTick) {
+        if (seekHint != null) { delay(900); seekHint = null }
+    }
+
+    // Immersive'e girince kök odaklanır (tüm D-pad tuşları controller'a gelir).
+    LaunchedEffect(showSettings) {
+        runCatching { if (showSettings) panelFocus.requestFocus() else rootFocus.requestFocus() }
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .focusRequester(rootFocus)
+            .onKeyEvent { ke -> if (showSettings) false else controller.process(ke.nativeKeyEvent) }
+            .focusable(),
+    ) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exo
-                    useController = true
-                    keepScreenOn = true              // film oynarken ekran uykuya dalmasın
-                    controllerShowTimeoutMs = 4000
-                    setShowFastForwardButton(true)   // 10sn ileri
-                    setShowRewindButton(true)        // 10sn geri
-                    setShowNextButton(false)
-                    setShowPreviousButton(false)
-                    setShowSubtitleButton(false)     // altyazı bizim çark menüsünde
+                    useController = false             // tüm kontrol bizde (buton-eşleme)
+                    keepScreenOn = true
+                    isFocusable = false
+                    isFocusableInTouchMode = false
                 }
             },
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Çark (ayarlar) butonu — sağ üst, D-pad ile odaklanabilir.
-        GearButton(
-            onClick = { showSettings = true },
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-        )
+        // Sarma göstergesi (ortada, geçici).
+        seekHint?.let {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xB3000000))
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
+                ) { Text(it, fontWeight = FontWeight.Bold) }
+            }
+        }
+
+        // Kontrol overlay (görsel: durum + ilerleme çubuğu + süre).
+        if (showControls) {
+            ControlsOverlay(isPlaying = isPlaying, position = position, duration = duration)
+        }
 
         if (showSettings) {
             SettingsPanel(
@@ -203,6 +277,7 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
                 currentLinkIndex = currentLinkIndex,
                 tracks = tracks,
                 speed = speed,
+                panelFocus = panelFocus,
                 onSelectSource = { idx -> currentLinkIndex = idx; showSettings = false },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
@@ -211,15 +286,13 @@ fun PlayerScreen(item: MediaItem, onBack: () -> Unit) {
                         .build()
                 },
                 onSelectSubtitle = { group, trackIndex ->
-                    if (group == null) {
-                        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                            .build()
+                    exo.trackSelectionParameters = if (group == null) {
+                        exo.trackSelectionParameters.buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
                     } else {
-                        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                        exo.trackSelectionParameters.buildUpon()
                             .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
-                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            .build()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
@@ -251,27 +324,56 @@ private fun guessSubtitleMime(url: String): String {
     }
 }
 
-// Altyazı adından kaba dil kodu (track eşleştirme/etiket için).
 private fun guessLang(name: String): String {
     val n = name.lowercase()
     return when {
         "türk" in n || "turk" in n || n.startsWith("tr") -> "tr"
-        "ing" in n || "eng" in n || n.startsWith("en")   -> "en"
+        "ing" in n || "eng" in n || n.startsWith("en") -> "en"
         else -> "und"
     }
 }
 
+private fun fmtTime(ms: Long): String {
+    if (ms <= 0) return "0:00"
+    val total = ms / 1000
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun GearButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xCC1A1726))
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Text("⚙  Ayarlar", color = Color(0xFFEDEDF2))
+private fun ControlsOverlay(isPlaying: Boolean, position: Long, duration: Long) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(Color(0x99000000))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = (if (isPlaying) "▶  Oynatılıyor" else "⏸  Duraklatıldı"),
+                fontWeight = FontWeight.SemiBold,
+            )
+            // İlerleme çubuğu (oran = position/duration).
+            val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+            Box(
+                Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Color(0x55FFFFFF)),
+            ) {
+                Box(
+                    Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF8B5CF6)),
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(fmtTime(position), color = Color(0xCCEDEDF2))
+                Text(fmtTime(duration), color = Color(0xCCEDEDF2))
+            }
+        }
     }
 }
 
@@ -282,6 +384,7 @@ private fun SettingsPanel(
     currentLinkIndex: Int,
     tracks: Tracks?,
     speed: Float,
+    panelFocus: FocusRequester,
     onSelectSource: (Int) -> Unit,
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
@@ -298,6 +401,8 @@ private fun SettingsPanel(
             .fillMaxHeight()
             .width(320.dp)
             .background(Color(0xF20F0F14))
+            .focusRequester(panelFocus)
+            .focusGroup()
             .padding(20.dp),
     ) {
         Column(
@@ -307,11 +412,7 @@ private fun SettingsPanel(
             SectionTitle("Kaynak")
             if (links.isEmpty()) MutedRow("—")
             links.forEachIndexed { idx, link ->
-                SettingRow(
-                    label = link.name.ifBlank { "Kaynak ${idx + 1}" },
-                    selected = idx == currentLinkIndex,
-                    onClick = { onSelectSource(idx) },
-                )
+                SettingRow(link.name.ifBlank { "Kaynak ${idx + 1}" }, idx == currentLinkIndex) { onSelectSource(idx) }
             }
 
             if (audioGroups.isNotEmpty()) {
@@ -319,41 +420,33 @@ private fun SettingsPanel(
                 audioGroups.forEach { group ->
                     for (i in 0 until group.length) {
                         val fmt = group.getTrackFormat(i)
-                        SettingRow(
-                            label = fmt.label ?: fmt.language ?: "Ses ${i + 1}",
-                            selected = group.isTrackSelected(i),
-                            onClick = { onSelectAudio(group, i) },
-                        )
+                        SettingRow(fmt.label ?: fmt.language ?: "Ses ${i + 1}", group.isTrackSelected(i)) {
+                            onSelectAudio(group, i)
+                        }
                     }
                 }
             }
 
             if (textGroups.isNotEmpty()) {
                 SectionTitle("Altyazı")
-                SettingRow(label = "Kapalı", selected = textDisabled, onClick = { onSelectSubtitle(null, 0) })
+                SettingRow("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
                 textGroups.forEach { group ->
                     for (i in 0 until group.length) {
                         val fmt = group.getTrackFormat(i)
-                        SettingRow(
-                            label = fmt.label ?: fmt.language ?: "Altyazı ${i + 1}",
-                            selected = group.isTrackSelected(i),
-                            onClick = { onSelectSubtitle(group, i) },
-                        )
+                        SettingRow(fmt.label ?: fmt.language ?: "Altyazı ${i + 1}", group.isTrackSelected(i)) {
+                            onSelectSubtitle(group, i)
+                        }
                     }
                 }
             }
 
             SectionTitle("Hız")
             SPEEDS.forEach { s ->
-                SettingRow(
-                    label = if (s == 1.0f) "Normal" else "${s}x",
-                    selected = s == speed,
-                    onClick = { onSelectSpeed(s) },
-                )
+                SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
             }
 
             androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
-            SettingRow(label = "Kapat", selected = false, onClick = onClose)
+            SettingRow("Kapat", false, onClose)
         }
     }
 }
@@ -397,9 +490,7 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun Overlay(message: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(message)
-    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(message) }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -426,7 +517,7 @@ private fun PlayerOverlay(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ActionRow(onAction: () -> Unit, actionLabel: String, onBack: () -> Unit) {
-    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         TouchButton(actionLabel, onAction)
         TouchButton("Geri", onBack)
     }
