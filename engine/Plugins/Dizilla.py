@@ -2,18 +2,40 @@
 
 from __future__ import annotations
 
+import os
 import re
+
+import httpx
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__dizi_common import absolute, extract_embedded_sources, first_attr, first_text, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
+# Domain dizilla.nl → dizilla.club taşındı; TR'de SNI-bloklu → WARP proxy şart.
 _MAIN_URL = discover_main_url(
-    "Dizilla/src/main/kotlin/com/keyiflerolsun/Dizilla.kt", "https://dizilla.nl", "DIZILLA_URL"
+    "Dizilla/src/main/kotlin/com/keyiflerolsun/Dizilla.kt", "https://dizilla.club", "DIZILLA_URL"
 )
 
 
 class Dizilla(PluginBase):
+    # Dizilla SNI-bloklu → SADECE bu plugin çıkışını WARP proxy'sinden geçir.
+    # NOT: PluginBase'in FallbackHTTPX'i proxy param'ını uygulamıyor (direkt bağlanıp
+    # ConnectError) → super sonrası self.httpx'i proxy'li DÜZ httpx.AsyncClient ile
+    # değiştiriyoruz (kanıt: dizilla.club proxy ile 200). Diğer plugin'ler dokunulmaz
+    # → movie/RecTV/HDFC direkt kalır, bozulmaz.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        warp = os.getenv("WARP_PROXY")
+        if warp:
+            headers = {}
+            try:
+                headers = dict(self.httpx.headers)
+            except Exception:
+                headers = {"User-Agent": "Mozilla/5.0"}
+            self.httpx = httpx.AsyncClient(
+                proxy=warp, follow_redirects=True, timeout=20, headers=headers,
+            )
+
     name = "Dizilla"
     language = "tr"
     main_url = _MAIN_URL
