@@ -64,6 +64,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
+import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.StreamLink
@@ -77,7 +78,7 @@ private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
+fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val exo = remember {
@@ -211,6 +212,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
             exo.release()
         }
     }
+
+    // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
+    LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
 
     // Kaynak listesini çek.
     LaunchedEffect(item.url, retryKey) {
@@ -360,6 +364,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
                 tracks = tracks,
                 speed = speed,
                 panelFocus = panelFocus,
+                isFavorite = library.isFavorite(item),
+                onToggleFavorite = { library.toggleFavorite(item) },
                 onSelectSource = { idx -> currentLinkIndex = idx; showSettings = false },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
@@ -529,6 +535,8 @@ private fun SettingsPanel(
     tracks: Tracks?,
     speed: Float,
     panelFocus: FocusRequester,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onSelectSource: (Int) -> Unit,
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
@@ -588,6 +596,13 @@ private fun SettingsPanel(
             SPEEDS.forEach { s ->
                 SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
             }
+
+            SectionTitle("Kitaplık")
+            SettingRow(
+                if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
+                isFavorite,
+                onToggleFavorite,
+            )
 
             androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
             SettingRow("Kapat", false, onClose)

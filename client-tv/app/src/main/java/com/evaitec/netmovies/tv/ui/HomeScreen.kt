@@ -2,11 +2,14 @@ package com.evaitec.netmovies.tv.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
+import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.proxiedPoster
 
@@ -53,18 +56,26 @@ private val POSTER_WIDTH = 104.dp   // ana sayfa carousel poster boyuyla uyumlu 
 @Composable
 fun HomeScreen(
     onSelect: (MediaItem) -> Unit,
+    library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     when (val s = state) {
         is HomeState.Loading -> Center("Yükleniyor…")
-        is HomeState.Error   -> ErrorWithRetry(s.message, onRetry = vm::load)
+        is HomeState.Error   -> {
+            // İçerik yüklenemese bile Favoriler/İzlenenler doluysa onları göster.
+            if (library.favorites.isEmpty() && library.watched.isEmpty()) {
+                ErrorWithRetry(s.message, onRetry = vm::load)
+            } else {
+                CategoryRows(emptyList(), library, onSelect)
+            }
+        }
         is HomeState.Ready   -> {
-            if (s.items.isEmpty()) {
+            if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, onSelect)
+                CategoryRows(s.items, library, onSelect)
             }
         }
     }
@@ -72,60 +83,94 @@ fun HomeScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CategoryRows(items: List<MediaItem>, onSelect: (MediaItem) -> Unit) {
+private fun CategoryRows(items: List<MediaItem>, library: Library, onSelect: (MediaItem) -> Unit) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
         items.groupBy { it.category?.takeIf { c -> c.isNotBlank() } ?: "Yeni Çıkanlar" }
     }
+    // Kitaplık satırları en üstte (İzlenenler + Favoriler), sonra agregasyon kategorileri.
+    val sections = buildList {
+        if (library.watched.isNotEmpty()) add("İzlenenler" to library.watched.toList())
+        if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
+        groups.forEach { add(it.key to it.value) }
+    }
+
+    // Poster uzun-bas menüsü.
+    var menuItem by remember { mutableStateOf<MediaItem?>(null) }
+
     // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
-    val firstFocus    = remember { FocusRequester() }
-    val firstCategory = groups.keys.firstOrNull()
-    LaunchedEffect(firstCategory) {
+    val firstFocus = remember { FocusRequester() }
+    val firstKey = sections.firstOrNull()?.first
+    LaunchedEffect(firstKey) {
         runCatching { firstFocus.requestFocus() }
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        item {
-            Text(
-                text = "NetMovies — Yeni Çıkanlar",
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 24.dp, bottom = 4.dp),
-            )
-        }
-        groups.forEach { (category, list) ->
+
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
             item {
                 Text(
-                    text = category,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp),
+                    text = "NetMovies",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 24.dp, bottom = 4.dp),
                 )
             }
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    itemsIndexed(list) { index, item ->
-                        val cardModifier =
-                            if (category == firstCategory && index == 0)
-                                Modifier.focusRequester(firstFocus)
-                            else Modifier
-                        PosterCard(item, onClick = { onSelect(item) }, modifier = cardModifier)
+            sections.forEachIndexed { sIndex, (title, list) ->
+                item {
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp),
+                    )
+                }
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        itemsIndexed(list) { index, item ->
+                            val cardModifier =
+                                if (sIndex == 0 && index == 0) Modifier.focusRequester(firstFocus)
+                                else Modifier
+                            PosterCard(
+                                item = item,
+                                isFavorite = library.isFavorite(item),
+                                onClick = { onSelect(item) },
+                                onLongPress = { menuItem = item },
+                                modifier = cardModifier,
+                            )
+                        }
                     }
                 }
             }
         }
+
+        menuItem?.let { item ->
+            PosterMenu(
+                item = item,
+                isFavorite = library.isFavorite(item),
+                onPlay = { menuItem = null; onSelect(item) },
+                onToggleFavorite = { library.toggleFavorite(item); menuItem = null },
+                onClose = { menuItem = null },
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    // Box + foundation clickable → hem dokunmatik (telefon) hem D-pad (TV) çalışır.
+private fun PosterCard(
+    item: MediaItem,
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // D-pad focus → "büyüteç": kart büyür, primary çerçeve/glow, üstte kalır.
+    // combinedClickable → OK tek bas = oynat, OK basılı tut = menü (favori vb.).
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.18f else 1f,
@@ -137,12 +182,10 @@ private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier 
         modifier = modifier
             .width(POSTER_WIDTH)
             .aspectRatio(2f / 3f)
-            // graphicsLayer ile ölçek: layout'u itmez, komşuların üstüne büyür.
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            // Focus'lu kart komşularını kesmesin diye üstte kalsın.
             .zIndex(if (focused) 1f else 0f)
             .clip(shape)
             .background(Color(0xFF241F33))
@@ -152,7 +195,7 @@ private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier 
                 shape = shape,
             )
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() },   // clickable zaten focusable + OK/DPAD_CENTER'ı işler
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
         Box(Modifier.fillMaxSize()) {
             AsyncImage(
@@ -161,6 +204,15 @@ private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier 
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
+            if (isFavorite) {
+                Text(
+                    text = "★",
+                    color = Color(0xFFFFC107),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp),
+                )
+            }
             Text(
                 text = item.title.orEmpty(),
                 maxLines = 1,
@@ -175,11 +227,62 @@ private fun PosterCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier 
     }
 }
 
+// Poster uzun-bas menüsü — sayfa açmadan hızlı aksiyonlar.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PosterMenu(
+    item: MediaItem,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(
+        Modifier.fillMaxSize().background(Color(0xCC000000)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .width(320.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xF20F0F14))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = item.title ?: "Seçenekler",
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            MenuRow("▶  Oynat", onPlay)
+            MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
+            MenuRow("Kapat", onClose)
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MenuRow(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0x00000000))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+    ) {
+        Text(label)
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(message)
             androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
             TouchButton("Tekrar dene", onRetry)

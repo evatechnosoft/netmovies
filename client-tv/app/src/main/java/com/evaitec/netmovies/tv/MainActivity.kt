@@ -20,6 +20,7 @@ import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import androidx.compose.ui.platform.LocalContext
+import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.HomeScreen
@@ -56,10 +57,11 @@ class MainActivity : ComponentActivity() {
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
+                        val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
                         when {
                             current != null ->
-                                PlayerScreen(item = current, bindings = bindings, onBack = { selected = null })
+                                PlayerScreen(item = current, bindings = bindings, library = library, onBack = { selected = null })
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             else ->
@@ -70,7 +72,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         TouchButton("⚙ Buton Eşleme", onClick = { showKeyMap = true })
                                     }
-                                    HomeScreen(onSelect = { selected = it })
+                                    HomeScreen(onSelect = { selected = it }, library = library)
                                 }
                         }
                     }
