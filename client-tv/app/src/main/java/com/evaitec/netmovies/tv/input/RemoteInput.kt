@@ -21,6 +21,7 @@ enum class RemoteAction(val id: String, val label: String, val repeatable: Boole
     SEEK_HOLD_BACK("hold_back", "Basılı: Hızlı Geri", repeatable = true),
     OPEN_SETTINGS("settings", "Ayarlar (çark)"),
     SHOW_CONTROLS("controls", "Kontrolleri Göster"),
+    TOGGLE_SCRUB("scrub", "Önizleme / Scrub"),
     BACK("back", "Geri / Çık");
 
     companion object {
@@ -59,7 +60,7 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     put(k(RemoteKey.RIGHT, PressType.DOUBLE), RemoteAction.SEEK_FWD_60)
     put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.SEEK_HOLD_BACK)
     put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.SEEK_HOLD_FWD)
-    put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.SHOW_CONTROLS)
+    put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
     put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.OPEN_SETTINGS)
 }
 

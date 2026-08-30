@@ -1,18 +1,22 @@
 package com.evaitec.netmovies.tv.ui
 
 import android.net.Uri
+import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -52,9 +56,11 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
@@ -80,6 +86,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
             .setSeekForwardIncrementMs(10_000)
             .build()
     }
+    // Preview (scrub önizleme) oynatıcısı: aynı kaynak, düşük kalite, duraklatılmış,
+    // hızlı seek (CLOSEST_SYNC). Küçük bir surface'e render edilip thumbnail gibi gösterilir.
+    val previewExo = remember {
+        ExoPlayer.Builder(context).build().apply {
+            volume = 0f
+            playWhenReady = false
+            setSeekParameters(SeekParameters.CLOSEST_SYNC)
+        }
+    }
 
     var error by remember { mutableStateOf<String?>(null) }
     var ready by remember { mutableStateOf(false) }
@@ -101,6 +116,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
     var seekHint by remember { mutableStateOf<String?>(null) }
     var hintTick by remember { mutableIntStateOf(0) }
 
+    // Scrub / önizleme modu.
+    var scrubMode by remember { mutableStateOf(false) }
+    var scrubPos by remember { mutableLongStateOf(0L) }
+    var scrubTick by remember { mutableIntStateOf(0) }
+
     val rootFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
 
@@ -117,6 +137,12 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
         hintTick++
         flashControls()
     }
+    fun enterScrub() {
+        scrubPos = exo.currentPosition
+        scrubMode = true
+        scrubTick++          // preview'ı mevcut pozisyona seek et
+        showControls = true
+    }
     fun dispatch(a: RemoteAction) {
         when (a) {
             RemoteAction.NONE -> Unit
@@ -129,18 +155,43 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-8_000)
             RemoteAction.OPEN_SETTINGS -> showSettings = true
             RemoteAction.SHOW_CONTROLS -> flashControls()
+            RemoteAction.TOGGLE_SCRUB -> enterScrub()
             RemoteAction.BACK -> onBack()
         }
     }
     val controller = remember { RemoteInputController(bindings, scope) { dispatch(it) } }
 
+    // Scrub modunda D-pad: ◀/▶ imleç, OK atla, Geri iptal (native olayları doğrudan işlenir).
+    fun handleScrubKey(e: KeyEvent): Boolean {
+        if (e.action != KeyEvent.ACTION_DOWN) return true
+        when (e.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> { scrubPos = (scrubPos - 10_000).coerceAtLeast(0); scrubTick++ }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                val d = exo.duration
+                scrubPos = (scrubPos + 10_000).let { if (d > 0) it.coerceAtMost(d) else it }
+                scrubTick++
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                exo.seekTo(scrubPos); scrubMode = false; flashControls()
+            }
+            KeyEvent.KEYCODE_BACK -> scrubMode = false
+            else -> Unit
+        }
+        return true
+    }
+
     // Ayar menüsü açıksa Geri onu kapatsın; kontroller görünürse gizlesin; yoksa çık.
     BackHandler(enabled = true) {
         when {
+            scrubMode -> scrubMode = false
             showSettings -> showSettings = false
             showControls -> showControls = false
             else -> onBack()
         }
+    }
+
+    DisposableEffect(previewExo) {
+        onDispose { previewExo.release() }
     }
 
     DisposableEffect(exo) {
@@ -208,9 +259,29 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
             exo.prepare()
             exo.playWhenReady = true
             exo.setPlaybackSpeed(speed)
+
+            // Preview oynatıcısı: aynı kaynak (ayrı MediaSource örneği), en düşük kalite.
+            val previewHls = HlsMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(ExoMediaItem.fromUri(link.url))
+            previewExo.setMediaSource(previewHls)
+            previewExo.prepare()
+            previewExo.playWhenReady = false
+            previewExo.trackSelectionParameters = previewExo.trackSelectionParameters.buildUpon()
+                .setMaxVideoSize(426, 240)
+                .setForceLowestBitrate(true)
+                .build()
         } catch (e: Exception) {
             error = e.message ?: "Bağlantı hatası"
         }
+    }
+
+    // Scrub imleci değişince preview'ı seek et (debounce ~120ms).
+    LaunchedEffect(scrubTick) {
+        if (scrubMode) { delay(120); runCatching { previewExo.seekTo(scrubPos) } }
+    }
+    // Scrub modunda 6sn hareketsizlikte çık.
+    LaunchedEffect(scrubTick, scrubMode) {
+        if (scrubMode) { delay(6000); scrubMode = false }
     }
 
     // Konum takibi.
@@ -240,7 +311,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
         Modifier
             .fillMaxSize()
             .focusRequester(rootFocus)
-            .onKeyEvent { ke -> if (showSettings) false else controller.process(ke.nativeKeyEvent) }
+            .onKeyEvent { ke ->
+                when {
+                    scrubMode -> handleScrubKey(ke.nativeKeyEvent)
+                    showSettings -> false
+                    else -> controller.process(ke.nativeKeyEvent)
+                }
+            }
             .focusable(),
     ) {
         AndroidView(
@@ -267,8 +344,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, onBack: () -> Unit) {
         }
 
         // Kontrol overlay (görsel: durum + ilerleme çubuğu + süre).
-        if (showControls) {
+        if (showControls && !scrubMode) {
             ControlsOverlay(isPlaying = isPlaying, position = position, duration = duration)
+        }
+
+        // Scrub / önizleme overlay'i (thumbnail = preview oynatıcı karesi).
+        if (scrubMode) {
+            ScrubOverlay(previewExo = previewExo, scrubPos = scrubPos, duration = duration)
         }
 
         if (showSettings) {
@@ -371,6 +453,68 @@ private fun ControlsOverlay(isPlaying: Boolean, position: Long, duration: Long) 
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(fmtTime(position), color = Color(0xCCEDEDF2))
+                Text(fmtTime(duration), color = Color(0xCCEDEDF2))
+            }
+        }
+    }
+}
+
+// Scrub/önizleme overlay'i: küçük preview oynatıcı karesi (thumbnail) imleç konumunda +
+// ilerleme çubuğu. Süre imlecin altında.
+@OptIn(UnstableApi::class, ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) {
+    val fraction = if (duration > 0) (scrubPos.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(Color(0xB3000000))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("⏱  Önizleme — ◀ ▶ gez · OK atla · Geri iptal", fontWeight = FontWeight.SemiBold)
+            BoxWithConstraints(Modifier.fillMaxWidth().height(150.dp)) {
+                val thumbW = 220.dp
+                val offsetX = (maxWidth - thumbW) * fraction
+                Box(
+                    modifier = Modifier
+                        .offset(x = offsetX)
+                        .width(thumbW)
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black),
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PlayerView(ctx).apply {
+                                player = previewExo
+                                useController = false
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    Text(
+                        text = fmtTime(scrubPos),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .background(Color(0xB3000000))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            Box(
+                Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x55FFFFFF)),
+            ) {
+                Box(
+                    Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF8B5CF6)),
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(fmtTime(scrubPos), color = Color(0xCCEDEDF2))
                 Text(fmtTime(duration), color = Color(0xCCEDEDF2))
             }
         }
