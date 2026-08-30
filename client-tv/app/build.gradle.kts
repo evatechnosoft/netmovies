@@ -13,8 +13,8 @@ android {
         applicationId = "com.evaitec.netmovies.tv"
         minSdk        = 26        // Android TV / Mi Box
         targetSdk     = 34
-        versionCode   = 19
-        versionName   = "0.1.20"
+        versionCode   = 20
+        versionName   = "0.1.21"
 
         // Stream taban URL — gradle.properties'ten okunur, yoksa public tunnel kullanılır.
         val baseUrl = (project.findProperty("NETMOVIES_BASE_URL") as String?)
@@ -26,7 +26,7 @@ android {
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
-        buildConfigField("String", "RELEASE_TAG", "\"v0.1.20-poc\"")
+        buildConfigField("String", "RELEASE_TAG", "\"v0.1.21-poc\"")
     }
 
     buildFeatures {
@@ -62,6 +62,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    // Vektör ikonlar (play/pause/Replay10/Forward10) — emoji yerine, renk kontrol edilir (sarı olmaz)
+    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Android TV (Compose for TV)

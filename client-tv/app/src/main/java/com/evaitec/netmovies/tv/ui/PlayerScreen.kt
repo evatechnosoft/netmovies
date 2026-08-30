@@ -4,6 +4,7 @@ import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,7 +21,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,11 +51,14 @@ import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
@@ -474,30 +485,31 @@ private fun ControlsOverlay(
     onScrub: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
 ) {
+    val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
-        // Sağ üst: önizleme + ayarlar (dokunmatik).
+        // Sağ üst: küçük metin butonlar (önizleme / ayarlar).
         Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TouchTapButton("Önizleme", onScrub)
-            TouchTapButton("Ayarlar", onOpenSettings)
+            TextPill("Önizleme", onScrub)
+            TextPill("Ayarlar", onOpenSettings)
         }
 
+        // Alt kompakt kontrol çubuğu: ince ilerleme + tek satır ikon kontroller.
         Column(
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color(0x99000000))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .background(Color(0x80000000))
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            // İlerleme çubuğu — dokununca o orana atla (dokunma alanı geniş).
-            val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+            // İnce ilerleme çubuğu — dokununca o orana atla.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(24.dp)
+                    .height(14.dp)
                     .pointerInput(duration) {
                         detectTapGestures { o ->
                             if (size.width > 0) onSeekToFraction((o.x / size.width).coerceIn(0f, 1f))
@@ -506,49 +518,67 @@ private fun ControlsOverlay(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Box(
-                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                    Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp))
                         .background(Color(0x55FFFFFF)),
                 ) {
                     Box(
-                        Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
+                        Modifier.fillMaxWidth(fraction).height(3.dp).clip(RoundedCornerShape(2.dp))
                             .background(Color(0xFF8B5CF6)),
                     )
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(fmtTime(position), color = Color(0xCCEDEDF2))
-                Text(fmtTime(duration), color = Color(0xCCEDEDF2))
-            }
-            // Kontrol butonları (dokunmatik) — emoji yok, sade metin.
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TouchTapButton("« 10 sn", onSeekBack)
-                TouchTapButton(if (isPlaying) "Duraklat" else "Oynat", onPlayPause, accent = true)
-                TouchTapButton("10 sn »", onSeekFwd)
+            // Tek satır: süre — kontroller (ortada) — süre.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(fmtTime(position), color = Color(0xCCEDEDF2), fontSize = 12.sp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconBtn(Icons.Filled.Replay10, 34.dp, 24.dp, onSeekBack)
+                    IconBtn(
+                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        44.dp, 28.dp, onPlayPause, accent = true,
+                    )
+                    IconBtn(Icons.Filled.Forward10, 34.dp, 24.dp, onSeekFwd)
+                }
+                Text(fmtTime(duration), color = Color(0xCCEDEDF2), fontSize = 12.sp)
             }
         }
     }
 }
 
-// Dokunmatik-öncelikli buton: pointerInput tap → D-pad focus'unu bozmaz (TV'de tuş
-// eşlemesi geçerli kalır, telefonda dokunma çalışır). Sade pill: koyu zemin, ince mor
-// kenar; accent=true → dolu mor (oynat/duraklat gibi birincil aksiyon). Emoji yok.
-@OptIn(ExperimentalTvMaterial3Api::class)
+// Küçük yuvarlak ikon buton (vektör; renk tint → emoji/sarı yok). pointerInput tap →
+// D-pad focus'unu bozmaz. accent=true → dolu mor (oynat/duraklat).
 @Composable
-private fun TouchTapButton(label: String, onTap: () -> Unit, accent: Boolean = false) {
-    val shape = RoundedCornerShape(10.dp)
+private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: androidx.compose.ui.unit.Dp, onTap: () -> Unit, accent: Boolean = false) {
     Box(
         modifier = Modifier
-            .clip(shape)
-            .background(if (accent) Color(0xFF8B5CF6) else Color(0xE61A1726))
-            .border(1.dp, if (accent) Color(0x00000000) else Color(0x448B5CF6), shape)
-            .pointerInput(Unit) { detectTapGestures { onTap() } }
-            .padding(horizontal = 20.dp, vertical = 11.dp),
+            .size(box)
+            .clip(CircleShape)
+            .background(if (accent) Color(0xE68B5CF6) else Color(0x66000000))
+            .pointerInput(Unit) { detectTapGestures { onTap() } },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            color = if (accent) Color(0xFFFFFFFF) else Color(0xFFEDEDF2),
-            fontWeight = FontWeight.Medium,
-        )
+        Image(icon, contentDescription = null, modifier = Modifier.size(ic), colorFilter = ColorFilter.tint(Color.White))
+    }
+}
+
+// Küçük metin pill (önizleme/ayarlar). Emoji yok.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TextPill(label: String, onTap: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0x99000000))
+            .pointerInput(Unit) { detectTapGestures { onTap() } }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(label, color = Color(0xFFEDEDF2), fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 
