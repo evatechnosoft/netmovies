@@ -6,8 +6,8 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.20-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.20-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.20-poc/netmovies-tv-v0.1.20-poc.apk
+**Son Release (TV client, POC):** `v0.1.21-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.21-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.21-poc/netmovies-tv-v0.1.21-poc.apk
 **Ev sunucusu = bu Windows PC** (Docker Desktop). `.env` (gitignored) güncel: `DIZIMOM_URL=dizimom.food · DIZILLA_URL=dizilla.club · AUTO_DISCOVER_DOMAINS=1 · ENGINE_WORKERS=1 · CF_TUNNEL_TOKEN dolu`. WARP servisi compose'da.
 > **EV ÇÖZÜMÜ (asıl):** Windows'ta **3310 inbound firewall kuralı AÇILDI** ("NetMovies 3310"). TV aynı WiFi'da (192.168.1.x) → app yerel sunucuya (192.168.1.185:3310) düşer, **Cloudflare hiç devreye girmez** → CF-TR IP blokları (188.114.x) sorunu evde biter. TV'de app'i kapat-aç (veya "Tekrar dene") ile yerele geçer.
 > v0.1.10: OkHttp timeout (connect6/read45/call50s → sonsuz "Yükleniyor" biter) + CF IP-pin (w.evaitec.com → 172.67.143.235/104.21.55.13, TR bloklu 188.114 baypas — uzaktayken).
@@ -30,7 +30,7 @@ Dıştan (telefon yolu) tutarlı: **movie 20 · serie 68 · serie_foreign 10 · 
 - **Poster büyüteç** (focus scale+glow), **çark menüsü** (Kaynak/Dil/Altyazı/Hız), **10sn seek**, **altyazı sideload**, **çoklu kaynak**.
 - **Buton-eşleme sistemi** (`input/RemoteInput.kt`, `ui/KeyMapScreen.kt`): her tuş×basış → aksiyon, SharedPreferences. Oynatıcı `useController=false` tam input sahipliği. → memory `input-mapping-architecture`.
 - **Scrub önizleme (thumbnail)**: ikinci ExoPlayer düşük kalite kare (`ScrubOverlay`).
-- **Dokunmatik oynatıcı kontrolleri** (telefon): videoya dokun→kontroller, tıklanabilir seekbar, `TouchTapButton` (pointerInput, D-pad'i bozmaz). Emoji kaldırıldı (sarı görünüyordu) → sade metin.
+- **Dokunmatik oynatıcı kontrolleri** (telefon): videoya dokun→kontroller, tıklanabilir seekbar (pointerInput, D-pad'i bozmaz). Emoji sarı çıkıyordu → **v0.1.21: kompakt material vektör ikonlar** (`material-icons-extended`): Replay10 · play/pause (mor 44dp) · Forward10, ince 3dp bar, tek satır süre-kontrol-süre. (Metin pill'ler "kocaman" olduğu için küçültüldü.)
 - **Ana sayfa çoklu tip** (`HomeViewModel`): movie+serie+serie_local+serie_foreign+live paralel → çoklu satır (önce tek "yeni filmler"di).
 - **Favoriler + İzlenenler** (`data/Library.kt`, SharedPreferences), poster uzun-bas menü, oynatınca İzlenenler dolar.
 - **Gözat tarayıcı** (`ui/BrowseScreen.kt`): tüm eklenti kategorileri inline + **arama** (tüm kaynaklarda paralel, per-plugin 12s timeout). ActionPicker perde dokunuş fix.
@@ -48,8 +48,11 @@ Dıştan (telefon yolu) tutarlı: **movie 20 · serie 68 · serie_foreign 10 · 
 3. **Web player birleştirme**: `/resmi-kaynak`→`official_player.html.j2` (iframe, "eski") vs `/izle`→`player.html.j2` (zengin). Resmi kaynaklar harici sayfa (HLS yok) → canlı TV HLS gelince iframe kartları kaldır.
 4. **Kalıcı tünel fix** (opsiyonel): cloudflared'i stream netns'inden çıkar + CF panelde origin `stream:3310` → restart'lara dayanır.
 
+### Servis güncelleme (bu oturum)
+`docker compose --profile tunnel up -d --build --pull always` → engine/stream rebuild (base imaj `--pull`), engine/stream/tunnel birlikte recreate (tünel yeni netns'e "Registered tunnel connection" ist05). doh pinli (2026.1.2) kalır, warp/cloudflared son sürüm. Docker Desktop **uygulaması** güncellenmedi (elle: `winget upgrade Docker.DockerDesktop`, restart ister).
+
 ### Bu oturum commit'leri (dalda, push edildi)
-client-tv: `c403710 8e18a30 054e9da 0525815 bad97c0 b139e9b ed6b1c8 f92ccaf c3d987a fcbe69b` · infra/engine: `acf8a29 0d66096` (WARP) + Dizilla commit. Memory: `input-mapping-architecture`, `plugin-domain-moves`.
+client-tv: `c403710 8e18a30 054e9da 0525815 bad97c0 b139e9b ed6b1c8 f92ccaf c3d987a fcbe69b f3e0f5a`(v0.1.21 kompakt ikon) · infra/engine: `acf8a29 0d66096`(WARP) + Dizilla commit + HANDOFF. Memory: `input-mapping-architecture`, `plugin-domain-moves`.
 
 ---
 
