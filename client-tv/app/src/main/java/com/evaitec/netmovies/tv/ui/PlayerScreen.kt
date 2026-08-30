@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -479,8 +480,8 @@ private fun ControlsOverlay(
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            TouchTapButton("⏱", onScrub)
-            TouchTapButton("⚙", onOpenSettings)
+            TouchTapButton("Önizleme", onScrub)
+            TouchTapButton("Ayarlar", onOpenSettings)
         }
 
         Column(
@@ -518,29 +519,36 @@ private fun ControlsOverlay(
                 Text(fmtTime(position), color = Color(0xCCEDEDF2))
                 Text(fmtTime(duration), color = Color(0xCCEDEDF2))
             }
-            // Kontrol butonları (dokunmatik).
+            // Kontrol butonları (dokunmatik) — emoji yok, sade metin.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TouchTapButton("⏪ 10", onSeekBack)
-                TouchTapButton(if (isPlaying) "⏸" else "▶", onPlayPause)
-                TouchTapButton("10 ⏩", onSeekFwd)
+                TouchTapButton("« 10 sn", onSeekBack)
+                TouchTapButton(if (isPlaying) "Duraklat" else "Oynat", onPlayPause, accent = true)
+                TouchTapButton("10 sn »", onSeekFwd)
             }
         }
     }
 }
 
 // Dokunmatik-öncelikli buton: pointerInput tap → D-pad focus'unu bozmaz (TV'de tuş
-// eşlemesi geçerli kalır, telefonda dokunma çalışır).
+// eşlemesi geçerli kalır, telefonda dokunma çalışır). Sade pill: koyu zemin, ince mor
+// kenar; accent=true → dolu mor (oynat/duraklat gibi birincil aksiyon). Emoji yok.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun TouchTapButton(label: String, onTap: () -> Unit) {
+private fun TouchTapButton(label: String, onTap: () -> Unit, accent: Boolean = false) {
+    val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xCC1A1726))
+            .clip(shape)
+            .background(if (accent) Color(0xFF8B5CF6) else Color(0xE61A1726))
+            .border(1.dp, if (accent) Color(0x00000000) else Color(0x448B5CF6), shape)
             .pointerInput(Unit) { detectTapGestures { onTap() } }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 11.dp),
     ) {
-        Text(label, fontWeight = FontWeight.SemiBold)
+        Text(
+            label,
+            color = if (accent) Color(0xFFFFFFFF) else Color(0xFFEDEDF2),
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
