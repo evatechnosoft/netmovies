@@ -68,11 +68,10 @@ services:
     expose:
       - "3310"
     environment:
-      # Dış (bloklu kaynak) trafiği WARP proxy üzerinden çıksın; iç trafik hariç.
-      HTTPS_PROXY: http://netmovies-warp:8080
-      HTTP_PROXY: http://netmovies-warp:8080
-      NO_PROXY: engine,stream,doh,warp,localhost,127.0.0.1,172.31.0.0/24
-      no_proxy: engine,stream,doh,warp,localhost,127.0.0.1,172.31.0.0/24
+      # WARP proxy adresi — plugin'ler SEÇİCİ kullanır (sadece SNI-bloklu kaynaklar:
+      # Dizilla/Dizipal). GLOBAL HTTPS_PROXY verilmez: WARP'ın CF çıkış IP'si bazı
+      # kaynakları (HDFilmCehennemi/RecTV) bloklatıp movie=0 yapıyordu.
+      WARP_PROXY: http://netmovies-warp:8080
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
       M3U_SOURCES: ${M3U_SOURCES:-}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
