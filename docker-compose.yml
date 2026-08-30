@@ -10,7 +10,35 @@ networks:
       config:
         - subnet: 172.31.0.0/24
 
+volumes:
+  # Cloudflare WARP kayıt/kimlik verisi (yeniden başlatmada tekrar kayıt olmasın)
+  warp-data:
+
 services:
+  # Cloudflare WARP çıkış proxy'si: engine'in GİDEN HTTP(S) trafiğini WARP tüneli
+  # üzerinden geçirir → TR ISP'nin SNI/DPI engelini aşar (dizilla, dizipal vb.).
+  # gost, konteyner içinde :8080'de HTTP proxy açar; trafik WARP (WireGuard) ile çıkar.
+  # NOT: cap/sysctl/device-cgroup WARP'ın TUN cihazı için zorunludur.
+  warp:
+    image          : caomingjun/warp:latest
+    container_name : netmovies-warp
+    restart        : unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
+      - AUDIT_WRITE
+    device_cgroup_rules:
+      - 'c 10:200 rwm'
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: 1
+    environment:
+      # gost'a açıkça HTTP proxy listener söyle (sadece ":8080" auto-mode 503 verir).
+      GOST_ARGS: "-L http://:8080"
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+    networks:
+      - internal
+
   # DNS-over-HTTPS: tüm konteynerlerin alan adı çözümlemesini HTTPS üzerinden
   # (Cloudflare/Google) yapar; ISP'nin DNS ile engellediği siteler çözülür.
   doh:
@@ -34,11 +62,17 @@ services:
     restart        : unless-stopped
     depends_on:
       - doh
+      - warp                  # WARP proxy engine'den önce hazır olsun
     dns:
       - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
     expose:
       - "3310"
     environment:
+      # Dış (bloklu kaynak) trafiği WARP proxy üzerinden çıksın; iç trafik hariç.
+      HTTPS_PROXY: http://netmovies-warp:8080
+      HTTP_PROXY: http://netmovies-warp:8080
+      NO_PROXY: engine,stream,doh,warp,localhost,127.0.0.1,172.31.0.0/24
+      no_proxy: engine,stream,doh,warp,localhost,127.0.0.1,172.31.0.0/24
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
       M3U_SOURCES: ${M3U_SOURCES:-}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
