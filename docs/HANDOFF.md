@@ -6,8 +6,9 @@
 **Repo:** `evatechnosoft/netmovies`
 **Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
 **PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.10-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.10-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.10-poc/netmovies-tv-v0.1.10-poc.apk
+**Son Release (TV client, POC):** `v0.1.20-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.20-poc
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.20-poc/netmovies-tv-v0.1.20-poc.apk
+**Ev sunucusu = bu Windows PC** (Docker Desktop). `.env` (gitignored) güncel: `DIZIMOM_URL=dizimom.food · DIZILLA_URL=dizilla.club · AUTO_DISCOVER_DOMAINS=1 · ENGINE_WORKERS=1 · CF_TUNNEL_TOKEN dolu`. WARP servisi compose'da.
 > **EV ÇÖZÜMÜ (asıl):** Windows'ta **3310 inbound firewall kuralı AÇILDI** ("NetMovies 3310"). TV aynı WiFi'da (192.168.1.x) → app yerel sunucuya (192.168.1.185:3310) düşer, **Cloudflare hiç devreye girmez** → CF-TR IP blokları (188.114.x) sorunu evde biter. TV'de app'i kapat-aç (veya "Tekrar dene") ile yerele geçer.
 > v0.1.10: OkHttp timeout (connect6/read45/call50s → sonsuz "Yükleniyor" biter) + CF IP-pin (w.evaitec.com → 172.67.143.235/104.21.55.13, TR bloklu 188.114 baypas — uzaktayken).
 > v0.1.9: Dokunmatik desteği — tv-material3 Card/Button D-pad odaklıydı, telefonda basılamıyordu → foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box+clickable). Telefon+TV her ikisi.
@@ -20,7 +21,39 @@
 
 ---
 
-## 0. SON OTURUM — 2026-08-29 — Uzak Sağlayıcı (Geniş Katalog) + Canlı Sağlık + Tünel Fix (CANLI, DOĞRULANDI)
+## 0. SON OTURUM — 2026-08-30 — TV/Web UX + Kaynak kurtarma + WARP egress (CANLI, DOĞRULANDI)
+
+**Durum: Docker'da uçtan uca doğrulandı. w.evaitec.com ✅. Android client v0.1.20 OTA.**
+Dıştan (telefon yolu) tutarlı: **movie 20 · serie 68 · serie_foreign 10 · live 0** (2x aynı).
+
+### Android client (client-tv) — v0.1.11 → v0.1.20 (hepsi OTA, prerelease)
+- **Poster büyüteç** (focus scale+glow), **çark menüsü** (Kaynak/Dil/Altyazı/Hız), **10sn seek**, **altyazı sideload**, **çoklu kaynak**.
+- **Buton-eşleme sistemi** (`input/RemoteInput.kt`, `ui/KeyMapScreen.kt`): her tuş×basış → aksiyon, SharedPreferences. Oynatıcı `useController=false` tam input sahipliği. → memory `input-mapping-architecture`.
+- **Scrub önizleme (thumbnail)**: ikinci ExoPlayer düşük kalite kare (`ScrubOverlay`).
+- **Dokunmatik oynatıcı kontrolleri** (telefon): videoya dokun→kontroller, tıklanabilir seekbar, `TouchTapButton` (pointerInput, D-pad'i bozmaz). Emoji kaldırıldı (sarı görünüyordu) → sade metin.
+- **Ana sayfa çoklu tip** (`HomeViewModel`): movie+serie+serie_local+serie_foreign+live paralel → çoklu satır (önce tek "yeni filmler"di).
+- **Favoriler + İzlenenler** (`data/Library.kt`, SharedPreferences), poster uzun-bas menü, oynatınca İzlenenler dolar.
+- **Gözat tarayıcı** (`ui/BrowseScreen.kt`): tüm eklenti kategorileri inline + **arama** (tüm kaynaklarda paralel, per-plugin 12s timeout). ActionPicker perde dokunuş fix.
+
+### Engine / kaynaklar (CANLI, ev sunucusunda — .env gitignored)
+- **DiziMom kurtarıldı**: domain taşınmış `dizimom.work`→**`dizimom.food`** (`.env DIZIMOM_URL`). → Yabancı Diziler 10.
+- **WARP egress** (`docker-compose.yml` `warp` servisi, gost HTTP proxy `netmovies-warp:8080`): TR SNI/DPI engelini aşar. **SEÇİCİ** kullanım — sadece bloklu plugin. Global proxy YASAK (movie=0 yapıyor: CF IP HDFC/RecTV'yi bloklar).
+- **Dizilla kurtarıldı**: `dizilla.nl`→**`dizilla.club`** (SNI-bloklu) → `.env DIZILLA_URL` + `Dizilla.__init__` self.httpx'i **proxy'li düz httpx.AsyncClient** ile değiştirir (PluginBase FallbackHTTPX proxy'yi uygulamıyor). → 14 item. Diğerleri direkt (movie korunur).
+- **ENGINE_WORKERS=1** (`.env`): 2 worker × ayrı in-memory cache → aggregate her seferinde cold-scrape → stream "Server disconnected"/boş oluyordu. Tek worker = paylaşılan cache = tutarlı.
+- Docker PC'de kapalıydı (telefon 530'un asıl sebebi) → açıldı; tünel netns tuzağı: engine recreate GÜVENLİ, stream recreate→`docker compose --profile tunnel up -d --force-recreate cloudflared`.
+
+### KALAN (sıradaki oturum)
+1. **Dizipal portu**: upstream `DiziPal.kt` (247 satır, `/tmp` yok artık — GitHub'dan çek) → `engine/Plugins/DiziPal.py` PluginBase türevi. SNI-bloklu + numaralı döner domain (dizipal950 ölü) → WARP proxy (Dizilla deseni: `__init__` proxy'li httpx) + güncel domain keşfi. Kanıt kapısı: get_main_page item>0 + load_links stream verir + **movie 20 bozulmaz**.
+2. **Canlı TV** (live=0): RecTV live endpoint boş — WARP'la düzelir mi bak; düzelirse web'de iframe "eski player" emekli, her yer zengin player (bkz. #3).
+3. **Web player birleştirme**: `/resmi-kaynak`→`official_player.html.j2` (iframe, "eski") vs `/izle`→`player.html.j2` (zengin). Resmi kaynaklar harici sayfa (HLS yok) → canlı TV HLS gelince iframe kartları kaldır.
+4. **Kalıcı tünel fix** (opsiyonel): cloudflared'i stream netns'inden çıkar + CF panelde origin `stream:3310` → restart'lara dayanır.
+
+### Bu oturum commit'leri (dalda, push edildi)
+client-tv: `c403710 8e18a30 054e9da 0525815 bad97c0 b139e9b ed6b1c8 f92ccaf c3d987a fcbe69b` · infra/engine: `acf8a29 0d66096` (WARP) + Dizilla commit. Memory: `input-mapping-architecture`, `plugin-domain-moves`.
+
+---
+
+## 1. ÖNCEKİ OTURUM — 2026-08-29 — Uzak Sağlayıcı (Geniş Katalog) + Canlı Sağlık + Tünel Fix (CANLI, DOĞRULANDI)
 
 **Durum: TAMAM, Docker'da uçtan uca doğrulandı. 2 commit dalda (`d90cea2`, `61c4a81`). Yerel app ✅ · w.evaitec.com ✅.**
 
