@@ -57,6 +57,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLDecoder
 
 private fun decode(s: String): String =
@@ -97,12 +98,14 @@ fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
         catItems = emptyList()
         catLoading = true
         scope.launch {
-            catItems = try {
-                Network.api.getMainPage(plugin.name, 1, encUrl, encCat).result
-                    .map { it.copy(plugin = plugin.name, category = decode(encCat)) }
-            } catch (e: Exception) {
-                emptyList()
-            }
+            catItems = withTimeoutOrNull(20_000) {
+                try {
+                    Network.api.getMainPage(plugin.name, 1, encUrl, encCat).result
+                        .map { it.copy(plugin = plugin.name, category = decode(encCat)) }
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            } ?: emptyList()
             catLoading = false
         }
     }
@@ -119,8 +122,11 @@ fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
             catItems = if (names.isEmpty()) emptyList() else coroutineScope {
                 names.map { n ->
                     async {
-                        runCatching { Network.api.search(n, query2).result.map { it.copy(plugin = n) } }
-                            .getOrDefault(emptyList())
+                        // Yavaş kaynak (12s) tüm aramayı kilitlemesin → o kaynak boş sayılır.
+                        withTimeoutOrNull(12_000) {
+                            runCatching { Network.api.search(n, query2).result.map { it.copy(plugin = n) } }
+                                .getOrDefault(emptyList())
+                        } ?: emptyList()
                     }
                 }.awaitAll().flatten()
             }

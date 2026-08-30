@@ -3,6 +3,7 @@ package com.evaitec.netmovies.tv.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -68,7 +70,7 @@ fun KeyMapScreen(bindings: KeyBindings, onBack: () -> Unit) {
                 TouchButton("Geri", onClick = onBack)
             }
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 contentPadding = PaddingValues(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -125,7 +127,11 @@ private fun ActionPicker(
     onClose: () -> Unit,
 ) {
     Box(
-        Modifier.fillMaxSize().background(Color(0xCC000000)),
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            // Perde dokunuşu yutsun (arkadaki liste kaymasın); boşa dokun → kapat.
+            .pointerInput(Unit) { detectTapGestures { onClose() } },
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -133,6 +139,8 @@ private fun ActionPicker(
                 .width(360.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xF20F0F14))
+                // Panel içi dokunuş perdeye geçmesin.
+                .pointerInput(Unit) { detectTapGestures { } }
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
