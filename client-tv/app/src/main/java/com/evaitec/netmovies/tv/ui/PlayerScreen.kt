@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,6 +43,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -143,6 +145,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         scrubMode = true
         scrubTick++          // preview'ı mevcut pozisyona seek et
         showControls = true
+    }
+    // Dokunmatik: ilerleme çubuğuna dokununca o orana atla.
+    fun seekToFraction(f: Float) {
+        val d = exo.duration
+        if (d > 0) {
+            val target = (d * f).toLong().coerceIn(0, d)
+            exo.seekTo(target)
+            position = target
+            flashControls()
+        }
     }
     fun dispatch(a: RemoteAction) {
         when (a) {
@@ -322,7 +334,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
-            .focusable(),
+            .focusable()
+            // Dokunmatik (telefon): videoya dokun → kontrolleri aç/kapat.
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    if (!showSettings && !scrubMode) {
+                        if (showControls) showControls = false else flashControls()
+                    }
+                }
+            },
     ) {
         AndroidView(
             factory = { ctx ->
@@ -347,9 +367,19 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             }
         }
 
-        // Kontrol overlay (görsel: durum + ilerleme çubuğu + süre).
+        // Kontrol overlay: dokunmatikte etkileşimli butonlar; D-pad'de görsel bilgi.
         if (showControls && !scrubMode) {
-            ControlsOverlay(isPlaying = isPlaying, position = position, duration = duration)
+            ControlsOverlay(
+                isPlaying = isPlaying,
+                position = position,
+                duration = duration,
+                onPlayPause = { if (exo.isPlaying) exo.pause() else exo.play(); flashControls() },
+                onSeekBack = { seekBy(-10_000) },
+                onSeekFwd = { seekBy(10_000) },
+                onOpenSettings = { showSettings = true },
+                onScrub = { enterScrub() },
+                onSeekToFraction = { seekToFraction(it) },
+            )
         }
 
         // Scrub / önizleme overlay'i (thumbnail = preview oynatıcı karesi).
@@ -432,8 +462,27 @@ private fun fmtTime(ms: Long): String {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ControlsOverlay(isPlaying: Boolean, position: Long, duration: Long) {
+private fun ControlsOverlay(
+    isPlaying: Boolean,
+    position: Long,
+    duration: Long,
+    onPlayPause: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekFwd: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onScrub: () -> Unit,
+    onSeekToFraction: (Float) -> Unit,
+) {
     Box(Modifier.fillMaxSize()) {
+        // Sağ üst: önizleme + ayarlar (dokunmatik).
+        Row(
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            TouchTapButton("⏱", onScrub)
+            TouchTapButton("⚙", onOpenSettings)
+        }
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -442,26 +491,56 @@ private fun ControlsOverlay(isPlaying: Boolean, position: Long, duration: Long) 
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = (if (isPlaying) "▶  Oynatılıyor" else "⏸  Duraklatıldı"),
-                fontWeight = FontWeight.SemiBold,
-            )
-            // İlerleme çubuğu (oran = position/duration).
+            // İlerleme çubuğu — dokununca o orana atla (dokunma alanı geniş).
             val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
             Box(
-                Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                    .background(Color(0x55FFFFFF)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .pointerInput(duration) {
+                        detectTapGestures { o ->
+                            if (size.width > 0) onSeekToFraction((o.x / size.width).coerceIn(0f, 1f))
+                        }
+                    },
+                contentAlignment = Alignment.CenterStart,
             ) {
                 Box(
-                    Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF8B5CF6)),
-                )
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                        .background(Color(0x55FFFFFF)),
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFF8B5CF6)),
+                    )
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(fmtTime(position), color = Color(0xCCEDEDF2))
                 Text(fmtTime(duration), color = Color(0xCCEDEDF2))
             }
+            // Kontrol butonları (dokunmatik).
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TouchTapButton("⏪ 10", onSeekBack)
+                TouchTapButton(if (isPlaying) "⏸" else "▶", onPlayPause)
+                TouchTapButton("10 ⏩", onSeekFwd)
+            }
         }
+    }
+}
+
+// Dokunmatik-öncelikli buton: pointerInput tap → D-pad focus'unu bozmaz (TV'de tuş
+// eşlemesi geçerli kalır, telefonda dokunma çalışır).
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TouchTapButton(label: String, onTap: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xCC1A1726))
+            .pointerInput(Unit) { detectTapGestures { onTap() } }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Text(label, fontWeight = FontWeight.SemiBold)
     }
 }
 
