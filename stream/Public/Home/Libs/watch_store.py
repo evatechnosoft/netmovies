@@ -55,6 +55,17 @@ CREATE TABLE IF NOT EXISTS favorites (
     added_at    INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS user_lists (
+    content_key TEXT NOT NULL,
+    list_name   TEXT NOT NULL,
+    plugin      TEXT,
+    title       TEXT,
+    poster      TEXT,
+    media_type  TEXT,
+    added_at    INTEGER,
+    PRIMARY KEY (content_key, list_name)
+);
+
 CREATE INDEX IF NOT EXISTS idx_watch_updated ON watch_history(updated_at DESC);
 """
 
@@ -67,6 +78,9 @@ def _connect() -> sqlite3.Connection:
         conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.executescript(_SCHEMA)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(watch_history)")}
+        if "content_url" not in columns:
+            conn.execute("ALTER TABLE watch_history ADD COLUMN content_url TEXT")
         conn.commit()
         _CONN = conn
     return _CONN
@@ -146,6 +160,7 @@ def upsert_progress(
     title: str = "",
     poster: str = "",
     media_type: str = "",
+    content_url: str = "",
     episode: str = "",
     position_seconds: float = 0.0,
     duration_seconds: float = 0.0,
@@ -158,20 +173,21 @@ def upsert_progress(
         conn.execute(
             """
             INSERT INTO watch_history
-                (content_key, plugin, title, poster, media_type, episode,
+                (content_key, plugin, title, poster, media_type, episode, content_url,
                  position_seconds, duration_seconds, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(content_key) DO UPDATE SET
                 plugin           = excluded.plugin,
                 title            = excluded.title,
                 poster           = excluded.poster,
                 media_type       = excluded.media_type,
                 episode          = excluded.episode,
+                content_url      = excluded.content_url,
                 position_seconds = excluded.position_seconds,
                 duration_seconds = excluded.duration_seconds,
                 updated_at       = excluded.updated_at
             """,
-            (content_key, plugin, title, poster, media_type, episode,
+            (content_key, plugin, title, poster, media_type, episode, content_url,
              float(position_seconds or 0.0), float(duration_seconds or 0.0), ts),
         )
         conn.commit()
@@ -282,6 +298,62 @@ def list_favorites() -> list[dict]:
             "SELECT * FROM favorites ORDER BY added_at DESC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------------ lists
+ALLOWED_LISTS = ("izlenecek", "planlandi", "takip")
+
+
+def toggle_user_list(
+    content_key: str,
+    list_name: str,
+    *,
+    plugin: str = "",
+    title: str = "",
+    poster: str = "",
+    media_type: str = "",
+    now: int | None = None,
+) -> bool:
+    """İçeriği kullanıcı listesine ekler/çıkarır; dönüş yeni durumdur."""
+    if list_name not in ALLOWED_LISTS:
+        raise ValueError("Geçersiz liste")
+    ts = _now(now)
+    with _LOCK:
+        conn = _connect()
+        exists = conn.execute(
+            "SELECT 1 FROM user_lists WHERE content_key = ? AND list_name = ?",
+            (content_key, list_name),
+        ).fetchone() is not None
+        if exists:
+            conn.execute(
+                "DELETE FROM user_lists WHERE content_key = ? AND list_name = ?",
+                (content_key, list_name),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO user_lists
+                    (content_key, list_name, plugin, title, poster, media_type, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (content_key, list_name, plugin, title, poster, media_type, ts),
+            )
+        conn.commit()
+    return not exists
+
+
+def list_user_list(list_name: str, limit: int = 100) -> list[dict]:
+    """Belirli kullanıcı listesini son eklenenden başlayarak döndürür."""
+    if list_name not in ALLOWED_LISTS:
+        raise ValueError("Geçersiz liste")
+    lim = max(1, int(limit or 1))
+    with _LOCK:
+        conn = _connect()
+        rows = conn.execute(
+            "SELECT * FROM user_lists WHERE list_name = ? ORDER BY added_at DESC LIMIT ?",
+            (list_name, lim),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 # ------------------------------------------------------------------- source_stats

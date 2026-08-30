@@ -36,20 +36,54 @@ async def ana_sayfa(request: Request):
         async def _aggregate(media_type: str) -> list:
             try:
                 if provider_url:
-                    data = await client.get_aggregate_new(media_type)
+                    data = await asyncio.wait_for(client.get_aggregate_new(media_type), timeout=6)
                 else:
                     data = await fuck_dmca(
                         "/aggregate_new",
                         params         = {"type": media_type},
+                        timeout        = 6,
                         client_headers = get_client_headers(request),
                     )
                 items = data.get("items", []) if isinstance(data, dict) else []
-                return admin_config.filter_aggregate_items(items, admin_cfg)
+                return admin_config.filter_aggregate_items(items[:40], admin_cfg)
             except Exception:
                 return []  # kaynak yeni-çıkanlar veremezse ana sayfa yine açılsın
 
-        yeni_filmler, yeni_diziler = await asyncio.gather(
-            _aggregate("movie"), _aggregate("serie")
+        async def _quick_channels() -> list:
+            try:
+                if provider_url:
+                    return (await asyncio.wait_for(client.get_quick_channels(), timeout=3))[:60]
+                quick_payload = await fuck_dmca(
+                    "/quick_channels", timeout=3, client_headers=get_client_headers(request)
+                )
+                return quick_payload[:60] if isinstance(quick_payload, list) else []
+            except Exception:
+                return []
+
+        async def _home_categories() -> list:
+            # Sabit kategori kartları — içerik gerektirmez, her zaman tıklanabilir.
+            try:
+                if provider_url:
+                    return await asyncio.wait_for(client.get_home_categories(), timeout=3)
+                payload = await fuck_dmca(
+                    "/home_categories", timeout=3, client_headers=get_client_headers(request)
+                )
+                return payload if isinstance(payload, list) else []
+            except Exception:
+                return []
+
+        (
+            yeni_filmler,
+            yeni_turk_diziler,
+            yeni_yabanci_diziler,
+            quick_channels,
+            home_categories,
+        ) = await asyncio.gather(
+            _aggregate("movie"),
+            _aggregate("serie_local"),
+            _aggregate("serie_foreign"),
+            _quick_channels(),
+            _home_categories(),
         )
 
         context.update({
@@ -62,8 +96,11 @@ async def ana_sayfa(request: Request):
             "plugins"      : plugins,
             "featured"     : admin_cfg.get("featured", []),
             "official_sources": get_official_sources(),
+            "home_categories": home_categories,
             "yeni_filmler" : yeni_filmler,
-            "yeni_diziler" : yeni_diziler
+            "yeni_turk_diziler" : yeni_turk_diziler,
+            "yeni_yabanci_diziler" : yeni_yabanci_diziler,
+            "quick_channels": quick_channels,
         })
 
         response = home_template.TemplateResponse(request=request, name="pages/home.html.j2", context=context)

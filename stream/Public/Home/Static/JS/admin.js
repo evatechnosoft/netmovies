@@ -65,6 +65,13 @@ function renderRating() {
     $("#admin-min-rating-val").textContent = r;
 }
 
+function renderProviderUrl() {
+    const el = $("#admin-provider-url");
+    if (el) el.value = CONFIG.provider_url || "";
+    const st = $("#admin-provider-status");
+    if (st) st.textContent = CONFIG.provider_url ? "Şu an: uzak sağlayıcı" : "Şu an: yerel motor";
+}
+
 function renderHealth(data) {
     const box = $("#admin-health");
     const plugins = (data && data.result && data.result.plugins) || [];
@@ -82,10 +89,13 @@ function renderHealth(data) {
     }).join("");
 }
 
-async function loadHealth() {
-    $("#admin-health").innerHTML = "<p class='admin-muted'>Kontrol ediliyor…</p>";
+async function loadHealth(force = false) {
+    // force=true → motorun 6 saatlik cache'ini atla, tüm domainleri CANLI yeniden tara.
+    $("#admin-health").innerHTML = force
+        ? "<p class='admin-muted'>Tüm kaynaklar canlı taranıyor… (birkaç saniye)</p>"
+        : "<p class='admin-muted'>Kontrol ediliyor…</p>";
     try {
-        renderHealth(await jget("/api/admin/health"));
+        renderHealth(await jget("/api/admin/health" + (force ? "?force=1" : "")));
     } catch {
         $("#admin-health").innerHTML = "<p class='admin-muted'>Sağlık kontrolü başarısız.</p>";
     }
@@ -105,6 +115,7 @@ function collectConfig() {
         hidden_categories,
         featured: CONFIG.featured || [],
         min_rating: Number($("#admin-min-rating").value || 0),
+        provider_url: ($("#admin-provider-url")?.value || "").trim(),
     };
 }
 
@@ -152,13 +163,24 @@ async function init() {
     renderCategories();
     renderFeatured();
     renderRating();
+    renderProviderUrl();
     loadHealth();
 
     $("#admin-min-rating").addEventListener("input", (e) => {
         $("#admin-min-rating-val").textContent = e.target.value;
     });
     $("#admin-save").addEventListener("click", save);
-    $("#admin-health-refresh").addEventListener("click", loadHealth);
+    $("#admin-health-refresh").addEventListener("click", () => loadHealth(true));
+
+    $("#admin-provider-watchbuddy")?.addEventListener("click", () => {
+        // NOT: kök adres (/api/v1 EKLEME) — client uç noktaları kendi ekler.
+        $("#admin-provider-url").value = "https://stream.watchbuddy.tv";
+        $("#admin-provider-status").textContent = "Kaydet + sayfayı yenile → uzak sağlayıcı aktif olur (203 eklenti).";
+    });
+    $("#admin-provider-clear")?.addEventListener("click", () => {
+        $("#admin-provider-url").value = "";
+        $("#admin-provider-status").textContent = "Kaydet + sayfayı yenile → yerel motora döner.";
+    });
 }
 
 init();

@@ -12,7 +12,13 @@ class RemoteProviderClient:
             _url = f"https://{_url}"
 
         self.base_url = _url
-        self.client   = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+        # Split timeout: ölü/erişilemez kaynak connect'te hızlı düşsün (5s) ama
+        # gerçek scrape/extract işlemi için read süresi cömert kalsın (20s).
+        # Tek 30s timeout'ta ölü kaynak da 30s asılıp kullanıcıya geç hata veriyordu.
+        self.client   = httpx.AsyncClient(
+            timeout          = httpx.Timeout(connect=5.0, read=20.0, write=10.0, pool=5.0),
+            follow_redirects = True,
+        )
         self._schema  = None
 
     async def _get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
@@ -72,6 +78,15 @@ class RemoteProviderClient:
             "page" : str(page)
         })
         return res if isinstance(res, dict) else {}
+
+    async def get_home_categories(self) -> list[dict[str, Any]]:
+        """Ana sayfa sabit kategori kartları (resolved kategori URL'leriyle)."""
+        res = await self._get("/api/v1/home_categories")
+        return res if isinstance(res, list) else []
+
+    async def get_quick_channels(self) -> list[dict[str, Any]]:
+        res = await self._get("/api/v1/quick_channels")
+        return res if isinstance(res, list) else []
 
     async def search(self, plugin_name: str, query: str, page: int = 1) -> list[dict[str, Any]]:
         res = await self._get("/api/v1/search", params={

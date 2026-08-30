@@ -1,15 +1,25 @@
-# docker-compose.override.yml — GELİŞTİRME (otonom reload)
+# docker-compose.dev.yml — GELİŞTİRME (otonom reload) — OPT-IN
 #
-# `docker compose up` bu dosyayı OTOMATİK okur (ana compose ile birleşir).
+# ⚠️ Bu dosya artık OTOMATİK UYGULANMAZ (eski adı override.yml idi; auto-merge
+# olduğu için Windows'ta startup'ı kilitliyordu). Açıkça çağırırsın:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
 # Amaç: kod (host) değiştiğinde container kendini yeniden kaldırsın — elle
 # `--build` GEREKMEZ. `git pull` yeter; watchmedo değişikliği görür, basla.py'yi
 # baştan çalıştırır → minify_assets + bundle_css + uvicorn yeniden (JS/CSS dahil).
 #
-# Prod / tünel (otonom istemiyorsan, temiz çalıştır):
-#   docker compose -f docker-compose.yml up -d
+# PRODUCTION / ZimaOS 7/24 (VARSAYILAN — bu dosyayı KATMA):
+#   docker compose -f docker-compose.yml up -d --build
+#   (güncelleme: git pull && docker compose -f docker-compose.yml up -d --build)
 #
-# Not: kod artık image'dan değil host'tan (volume) okunur; ilk kurulumda yine
-# bir kez `docker compose up -d --build` gerekir (bağımlılıklar image'da kurulu).
+# PLATFORM:
+# - ZimaOS/Linux → watchmedo native inotify ile çalışır (opt-in dev için uygun).
+# - Windows/Docker Desktop → inotify bind-mount'a geçmez; bu dosyayı KULLANMA,
+#   base compose + elle rebuild kullan. (İllâ istersen watchmedo komutuna
+#   `--debug-force-polling` ekle; CPU'yu yer.)
+#
+# Not: kod image'dan değil host'tan (volume) okunur; ilk kurulumda yine bir kez
+# `... up -d --build` gerekir (bağımlılıklar image'da kurulu).
 
 services:
   engine:

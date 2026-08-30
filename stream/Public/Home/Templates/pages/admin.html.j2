@@ -37,11 +37,23 @@
     <!-- Kaynak Sağlığı -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fas fa-heart-pulse"></i> Kaynak Sağlığı</h2>
-        <p class="admin-card-sub">Hangi siteler şu an canlı? Kırmızı olanların adresi değişmiş olabilir.</p>
+        <p class="admin-card-sub">Hangi siteler şu an canlı? Kırmızı olanların adresi değişmiş olabilir. Domain değişiminde motoru yeniden başlatın (<code>docker compose restart engine</code>) — güncel adres Kekik-cloudstream'den otomatik keşfedilir.</p>
         <div id="admin-health" class="admin-health-grid"></div>
         <button type="button" class="button button-secondary" id="admin-health-refresh">
-            <i class="fas fa-rotate"></i> Yeniden kontrol et
+            <i class="fas fa-rotate"></i> Şimdi canlı tara
         </button>
+    </section>
+
+    <!-- Uzak Sağlayıcı (Geniş Katalog) -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-cloud"></i> Uzak Sağlayıcı (Geniş Katalog)</h2>
+        <p class="admin-card-sub">Boş = yerel motor (gizli, kendi kaynakların). Bir KekikStreamAPI adresi girersen 200+ eklenti + otomatik CF/domain bakımı gelir — bedeli: istekler o sunucudan geçer. Değiştirince <strong>Kaydet</strong> + sayfayı yenile.</p>
+        <div class="admin-rating-row">
+            <input type="url" id="admin-provider-url" placeholder="https://sunucu.com  (kök adres, /api/v1 ekleme)" style="flex:1; min-width:0;">
+            <button type="button" class="button button-secondary" id="admin-provider-watchbuddy">watchbuddy</button>
+            <button type="button" class="button button-secondary" id="admin-provider-clear">Yerel'e dön</button>
+        </div>
+        <span id="admin-provider-status" class="admin-muted"></span>
     </section>
 
     <!-- Kaynaklar -->

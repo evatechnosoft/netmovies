@@ -28,8 +28,14 @@ cd netmovies
 git checkout claude/stream-app-architecture-86q0sg   # (birleşene kadar)
 
 cp .env.example .env          # AUTH_USER=Dean, AUTH_PASS=... doldur
-docker compose up -d --build
+docker compose up -d --build  # = temiz PRODUCTION (ZimaOS 7/24 için doğru olan)
 ```
+
+> **Compose profilleri (2026-08-27):** Varsayılan `docker compose up` artık **production** —
+> auto-reload YOK. Geliştirme sırasında oto-reload istersen (yalnızca **Linux/ZimaOS**):
+> `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d`.
+> Windows'ta dev dosyasını KULLANMA (inotify bind-mount'a geçmez → startup kilitlenir);
+> base compose + elle `--build` kullan. Tünel için `--profile tunnel` ekle.
 
 ### Windows (D:\projects içine)
 Docker Desktop kurulu olmalı. PowerShell:

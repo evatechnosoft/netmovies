@@ -23,9 +23,10 @@
 
 <div class="grid grid-results">
     {% for item in items %}
-    <a href="/icerik/{{ eklenti_adi }}?url={{ item.url }}{{ provider_query_amp }}" class="poster-card card-fade-in" style="animation-delay: {{ loop.index0 * 40 }}ms" aria-label="{{ item.title }}">
+    <a href="/icerik/{{ eklenti_adi }}?url={{ item.url }}{{ provider_query_amp }}" class="poster-card card-fade-in tv-focusable" style="animation-delay: {{ loop.index0 * 40 }}ms" aria-label="{{ item.title }}"
+       data-tv-item="link" data-plugin="{{ eklenti_adi }}" data-content-url="{{ item.url }}" data-content-title="{{ item.title }}" data-poster="{{ item.poster or '' }}" data-media-type="serie">
         <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
-            {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+            {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
         </div>
         <div class="poster-card-overlay"><span class="poster-card-title">{{ item.title }}</span></div>
     </a>

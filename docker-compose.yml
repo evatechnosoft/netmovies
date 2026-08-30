@@ -10,7 +10,35 @@ networks:
       config:
         - subnet: 172.31.0.0/24
 
+volumes:
+  # Cloudflare WARP kayıt/kimlik verisi (yeniden başlatmada tekrar kayıt olmasın)
+  warp-data:
+
 services:
+  # Cloudflare WARP çıkış proxy'si: engine'in GİDEN HTTP(S) trafiğini WARP tüneli
+  # üzerinden geçirir → TR ISP'nin SNI/DPI engelini aşar (dizilla, dizipal vb.).
+  # gost, konteyner içinde :8080'de HTTP proxy açar; trafik WARP (WireGuard) ile çıkar.
+  # NOT: cap/sysctl/device-cgroup WARP'ın TUN cihazı için zorunludur.
+  warp:
+    image          : caomingjun/warp:latest
+    container_name : netmovies-warp
+    restart        : unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
+      - AUDIT_WRITE
+    device_cgroup_rules:
+      - 'c 10:200 rwm'
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: 1
+    environment:
+      # gost'a açıkça HTTP proxy listener söyle (sadece ":8080" auto-mode 503 verir).
+      GOST_ARGS: "-L http://:8080"
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+    networks:
+      - internal
+
   # DNS-over-HTTPS: tüm konteynerlerin alan adı çözümlemesini HTTPS üzerinden
   # (Cloudflare/Google) yapar; ISP'nin DNS ile engellediği siteler çözülür.
   doh:
@@ -34,11 +62,16 @@ services:
     restart        : unless-stopped
     depends_on:
       - doh
+      - warp                  # WARP proxy engine'den önce hazır olsun
     dns:
       - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
     expose:
       - "3310"
     environment:
+      # WARP proxy adresi — plugin'ler SEÇİCİ kullanır (sadece SNI-bloklu kaynaklar:
+      # Dizilla/Dizipal). GLOBAL HTTPS_PROXY verilmez: WARP'ın CF çıkış IP'si bazı
+      # kaynakları (HDFilmCehennemi/RecTV) bloklatıp movie=0 yapıyordu.
+      WARP_PROXY: http://netmovies-warp:8080
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
       M3U_SOURCES: ${M3U_SOURCES:-}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
@@ -46,6 +79,11 @@ services:
       RECTV_URL: ${RECTV_URL:-}
       HDFC_URL: ${HDFC_URL:-}
       DIZIYOU_URL: ${DIZIYOU_URL:-}
+      DIZIBOX_URL: ${DIZIBOX_URL:-}
+      DIZILLA_URL: ${DIZILLA_URL:-}
+      DIZIMOM_URL: ${DIZIMOM_URL:-}
+      ENGINE_WORKERS: ${ENGINE_WORKERS:-2}
+      AUTO_DISCOVER_DOMAINS: ${AUTO_DISCOVER_DOMAINS:-0}
     volumes:
       - ./lists:/data/lists:ro
     networks:
@@ -70,11 +108,14 @@ services:
       # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
       SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
       SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
-      WEB_WORKERS          : ${WEB_WORKERS:-1}
-      # Public erişim için kullanıcı/şifre (boşsa auth kapalı).
-      AUTH_USER            : ${AUTH_USER:-}
-      AUTH_PASS            : ${AUTH_PASS:-}
+      WEB_WORKERS          : ${WEB_WORKERS:-2}
+      # Kişisel kullanım: auth bilerek KAPALI (kumandayla giriş zahmetsiz olsun).
+      # Public erişim istenirse .env'de AUTH_USER/AUTH_PASS doldur + burayı ${AUTH_USER:-} yap.
+      AUTH_USER            : ""
+      AUTH_PASS            : ""
       PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
+      # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
+      TMDB_API_KEY         : ${TMDB_API_KEY:-}
     volumes:
       - ./data:/data
     networks:

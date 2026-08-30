@@ -180,13 +180,18 @@
 }
 
 .poster-card:hover {
-  transform: scale(1.05);
-  box-shadow: var(--shadow-card-hover);
-  z-index: 2;
+  transform: none;
+  box-shadow: none;
 }
 
 .poster-card:hover .poster-card-img img {
-  transform: scale(1.1);
+  transform: none;
+}
+
+.poster-card:active,
+.card:active,
+.plugin-card:active {
+  transform: translateY(1px) scale(.985);
 }
 
 /* ==================== ARAMA SONUÇ KARTLARI ==================== */
@@ -241,7 +246,7 @@
 
 .page-header-title {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xxl);
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-color);
   margin: 0;
@@ -279,10 +284,19 @@
   color: var(--text-muted);
 }
 
-/* Results grid — consistent naming */
+/* Results grid — TÜM poster sayfalarında (kategori/arama/eklenti) ana sayfayla
+   TUTARLI kompakt poster boyu. Ana sayfa/provider carousel posterleri 130px
+   (bkz. carousel.css `.carousel-track .poster-card`); burada da 130px auto-fill
+   kullanınca arama/kategori "ana sayfa gibi küçük" olur — ekran genişledikçe
+   sütun sayısı otomatik artar, poster boyu sabit küçük kalır. */
 .grid-results {
   animation: fadeInUp 0.4s ease-out;
 }
+.grid.grid-results {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--spacing-md);
+}
+@media (max-width: 440px) { .grid.grid-results { grid-template-columns: repeat(3, 1fr); } }
 
 /* Card fade-in stagger animation */
 @keyframes cardFadeIn {
@@ -337,4 +351,70 @@
   .page-header-title {
     font-size: var(--font-size-lg);
   }
+}
+
+/* ---------------------------------------------------------------- mouse-mode
+   Mi Box / TV Bro / JioSphere imleç modu: imlecin üstündeki tıklanabilir
+   öğe NET parlasın (D-pad :focus-visible'ın imleç karşılığı). Hafif basma
+   (:active) belirgin bir parlama versin ki ne seçildiği anlaşılsın. */
+body.mouse-mode a.poster-card:hover,
+body.mouse-mode .card:hover,
+body.mouse-mode .plugin-card:hover,
+body.mouse-mode .button:hover,
+body.mouse-mode .badge-link:hover,
+body.mouse-mode .tv-focusable:hover,
+body.mouse-mode .continue-watching-item:hover,
+body.mouse-mode .channel-card:hover {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 3px;
+  transition: outline-color .05s linear, filter .05s linear;
+  z-index: 6;
+}
+
+body.mouse-mode a.poster-card:active,
+body.mouse-mode .card:active,
+body.mouse-mode .plugin-card:active,
+body.mouse-mode .button:active,
+body.mouse-mode .continue-watching-item:active,
+body.mouse-mode .channel-card:active {
+  outline-color: var(--primary-color);
+  filter: brightness(1.18);
+}
+
+/* ------------------------------------------------------------ global focus
+   Kumandayla (D-pad/OK), klavye (Tab) veya imleçle gezerken HANGİ öğede
+   olduğun her sayfada net görünsün — mouse moduna bağlı DEĞİL. Arama kutusu
+   dahil. outline layout'u tetiklemez → performansı yavaşlatmaz. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.poster-card:focus-visible,
+.card:focus-visible,
+.plugin-card:focus-visible,
+.channels-list-item:focus-visible {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 3px;
+  border-radius: 8px;
+  z-index: 6;
+}
+
+/* Arama kutusu odakta belirgin olsun (odak imleç modunda da görünür). */
+.global-search-input:focus,
+input[type="search"]:focus,
+.search-input:focus {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+/* Hafif basma (:active) geri bildirimi TÜM sayfalarda — mouse moduyla sınırlı
+   değil. Dokunma/tık anında ne seçtiğin belli olsun. */
+a.poster-card:active,
+.card:active,
+.plugin-card:active,
+.button:active,
+.channels-list-item:active {
+  filter: brightness(1.15);
 }

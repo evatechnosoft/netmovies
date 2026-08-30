@@ -25,6 +25,7 @@ from . import (
     search,
     load_item,
     load_links,
+    aggregate_new,
     extract,
     ytdlp_extract,
     watch

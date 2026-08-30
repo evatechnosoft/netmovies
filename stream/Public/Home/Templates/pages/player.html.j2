@@ -1,10 +1,64 @@
 {% extends "_html_taban.html.j2" %}
 
+{% block body_class %}cinema-mode{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
 
 
 {% block icerik %}
+
+{# --- Sinema modu: sadece oynatıcı. Çevre panelleri CSS ile gizlenir; kaynak
+   ve harici oynatıcı dişli menüsünden overlay olarak açılır. body.cinema-mode
+   kaldırılırsa eski düzen aynen döner (geri-alınabilir). --- #}
+<style>
+  body.cinema-mode { overflow: hidden; background: #000; }
+  body.cinema-mode .header,
+  body.cinema-mode .footer,
+  body.cinema-mode .breadcrumbs,
+  body.cinema-mode .detail-container > .player-header,
+  body.cinema-mode .source-selection,
+  body.cinema-mode .external-player-bar,
+  body.cinema-mode #similar-section,
+  body.cinema-mode .player-controls-section { display: none; }
+  body.cinema-mode .content-shell { padding: 0; max-width: none; }
+  body.cinema-mode .detail-container {
+    position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
+    margin: 0; padding: 0; max-width: none; background: #000;
+  }
+  body.cinema-mode #video-player-container:not(.tv-pip-window),
+  body.cinema-mode #video-player-wrapper {
+    width: 100%; height: 100%; max-width: none; margin: 0; background: #000;
+  }
+  body.cinema-mode #video-player { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  /* Çıkış (geri) — kumanda/imleç için sol üstte küçük düğme */
+  #cinema-back {
+    display: none; position: fixed; top: 12px; left: 12px; z-index: 1200;
+    width: 44px; height: 44px; place-items: center; border-radius: 50%;
+    background: rgba(0,0,0,.6); color: #fff; border: 1px solid var(--glass-edge);
+    opacity: 0; transition: opacity .2s ease;
+  }
+  /* Buton yerinde durur (görünmez, opacity:0) ama sadece SOL-ÜST köşeye fare/odak
+     gelince belirir — film izlerken dikkat dağıtmaz; cihazın geri tuşu esas.
+     Görünmez hover-zone: köşede geniş bir alan butonu ortaya çıkarır. */
+  body.cinema-mode #cinema-back { display: grid; }
+  #cinema-back::before { content: ""; position: absolute; top: -12px; left: -12px; width: 96px; height: 96px; }
+  #cinema-back:hover, #cinema-back:focus-visible,
+  body.cinema-mode[data-cinema-overlay] #cinema-back { opacity: 1; }
+  /* Kaynak / Harici oynatıcı overlay'i (dişliden açılır) */
+  #cinema-overlay-close { display: none; position: fixed; top: 12px; right: 12px; z-index: 1210;
+    width: 44px; height: 44px; place-items: center; border-radius: 50%;
+    background: rgba(0,0,0,.75); color: #fff; border: 1px solid var(--glass-edge); }
+  body.cinema-mode[data-cinema-overlay] #cinema-overlay-close { display: grid; }
+  body.cinema-mode[data-cinema-overlay="source"] .source-selection,
+  body.cinema-mode[data-cinema-overlay="external"] .external-player-bar {
+    display: block !important; position: fixed; inset: 0; z-index: 1100; overflow: auto;
+    padding: max(64px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+    background: rgba(0,0,0,.94);
+  }
+</style>
+
+<button type="button" id="cinema-back" aria-label="Geri" onclick="history.back()"><i class="fas fa-arrow-left"></i></button>
+<button type="button" id="cinema-overlay-close" aria-label="Kapat"><i class="fas fa-times"></i></button>
 
 <div class="detail-container">
     <div class="player-header player-panel-shell">
@@ -148,6 +202,14 @@
                 </button>
                 <button type="button" class="player-setting-item" data-player-setting="quality" role="menuitem">
                     <i class="fas fa-signal"></i><span>Kalite</span>
+                </button>
+                {% if links and links|length > 1 %}
+                <button type="button" class="player-setting-item" data-cinema-open="source" role="menuitem">
+                    <i class="fas fa-server"></i><span>Kaynak</span>
+                </button>
+                {% endif %}
+                <button type="button" class="player-setting-item" data-cinema-open="external" role="menuitem">
+                    <i class="fas fa-up-right-from-square"></i><span>Harici oynatıcı</span>
                 </button>
             </div>
 
@@ -343,8 +405,28 @@
     </div>
 </div>
 
+<script>
+  // Sinema modu overlay toggle — kaynak/harici oynatıcı panelini dişliden aç.
+  // Yalnızca görünürlük yönetir; oynatma/kaynak-seçim mantığına (sources.js) dokunmaz.
+  (() => {
+    const body = document.body;
+    const setOverlay = (v) => { if (v) { body.dataset.cinemaOverlay = v; } else { delete body.dataset.cinemaOverlay; } };
+    document.querySelectorAll('[data-cinema-open]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('player-settings-panel')?.classList.add('is-hidden');
+        setOverlay(btn.dataset.cinemaOpen);
+      });
+    });
+    document.getElementById('cinema-overlay-close')?.addEventListener('click', () => setOverlay(''));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOverlay(''); });
+  })();
+</script>
+
 {% endblock %}
 
 {% block js %}
+    <script type="module" src="{{ url_for('static_home', path='JS/central-progress.js') }}" defer></script>
     <script type="module" src="{{ url_for('static_home', path='JS/player.min.js') }}" defer crossorigin="anonymous"></script>
 {% endblock %}

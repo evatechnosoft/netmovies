@@ -1,0 +1,5 @@
+# Bunu `local.properties` olarak kopyala ve Android SDK yolunu gir.
+# ÖNEMLİ: forward-slash (/) kullan — backslash (\) Java properties'te kaçış
+# karakteridir ve "path syntax incorrect" hatası verir.
+# Windows örnek (bu makinede tespit + build doğrulandı):
+sdk.dir=C:/Users/Deacjx/AppData/Local/Android/Sdk

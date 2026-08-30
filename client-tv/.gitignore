@@ -1,0 +1,15 @@
+.gradle/
+build/
+build*.log
+
+# Kök .gitignore'daki `data/` kuralı Kotlin `tv/data/` KAYNAK paketini de gizliyor.
+# Kaynak dizini yeniden dahil et (önce dizinin kendisi, sonra içeriği).
+!app/src/main/java/com/evaitec/netmovies/tv/data/
+!app/src/main/java/com/evaitec/netmovies/tv/data/**
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/

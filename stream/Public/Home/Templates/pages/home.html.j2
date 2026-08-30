@@ -86,7 +86,7 @@
         <div id="plugin-preferences-list" class="plugin-preferences-list"></div>
     </div>
 </section>
- </div>
+</div>
 
 {# Search Results (hidden, filled by search.js) #}
 <section id="search-results" class="search-results is-hidden">
@@ -106,8 +106,86 @@
         <div id="filters-container" class="filters-container"></div>
     </div>
     <div id="search-status" class="search-status"></div>
-    <div id="results-grid" class="grid"></div>
+    <div id="results-grid" class="grid grid-results"></div>
 </section>
+
+{# Üst bant — tek satır, boydan boya ince pill butonlar (cloudstream tarzı).
+   Kategoriler doğrudan sayfaya gider; kullanıcı listeleri / kaynaklar / kanallar
+   butona basınca PANEL açar (aşağı inmeye gerek yok). #}
+<nav id="quick-nav" class="quick-nav" aria-label="Hızlı erişim">
+    {% for cat in home_categories %}
+    <a class="qn-btn tv-focusable"
+       href="/kategori/{{ cat.plugin }}?kategori_url={{ cat.kategori_url }}&kategori_adi={{ cat.kategori_adi | urlencode }}{{ provider_query_amp }}"
+       aria-label="{{ cat.title }}">
+        <i class="fas {{ cat.icon }}"></i><span>{{ cat.title }}</span>
+    </a>
+    {% endfor %}
+    <span class="qn-sep" aria-hidden="true"></span>
+    <button type="button" class="qn-btn tv-focusable" data-panel="devam"><i class="fas fa-history"></i><span>Devam</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="favori"><i class="fas fa-heart"></i><span>Favori</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="izlenecek"><i class="fas fa-bookmark"></i><span>İzlenecek</span></button>
+    <span class="qn-sep" aria-hidden="true"></span>
+    <button type="button" class="qn-btn tv-focusable" data-panel="kaynaklar"><i class="fas fa-plug"></i><span>Kaynaklar</span></button>
+    <button type="button" class="qn-btn tv-focusable" data-panel="kanallar"><i class="fas fa-broadcast-tower"></i><span>Kanallar</span></button>
+</nav>
+
+{# Panel gövdeleri — varsayılan gizli, üstteki buton toggle eder. #}
+<div id="qn-panels" class="qn-panels">
+    <section class="qn-panel is-hidden" data-panel-body="devam">
+        <div class="qn-panel-head"><h2><i class="fas fa-history"></i> İzlemeye Devam Et</h2></div>
+        {% if continue_watching %}
+        <div class="continue-watching-row">
+            {% for item in continue_watching %}
+            <a class="continue-watching-item tv-focusable" href="/icerik/{{ item.plugin }}?url={{ item.content_url | default('', true) | urlencode }}{{ provider_query_amp }}" aria-label="{{ item.title }}">
+                <div class="continue-watching-poster">
+                    {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="" loading="lazy">{% else %}<i class="fas fa-film"></i>{% endif %}
+                    {% if item.duration_seconds and item.duration_seconds > 0 %}<span class="continue-watching-progress" style="--progress:{{ ((item.position_seconds / item.duration_seconds) * 100) | round(0) }}%"></span>{% endif %}
+                </div>
+                <span class="continue-watching-title">{{ item.title }}{% if item.episode %}<small>{{ item.episode }}</small>{% endif %}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}<p class="qn-empty">Henüz izlemeye başladığın bir şey yok.</p>{% endif %}
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="favori">
+        <div class="qn-panel-head"><h2><i class="fas fa-heart"></i> Favorilerim</h2></div>
+        <div class="qn-lazy" data-endpoint="/api/v1/favorites"><p class="qn-empty">Yükleniyor…</p></div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="izlenecek">
+        <div class="qn-panel-head"><h2><i class="fas fa-bookmark"></i> İzlenecekler</h2></div>
+        <div class="qn-lazy" data-endpoint="/api/v1/lists/izlenecek"><p class="qn-empty">Yükleniyor…</p></div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="kaynaklar">
+        <div class="qn-panel-head"><h2><i class="fas fa-plug"></i> Kaynaklar <span class="section-count">{{ plugins | length }}</span></h2></div>
+        <div class="grid grid-plugins qn-plugin-grid">
+            {% for plugin in plugins %}
+            <a href="/eklenti/{{ plugin.name }}{{ provider_query }}" class="card plugin-card plugin-poster-card" data-plugin-name="{{ plugin.name }}" style="--card-index:{{ loop.index0 }}">
+                <div class="plugin-poster">
+                    {% if plugin.favicon %}<img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" loading="lazy" onerror="this.style.display='none'">{% else %}<i class="fas fa-film"></i>{% endif %}
+                </div>
+                <div class="card-body plugin-poster-body">
+                    <h3 class="card-title">{{ plugin.name }}</h3>
+                    <span class="badge badge-lang badge-lang-{{ plugin.language | lower }}">{{ plugin.language | upper }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="qn-panel is-hidden" data-panel-body="kanallar">
+        <div class="qn-panel-head"><h2><i class="fas fa-broadcast-tower"></i> Kanallar <span class="section-count">{{ quick_channels | length }}</span></h2></div>
+        {% if quick_channels %}
+        <ul class="channels-list">
+            {% for channel in quick_channels %}
+            <li>
+                <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
+                    <i class="fas fa-broadcast-tower"></i><span class="channels-list-title">{{ channel.title }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="qn-empty">Kanal kaynağı tanımlı değil (M3U_SOURCES / RECTV_URL).</p>{% endif %}
+    </section>
+</div>
 
 {# Birleşik "Yeni Çıkanlar" — kaynak-bağımsız yatay raflar (carousel CSS'i yeniden kullanır) #}
 {% macro yeni_rafi(baslik, ikon, items, media_type) %}
@@ -115,10 +193,12 @@
 <section class="carousel-row yeni-rafi">
     <div class="carousel-header">
         <h2 class="carousel-title"><i class="fas {{ ikon }}"></i> {{ baslik }} <span class="section-count">{{ items | length }}</span></h2>
+        <a class="button button-secondary button-small" href="/api/v1/aggregate_new?type={{ media_type }}">Tümünü gör</a>
     </div>
     <div class="carousel-wrapper">
-        <div class="carousel-track">
-            {% for item in items %}
+        <div class="carousel-track poster-rail" tabindex="0">
+            {% for item in items[:20] %}
+            {% set item_meta = (item.category or '') | lower %}
             <a href="/icerik/{{ item.plugin }}?url={{ item.url }}{{ provider_query_amp }}"
                class="poster-card tv-focusable"
                aria-label="{{ item.title }}"
@@ -129,9 +209,16 @@
                data-content-title="{{ item.title }}"
                data-poster="{{ item.poster or '' }}">
                 <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
-                    {% if item.poster %}<img src="{{ item.poster }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+                    {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
                 </div>
-                <div class="poster-card-overlay"><span class="poster-card-title">{{ item.title }}</span></div>
+                <div class="poster-card-overlay">
+                    <span class="poster-card-title">{{ item.title }}</span>
+                    <span class="poster-card-meta">
+                        {% if 'dublaj' in item_meta %}Dublaj{% endif %}
+                        {% if 'türkçe' in item_meta or 'turkce' in item_meta %}TR Altyazı{% endif %}
+                        {% if 'ingilizce' in item_meta or 'english' in item_meta or ' eng' in item_meta %}EN Altyazı{% endif %}
+                    </span>
+                </div>
             </a>
             {% endfor %}
         </div>
@@ -141,79 +228,8 @@
 {% endmacro %}
 
 {{ yeni_rafi('Yeni Filmler', 'fa-film', yeni_filmler, 'movie') }}
-{{ yeni_rafi('Yeni Diziler', 'fa-tv', yeni_diziler, 'serie') }}
-
-{# Resmi yayıncı sayfaları: doğrudan yayın manifesti/proxy yerine kaynak sahibine yönlendirir. #}
-{% if official_sources %}
-<section id="official-sources" class="official-sources">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-broadcast-tower"></i> Resmi Kaynaklar</h2>
-        <p class="section-subtitle">Canlı TV, dizi ve film yayıncılarının resmi sayfaları</p>
-    </div>
-    <div class="grid grid-plugins official-source-grid">
-        {% for source in official_sources %}
-        <a class="card plugin-card official-source-card"
-           href="/resmi-kaynak?url={{ source.url | urlencode }}"
-           aria-label="{{ source.title }} — {{ source.broadcaster }}">
-            <div class="card-icon official-source-icon"><i class="fas {{ source.icon }}"></i></div>
-            <div class="card-body">
-                <h3 class="card-title">{{ source.title }}</h3>
-                <span class="badge badge-lang">{{ source.category }}</span>
-            </div>
-            <p class="card-desc">{{ source.description }}</p>
-            <span class="official-source-link">{{ source.broadcaster }} <i class="fas fa-external-link-alt"></i></span>
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-{# Plugin List #}
-{% if featured %}
-<section id="featured-list">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-thumbtack"></i> Öne Çıkanlar <span class="section-count">{{ featured | length }}</span></h2>
-    </div>
-    <div class="grid grid-plugins">
-        {% for f in featured %}
-        <a href="/icerik/{{ f.provider }}?url={{ f.url | urlencode }}{{ provider_query_amp }}" class="card plugin-card">
-            <div class="card-icon">
-                {% if f.poster %}<img src="{{ f.poster }}" alt="{{ f.title }}" loading="lazy">{% else %}<i class="fas fa-star"></i>{% endif %}
-            </div>
-            <div class="card-body">
-                <h3 class="card-title">{{ f.title }}</h3>
-                {% if f.rating %}<span class="badge">★ {{ f.rating }}</span>{% endif %}
-            </div>
-            {% if f.provider %}<p class="card-desc">{{ f.provider }}</p>{% endif %}
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-<section id="plugins-list">
-    <div class="section-heading">
-        <h2 class="section-title"><i class="fas fa-plug"></i> <span data-i18n="all_plugins">{{ tr('all_plugins') }}</span> <span class="section-count">{{ plugins | length }}</span></h2>
-    </div>
-    <div class="grid grid-plugins">
-        {% for plugin in plugins %}
-        <a href="/eklenti/{{ plugin.name }}{{ provider_query }}" class="card plugin-card" data-plugin-name="{{ plugin.name }}" style="--card-index:{{ loop.index0 }}">
-            <div class="card-icon">
-                {% if plugin.favicon %}
-                <img src="{{ plugin.favicon }}" alt="{{ plugin.name }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='');var i=document.createElement('i');i.className='fas fa-film';this.parentElement.appendChild(i);this.remove()">
-                {% else %}
-                <i class="fas fa-film"></i>
-                {% endif %}
-            </div>
-            <div class="card-body">
-                <h3 class="card-title">{{ plugin.name }}</h3>
-                <span class="badge badge-lang badge-lang-{{ plugin.language | lower }}">{{ plugin.language | upper }}</span>
-            </div>
-            <p class="card-desc">{{ plugin.description }}</p>
-        </a>
-        {% endfor %}
-    </div>
-</section>
+{{ yeni_rafi('Yeni Türk Diziler', 'fa-tv', yeni_turk_diziler, 'serie_local') }}
+{{ yeni_rafi('Yeni Yabancı Diziler', 'fa-globe', yeni_yabanci_diziler, 'serie_foreign') }}
 
 {% endblock %}
 
@@ -221,12 +237,59 @@
 <script id="plugins-data" type="application/json">{{ plugins | tojson }}</script>
 <script type="module" src="{{ url_for('static_home', path='JS/global-search.min.js') }}" defer></script>
 <script type="module" src="{{ url_for('static_home', path='JS/components/settings-drawer.js') }}" defer></script>
-<script type="module" src="{{ url_for('static_home', path='JS/tv-home-actions.js') }}" defer></script>
 <style>
-  .carousel-track .poster-card { width: 130px; }
-  .carousel-track .poster-card:hover { transform: translateY(-3px); }
+  /* Üst bant — ince pill buton nav (cloudstream tarzı, tek satır boydan boya) */
+  .quick-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; padding: 8px; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface-glass); }
+  .qn-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid var(--glass-edge); border-radius: 999px; background: var(--card-bg-color); color: var(--text-color); text-decoration: none; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: border-color .12s ease, background-color .12s ease; }
+  .qn-btn i { font-size: .8rem; color: var(--primary-light); }
+  .qn-btn:hover { border-color: var(--primary-color); background: var(--primary-soft); }
+  .qn-btn.is-active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+  .qn-btn.is-active i { color: #fff; }
+  .qn-btn:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 2px; }
+  .qn-sep { width: 1px; align-self: stretch; margin: 2px 4px; background: var(--glass-edge); }
+  @media (max-width: 640px) { .qn-btn span { font-size: .78rem; } .qn-sep { display: none; } }
+  /* Paneller — üstteki buton toggle eder */
+  .qn-panels { margin: 0 0 18px; }
+  .qn-panel { margin: 0 0 12px; padding: 14px; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface-glass); }
+  .qn-panel.is-hidden { display: none; }
+  .qn-panel-head { margin: 0 0 10px; }
+  .qn-panel-head h2 { margin: 0; font-size: 1rem; color: var(--text-color); }
+  .qn-panel-head h2 i { color: var(--primary-light); margin-right: 6px; }
+  .qn-empty { color: var(--text-muted); font-size: .85rem; padding: 6px 2px; }
+  .qn-plugin-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  /* Raf başlığı — sadeleştir (kocaman değil) */
+  .yeni-rafi .carousel-title { font-size: .95rem; font-weight: 700; }
+  .yeni-rafi .carousel-title i { font-size: .85rem; }
+  .carousel-wrapper { min-width: 0; max-width: 100%; overflow: hidden; }
+  .carousel-track { width: 100%; max-width: 100%; min-width: 0; gap: 8px; overflow: hidden; }
+  .poster-rail { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 8px; }
+  .carousel-track .poster-card { width: 92px; }
+  .carousel-row { content-visibility: auto; contain-intrinsic-size: 0 190px; }
+  .carousel-track .poster-card:hover { transform: none; box-shadow: none; }
+  .carousel-track .poster-card:active { transform: translateY(1px) scale(.985); }
+  .carousel-track .poster-card:hover .poster-card-img img { transform: none; }
   .carousel-track .poster-card.tv-focusable { position: relative; }
   .carousel-track .poster-card.tv-focusable:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 4px; }
+  .quick-channel-card { width: 112px; flex: 0 0 112px; }
+  /* Kanallar: hafif metin listesi (poster yok → lag yok), grid'i tam kaplar */
+  .channels-dropdown { grid-column: 1 / -1; }
+  .channels-dropdown > summary { cursor: pointer; padding: 10px 12px; border-radius: 12px; background: var(--surface-variant); font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .channels-dropdown > summary::-webkit-details-marker { display: none; }
+  .channels-list { list-style: none; margin: 8px 0 0; padding: 4px; max-height: 340px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; content-visibility: auto; }
+  .channels-list-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text-color); text-decoration: none; font-size: .85rem; background: var(--card-bg-color); }
+  .channels-list-item i { color: var(--primary-light); flex: 0 0 auto; font-size: .8rem; }
+  .channels-list-item:hover { background: var(--primary-soft); }
+  .channels-list-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plugin-poster-card { min-height: 260px; }
+  #plugins-list .grid-plugins { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  #plugins-list .plugin-card { min-height: 0; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: var(--shadow-sm); transition: border-color .15s ease, background-color .15s ease; }
+  #plugins-list .plugin-card:hover { transform: none; box-shadow: var(--shadow-sm); }
+  .plugin-poster { aspect-ratio: 2 / 3; display: grid; place-items: center; padding: 10px; background: var(--surface-variant); }
+  .plugin-poster img { width: 70%; height: 70%; object-fit: contain; border-radius: 12px; }
+  .plugin-poster i { font-size: 2.5rem; color: var(--primary-light); }
+  .plugin-poster-body { padding: 8px 10px 0; }
+  .plugin-poster-card .card-desc { padding: 4px 10px 8px; font-size: .72rem; }
+  .home-settings-drawer, #provider-settings-panel, #plugin-settings-panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .home-settings-drawer { width: min(100%, 900px); margin: 0 auto; }
   .official-sources { margin-top: 2rem; }
   .official-source-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
@@ -235,7 +298,7 @@
   .official-source-link { display: block; margin-top: .65rem; color: var(--primary-light); font-size: .78rem; font-weight: 700; }
   .official-source-link i { margin-left: .25rem; font-size: .7rem; }
   .tv-episode-picker { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; }
-  .tv-episode-backdrop { position: absolute; inset: 0; background: rgba(8, 6, 20, .82); backdrop-filter: blur(5px); }
+  .tv-episode-backdrop { position: absolute; inset: 0; background: rgba(8, 6, 20, .92); backdrop-filter: none; }
   .tv-episode-panel { position: relative; width: min(640px, calc(100vw - 48px)); max-height: 78vh; overflow: auto; padding: 28px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius-xl); background: var(--glass-panel); box-shadow: var(--shadow-strong); }
   .tv-episode-panel h2 { margin: 4px 0 20px; color: var(--text-color); }
   .tv-episode-kicker { color: var(--primary-light); font-size: var(--font-size-xs); font-weight: 800; letter-spacing: .14em; }
@@ -260,5 +323,76 @@
   .tv-joystick-list-button { position: static; width: 24px; height: 24px; font-size: 9px; }
   .tv-joystick-list-button i { color: var(--primary-light); }
   .tv-joystick-status { position: absolute; top: 124px; left: 50%; width: max-content; max-width: 160px; transform: translateX(-50%); color: var(--primary-light); font-size: 10px; text-align: center; pointer-events: none; }
+  .poster-card-meta { display: block; min-height: 1.1em; color: var(--primary-light); font-size: 9px; font-weight: 700; }
+  .continue-watching-tile { margin: 0 0 18px; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface-glass); }
+  .continue-watching-tile summary { padding: 10px 12px; color: var(--text-color); cursor: pointer; font-weight: 700; list-style: none; }
+  .continue-watching-tile summary::-webkit-details-marker { display: none; }
+  .continue-watching-tile summary i { margin-right: 8px; color: var(--primary-light); }
+  .continue-watching-row { display: flex; gap: 10px; overflow-x: auto; padding: 0 12px 12px; scrollbar-width: thin; }
+  .continue-watching-item { display: flex; align-items: center; gap: 8px; min-width: 190px; padding: 5px; color: var(--text-color); text-decoration: none; border-radius: 8px; }
+  .continue-watching-item:active { transform: translateY(1px); }
+  .continue-watching-poster { position: relative; width: 38px; height: 54px; flex: 0 0 auto; overflow: hidden; border-radius: 5px; background: var(--surface-variant); display: grid; place-items: center; }
+  .continue-watching-poster img { width: 100%; height: 100%; object-fit: cover; }
+  .continue-watching-progress { position: absolute; bottom: 0; left: 0; width: var(--progress); height: 3px; background: var(--primary-light); }
+  .continue-watching-title { overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+  .continue-watching-title small { display: block; color: var(--text-muted); font-size: .7rem; }
+  .channel-card .channel-poster { aspect-ratio: 2 / 3; }
+  .channels-dropdown { grid-column: 1 / -1; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--surface-glass); }
+  .channels-dropdown summary { padding: 10px 12px; cursor: pointer; color: var(--text-color); font-weight: 700; list-style: none; }
+  .channels-dropdown summary::-webkit-details-marker { display: none; }
+  .channels-dropdown summary i { margin-right: 8px; color: var(--primary-light); }
+  .channels-dropdown-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 0 10px 10px; }
+  .channels-dropdown .channel-card { min-height: 0; }
+  @media (max-width: 900px) { .poster-rail { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .poster-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); } .carousel-track .poster-card { width: 100%; } }
 </style>
+<script>
+// Üst bant panel toggle (accordion) + kullanıcı listelerini lazy fetch.
+(function () {
+  var nav = document.getElementById('quick-nav');
+  var panels = document.getElementById('qn-panels');
+  if (!nav || !panels) return;
+  var allPanels = panels.querySelectorAll('.qn-panel');
+
+  nav.addEventListener('click', function (e) {
+    var btn = e.target.closest('.qn-btn[data-panel]');
+    if (!btn) return;
+    var key = btn.getAttribute('data-panel');
+    var panel = panels.querySelector('.qn-panel[data-panel-body="' + key + '"]');
+    if (!panel) return;
+    var willOpen = panel.classList.contains('is-hidden');
+    allPanels.forEach(function (p) { p.classList.add('is-hidden'); });
+    nav.querySelectorAll('.qn-btn').forEach(function (b) { b.classList.remove('is-active'); });
+    if (willOpen) {
+      panel.classList.remove('is-hidden');
+      btn.classList.add('is-active');
+      var lazy = panel.querySelector('.qn-lazy[data-endpoint]:not(.loaded)');
+      if (lazy) loadLazy(lazy);
+    }
+  });
+
+  function loadLazy(box) {
+    box.classList.add('loaded');
+    fetch(box.getAttribute('data-endpoint'), { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        var items = (d && d.result) || [];
+        if (!items.length) { box.innerHTML = '<p class="qn-empty">Liste boş.</p>'; return; }
+        box.className = 'qn-lazy grid grid-plugins qn-plugin-grid loaded';
+        box.innerHTML = items.map(function (it) {
+          var url = encodeURIComponent(it.content_url || it.url || '');
+          var poster = it.poster
+            ? '<img src="/proxy/image?url=' + encodeURIComponent(it.poster) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+            : '<i class="fas fa-film"></i>';
+          return '<a class="card plugin-card plugin-poster-card" href="/icerik/'
+            + encodeURIComponent(it.plugin || '') + '?url=' + url + '">'
+            + '<div class="plugin-poster">' + poster + '</div>'
+            + '<div class="card-body plugin-poster-body"><h3 class="card-title">'
+            + (it.title || '') + '</h3></div></a>';
+        }).join('');
+      })
+      .catch(function () { box.innerHTML = '<p class="qn-empty">Yüklenemedi.</p>'; });
+  }
+})();
+</script>
 {% endblock %}

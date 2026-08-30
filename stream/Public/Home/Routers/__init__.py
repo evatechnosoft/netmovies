@@ -10,6 +10,19 @@ from ..Libs.helpers         import build_context, detect_lang, detect_provider
 home_router   = APIRouter(prefix="")
 home_template = Jinja2Templates(directory="Public/Home/Templates")
 
+from urllib.parse import quote as _quote
+
+def _poster_proxy(url: str | None) -> str:
+    """Poster URL'lerini görsel-proxy üzerinden geçirir (hotlink koruması + cache).
+    Boş/yerel URL'ler olduğu gibi bırakılır."""
+    if not url:
+        return ""
+    if url.startswith(("/", "data:")):
+        return url
+    return f"/proxy/image?url={_quote(url, safe='')}"
+
+home_template.env.globals["poster"] = _poster_proxy
+
 from . import (
     ana_sayfa,
     seo,
@@ -18,5 +31,6 @@ from . import (
     icerik,
     ara,
     izle,
-    admin
+    admin,
+    tmdb
 )

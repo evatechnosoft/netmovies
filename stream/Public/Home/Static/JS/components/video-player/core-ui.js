@@ -136,6 +136,26 @@ export const coreUiMixin = {
             } else {
                 localStorage.setItem('wb_resume_watching', JSON.stringify(resumeData));
             }
+
+            // Keep the same progress on Mi Box, TV browsers and other devices.
+            const title = metaContainer?.dataset?.contentTitle
+                ? decodeURIComponent(metaContainer.dataset.contentTitle)
+                : document.title;
+            fetch('/api/v1/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                    title,
+                    content_url: contentUrl,
+                    poster: metaContainer?.dataset?.posterUrl || '',
+                    plugin: metaContainer?.dataset?.pluginName || '',
+                    media_type: season || episode ? 'serie' : 'movie',
+                    episode: season && episode ? `S${season} E${episode}` : '',
+                    position_seconds: Math.floor(video.currentTime),
+                    duration_seconds: Math.floor(video.duration),
+                }),
+            }).catch(() => {});
         } catch (e) {
             console.warn('Resume save failed:', e);
         }

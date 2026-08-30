@@ -24,10 +24,14 @@ def _is_alive(url: str) -> bool:
                 headers = {"User-Agent": "Mozilla/5.0"},
                 method  = method,
             )
-            with urllib.request.urlopen(req, timeout=6) as resp:
+            with urllib.request.urlopen(req, timeout=2) as resp:
                 return getattr(resp, "status", 200) < 500
         except urllib.error.HTTPError as exc:
-            # 4xx bile dönse sunucu ayakta demektir (bot koruması vb.)
+            # 403/451/404/410 = bloke veya kayıp: scraper içerik çekemez → ÖLÜ say.
+            # (Eskiden "sunucu ayakta = canlı" sayılıyordu; bu, bloke domaini seçip
+            #  içeriksiz kart/raf üretiyordu.) Diğer 4xx'ler geçici olabilir → canlı.
+            if exc.code in (403, 451, 404, 410):
+                return False
             return exc.code < 500
         except Exception:
             continue
@@ -48,14 +52,24 @@ def discover_main_url(kt_path: str, fallback: str, env_var: str | None = None) -
         if manual:
             return manual.rstrip("/")
 
-    # 2) Kekik-cloudstream'den güncel domain
+    # Ağ keşfini import sırasında çalıştırmak engine'in port açmasını engelleyebilir.
+    # Varsayılan adresler güncel tutulur; otomatik keşif gerektiğinde açıkça etkinleştirilir.
+    fallback = fallback.rstrip("/")
+    if os.getenv("AUTO_DISCOVER_DOMAINS", "0").lower() not in ("1", "true", "yes"):
+        return fallback
+
+    # 2) Gömülü adres hâlâ canlıysa ağ başlangıcını GitHub'a bağlama.
+    if _is_alive(fallback):
+        return fallback
+
+    # 3) Gömülü adres öldüyse Kekik-cloudstream'den güncel domaini al.
     discovered = None
     try:
         req = urllib.request.Request(
             f"{_RAW_BASE}/{kt_path}",
             headers={"User-Agent": "Mozilla/5.0"},
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:
             text = resp.read().decode("utf-8", "ignore")
         match = re.search(r'mainUrl\s*=\s*"([^"]+)"', text)
         if match:
@@ -63,11 +77,8 @@ def discover_main_url(kt_path: str, fallback: str, env_var: str | None = None) -
     except Exception:
         pass
 
-    # 3) Aday adresleri canlılığa göre seç: upstream bayat olabilir, fallback güncel
-    #    olabilir (veya tersi). İlk canlı olanı döndür.
-    for candidate in (discovered, fallback.rstrip("/")):
-        if candidate and _is_alive(candidate):
-            return candidate
+    if discovered and _is_alive(discovered):
+        return discovered
 
-    # 4) Hiçbiri doğrulanamadı — en iyi tahmin (discovered varsa o, yoksa fallback)
-    return discovered or fallback.rstrip("/")
+    # 4) Hiçbiri doğrulanamadı — en iyi tahmin.
+    return discovered or fallback

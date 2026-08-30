@@ -48,8 +48,11 @@ async def istekten_once_sonra(request: Request, call_next):
         "host"   : request.url.hostname
     }
 
-    # Dosya işlemleri için daha uzun timeout
-    uzun_timeout_paths = ("/upload", "/download", "/export", "/import", "/backup")
+    # Dosya işlemleri + çok-kaynaklı agregasyon için daha uzun timeout.
+    # aggregate_new/home_categories tüm eklentileri gezer (yavaş kaynak ~40s);
+    # 30s'de 504 olunca stream cache'i de dolmuyordu → her açılış yavaş. 120s ile
+    # ilk çağrı tamamlanıp cache'lenir, sonrası anında.
+    uzun_timeout_paths = ("/upload", "/download", "/export", "/import", "/backup", "/aggregate_new", "/home_categories")
     timeout_suresi     = 120 if any(p in request.url.path for p in uzun_timeout_paths) else 30
 
     try:
