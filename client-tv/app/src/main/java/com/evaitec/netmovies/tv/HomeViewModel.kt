@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.ServerResolver
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,11 +31,30 @@ class HomeViewModel : ViewModel() {
         ServerResolver.reset()   // her (yeniden) yüklemede local/uzak'ı taze seç
         viewModelScope.launch {
             _state.value = try {
-                val res = Network.api.aggregateNew(type = "movie")
-                HomeState.Ready(res.result?.items.orEmpty())
+                // Önce film (sunucuyu resolve eder + hızlı içerik), sonra diğer tipleri
+                // PARALEL çek → diziler + canlı TV de gelsin (tek "yeni filmler" satırı değil).
+                val movie = Network.api.aggregateNew(type = "movie").result?.items.orEmpty()
+                val others = coroutineScope {
+                    OTHER_TYPES
+                        .map { t -> async { fetchType(t) } }
+                        .awaitAll()
+                        .flatten()
+                }
+                val all = movie + others
+                if (all.isEmpty()) HomeState.Error("İçerik yok") else HomeState.Ready(all)
             } catch (e: Exception) {
                 HomeState.Error(e.message ?: "Bilinmeyen hata")
             }
         }
+    }
+
+    // Tek bir tipi çeker; hata veren/boş tip sessizce boş döner (diğerleri gelsin).
+    private suspend fun fetchType(type: String): List<MediaItem> =
+        runCatching { Network.api.aggregateNew(type = type).result?.items.orEmpty() }
+            .getOrDefault(emptyList())
+
+    private companion object {
+        // Engine tipleri: dizi, Türk dizi, yabancı dizi, canlı TV.
+        val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign", "live")
     }
 }
