@@ -20,4 +20,18 @@ interface NetMoviesApi {
         @Query("plugin") plugin: String,
         @Query("encoded_url", encoded = true) encodedUrl: String,
     ): LinksResponse
+
+    // Eklenti/kategori tarayıcı: tüm eklentiler + kategori haritaları.
+    @GET("api/v1/get_all_plugins")
+    suspend fun getAllPlugins(): PluginsResponse
+
+    // Seçilen kategorinin içerikleri. encoded_url/encoded_category zaten quote_plus
+    // kodlu (get_all_plugins'ten geliyor) → Retrofit yeniden kodlamasın.
+    @GET("api/v1/get_main_page")
+    suspend fun getMainPage(
+        @Query("plugin") plugin: String,
+        @Query("page") page: Int = 1,
+        @Query("encoded_url", encoded = true) encodedUrl: String,
+        @Query("encoded_category", encoded = true) encodedCategory: String,
+    ): MainPageResponse
 }

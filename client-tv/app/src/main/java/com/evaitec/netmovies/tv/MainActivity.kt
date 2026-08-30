@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.input.KeyBindings
+import com.evaitec.netmovies.tv.ui.BrowseScreen
 import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.KeyMapScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
+                        var showBrowse by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
@@ -64,12 +66,16 @@ class MainActivity : ComponentActivity() {
                                 PlayerScreen(item = current, bindings = bindings, library = library, onBack = { selected = null })
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
+                            showBrowse ->
+                                BrowseScreen(onSelect = { selected = it }, onBack = { showBrowse = false })
                             else ->
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                                     UpdateBanner()   // güncelleme varsa üstte şerit
                                     androidx.compose.foundation.layout.Row(
                                         Modifier.fillMaxWidth().padding(start = 24.dp, top = 12.dp),
+                                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
                                     ) {
+                                        TouchButton("🔎 Gözat", onClick = { showBrowse = true })
                                         TouchButton("⚙ Buton Eşleme", onClick = { showKeyMap = true })
                                     }
                                     HomeScreen(onSelect = { selected = it }, library = library)

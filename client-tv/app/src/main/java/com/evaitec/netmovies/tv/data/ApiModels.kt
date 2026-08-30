@@ -48,3 +48,26 @@ data class Subtitle(
     val name: String = "",
     val url: String = "",
 )
+
+// /api/v1/get_all_plugins yanıtı: eklenti listesi + her birinin kategori haritası.
+@Serializable
+data class PluginsResponse(
+    val result: List<PluginInfo> = emptyList(),
+)
+
+@Serializable
+data class PluginInfo(
+    val name: String = "",
+    val language: String = "",
+    @SerialName("main_url") val mainUrl: String = "",
+    val favicon: String? = null,
+    val description: String? = null,
+    // main_page: { <quote_plus url> : <quote_plus kategori adı> }
+    @SerialName("main_page") val mainPage: Map<String, String> = emptyMap(),
+)
+
+// /api/v1/get_main_page yanıtı: seçilen kategorinin içerikleri (düz liste).
+@Serializable
+data class MainPageResponse(
+    val result: List<MediaItem> = emptyList(),
+)
