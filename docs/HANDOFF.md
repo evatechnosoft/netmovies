@@ -4,50 +4,34 @@
 > Yeni oturumda: **"docs/HANDOFF.md oku ve devam et"** demen yeterli.
 
 **Repo:** `evatechnosoft/netmovies`  
-**Aktif dal:** `fix/general-stability` (veya `claude/stream-app-architecture-86q0sg`)  
-**Son Release (TV client, POC / OTA):** `v0.1.22-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.22-poc  
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.22-poc/netmovies-tv-v0.1.22-poc.apk  
+**Aktif dal:** `fix/general-stability`  
+**Son Release (TV client, POC / OTA):** `v0.1.23-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.23-poc  
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.23-poc/NetMovies-TV-v0.1.23.apk  
 **Ev sunucusu = bu Windows PC** (Docker Desktop): `http://127.0.0.1:3310` veya `http://192.168.1.185:3310`.  
 **Canlı Custom Domain (Cloudflare Tunnel):** `https://w.evaitec.com`  
 **Admin Paneli:** `https://w.evaitec.com/admin` veya `http://127.0.0.1:3310/admin`  
 
 ---
 
-## 0. SON OTURUM — 2026-08-31 — Docker Modülerlik + CloudStream/Kraptor+ Repoları + Çok Katmanlı Domain Keşfi + Akıllı Dil/Kaynak Seçimi (CANLI, DOĞRULANDI)
+## 0. SON OTURUM — 2026-08-31 — Özel Koleksiyon (18+ Stealth Vault) + HQPorner Entegrasyonu + Android TV & Web Gizli Tetikleyici (CANLI, DOĞRULANDI)
 
-**Durum: Docker Desktop'ta modüler profil mimarisiyle uçtan uca doğrulandı. w.evaitec.com ✅ · Android TV Client v0.1.22-poc OTA Yayında ✅.**
+**Durum: Docker Desktop'ta modüler profil mimarisiyle uçtan uca doğrulandı. w.evaitec.com ✅ · Android TV Client v0.1.23-poc OTA Yayında ✅.**
 
-### 1. Docker Compose Profil & Modülerlik Mimarisi
-- `warp` servisi isteğe bağlı profile (`profiles: ["warp"]`) taşındı; `cloudflared` tüneli (`profiles: ["tunnel"]`) altına alındı.
-- Tek bir servis veya tünel takıldığında tüm geliştirme ortamının çökmesi engellendi.
-- DNS çözümlemesine DoH (`172.31.0.53`) yanına `1.1.1.1` ve `8.8.8.8` fallback eklendi.
-- Windows Docker Desktop IPv6 `localhost` loopback gecikmesi yerine `http://127.0.0.1:3310` ve `http://192.168.1.185:3310` doğrudan erişimi netleştirildi.
+### 1. Özel Koleksiyon (18+ Stealth Vault Modu)
+- **Kamufle İsim:** Menülerde ve ayarlarda doğrudan 18+ veya yetişkin ibaresi yerine **"Özel Koleksiyon"** ismiyle yer alır.
+- **Gizli Tetikleyici Kombinasyonları:**
+  - **Web:** Sol üstteki Logoya 5 kez arka arkaya tıklama VEYA 3 saniye basılı tutma (Long-Press) ile mini bildirim eşliğinde açılır/kilitlenir (`sessionStorage`).
+  - **Android TV / Mobil:** Üst menüdeki "🔎 Gözat" butonuna 3 saniye basılı tutma (D-pad Center / OK uzun basma) ile kilit açılır, açıldığında ek olarak "🔒 Özel Koleksiyon" butonu belirir.
+- **Varsayılan Durum:** Normal kullanımda tüm 18+ içerikler ve sağlayıcılar tamamen gizlidir (`hidden_providers` & `hidden_categories`).
 
-### 2. CloudStream & GitHub Eklenti Havuzları (Kraptor+ & Kekik)
-- Admin paneline (`/admin`) CloudStream mantığında çalışan **Eklenti Havuzları (Custom Repos)** yöneticisi eklendi (`admin.py` -> `GET/POST /api/admin/repos`).
-- **Kekik-cloudstream (41 eklenti)** ve **Kraptor Repository (67 eklenti, Kraptor+ dahil)** varsayılan olarak entegre edildi. Toplam **108 eklenti** dinamik taranıp yönetilebilir hale getirildi.
-- Kullanıcı istediği GitHub `repo.json` / `plugins.json` URL'sini tek tıkla ekleyebilir/çıkarabilir.
+### 2. HQPorner 4K/1080p Yerel Motor Entegrasyonu (`engine/Plugins/HQPorner.py`)
+- WARP proxy desteğiyle ISP engelleri aşılarak doğrudan 4K/1080p ve 60FPS video linkleri parse edilip oynatıcıya teslim edilir.
+- `SpankBang`, `FullPorner`, `PornHub`, `xHamster`, `OxAx`, `UncutMaza` gibi uzak eklentiler de havuzda hazır olarak listelenir.
 
-### 3. Çok Katmanlı Akıllı Domain Keşfi & İmza Doğrulama (`__kekik_domain.py`)
-- Upstream GitHub raw `.kt` dosyaları okuma.
-- **Pattern Probing:** Numaralı domainler (`b.prectv{35..75}.sbs` vb.) paralel taranır.
-- **Telegram Entegrasyonu:** `t.me/s/<channel>` duyuru linkleri regex ile yakalanır.
-- **HTML İmza Doğrulama:** Yanıltıcı/reklam yönlendirmelerine karşı sayfa içeriğinde imza (`jwplayer`, site başlığı) doğrulaması yapılır.
-
-### 4. Sağlayıcı Hata Koruması (Fail-Safe `load_links`)
-- `engine/Plugins/HDFilmCehennemi.py` ve diğer eklentilerdeki çoklu kaynak çözümleme döngüleri `try...except` ve timeout bloklarıyla güçlendirildi.
-- Tek bir alternatif kaynak/player yanıt vermese bile çalışan sağlam linkler (Rapidrame, CloseLoad vb.) API çökmeden (500 almadan) oynatıcıya teslim edilir.
-
-### 5. Akıllı Ses & Altyazı Seçimi & Kategori Gizleme
-- **Varsayılan Gizli:** `Anime`, `Animeler`, `Asya`, `Kore`, `Hint`, `Belgesel` kategorileri ve sağlayıcıları varsayılan olarak gizlendi (Admin'den açılabilir).
-- **Akıllı Oynatma Önceliği:**
-  - 1. Öncelik: Türkçe Dublaj (`isTurkishDub`) -> Altyazısız doğrudan TR ses ile başlar.
-  - 2. Öncelik: İngilizce/Orijinal Ses -> Otomatik olarak Türkçe Altyazıyı (`OpenSub TUR` / `Türkçe Altyazı`) aktif eder.
-  - Failover: Oynatma hatasında çalışan sonraki online kaynağa otomatik geçer.
-
-### 6. Android TV Client (v0.1.22-poc OTA)
-- `client-tv` derlendi (`versionCode: 21`, `versionName: "0.1.22"`, `RELEASE_TAG: "v0.1.22-poc"`).
-- GitHub Release `v0.1.22-poc` oluşturuldu ve APK yüklendi. Cihazlar açılışta OTA bildirimini alacak.
+### 3. Android TV Client (v0.1.23-poc OTA)
+- `client-tv` derlendi (`versionCode: 22`, `versionName: "0.1.23"`, `RELEASE_TAG: "v0.1.23-poc"`).
+- GitHub Release `v0.1.23-poc` yayınlandı ve `NetMovies-TV-v0.1.23.apk` eklendi.
+- Cihaz açılışında OTA güncelleme bildirimi otomatik olarak görünecektir.
 
 ---
 
