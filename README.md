@@ -12,7 +12,15 @@ Reklamsız, kişisel, "tıkla‑izle" odaklı **film / dizi / canlı TV** uygula
 
 ```bash
 cp .env.example .env        # AUTH_USER / AUTH_PASS düzenle
+
+# Çekirdek uygulama (stream + engine + doh)
 docker compose up -d --build
+
+# Gerekirse WARP proxy eklemek için (opt-in):
+docker compose --profile warp up -d
+
+# Gerekirse Cloudflare Tüneli eklemek için (opt-in):
+docker compose --profile tunnel up -d
 # → http://localhost:3310
 ```
 

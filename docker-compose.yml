@@ -17,12 +17,13 @@ volumes:
 services:
   # Cloudflare WARP çıkış proxy'si: engine'in GİDEN HTTP(S) trafiğini WARP tüneli
   # üzerinden geçirir → TR ISP'nin SNI/DPI engelini aşar (dizilla, dizipal vb.).
-  # gost, konteyner içinde :8080'de HTTP proxy açar; trafik WARP (WireGuard) ile çıkar.
-  # NOT: cap/sysctl/device-cgroup WARP'ın TUN cihazı için zorunludur.
+  # OPT-IN: `docker compose --profile warp up -d` ile açılır. WARP açılmazsa engine çökmek yerine WARP'sız devam eder.
   warp:
     image          : caomingjun/warp:latest
     container_name : netmovies-warp
     restart        : unless-stopped
+    profiles:
+      - warp
     cap_add:
       - NET_ADMIN
       - MKNOD
@@ -61,10 +62,12 @@ services:
     container_name : netmovies-engine
     restart        : unless-stopped
     depends_on:
-      - doh
-      - warp                  # WARP proxy engine'den önce hazır olsun
+      doh:
+        condition: service_started
     dns:
       - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
+      - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
+      - 8.8.8.8              # Fallback 2 (Google Public DNS)
     expose:
       - "3310"
     environment:
@@ -94,10 +97,14 @@ services:
     container_name : netmovies-stream
     restart        : unless-stopped
     depends_on:
-      - engine
-      - doh
+      engine:
+        condition: service_started
+      doh:
+        condition: service_started
     dns:
       - 172.31.0.53          # DoH resolver
+      - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
+      - 8.8.8.8              # Fallback 2 (Google Public DNS)
     ports:
       - "3310:3310"
     environment:

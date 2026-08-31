@@ -11,7 +11,16 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 ## Çalıştırma (kullanıcının makinesinde — evde)
 ```bash
 cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
+
+# 1. Varsayılan (Çekirdek: stream + engine + doh)
 docker compose up -d --build
+
+# 2. WARP proxy ile çalıştırma (Dizilla / Dizipal vb. engelli siteler için opt-in)
+docker compose --profile warp up -d
+
+# 3. Dış erişim tüneli ile çalıştırma (w.evaitec.com)
+docker compose --profile tunnel up -d
+
 # http://localhost:3310  (dean / 1234)
 ```
 Kolay dış erişim (w.evaitec.com): `docs/DEPLOY.md` — hibrit (motor evde + Cloudflare Tunnel).

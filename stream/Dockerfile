@@ -45,6 +45,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # * Gerekli Paketlerin Yüklenmesi
 RUN uv pip install --system --no-cache .
 
+# Runtime bytecode writes are disabled. Preload the real import graph during the
+# image build so Uvicorn workers do not recompile it on every container start.
+RUN env -u PYTHONDONTWRITEBYTECODE python3 -c "import Core"
+
 # * hls.js'i self-host için indir (engelli CDN'lere karşı). İndirilemezse
 #   çalışma anında jsDelivr/cdnjs fallback devreye girer, build kırılmaz.
 RUN mkdir -p Public/Home/Static/JS/vendor && \
