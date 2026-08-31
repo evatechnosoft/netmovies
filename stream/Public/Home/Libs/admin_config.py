@@ -21,10 +21,15 @@ _CONFIG_PATH  = Path(os.getenv("ADMIN_CONFIG_PATH", _DEFAULT_PATH))
 
 # Kullanıcı "Asya izlemeyeceğim" dedi → varsayılan gizli kategoriler.
 DEFAULT_CONFIG: dict = {
-    "hidden_providers": [],
+    "hidden_providers": [
+        "AnimeciX", "TurkAnime", "DiziKorea", "AsyaFanatiklerim",
+        "Animeler", "Animely", "AnimPow", "Anizium", "AsyaAnimeleri",
+        "AsyaMinik", "AsyaWatch", "DiziAsia", "DiziAsya", "DramaDizilerim",
+        "KoreanTurk", "OpenAnime", "TrAnimeIzle", "WebDramaTurkey",
+    ],
     "hidden_categories": [
-        "Asya Dizileri", "Asya", "Animeler", "Anime", "Kore Dizileri",
-        "Hint Dizileri", "Belgeseller", "Belgesel",
+        "Asya Dizileri", "Asya", "Animeler", "Anime", "Kore Dizileri", "Kore",
+        "Hint Dizileri", "Hint", "Belgeseller", "Belgesel", "Asya Animeleri",
     ],
     "featured": [],      # [{provider, url, title, poster, rating}]
     "min_rating": 0.0,
@@ -38,7 +43,12 @@ DEFAULT_CONFIG: dict = {
             "name": "Kekik-cloudstream (Resmi)",
             "url": "https://raw.githubusercontent.com/keyiflerolsun/Kekik-cloudstream/master/repo.json",
             "enabled": True,
-        }
+        },
+        {
+            "name": "Kraptor Repository (Kraptor+)",
+            "url": "https://raw.githubusercontent.com/Kraptor123/cs-kraptor/builds/plugins.json",
+            "enabled": True,
+        },
     ],
 }
 
