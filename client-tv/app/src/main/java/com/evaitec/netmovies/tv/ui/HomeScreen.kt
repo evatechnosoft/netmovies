@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
@@ -128,7 +130,7 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryRows(
     items: List<MediaItem>,
@@ -162,7 +164,15 @@ private fun CategoryRows(
         runCatching { firstFocus.requestFocus() }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { onToggleMouseMode() }
+                )
+            }
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(vertical = 18.dp),
@@ -181,11 +191,15 @@ private fun CategoryRows(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 20.sp,
                         color = Color(0xFF8B5CF6),
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .combinedClickable(
+                                onClick = onToggleMouseMode,
+                                onLongClick = onToggleMouseMode,
+                            ),
                     )
                     TvTopBarButton("🔎 Gözat", onClick = onOpenBrowse, onLongClick = onToggleVault)
-                    TvTopBarButton("⚙ Buton Eşleme", onClick = onOpenKeyMap)
-                    TvTopBarButton("🖱 Fare Modu", onClick = onToggleMouseMode)
+                    TvTopBarButton("⚙ Buton Eşleme", onClick = onOpenKeyMap, onLongClick = onToggleMouseMode)
                     if (showVault) {
                         TvTopBarButton("🔒 Özel Koleksiyon", onClick = onOpenVault, onLongClick = onToggleVault)
                     }
