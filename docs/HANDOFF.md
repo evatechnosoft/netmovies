@@ -1,15 +1,25 @@
 # NetMovies — Oturum Devri (HANDOFF)
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
-> Yeni oturumda: **"docs/HANDOFF.md oku ve devam et"** demen yeterli.
+# NetMovies Projesi Handoff & Durum Raporu
 
-**Repo:** `evatechnosoft/netmovies`  
-**Aktif dal:** `fix/general-stability`  
-**Son Release (TV client, POC / OTA):** `v0.1.23-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.23-poc  
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.23-poc/NetMovies-TV-v0.1.23.apk  
-**Ev sunucusu = bu Windows PC** (Docker Desktop): `http://127.0.0.1:3310` veya `http://192.168.1.185:3310`.  
-**Canlı Custom Domain (Cloudflare Tunnel):** `https://w.evaitec.com`  
-**Admin Paneli:** `https://w.evaitec.com/admin` veya `http://127.0.0.1:3310/admin`  
+**Tarih:** 31 Ağustos 2026  
+**Aktif Sürüm:** `v0.1.24-poc` (Android TV APK Yayınlandı)  
+**Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
+**Yerel API:** `http://192.168.1.185:3310`  
+**GitHub Repo:** `evatechnosoft/netmovies`
+
+---
+
+## 🎯 v0.1.24-poc ile Çözülen Sorunlar & Yeni Özellikler
+
+1. **TV Kumanda D-Pad Üst Menü Navigasyonu (`HomeScreen.kt`)**:
+   - `[🔎 Gözat]`, `[⚙ Buton Eşleme]` ve `[🔒 Özel Koleksiyon]` butonları ana sayfa raylarının en üstüne `LazyColumn` içine odaklanabilir TV bileşenleri olarak taşındı.
+   - Kumandada yukarı (UP) basıldığında butonlar odak alır; mor parlama (`0xFF8B5CF6`), beyaz odak kenarlığı ve büyüme efekti ile kolayca seçilir.
+2. **Dizi Oynatma ("Daha 17" ve Diğer Diziler) & Bölüm Desteği (`PlayerScreen.kt` & `NetMoviesApi.kt`)**:
+   - Dizi sayfalarına tıklandığında linkin doğrudan video linki olmaması durumunda (`resp.result.isEmpty()`), otomatik olarak `/api/v1/load_item` ile bölüm listesi çözülür ve 1. bölümden oynatma başlar ("tekrar dene geri çıkıyor" hatası giderildi).
+3. **Özel Koleksiyon (18+) Doğrudan Açılış (`BrowseScreen.kt` & `HQPorner.py`)**:
+   - "🔒 Özel Koleksiyon" seçildiğinde boş arama yerine doğrudan yetişkin kategorileri (Popüler, 1080p, 4K vb.) ve içerik ızgarası yüklenir. Eklenti başlatma hatası giderildi.
 
 ---
 

@@ -33,8 +33,8 @@ class HQPorner(PluginBase):
         f"{main_url}/category/60fps-porn/SAYFA": "60 FPS",
     }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # WARP proxy desteği: yerel ISP engeline takılmamak için
         try:
             self._client = httpx.AsyncClient(

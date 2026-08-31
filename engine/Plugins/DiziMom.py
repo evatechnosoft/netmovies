@@ -5,15 +5,12 @@ from __future__ import annotations
 import os
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import absolute, extract_embedded_sources, first_attr, first_text, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
 _DISCOVERED_URL = discover_main_url(
     "DiziMom/src/main/kotlin/com/keyiflerolsun/DiziMom.kt", "https://www.dizimom.plus", "DIZIMOM_URL"
 )
-# The upstream manifest still points to a TLS endpoint that currently closes
-# connections. Keep the explicit environment override, otherwise use the
-# live mirror verified by the engine container.
 _MAIN_URL = os.getenv("DIZIMOM_URL") or (
     "https://www.dizimom.work" if _DISCOVERED_URL.endswith("dizimom.plus") else _DISCOVERED_URL
 )
@@ -42,8 +39,8 @@ class DiziMom(PluginBase):
         return MainPageResult(category=category, title=title.split(" izle")[0].strip(), url=href, poster=poster)
 
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
-        target = url.replace("SAYFA", str(page or 1))
-        selector = HTMLHelper((await self.httpx.get(target)).text)
+        target = normalize_url(url.replace("SAYFA", str(page or 1)), self.main_url)
+        selector = HTMLHelper(await fetch_html(self.httpx, target))
         css = "div.episode-box" if "tum-bolumler" in url else "div.single-item"
         results: list[MainPageResult] = []
         for node in selector.select(css):
@@ -53,7 +50,8 @@ class DiziMom(PluginBase):
         return results
 
     async def search(self, query: str) -> list[SearchResult]:
-        selector = HTMLHelper((await self.httpx.get(f"{self.main_url}/?s={query}")).text)
+        target = f"{self.main_url}/?s={query}"
+        selector = HTMLHelper(await fetch_html(self.httpx, target))
         results: list[SearchResult] = []
         for node in selector.select("div.single-item"):
             item = self._result(node, self.main_url, "")
@@ -62,7 +60,8 @@ class DiziMom(PluginBase):
         return results
 
     async def load_item(self, url: str) -> SeriesInfo:
-        selector = HTMLHelper((await self.httpx.get(url)).text)
+        target = normalize_url(url, self.main_url)
+        selector = HTMLHelper(await fetch_html(self.httpx, target))
         title = (first_text(selector, ("div.title h1", "h1")) or "").split(" izle")[0].strip()
         poster = absolute(self.main_url, first_attr(selector, ("div.category_image img", "img"), "src"))
         description = first_text(selector, ("div.category_desc",))
@@ -77,21 +76,25 @@ class DiziMom(PluginBase):
         return SeriesInfo(url=url, title=title, poster=poster, description=description, episodes=episodes)
 
     async def load_links(self, url: str) -> list[ExtractResult]:
+        target = normalize_url(url, self.main_url)
         headers = {"User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/114.0.0.0 Mobile Safari/537.36"}
-        await self.httpx.post(f"{self.main_url}/wp-login.php", headers=headers, data={"log": "keyiflerolsun", "pwd": "12345", "rememberme": "forever", "redirect_to": self.main_url})
-        selector = HTMLHelper((await self.httpx.get(url, headers=headers)).text)
-        pages = [url]
+        try:
+            await self.httpx.post(f"{self.main_url}/wp-login.php", headers=headers, data={"log": "keyiflerolsun", "pwd": "12345", "rememberme": "forever", "redirect_to": self.main_url})
+        except Exception:
+            pass
+        selector = HTMLHelper(await fetch_html(self.httpx, target, headers=headers))
+        pages = [target]
         pages.extend(node.attrs.get("href") for node in selector.select("div.sources a") if node.attrs.get("href"))
         results: list[ExtractResult] = []
         for page in pages:
             if not page:
                 continue
             page_url = absolute(self.main_url, page) or page
-            page_selector = HTMLHelper((await self.httpx.get(page_url, headers=headers)).text)
+            page_selector = HTMLHelper(await fetch_html(self.httpx, page_url, headers=headers))
             iframe = first_attr(page_selector, ("div.video p iframe", "iframe"), "src")
             iframe_url = absolute(page_url, iframe)
             if iframe_url:
-                iframe_response = await self.httpx.get(iframe_url, headers=headers)
-                results.extend(extract_embedded_sources(iframe_response.text, iframe_url, self.name))
+                iframe_html = await fetch_html(self.httpx, iframe_url, headers=headers)
+                results.extend(extract_embedded_sources(iframe_html, iframe_url, self.name))
                 self.collect_results(results, await self.extract(iframe_url, referer=page_url))
         return self.deduplicate(results)

@@ -7,10 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,10 +55,53 @@ import com.evaitec.netmovies.tv.data.proxiedPoster
 
 private val POSTER_WIDTH = 104.dp   // ana sayfa carousel poster boyuyla uyumlu (küçük — focus'ta büyür)
 
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun TvTopBarButton(
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1.0f, tween(150), label = "btnScale")
+
+    Box(
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isFocused) Color(0xFF8B5CF6) else Color(0xFF241F33))
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = if (isFocused) Color.White else Color(0x338B5CF6),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = label,
+            color = if (isFocused) Color.White else Color(0xFFEDEDF2),
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 14.sp,
+        )
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onSelect: (MediaItem) -> Unit,
+    onOpenBrowse: () -> Unit,
+    onOpenKeyMap: () -> Unit,
+    onOpenVault: () -> Unit,
+    showVault: Boolean,
+    onToggleVault: () -> Unit,
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -68,14 +114,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect)
+                CategoryRows(emptyList(), library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect)
+                CategoryRows(s.items, library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
             }
         }
     }
@@ -83,7 +129,16 @@ fun HomeScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CategoryRows(items: List<MediaItem>, library: Library, onSelect: (MediaItem) -> Unit) {
+private fun CategoryRows(
+    items: List<MediaItem>,
+    library: Library,
+    onSelect: (MediaItem) -> Unit,
+    onOpenBrowse: () -> Unit,
+    onOpenKeyMap: () -> Unit,
+    onOpenVault: () -> Unit,
+    showVault: Boolean,
+    onToggleVault: () -> Unit,
+) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
         items.groupBy { it.category?.takeIf { c -> c.isNotBlank() } ?: "Yeni Çıkanlar" }
@@ -108,15 +163,30 @@ private fun CategoryRows(items: List<MediaItem>, library: Library, onSelect: (Me
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Text(
-                    text = "NetMovies",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 24.dp, bottom = 4.dp),
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "NetMovies",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = Color(0xFF8B5CF6),
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    TvTopBarButton("🔎 Gözat", onClick = onOpenBrowse, onLongClick = onToggleVault)
+                    TvTopBarButton("⚙ Buton Eşleme", onClick = onOpenKeyMap)
+                    if (showVault) {
+                        TvTopBarButton("🔒 Özel Koleksiyon", onClick = onOpenVault, onLongClick = onToggleVault)
+                    }
+                }
             }
             sections.forEachIndexed { sIndex, (title, list) ->
                 item {

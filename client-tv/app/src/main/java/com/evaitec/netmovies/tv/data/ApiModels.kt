@@ -71,3 +71,26 @@ data class PluginInfo(
 data class MainPageResponse(
     val result: List<MediaItem> = emptyList(),
 )
+
+// /api/v1/load_item yanıtı: dizi detayları ve bölüm listesi.
+@Serializable
+data class ItemResponse(
+    val result: ItemDetails? = null,
+)
+
+@Serializable
+data class ItemDetails(
+    val url: String = "",
+    val title: String? = null,
+    val poster: String? = null,
+    val description: String? = null,
+    val episodes: List<EpisodeItem> = emptyList(),
+)
+
+@Serializable
+data class EpisodeItem(
+    val season: Int = 1,
+    val episode: Int? = null,
+    val title: String? = null,
+    val url: String = "",
+)

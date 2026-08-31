@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
+                        var browseVaultMode by remember { mutableStateOf(false) }
                         var showVault by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
@@ -68,21 +69,24 @@ class MainActivity : ComponentActivity() {
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showBrowse ->
-                                BrowseScreen(showVault = showVault, onSelect = { selected = it }, onBack = { showBrowse = false })
+                                BrowseScreen(
+                                    showVault = showVault,
+                                    vaultMode = browseVaultMode,
+                                    onSelect = { selected = it },
+                                    onBack = { showBrowse = false; browseVaultMode = false }
+                                )
                             else ->
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                                     UpdateBanner()   // güncelleme varsa üstte şerit
-                                    androidx.compose.foundation.layout.Row(
-                                        Modifier.fillMaxWidth().padding(start = 24.dp, top = 12.dp),
-                                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                                    ) {
-                                        TouchButton("🔎 Gözat", onClick = { showBrowse = true }, onLongClick = { showVault = !showVault })
-                                        TouchButton("⚙ Buton Eşleme", onClick = { showKeyMap = true })
-                                        if (showVault) {
-                                            TouchButton("🔒 Özel Koleksiyon", onClick = { showBrowse = true }, onLongClick = { showVault = false })
-                                        }
-                                    }
-                                    HomeScreen(onSelect = { selected = it }, library = library)
+                                    HomeScreen(
+                                        onSelect = { selected = it },
+                                        onOpenBrowse = { browseVaultMode = false; showBrowse = true },
+                                        onOpenKeyMap = { showKeyMap = true },
+                                        onOpenVault = { browseVaultMode = true; showBrowse = true },
+                                        showVault = showVault,
+                                        onToggleVault = { showVault = !showVault },
+                                        library = library,
+                                    )
                                 }
                         }
                     }

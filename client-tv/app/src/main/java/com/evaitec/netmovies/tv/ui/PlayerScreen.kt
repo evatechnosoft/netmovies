@@ -240,12 +240,29 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
     LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
 
-    // Kaynak listesini çek.
-    LaunchedEffect(item.url, retryKey) {
+    var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
+    var currentEpIndex by remember { mutableIntStateOf(0) }
+
+    // Kaynak listesini çek (film veya dizi bölümü).
+    LaunchedEffect(item.url, currentEpIndex, retryKey) {
         error = null
         ready = false
         try {
-            val resp = Network.api.loadLinks(item.plugin, item.url)
+            var targetUrl = item.url
+            var resp = Network.api.loadLinks(item.plugin, targetUrl)
+            if (resp.result.isEmpty()) {
+                // Dizi ana sayfasıysa: load_item ile bölüm listesini çek
+                try {
+                    val info = Network.api.loadItem(item.plugin, item.url)
+                    val epList = info.result?.episodes ?: emptyList()
+                    if (epList.isNotEmpty()) {
+                        episodes = epList
+                        val chosenEp = epList.getOrNull(currentEpIndex) ?: epList.first()
+                        targetUrl = chosenEp.url
+                        resp = Network.api.loadLinks(item.plugin, targetUrl)
+                    }
+                } catch (_: Exception) {}
+            }
             if (resp.result.isEmpty()) { error = "Oynatılacak kaynak bulunamadı"; return@LaunchedEffect }
             links = resp.result
             currentLinkIndex = 0

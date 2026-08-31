@@ -69,6 +69,7 @@ private fun decode(s: String): String =
 @Composable
 fun BrowseScreen(
     showVault: Boolean = false,
+    vaultMode: Boolean = false,
     onSelect: (MediaItem) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -83,8 +84,10 @@ fun BrowseScreen(
         n.contains("hamster") || n.contains("oxax") || n.contains("maza")
     }
 
-    val plugins = remember(rawPlugins, showVault) {
-        if (showVault) {
+    val plugins = remember(rawPlugins, showVault, vaultMode) {
+        if (vaultMode) {
+            rawPlugins.filter { isAdultPlugin(it.name) }
+        } else if (showVault) {
             rawPlugins
         } else {
             rawPlugins.filter { !isAdultPlugin(it.name) }
@@ -96,20 +99,6 @@ fun BrowseScreen(
     var catTitle by remember { mutableStateOf("") }
     var catLoading by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        try {
-            rawPlugins = Network.api.getAllPlugins().result
-            loading = false
-        } catch (e: Exception) {
-            error = e.message ?: "Eklentiler yüklenemedi"
-            loading = false
-        }
-    }
-
-    BackHandler(enabled = true) {
-        if (catItems != null) catItems = null else onBack()
-    }
 
     fun openCategory(plugin: PluginInfo, encUrl: String, encCat: String) {
         catTitle = "${plugin.name} · ${decode(encCat)}"
@@ -126,6 +115,28 @@ fun BrowseScreen(
             } ?: emptyList()
             catLoading = false
         }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val list = Network.api.getAllPlugins().result
+            rawPlugins = list
+            loading = false
+            if (vaultMode) {
+                val adultPlg = list.firstOrNull { isAdultPlugin(it.name) }
+                if (adultPlg != null && adultPlg.mainPage.isNotEmpty()) {
+                    val firstEntry = adultPlg.mainPage.entries.first()
+                    openCategory(adultPlg, firstEntry.key, firstEntry.value)
+                }
+            }
+        } catch (e: Exception) {
+            error = e.message ?: "Eklentiler yüklenemedi"
+            loading = false
+        }
+    }
+
+    BackHandler(enabled = true) {
+        if (catItems != null && !vaultMode) catItems = null else onBack()
     }
 
     // Tüm eklentilerde paralel ara, birleştir.

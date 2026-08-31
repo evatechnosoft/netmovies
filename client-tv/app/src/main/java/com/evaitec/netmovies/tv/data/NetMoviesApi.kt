@@ -41,4 +41,11 @@ interface NetMoviesApi {
         @Query("plugin") plugin: String,
         @Query("query") query: String,
     ): MainPageResponse
+
+    // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
+    @GET("api/v1/load_item")
+    suspend fun loadItem(
+        @Query("plugin") plugin: String,
+        @Query("url", encoded = true) url: String,
+    ): ItemResponse
 }

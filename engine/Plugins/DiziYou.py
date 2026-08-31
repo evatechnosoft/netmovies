@@ -20,10 +20,12 @@ from KekikStream.Core import (
 )
 
 try:
+    from Plugins.__dizi_common import fetch_html, normalize_url
     from Plugins.__kekik_domain import discover_main_url
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
+    from __dizi_common import fetch_html, normalize_url
     from __kekik_domain import discover_main_url
 
 # Güncel domain otomatik çekilir; DIZIYOU_URL ile elle sabitlenebilir.
@@ -59,8 +61,8 @@ class DiziYou(PluginBase):
     # ------------------------------------------------------------------ Ana sayfa
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         target   = url.replace("SAYFA", str(page or 1))
-        response = await self.httpx.get(target)
-        secici   = HTMLHelper(response.text)
+        text     = await fetch_html(self.httpx, normalize_url(target, self.main_url))
+        secici   = HTMLHelper(text)
 
         results: list[MainPageResult] = []
         for node in secici.select("div.single-item"):
@@ -76,7 +78,7 @@ class DiziYou(PluginBase):
                 MainPageResult(
                     category = category,
                     title    = title,
-                    url      = self.fix_url(href),
+                    url      = normalize_url(self.fix_url(href), self.main_url),
                     poster   = self.fix_url(poster) if poster else None,
                 )
             )
@@ -84,8 +86,8 @@ class DiziYou(PluginBase):
 
     # ------------------------------------------------------------------ Arama
     async def search(self, query: str) -> list[SearchResult]:
-        response = await self.httpx.get(f"{self.main_url}/?s={query}")
-        secici   = HTMLHelper(response.text)
+        text     = await fetch_html(self.httpx, f"{self.main_url}/?s={query}")
+        secici   = HTMLHelper(text)
 
         results: list[SearchResult] = []
         # Arama sonuçları hem liste konteynerinde hem tekil kartlarda gelebilir.
@@ -101,7 +103,7 @@ class DiziYou(PluginBase):
             results.append(
                 SearchResult(
                     title  = title,
-                    url    = self.fix_url(href),
+                    url    = normalize_url(self.fix_url(href), self.main_url),
                     poster = self.fix_url(poster) if poster else None,
                 )
             )
@@ -109,8 +111,8 @@ class DiziYou(PluginBase):
 
     # ------------------------------------------------------------------ Detay
     async def load_item(self, url: str) -> SeriesInfo:
-        response = await self.httpx.get(url)
-        secici   = HTMLHelper(response.text)
+        text     = await fetch_html(self.httpx, normalize_url(url, self.main_url))
+        secici   = HTMLHelper(text)
 
         title       = secici.select_text("h1")
         poster      = secici.select_attr("div.category_image img", "src")
@@ -141,12 +143,12 @@ class DiziYou(PluginBase):
                     season  = int(se.group(1)) if se else 1,
                     episode = int(ep.group(1)) if ep else None,
                     title   = ep_name,
-                    url     = self.fix_url(href),
+                    url     = normalize_url(self.fix_url(href), self.main_url),
                 )
             )
 
         return SeriesInfo(
-            url         = url,
+            url         = normalize_url(url, self.main_url),
             title       = title,
             poster      = self.fix_url(poster) if poster else None,
             description = description,
@@ -156,8 +158,8 @@ class DiziYou(PluginBase):
 
     # ------------------------------------------------------------------ Linkler
     async def load_links(self, url: str) -> list[ExtractResult]:
-        response = await self.httpx.get(url)
-        secici   = HTMLHelper(response.text)
+        text     = await fetch_html(self.httpx, normalize_url(url, self.main_url))
+        secici   = HTMLHelper(text)
 
         player = secici.select_first("iframe#diziyouPlayer")
         if not player:
