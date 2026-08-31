@@ -1,27 +1,55 @@
 # NetMovies — Oturum Devri (HANDOFF)
 
-> Bu dosya, projeyi başka bir oturumda (Claude Code / web) kaldığı yerden sürdürmek
-> içindir. Yeni oturumda: **"docs/HANDOFF.md oku ve devam et"** demen yeterli.
+> Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
+> Yeni oturumda: **"docs/HANDOFF.md oku ve devam et"** demen yeterli.
 
-**Repo:** `evatechnosoft/netmovies`
-**Aktif dal:** `claude/stream-app-architecture-86q0sg`  (TÜM iş burada — master ESKİ)
-**PR #3:** MERGED (tarihte). Dal ondan sonra ana hat olarak devam etti → **bu dal tek kaynak, master ESKİ** (42+ commit ileride). Herkes bu daldan `git pull` yapar.
-**Son Release (TV client, POC):** `v0.1.21-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.21-poc
-**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.21-poc/netmovies-tv-v0.1.21-poc.apk
-**Ev sunucusu = bu Windows PC** (Docker Desktop). `.env` (gitignored) güncel: `DIZIMOM_URL=dizimom.food · DIZILLA_URL=dizilla.club · AUTO_DISCOVER_DOMAINS=1 · ENGINE_WORKERS=1 · CF_TUNNEL_TOKEN dolu`. WARP servisi compose'da.
-> **EV ÇÖZÜMÜ (asıl):** Windows'ta **3310 inbound firewall kuralı AÇILDI** ("NetMovies 3310"). TV aynı WiFi'da (192.168.1.x) → app yerel sunucuya (192.168.1.185:3310) düşer, **Cloudflare hiç devreye girmez** → CF-TR IP blokları (188.114.x) sorunu evde biter. TV'de app'i kapat-aç (veya "Tekrar dene") ile yerele geçer.
-> v0.1.10: OkHttp timeout (connect6/read45/call50s → sonsuz "Yükleniyor" biter) + CF IP-pin (w.evaitec.com → 172.67.143.235/104.21.55.13, TR bloklu 188.114 baypas — uzaktayken).
-> v0.1.9: Dokunmatik desteği — tv-material3 Card/Button D-pad odaklıydı, telefonda basılamıyordu → foundation `clickable` (`ui/TouchButton.kt`, PosterCard Box+clickable). Telefon+TV her ikisi.
-> v0.1.8: "önce local, olmazsa uzak" — Cloudflare TR'de cihaza bloklu IP (188.114.x) döndürüyordu. `ServerResolver` önce `LOCAL_URL` (192.168.1.185:3310, /api/v1/health 1.5s probe) dener, ulaşamazsa `BASE_URL` (w.evaitec.com). `BaseUrlInterceptor` tüm istekleri + posterleri aktif sunucuya yönlendirir. NOT: yerel yol için Windows'ta **3310 inbound firewall izni** gerekebilir (`New-NetFirewallRule -DisplayName "NetMovies 3310" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3310`).
-> v0.1.7: IPv6 fix — `PreferIpv4Dns` (içerik+OTA+indirme). UI fix (kontrast/focus) ekran görüntüsüyle DOĞRULANDI. OTA ile dağıtım.
-> v0.1.6: OTA "İndir" fix — TV'de tarayıcı yok, ACTION_VIEW(url) çalışmıyordu → APK uygulama-içi OkHttp ile indirilip FileProvider ile kuruluyor. Eski buggy sürüm OTA edemez → v0.1.6 bir kez elle kuruldu, sonrası OTA.
-> v0.1.5: UI fix — siyah-üstüne-siyah yazı (tv-material3 LocalContentColor=#EDEDF2) + D-pad ilk kart initial focus. (kod fix, ekranda DOĞRULANMADI — kullanıcı testinde)
-> v0.1.4: BASE_URL `https://w.evaitec.com` (v0.1.3 yanlışlıkla 192.168 ile derlenmişti). Debug-imzalı → ilk geçişte önce kaldır; sonraki OTA'lar aynı keystore ile sorunsuz.
-**Kullanıcı:** Dean (deancjx@gmail.com) — Türkçe konuşuyor. Kişisel, reklamsız kullanım.
+**Repo:** `evatechnosoft/netmovies`  
+**Aktif dal:** `fix/general-stability` (veya `claude/stream-app-architecture-86q0sg`)  
+**Son Release (TV client, POC / OTA):** `v0.1.22-poc` — https://github.com/evatechnosoft/netmovies/releases/tag/v0.1.22-poc  
+**APK (indir):** https://github.com/evatechnosoft/netmovies/releases/download/v0.1.22-poc/netmovies-tv-v0.1.22-poc.apk  
+**Ev sunucusu = bu Windows PC** (Docker Desktop): `http://127.0.0.1:3310` veya `http://192.168.1.185:3310`.  
+**Canlı Custom Domain (Cloudflare Tunnel):** `https://w.evaitec.com`  
+**Admin Paneli:** `https://w.evaitec.com/admin` veya `http://127.0.0.1:3310/admin`  
 
 ---
 
-## 0. SON OTURUM — 2026-08-30 — TV/Web UX + Kaynak kurtarma + WARP egress (CANLI, DOĞRULANDI)
+## 0. SON OTURUM — 2026-08-31 — Docker Modülerlik + CloudStream/Kraptor+ Repoları + Çok Katmanlı Domain Keşfi + Akıllı Dil/Kaynak Seçimi (CANLI, DOĞRULANDI)
+
+**Durum: Docker Desktop'ta modüler profil mimarisiyle uçtan uca doğrulandı. w.evaitec.com ✅ · Android TV Client v0.1.22-poc OTA Yayında ✅.**
+
+### 1. Docker Compose Profil & Modülerlik Mimarisi
+- `warp` servisi isteğe bağlı profile (`profiles: ["warp"]`) taşındı; `cloudflared` tüneli (`profiles: ["tunnel"]`) altına alındı.
+- Tek bir servis veya tünel takıldığında tüm geliştirme ortamının çökmesi engellendi.
+- DNS çözümlemesine DoH (`172.31.0.53`) yanına `1.1.1.1` ve `8.8.8.8` fallback eklendi.
+- Windows Docker Desktop IPv6 `localhost` loopback gecikmesi yerine `http://127.0.0.1:3310` ve `http://192.168.1.185:3310` doğrudan erişimi netleştirildi.
+
+### 2. CloudStream & GitHub Eklenti Havuzları (Kraptor+ & Kekik)
+- Admin paneline (`/admin`) CloudStream mantığında çalışan **Eklenti Havuzları (Custom Repos)** yöneticisi eklendi (`admin.py` -> `GET/POST /api/admin/repos`).
+- **Kekik-cloudstream (41 eklenti)** ve **Kraptor Repository (67 eklenti, Kraptor+ dahil)** varsayılan olarak entegre edildi. Toplam **108 eklenti** dinamik taranıp yönetilebilir hale getirildi.
+- Kullanıcı istediği GitHub `repo.json` / `plugins.json` URL'sini tek tıkla ekleyebilir/çıkarabilir.
+
+### 3. Çok Katmanlı Akıllı Domain Keşfi & İmza Doğrulama (`__kekik_domain.py`)
+- Upstream GitHub raw `.kt` dosyaları okuma.
+- **Pattern Probing:** Numaralı domainler (`b.prectv{35..75}.sbs` vb.) paralel taranır.
+- **Telegram Entegrasyonu:** `t.me/s/<channel>` duyuru linkleri regex ile yakalanır.
+- **HTML İmza Doğrulama:** Yanıltıcı/reklam yönlendirmelerine karşı sayfa içeriğinde imza (`jwplayer`, site başlığı) doğrulaması yapılır.
+
+### 4. Sağlayıcı Hata Koruması (Fail-Safe `load_links`)
+- `engine/Plugins/HDFilmCehennemi.py` ve diğer eklentilerdeki çoklu kaynak çözümleme döngüleri `try...except` ve timeout bloklarıyla güçlendirildi.
+- Tek bir alternatif kaynak/player yanıt vermese bile çalışan sağlam linkler (Rapidrame, CloseLoad vb.) API çökmeden (500 almadan) oynatıcıya teslim edilir.
+
+### 5. Akıllı Ses & Altyazı Seçimi & Kategori Gizleme
+- **Varsayılan Gizli:** `Anime`, `Animeler`, `Asya`, `Kore`, `Hint`, `Belgesel` kategorileri ve sağlayıcıları varsayılan olarak gizlendi (Admin'den açılabilir).
+- **Akıllı Oynatma Önceliği:**
+  - 1. Öncelik: Türkçe Dublaj (`isTurkishDub`) -> Altyazısız doğrudan TR ses ile başlar.
+  - 2. Öncelik: İngilizce/Orijinal Ses -> Otomatik olarak Türkçe Altyazıyı (`OpenSub TUR` / `Türkçe Altyazı`) aktif eder.
+  - Failover: Oynatma hatasında çalışan sonraki online kaynağa otomatik geçer.
+
+### 6. Android TV Client (v0.1.22-poc OTA)
+- `client-tv` derlendi (`versionCode: 21`, `versionName: "0.1.22"`, `RELEASE_TAG: "v0.1.22-poc"`).
+- GitHub Release `v0.1.22-poc` oluşturuldu ve APK yüklendi. Cihazlar açılışta OTA bildirimini alacak.
+
+---
 
 **Durum: Docker'da uçtan uca doğrulandı. w.evaitec.com ✅. Android client v0.1.20 OTA.**
 Dıştan (telefon yolu) tutarlı: **movie 20 · serie 68 · serie_foreign 10 · live 0** (2x aynı).
