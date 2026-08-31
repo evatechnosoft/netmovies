@@ -32,6 +32,14 @@ DEFAULT_CONFIG: dict = {
     # kullanılır. Doluysa tüm cihazlar (telefon/Mibox/PC) bu sağlayıcıyı görür —
     # 200+ eklenti + CF/domain bakımı upstream'de. Bedeli: istekler o sunucudan geçer.
     "provider_url": "",
+    # CloudStream benzeri özel GitHub / harici eklenti repoları
+    "custom_repos": [
+        {
+            "name": "Kekik-cloudstream (Resmi)",
+            "url": "https://raw.githubusercontent.com/keyiflerolsun/Kekik-cloudstream/master/repo.json",
+            "enabled": True,
+        }
+    ],
 }
 
 
@@ -41,6 +49,7 @@ def _normalize(cfg: dict) -> dict:
     out["hidden_providers"]  = list(dict.fromkeys(out.get("hidden_providers") or []))
     out["hidden_categories"] = list(dict.fromkeys(out.get("hidden_categories") or []))
     out["featured"]          = out.get("featured") or []
+    out["custom_repos"]      = out.get("custom_repos") or list(DEFAULT_CONFIG["custom_repos"])
     try:
         out["min_rating"] = float(out.get("min_rating") or 0.0)
     except (TypeError, ValueError):

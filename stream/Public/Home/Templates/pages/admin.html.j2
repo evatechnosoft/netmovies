@@ -56,6 +56,17 @@
         <span id="admin-provider-status" class="admin-muted"></span>
     </section>
 
+    <!-- Eklenti Repoları (GitHub / CloudStream) -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fab fa-github"></i> Eklenti Havuzları (CloudStream / GitHub)</h2>
+        <p class="admin-card-sub">CloudStream formatındaki eklenti havuzlarını (repo.json) ekleyebilir, havuzdaki eklentileri doğrudan görüntüleyebilirsiniz.</p>
+        <div class="admin-rating-row" style="margin-bottom: .8rem;">
+            <input type="url" id="admin-repo-url" placeholder="https://raw.githubusercontent.com/keyiflerolsun/Kekik-cloudstream/master/repo.json" style="flex:1; min-width:0;">
+            <button type="button" class="button button-secondary" id="admin-repo-add"><i class="fas fa-plus"></i> Repo Ekle</button>
+        </div>
+        <div id="admin-repos-list"></div>
+    </section>
+
     <!-- Kaynaklar -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fas fa-server"></i> Kaynaklar</h2>

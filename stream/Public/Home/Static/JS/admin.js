@@ -165,12 +165,14 @@ async function init() {
     renderRating();
     renderProviderUrl();
     loadHealth();
+    loadRepos();
 
     $("#admin-min-rating").addEventListener("input", (e) => {
         $("#admin-min-rating-val").textContent = e.target.value;
     });
     $("#admin-save").addEventListener("click", save);
     $("#admin-health-refresh").addEventListener("click", () => loadHealth(true));
+    $("#admin-repo-add")?.addEventListener("click", addRepo);
 
     $("#admin-provider-watchbuddy")?.addEventListener("click", () => {
         // NOT: kök adres (/api/v1 EKLEME) — client uç noktaları kendi ekler.
@@ -181,6 +183,84 @@ async function init() {
         $("#admin-provider-url").value = "";
         $("#admin-provider-status").textContent = "Kaydet + sayfayı yenile → yerel motora döner.";
     });
+}
+
+async function loadRepos() {
+    const box = $("#admin-repos-list");
+    if (!box) return;
+    box.innerHTML = "<p class='admin-muted'>Eklenti havuzları taranıyor…</p>";
+    try {
+        const data = await jget("/api/admin/repos");
+        const repos = (data && data.repos) || [];
+        if (!repos.length) {
+            box.innerHTML = "<p class='admin-muted'>Kayıtlı eklenti havuzu yok.</p>";
+            return;
+        }
+        box.innerHTML = repos.map((r, idx) => {
+            const pluginCount = (r.plugins || []).length;
+            const errBadge = r.error ? `<span style="color:#ef4444; font-size:.8rem;">(${r.error})</span>` : "";
+            const pluginNames = (r.plugins || []).slice(0, 10).map(p => `<span style="background:rgba(255,255,255,.07); padding:2px 6px; border-radius:4px; font-size:.75rem;">${p.name}</span>`).join(" ");
+            const moreBadge = pluginCount > 10 ? `<span style="color:var(--muted); font-size:.75rem;">+${pluginCount - 10} eklenti daha</span>` : "";
+
+            return `<div class="admin-card" style="margin-bottom:.5rem; padding:.8rem 1rem; background:rgba(255,255,255,.02);">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:.8rem;">
+                    <div>
+                        <strong>${r.name}</strong> ${errBadge}
+                        <div style="color:var(--muted); font-size:.78rem; word-break:break-all;">${r.url}</div>
+                    </div>
+                    <button type="button" class="button button-secondary" data-remove-repo="${idx}"><i class="fas fa-trash"></i></button>
+                </div>
+                <div style="margin-top:.6rem; display:flex; flex-wrap:wrap; gap:.35rem; align-items:center;">
+                    ${pluginNames} ${moreBadge}
+                </div>
+            </div>`;
+        }).join("");
+
+        box.querySelectorAll("[data-remove-repo]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const idx = Number(btn.dataset.removeRepo);
+                const currentRepos = (CONFIG.custom_repos || []);
+                currentRepos.splice(idx, 1);
+                await fetch("/api/admin/repos", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ repos: currentRepos }),
+                });
+                CONFIG.custom_repos = currentRepos;
+                loadRepos();
+            });
+        });
+    } catch {
+        box.innerHTML = "<p class='admin-muted'>Eklenti havuzları yüklenemedi.</p>";
+    }
+}
+
+async function addRepo() {
+    const input = $("#admin-repo-url");
+    let url = (input?.value || "").trim();
+    if (!url) return;
+    
+    // GitHub repo linki verildiğinde otomatik raw repo.json adresine çevir
+    if (url.includes("github.com") && !url.includes("raw.githubusercontent.com")) {
+        url = url.replace("github.com", "raw.githubusercontent.com").replace(/\/$/, "") + "/master/repo.json";
+    }
+
+    const currentRepos = CONFIG.custom_repos || [];
+    currentRepos.push({
+        name: url.split("/")[4] || "Özel Repo",
+        url: url,
+        enabled: true,
+    });
+
+    await fetch("/api/admin/repos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repos: currentRepos }),
+    });
+
+    CONFIG.custom_repos = currentRepos;
+    if (input) input.value = "";
+    loadRepos();
 }
 
 init();

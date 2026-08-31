@@ -33,7 +33,10 @@ except Exception:  # farklı yükleme yolları için yedek
 _MAIN_URL = discover_main_url(
     "RecTV/src/main/kotlin/com/keyiflerolsun/RecTV.kt",
     "https://b.prectv38.sbs",
-    "RECTV_URL",
+    env_var="RECTV_URL",
+    pattern="https://b.prectv{n}.sbs",
+    pattern_range=(35, 75),
+    telegram_channel="rectvofficial",
 )
 _SW_KEY   = os.getenv("RECTV_SW_KEY") or "4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 

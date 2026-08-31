@@ -120,3 +120,56 @@ async def admin_health(request: Request):
         return JSONResponse({"ok": True, "mode": "local", "result": result})
     except Exception as hata:
         return JSONResponse(status_code=502, content={"ok": False, "error": str(hata)})
+
+
+# --------------------------------------------------------------------------- Eklenti Repoları (GitHub / CloudStream)
+@home_router.get("/api/admin/repos")
+async def admin_get_repos():
+    """Kayıtlı eklenti repolarını ve eklentilerini döndürür."""
+    import httpx
+    cfg   = admin_config.load_config()
+    repos = cfg.get("custom_repos", [])
+    
+    results = []
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for r in repos:
+            url = r.get("url", "").strip()
+            item = {"name": r.get("name", "Bilinmeyen Repo"), "url": url, "enabled": r.get("enabled", True), "plugins": [], "error": None}
+            if not url:
+                continue
+            try:
+                # repo.json veya plugins.json
+                res = await client.get(url)
+                if res.status_code == 200:
+                    data = res.json()
+                    # repo.json ise pluginLists'e bak
+                    if isinstance(data, dict) and "pluginLists" in data:
+                        plist_url = data["pluginLists"][0]
+                        plist_res = await client.get(plist_url)
+                        if plist_res.status_code == 200:
+                            data = plist_res.json()
+                    
+                    if isinstance(data, list):
+                        item["plugins"] = [{"name": p.get("name"), "version": p.get("version"), "authors": p.get("authors", []), "description": p.get("description", "")} for p in data]
+                else:
+                    item["error"] = f"HTTP {res.status_code}"
+            except Exception as exc:
+                item["error"] = str(exc)
+            results.append(item)
+            
+    return JSONResponse({"ok": True, "repos": results})
+
+
+@home_router.post("/api/admin/repos")
+async def admin_save_repos(request: Request):
+    """Repo listesini günceller."""
+    try:
+        body = await request.json()
+        repos = body.get("repos", [])
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
+        
+    cfg = admin_config.load_config()
+    cfg["custom_repos"] = repos
+    admin_config.save_config(cfg)
+    return JSONResponse({"ok": True, "custom_repos": cfg["custom_repos"]})
