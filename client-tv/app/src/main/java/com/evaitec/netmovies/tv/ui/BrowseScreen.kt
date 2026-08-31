@@ -67,11 +67,29 @@ private fun decode(s: String): String =
 // Tek ekran, derin sayfa nav yok (Geri: grid → kategori listesi → çık).
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
+fun BrowseScreen(
+    showVault: Boolean = false,
+    onSelect: (MediaItem) -> Unit,
+    onBack: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
-    var plugins by remember { mutableStateOf<List<PluginInfo>>(emptyList()) }
+    var rawPlugins by remember { mutableStateOf<List<PluginInfo>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    val isAdultPlugin = { name: String ->
+        val n = name.lowercase()
+        n.contains("porner") || n.contains("porn") || n.contains("spank") ||
+        n.contains("hamster") || n.contains("oxax") || n.contains("maza")
+    }
+
+    val plugins = remember(rawPlugins, showVault) {
+        if (showVault) {
+            rawPlugins
+        } else {
+            rawPlugins.filter { !isAdultPlugin(it.name) }
+        }
+    }
 
     // Seçilen kategori / arama sonucu görünümü (null → kategori listesi).
     var catItems by remember { mutableStateOf<List<MediaItem>?>(null) }
@@ -81,7 +99,7 @@ fun BrowseScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
 
     LaunchedEffect(Unit) {
         try {
-            plugins = Network.api.getAllPlugins().result
+            rawPlugins = Network.api.getAllPlugins().result
             loading = false
         } catch (e: Exception) {
             error = e.message ?: "Eklentiler yüklenemedi"

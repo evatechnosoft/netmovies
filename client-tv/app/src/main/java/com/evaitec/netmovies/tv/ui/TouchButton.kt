@@ -1,7 +1,8 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -15,16 +16,22 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
 // Hem DOKUNMATİK (telefon) hem D-pad (TV) ile çalışan buton.
-// androidx.tv.material3.Button TV/D-pad odaklıydı → telefonda tıklanmıyordu.
-// foundation clickable her ikisini de destekler; focusable ile TV'de de seçilir.
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun TouchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TouchButton(
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.primary)
-            .clickable { onClick() }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .focusable()
             .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {

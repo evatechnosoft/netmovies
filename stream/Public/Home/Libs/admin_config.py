@@ -19,20 +19,30 @@ _LOCK = threading.Lock()
 _DEFAULT_PATH = "/data/admin.json" if Path("/data").is_dir() else "admin.json"
 _CONFIG_PATH  = Path(os.getenv("ADMIN_CONFIG_PATH", _DEFAULT_PATH))
 
-# Kullanıcı "Asya izlemeyeceğim" dedi → varsayılan gizli kategoriler.
+ADULT_PROVIDERS = [
+    "HQPorner", "SpankBang", "FullPorner", "PornHub",
+    "xHamster", "OxAx", "UncutMaza",
+]
+
+# Kullanıcı "Asya ve 18+ normalde gizli olsun" dedi → varsayılan gizli kategoriler.
 DEFAULT_CONFIG: dict = {
     "hidden_providers": [
         "AnimeciX", "TurkAnime", "DiziKorea", "AsyaFanatiklerim",
         "Animeler", "Animely", "AnimPow", "Anizium", "AsyaAnimeleri",
         "AsyaMinik", "AsyaWatch", "DiziAsia", "DiziAsya", "DramaDizilerim",
         "KoreanTurk", "OpenAnime", "TrAnimeIzle", "WebDramaTurkey",
+        *ADULT_PROVIDERS,
     ],
     "hidden_categories": [
         "Asya Dizileri", "Asya", "Animeler", "Anime", "Kore Dizileri", "Kore",
         "Hint Dizileri", "Hint", "Belgeseller", "Belgesel", "Asya Animeleri",
+        "18+", "Adult", "NSFW", "Porn",
     ],
     "featured": [],      # [{provider, url, title, poster, rating}]
     "min_rating": 0.0,
+    "vault_alias": "Özel Koleksiyon",
+    "vault_pin": "",     # Gizli kasa PIN kodu (opsiyonel)
+    "adult_providers": list(ADULT_PROVIDERS),
     # Uzak KekikStreamAPI "geniş katalog" sağlayıcısı (opsiyonel). Boşsa yerel motor
     # kullanılır. Doluysa tüm cihazlar (telefon/Mibox/PC) bu sağlayıcıyı görür —
     # 200+ eklenti + CF/domain bakımı upstream'de. Bedeli: istekler o sunucudan geçer.
@@ -64,6 +74,9 @@ def _normalize(cfg: dict) -> dict:
         out["min_rating"] = float(out.get("min_rating") or 0.0)
     except (TypeError, ValueError):
         out["min_rating"] = 0.0
+    out["vault_alias"]       = str(out.get("vault_alias") or "Özel Koleksiyon")
+    out["vault_pin"]         = str(out.get("vault_pin") or "")
+    out["adult_providers"]   = list(out.get("adult_providers") or list(DEFAULT_CONFIG["adult_providers"]))
     # provider_url: normalize (strip, protokol ekle). Boş bırakılabilir → yerel motor.
     _pu = str(out.get("provider_url") or "").strip().rstrip("/")
     if _pu and not _pu.startswith(("http://", "https://")):

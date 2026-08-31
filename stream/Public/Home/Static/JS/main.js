@@ -133,6 +133,71 @@ const setupImageFallback = () => {
     }, true);
 };
 
+// ── Secret Vault (Özel Koleksiyon) Gesture & Activation ──
+const setupSecretVault = () => {
+    let clickCount = 0;
+    let clickTimer = null;
+    let pressTimer = null;
+
+    const showVaultToast = (msg, isSuccess = true) => {
+        let toast = document.getElementById('vault-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'vault-toast';
+            toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(20,18,30,0.95);color:#fff;padding:12px 24px;border-radius:12px;border:1px solid rgba(139,92,246,0.5);box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:99999;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px);transition:opacity 0.3s;';
+            document.body.appendChild(toast);
+        }
+        toast.innerHTML = `<i class="fas ${isSuccess ? 'fa-unlock-alt' : 'fa-lock'}" style="color:${isSuccess ? '#10b981' : '#f59e0b'}"></i> ${msg}`;
+        toast.style.opacity = '1';
+        setTimeout(() => { if (toast) toast.style.opacity = '0'; }, 3500);
+    };
+
+    const toggleVault = () => {
+        const isUnlocked = sessionStorage.getItem('netmovies_vault') === '1';
+        if (isUnlocked) {
+            sessionStorage.removeItem('netmovies_vault');
+            showVaultToast('Özel Koleksiyon Kilitlendi 🔒', false);
+            window.dispatchEvent(new CustomEvent('vault:changed', { detail: { unlocked: false } }));
+        } else {
+            sessionStorage.setItem('netmovies_vault', '1');
+            showVaultToast('Özel Koleksiyon Kilidi Açıldı! 🔓', true);
+            window.dispatchEvent(new CustomEvent('vault:changed', { detail: { unlocked: true } }));
+        }
+    };
+
+    // 1. Logo / Favori 5x hızlı tıklama veya 3sn uzun basma
+    const logo = document.querySelector('.logo') || document.querySelector('.header-brand');
+    if (logo) {
+        logo.addEventListener('click', (e) => {
+            clickCount++;
+            clearTimeout(clickTimer);
+            if (clickCount >= 5) {
+                e.preventDefault();
+                clickCount = 0;
+                toggleVault();
+            } else {
+                clickTimer = setTimeout(() => { clickCount = 0; }, 1500);
+            }
+        });
+
+        const startPress = () => {
+            pressTimer = setTimeout(() => {
+                toggleVault();
+            }, 2500);
+        };
+        const cancelPress = () => {
+            clearTimeout(pressTimer);
+        };
+
+        logo.addEventListener('mousedown', startPress);
+        logo.addEventListener('mouseup', cancelPress);
+        logo.addEventListener('mouseleave', cancelPress);
+        logo.addEventListener('touchstart', startPress, { passive: true });
+        logo.addEventListener('touchend', cancelPress);
+        logo.addEventListener('touchcancel', cancelPress);
+    }
+};
+
 // ── Init ──
 ready(() => {
     bootstrapI18n();
@@ -141,6 +206,7 @@ ready(() => {
     setupHeaderScroll();
     setupLanguageSwitch();
     setupImageFallback();
+    setupSecretVault();
 
     // Apply stored lang or default translations
     try {
