@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
                         var showBrowse by remember { mutableStateOf(false) }
                         var browseVaultMode by remember { mutableStateOf(false) }
                         var showVault by remember { mutableStateOf(false) }
+                        var mouseMode by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
@@ -85,10 +86,17 @@ class MainActivity : ComponentActivity() {
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         showVault = showVault,
                                         onToggleVault = { showVault = !showVault },
+                                        onToggleMouseMode = { mouseMode = !mouseMode },
                                         library = library,
                                     )
                                 }
                         }
+
+                        // Sanal Fare İmleci Katmanı (Mouse Mode)
+                        com.evaitec.netmovies.tv.ui.VirtualMouseOverlay(
+                            active = mouseMode,
+                            onToggle = { mouseMode = !mouseMode }
+                        )
                     }
                 }
             }

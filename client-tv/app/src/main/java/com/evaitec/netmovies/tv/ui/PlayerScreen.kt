@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -181,6 +182,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             RemoteAction.OPEN_SETTINGS -> showSettings = true
             RemoteAction.SHOW_CONTROLS -> flashControls()
             RemoteAction.TOGGLE_SCRUB -> enterScrub()
+            RemoteAction.TOGGLE_MOUSE_MODE -> Unit
             RemoteAction.BACK -> onBack()
         }
     }
@@ -226,7 +228,12 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
-                error = e.message ?: "Oynatma hatası (${e.errorCodeName})"
+                // Otomatik Alternatif Kaynak Geçişi (Auto Failover)
+                if (links.size > currentLinkIndex + 1) {
+                    currentLinkIndex++
+                } else {
+                    error = e.message ?: "Oynatma hatası (${e.errorCodeName})"
+                }
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
         }
@@ -243,10 +250,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
     var currentEpIndex by remember { mutableIntStateOf(0) }
 
-    // Kaynak listesini çek (film veya dizi bölümü).
+    // Kaynak listesini çek: Seçili sağlayıcı + alternatif sağlayıcılardan topla
     LaunchedEffect(item.url, currentEpIndex, retryKey) {
         error = null
         ready = false
+        val allSources = mutableListOf<StreamLink>()
+
+        // 1. Seçili sağlayıcıdan çek
         try {
             var targetUrl = item.url
             var resp = Network.api.loadLinks(item.plugin, targetUrl)
@@ -263,12 +273,50 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     }
                 } catch (_: Exception) {}
             }
-            if (resp.result.isEmpty()) { error = "Oynatılacak kaynak bulunamadı"; return@LaunchedEffect }
-            links = resp.result
-            currentLinkIndex = 0
-        } catch (e: Exception) {
-            error = e.message ?: "Bağlantı hatası"
+            resp.result.forEach { l ->
+                val epText = episodes.getOrNull(currentEpIndex)?.title?.let { " · $it" } ?: ""
+                allSources.add(l.copy(name = "${item.plugin} · ${l.name.ifBlank { "Oynatıcı" }}$epText"))
+            }
+        } catch (_: Exception) {}
+
+        // 2. Akıllı Sağlayıcı & Alternatif Arama (Diğer tüm sağlayıcılarda aynı başlığı ara ve topla)
+        val cleanTitle = item.title
+            ?.replace(Regex("(?i)izle|1080p|hd|türkçe|dublaj|altyazı|dizisi"), "")
+            ?.trim() ?: ""
+        if (cleanTitle.isNotBlank()) {
+            val candidatePlugins = listOf("DiziYou", "DiziMom", "DiziBox", "Dizilla", "HDFilmCehennemi", "RecTV")
+                .filter { it != item.plugin }
+            for (p in candidatePlugins) {
+                try {
+                    val searchResp = Network.api.search(p, cleanTitle)
+                    val match = searchResp.result.firstOrNull {
+                        it.title?.contains(cleanTitle, ignoreCase = true) == true ||
+                        cleanTitle.contains(it.title ?: "", ignoreCase = true)
+                    } ?: searchResp.result.firstOrNull()
+                    if (match != null) {
+                        var pTargetUrl = match.url
+                        val pInfo = runCatching { Network.api.loadItem(p, match.url) }.getOrNull()
+                        val pEps = pInfo?.result?.episodes ?: emptyList()
+                        if (pEps.isNotEmpty()) {
+                            if (episodes.isEmpty()) episodes = pEps
+                            val pEp = pEps.getOrNull(currentEpIndex) ?: pEps.first()
+                            pTargetUrl = pEp.url
+                        }
+                        val pLinks = runCatching { Network.api.loadLinks(p, pTargetUrl) }.getOrNull()?.result ?: emptyList()
+                        pLinks.forEach { pl ->
+                            allSources.add(pl.copy(name = "$p · ${pl.name.ifBlank { "Alternatif" }}"))
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
         }
+
+        if (allSources.isEmpty()) {
+            error = "Oynatılacak kaynak bulunamadı"
+            return@LaunchedEffect
+        }
+        links = allSources
+        currentLinkIndex = 0
     }
 
     // Seçili kaynağı hazırla.
@@ -420,12 +468,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             SettingsPanel(
                 links = links,
                 currentLinkIndex = currentLinkIndex,
+                episodes = episodes,
+                currentEpIndex = currentEpIndex,
                 tracks = tracks,
                 speed = speed,
                 panelFocus = panelFocus,
                 isFavorite = library.isFavorite(item),
                 onToggleFavorite = { library.toggleFavorite(item) },
                 onSelectSource = { idx -> currentLinkIndex = idx; showSettings = false },
+                onSelectEpisode = { epIdx -> currentEpIndex = epIdx; showSettings = false },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
                         .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
@@ -666,12 +717,15 @@ private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) 
 private fun SettingsPanel(
     links: List<StreamLink>,
     currentLinkIndex: Int,
+    episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem> = emptyList(),
+    currentEpIndex: Int = 0,
     tracks: Tracks?,
     speed: Float,
     panelFocus: FocusRequester,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onSelectSource: (Int) -> Unit,
+    onSelectEpisode: (Int) -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
     onSelectSpeed: (Float) -> Unit,
@@ -685,8 +739,9 @@ private fun SettingsPanel(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .width(320.dp)
+            .width(340.dp)
             .background(Color(0xF20F0F14))
+            .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
             .focusRequester(panelFocus)
             .focusGroup()
             .padding(20.dp),
@@ -695,14 +750,23 @@ private fun SettingsPanel(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            SectionTitle("Kaynak")
+            SectionTitle("📺 Sağlayıcı & Kaynak")
             if (links.isEmpty()) MutedRow("—")
             links.forEachIndexed { idx, link ->
                 SettingRow(link.name.ifBlank { "Kaynak ${idx + 1}" }, idx == currentLinkIndex) { onSelectSource(idx) }
             }
 
+            if (episodes.isNotEmpty()) {
+                SectionTitle("📑 Bölümler (${episodes.size})")
+                episodes.forEachIndexed { idx, ep ->
+                    SettingRow(ep.title ?: "Bölüm ${idx + 1}", idx == currentEpIndex) {
+                        onSelectEpisode(idx)
+                    }
+                }
+            }
+
             if (audioGroups.isNotEmpty()) {
-                SectionTitle("Dil (Ses)")
+                SectionTitle("🔊 Ses Dili")
                 audioGroups.forEach { group ->
                     for (i in 0 until group.length) {
                         val fmt = group.getTrackFormat(i)
@@ -714,7 +778,7 @@ private fun SettingsPanel(
             }
 
             if (textGroups.isNotEmpty()) {
-                SectionTitle("Altyazı")
+                SectionTitle("💬 Altyazı")
                 SettingRow("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
                 textGroups.forEach { group ->
                     for (i in 0 until group.length) {
@@ -726,12 +790,12 @@ private fun SettingsPanel(
                 }
             }
 
-            SectionTitle("Hız")
+            SectionTitle("⚡ Hız")
             SPEEDS.forEach { s ->
                 SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
             }
 
-            SectionTitle("Kitaplık")
+            SectionTitle("⭐ Kitaplık")
             SettingRow(
                 if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
                 isFavorite,
@@ -739,7 +803,7 @@ private fun SettingsPanel(
             )
 
             androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
-            SettingRow("Kapat", false, onClose)
+            SettingRow("✕ Kapat", false, onClose)
         }
     }
 }
@@ -751,6 +815,7 @@ private fun SectionTitle(text: String) {
         text = text,
         color = Color(0xFF8B5CF6),
         fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
         modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
     )
 }
@@ -764,18 +829,26 @@ private fun MutedRow(text: String) {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) Color(0x338B5CF6) else Color(0x00000000))
+            .background(if (isFocused) Color(0xFF8B5CF6) else if (selected) Color(0x338B5CF6) else Color(0xFF1E1A2B))
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = if (isFocused) Color.White else Color(0x228B5CF6),
+                shape = RoundedCornerShape(8.dp)
+            )
             .clickable { onClick() }
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Text(
             text = (if (selected) "● " else "   ") + label,
-            color = if (selected) Color(0xFFEDEDF2) else Color(0xCCEDEDF2),
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isFocused) Color.White else if (selected) Color(0xFFEDEDF2) else Color(0xCCEDEDF2),
+            fontWeight = if (isFocused || selected) FontWeight.SemiBold else FontWeight.Normal,
         )
     }
 }
@@ -798,10 +871,15 @@ private fun PlayerOverlay(
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xEE161320))
+                .border(1.dp, Color(0xFF8B5CF6), RoundedCornerShape(16.dp))
+                .padding(28.dp),
         ) {
-            Text(title)
-            Text(message)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF8B5CF6))
+            Text(message, color = Color(0xCCEDEDF2), fontSize = 14.sp)
             ActionRow(onAction = onAction, actionLabel = actionLabel, onBack = onBack)
         }
     }
@@ -810,8 +888,12 @@ private fun PlayerOverlay(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ActionRow(onAction: () -> Unit, actionLabel: String, onBack: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        TouchButton(actionLabel, onAction)
+    val firstFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        runCatching { firstFocus.requestFocus() }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        TouchButton(actionLabel, onAction, modifier = Modifier.focusRequester(firstFocus), accent = true)
         TouchButton("Geri", onBack)
     }
 }

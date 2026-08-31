@@ -22,6 +22,7 @@ enum class RemoteAction(val id: String, val label: String, val repeatable: Boole
     OPEN_SETTINGS("settings", "Ayarlar (çark)"),
     SHOW_CONTROLS("controls", "Kontrolleri Göster"),
     TOGGLE_SCRUB("scrub", "Önizleme / Scrub"),
+    TOGGLE_MOUSE_MODE("mouse_mode", "🖱 Sanal Fare (Mouse)"),
     BACK("back", "Geri / Çık");
 
     companion object {

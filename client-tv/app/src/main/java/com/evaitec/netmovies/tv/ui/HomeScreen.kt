@@ -102,6 +102,7 @@ fun HomeScreen(
     onOpenVault: () -> Unit,
     showVault: Boolean,
     onToggleVault: () -> Unit,
+    onToggleMouseMode: () -> Unit = {},
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -114,14 +115,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
+                CategoryRows(emptyList(), library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
+                CategoryRows(s.items, library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
             }
         }
     }
@@ -138,6 +139,7 @@ private fun CategoryRows(
     onOpenVault: () -> Unit,
     showVault: Boolean,
     onToggleVault: () -> Unit,
+    onToggleMouseMode: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -183,6 +185,7 @@ private fun CategoryRows(
                     )
                     TvTopBarButton("🔎 Gözat", onClick = onOpenBrowse, onLongClick = onToggleVault)
                     TvTopBarButton("⚙ Buton Eşleme", onClick = onOpenKeyMap)
+                    TvTopBarButton("🖱 Fare Modu", onClick = onToggleMouseMode)
                     if (showVault) {
                         TvTopBarButton("🔒 Özel Koleksiyon", onClick = onOpenVault, onLongClick = onToggleVault)
                     }
