@@ -1,23 +1,42 @@
 # NetMovies — Oturum Devri (HANDOFF)
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
-# NetMovies Projesi Handoff & Durum Raporu
 
 **Tarih:** 31 Ağustos 2026  
-**Aktif Sürüm:** `v0.1.24-poc` (Android TV APK Yayınlandı)  
+**Aktif Sürüm:** `v0.1.26-poc` (Android TV APK Yayınlandı)  
 **Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
 **Yerel API:** `http://192.168.1.185:3310`  
 **GitHub Repo:** `evatechnosoft/netmovies`
 
 ---
 
-## 🎯 v0.1.24-poc ile Çözülen Sorunlar & Yeni Özellikler
+## 🎯 v0.1.26-poc ile Çözülen Sorunlar & Yeni Yetenekler (SON DURUM)
+
+1. **🧹 Üst Çubuk Temizliği & Özel Koleksiyon Alanı (`HomeScreen.kt`)**:
+   - Üstteki büyük `[🖱 Fare Modu]` butonu üst menüden kaldırıldı; `[🔎 Gözat]`, `[⚙ Buton Eşleme]` ve `[🔒 Özel Koleksiyon]` butonları ferah ve net şekilde yerleşti.
+2. **🖱️ Sanal Fare Modu (Virtual Mouse Pointer Mode) (`VirtualMouse.kt` & `HomeScreen.kt`)**:
+   - Büyük butona gerek olmadan: Boş alanda basılı tutarak, `[⚙ Buton Eşleme]` üzerinde basılı tutarak veya `NetMovies` logosuna tıklayarak ekranın ortasında açılır.
+   - **Yön tuşları:** Hassas fare imlecini ekranda gezdirir.
+   - **OK tuşu:** İmlecin altındaki öğeye dokunma/tıklama gönderir.
+   - **Geri tuşu:** Fare modunu kapatır.
+3. **⚡ Çoklu Sağlayıcı & Akıllı Kaynak Toplama (Multi-Provider Aggregation) (`PlayerScreen.kt`)**:
+   - Dizi ve filmler artık tek bir eklentiye bağımlı değil. Başlık arka planda **DiziYou, DiziMom, DiziBox, Dizilla, HDFilmCehennemi, RecTV** üzerinde eşzamanlı taranır ve bulunan tüm aktif linkler tek havuzda (`DiziYou · TR Dublaj`, `DiziMom · 1080p`, `DiziBox · Alternatif` vb.) toplanır.
+4. **🔄 Otomatik Hata Kurtarma & Sağlayıcı Değiştirme (Auto-Failover) (`PlayerScreen.kt`)**:
+   - Oynatıcı 404/410 veya akış hatası aldığında kullanıcıya hata ekranı düşürmeden otomatik olarak sıradaki sağlayıcıya geçer.
+5. **⚙ TV D-Pad ile Tam Odaklanma & Oynatıcı İçi Bölüm/Sağlayıcı Seçimi (`KeyMapScreen.kt`, `TouchButton.kt`, `PlayerScreen.kt`)**:
+   - Hata ekranı ("Tekrar Dene / Geri"), Buton Eşleme ve Ayarlar menüsü mor çerçeveli parlayan TV odaklanma stili (`isFocused`, `FocusRequester`) kazandı.
+   - Oynatıcı Ayarlar menüsünden doğrudan **Sağlayıcı Değiştirme** ve **Bölüm Seçimi** yapılabilir.
+6. **🚀 GitHub Releases OTA Sıralama Düzeltmesi**:
+   - GitHub Releases API `created_at` sırasına göre en güncel commit ile etiketlenerek TV'de anında `v0.1.26-poc` OTA bildiriminin çıkması sağlandı.
+
+---
+
+## 🎯 v0.1.24-poc / v0.1.25-poc Önceki Çözümler
 
 1. **TV Kumanda D-Pad Üst Menü Navigasyonu (`HomeScreen.kt`)**:
    - `[🔎 Gözat]`, `[⚙ Buton Eşleme]` ve `[🔒 Özel Koleksiyon]` butonları ana sayfa raylarının en üstüne `LazyColumn` içine odaklanabilir TV bileşenleri olarak taşındı.
-   - Kumandada yukarı (UP) basıldığında butonlar odak alır; mor parlama (`0xFF8B5CF6`), beyaz odak kenarlığı ve büyüme efekti ile kolayca seçilir.
 2. **Dizi Oynatma ("Daha 17" ve Diğer Diziler) & Bölüm Desteği (`PlayerScreen.kt` & `NetMoviesApi.kt`)**:
-   - Dizi sayfalarına tıklandığında linkin doğrudan video linki olmaması durumunda (`resp.result.isEmpty()`), otomatik olarak `/api/v1/load_item` ile bölüm listesi çözülür ve 1. bölümden oynatma başlar ("tekrar dene geri çıkıyor" hatası giderildi).
+   - Dizi sayfalarına tıklandığında linkin doğrudan video linki olmaması durumunda (`resp.result.isEmpty()`), otomatik olarak `/api/v1/load_item` ile bölüm listesi çözülür ve 1. bölümden oynatma başlar.
 3. **Özel Koleksiyon (18+) Doğrudan Açılış (`BrowseScreen.kt` & `HQPorner.py`)**:
    - "🔒 Özel Koleksiyon" seçildiğinde boş arama yerine doğrudan yetişkin kategorileri (Popüler, 1080p, 4K vb.) ve içerik ızgarası yüklenir. Eklenti başlatma hatası giderildi.
 
