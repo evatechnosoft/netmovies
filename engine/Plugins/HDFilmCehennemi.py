@@ -228,92 +228,91 @@ class HDFilmCehennemi(PluginBase):
                 if not video_id:
                     continue
 
-                api = await self.httpx.get(
-                    f"{self.main_url}/video/{video_id}/",
-                    headers={"Content-Type": "application/json", "X-Requested-With": "fetch"},
-                    # referer plugin main_url'den otomatik gelir
-                )
-                iframe_match = re.search(r'data-src=\\"([^"]+)', api.text)
-                if not iframe_match:
-                    continue
-                iframe = iframe_match.group(1).replace("\\", "")
-                if "?rapidrame_id=" in iframe:
-                    iframe = f"{self.main_url}/playerr/" + iframe.split("?rapidrame_id=")[1]
+                try:
+                    api = await self.httpx.get(
+                        f"{self.main_url}/video/{video_id}/",
+                        headers={"Content-Type": "application/json", "X-Requested-With": "fetch"},
+                        timeout=8.0,
+                    )
+                    iframe_match = re.search(r'data-src=\\"([^"]+)', api.text)
+                    if not iframe_match:
+                        continue
+                    iframe = iframe_match.group(1).replace("\\", "")
+                    if "?rapidrame_id=" in iframe:
+                        iframe = f"{self.main_url}/playerr/" + iframe.split("?rapidrame_id=")[1]
 
-                extracted = await self._invoke_local_source(iframe, f"{source} {lang}".strip())
-                if extracted:
-                    results.append(extracted)
+                    extracted = await self._invoke_local_source(iframe, f"{source} {lang}".strip())
+                    if extracted:
+                        results.append(extracted)
+                except Exception:
+                    continue
 
         return self.deduplicate(results)
 
     async def _invoke_local_source(self, iframe_url: str, source_name: str) -> ExtractResult | None:
-        """Sitenin kendi player scriptinden m3u8 + altyazıları çözer.
+        """Sitenin kendi player scriptinden m3u8 + altyazıları çözer."""
+        try:
+            response = await self.httpx.get(iframe_url, headers={"Referer": f"{self.main_url}/"}, timeout=8.0)
+            html     = response.text
 
-        Site oynatma linkini her istekte yapısı değişen bir JS obfuscation'ı
-        (dc_* fonksiyonları) ardında saklıyor. Sabitleri elle çözmek yerine
-        player script'ini gömülü V8 içinde çalıştırıp jwplayer config'ini alırız
-        (bkz. _js_player.extract_player_config). Eski "file_link=base64" şeması
-        için geriye dönük yedek de korunur.
-        """
-        response = await self.httpx.get(iframe_url, headers={"Referer": f"{self.main_url}/"})
-        html     = response.text
+            # Altyazı/video için göreli URL'ler player origin'ine göre düzeltilir.
+            origin = re.match(r"https?://[^/]+", iframe_url)
+            origin = origin.group(0) if origin else self.main_url
 
-        # Altyazı/video için göreli URL'ler player origin'ine göre düzeltilir.
-        origin = re.match(r"https?://[^/]+", iframe_url)
-        origin = origin.group(0) if origin else self.main_url
+            def _fix(u: str) -> str:
+                if not u:
+                    return u
+                if u.startswith("http"):
+                    return u
+                if u.startswith("//"):
+                    return "https:" + u
+                return origin + ("" if u.startswith("/") else "/") + u
 
-        def _fix(u: str) -> str:
-            if not u:
-                return u
-            if u.startswith("http"):
-                return u
-            if u.startswith("//"):
-                return "https:" + u
-            return origin + ("" if u.startswith("/") else "/") + u
+            video_url: str | None = None
+            subtitles: list[Subtitle] = []
 
-        video_url: str | None = None
-        subtitles: list[Subtitle] = []
-
-        # 1) Birincil yol: sitenin kendi JS'ini V8'de çalıştır
-        config = extract_player_config(html)
-        if config:
-            sources = config.get("sources") or []
-            if sources:
-                first = sources[0]
-                video_url = _fix(first.get("file") or first.get("src") or "")
-            for track in config.get("tracks") or []:
-                if track.get("kind") == "captions" and track.get("file"):
-                    subtitles.append(
-                        Subtitle(
-                            name = track.get("label") or "Altyazı",
-                            url  = _fix(track["file"]),
+            # 1) Birincil yol: sitenin kendi JS'ini V8'de çalıştır
+            config = extract_player_config(html)
+            if config:
+                sources = config.get("sources") or []
+                if sources:
+                    first = sources[0]
+                    video_url = _fix(first.get("file") or first.get("src") or "")
+                for track in config.get("tracks") or []:
+                    if track.get("kind") == "captions" and track.get("file"):
+                        subtitles.append(
+                            Subtitle(
+                                name = track.get("label") or "Altyazı",
+                                url  = _fix(track["file"]),
+                            )
                         )
-                    )
 
-        # 2) Yedek: eski file_link="<base64>" şeması (P.A.C.K.E.R'lı)
-        if not video_url:
-            script = None
-            for m in re.finditer(r"<script[^>]*>(.*?)</script>", html, re.DOTALL):
-                body = m.group(1)
-                if "file_link" in body:
-                    script = body
-                    break
-            if script:
-                if _JSUnpacker.detect(script):
-                    script = _JSUnpacker.unpack(script)
-                link_match = re.search(r'file_link="([^"]+)"', script)
-                if link_match:
-                    try:
-                        video_url = base64.b64decode(link_match.group(1)).decode("utf-8")
-                    except Exception:
-                        video_url = None
+            # 2) Yedek: eski file_link="<base64>" şeması (P.A.C.K.E.R'lı)
+            if not video_url:
+                script = None
+                for m in re.finditer(r"<script[^>]*>(.*?)</script>", html, re.DOTALL):
+                    body = m.group(1)
+                    if "file_link" in body:
+                        script = body
+                        break
+                if script:
+                    if _JSUnpacker.detect(script):
+                        script = _JSUnpacker.unpack(script)
+                    link_match = re.search(r'file_link="([^"]+)"', script)
+                    if link_match:
+                        try:
+                            video_url = base64.b64decode(link_match.group(1)).decode("utf-8")
+                        except Exception:
+                            video_url = None
 
-        if not video_url:
+            if not video_url:
+                return None
+
+            return ExtractResult(
+                name      = f"{self.name} | {source_name}",
+                url       = video_url,
+                referer   = f"{self.main_url}/",
+                subtitles = subtitles,
+            )
+        except Exception:
             return None
-
-        return ExtractResult(
-            name      = f"{self.name} | {source_name}",
-            url       = video_url,
-            referer   = f"{self.main_url}/",
-            subtitles = subtitles,
-        )
