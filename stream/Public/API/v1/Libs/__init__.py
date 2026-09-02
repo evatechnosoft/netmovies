@@ -8,6 +8,21 @@ import asyncio, os, time
 _client  = AsyncClient()
 _default = os.getenv("DEFAULT_PROVIDER_URL", "http://px-webservisler:8596")
 
+
+def _normalize_provider_url(value: str | None, fallback: str = _default) -> str:
+    candidate = (value or "").strip().rstrip("/")
+    return candidate or fallback.strip().rstrip("/")
+
+
+def _active_provider_url() -> str:
+    """Use the same server-wide provider selection as the rendered web UI."""
+    try:
+        from Public.Home.Libs.admin_config import load_config
+
+        return _normalize_provider_url(str(load_config().get("provider_url") or ""))
+    except (ImportError, OSError, TypeError, ValueError):
+        return _normalize_provider_url(None)
+
 def get_client_headers(request: Request) -> dict[str, str]:
     """İstemci kimlik header'larını provider'a taşımak üzere hazırlar."""
     headers    : dict[str, str] = {}
@@ -57,8 +72,8 @@ class ProviderRequestError(Exception):
         self.endpoint    = endpoint
         super().__init__(f"Provider hatası ({status_code}): {endpoint}")
 
-def _cache_key(endpoint: str, params: dict | None) -> str:
-    return f"{endpoint}?{sorted((params or {}).items())}"
+def _cache_key(provider_url: str, endpoint: str, params: dict | None) -> str:
+    return f"{provider_url}|{endpoint}?{sorted((params or {}).items())}"
 
 def _cacheable(endpoint: str, result) -> bool:
     """Boş agregasyon sonucunu CACHE'LEME. Geçici kaynak hatası (timeout) sırasında
@@ -80,6 +95,7 @@ def _prune(cache: dict, max_entries: int):
             cache.pop(key, None)
 
 async def _fetch(
+    provider_url: str,
     endpoint: str,
     params: dict | None,
     timeout: float | None,
@@ -87,7 +103,7 @@ async def _fetch(
 ):
     try:
         headers = client_headers or {}
-        req     = await _client.get(f"{_default}/api/v1{endpoint}", params=params, timeout=timeout, headers=headers)
+        req     = await _client.get(f"{provider_url}/api/v1{endpoint}", params=params, timeout=timeout, headers=headers)
         req.raise_for_status()
         return req.json().get("result")
     except TimeoutException:
@@ -103,8 +119,9 @@ async def fuck_dmca(
     timeout: float | None = 30.0,
     client_headers: dict[str, str] | None = None,
 ):
+    provider_url = _active_provider_url()
     ttl = _CACHE_TTL.get(endpoint)
-    key = _cache_key(endpoint, params)
+    key = _cache_key(provider_url, endpoint, params)
     if ttl:
         entry = _cache.get(key)
         if entry and entry[0] > time.monotonic():
@@ -117,7 +134,7 @@ async def fuck_dmca(
         return await _inflight[inflight_key]
 
     async def _do_fetch():
-        result = await _fetch(endpoint, params, timeout, client_headers)
+        result = await _fetch(provider_url, endpoint, params, timeout, client_headers)
         if ttl and result and _cacheable(endpoint, result):
             _cache[key] = (time.monotonic() + ttl, result)
             _prune(_cache, _CACHE_MAX_ENTRIES)

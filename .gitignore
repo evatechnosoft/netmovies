@@ -48,8 +48,9 @@ stream/Public/Home/Static/**/*.min.css
 engine/Public/Home/Static/**/*.min.js
 engine/Public/Home/Static/**/*.min.css
 
-# admin runtime config (volume)
-data/
+# admin runtime config (volume) — yalnız kökteki ./data (compose mount); köke
+# sabitli, aksi halde client-tv `.../tv/data/` kaynak paketini de gizliyordu.
+/data/
 stream/admin.json
 engine/admin.json
 

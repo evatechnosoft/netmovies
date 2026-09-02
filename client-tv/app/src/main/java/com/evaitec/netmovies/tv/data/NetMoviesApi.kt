@@ -46,6 +46,6 @@ interface NetMoviesApi {
     @GET("api/v1/load_item")
     suspend fun loadItem(
         @Query("plugin") plugin: String,
-        @Query("url", encoded = true) url: String,
+        @Query("encoded_url", encoded = true) url: String,
     ): ItemResponse
 }

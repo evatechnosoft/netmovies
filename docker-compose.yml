@@ -98,7 +98,10 @@ services:
     restart        : unless-stopped
     depends_on:
       engine:
-        condition: service_started
+        # Engine "başladı" değil "sağlıklı" (plugin'ler yüklü, /api/v1/health 200)
+        # olana dek stream beklesin → cold-start'ta gateway'in engine'e erken proxy
+        # yapıp 502 dönmesi biter. Healthcheck engine Dockerfile'ında tanımlı.
+        condition: service_healthy
       doh:
         condition: service_started
     dns:
@@ -115,7 +118,10 @@ services:
       # 4K/yüksek bitrate için proxy segment cache (donmaya karşı)
       SEGMENT_CACHE_MB     : ${SEGMENT_CACHE_MB:-512}
       SEGMENT_DISK_CACHE_MB: ${SEGMENT_DISK_CACHE_MB:-2048}
-      WEB_WORKERS          : ${WEB_WORKERS:-2}
+      # Tek worker: sağlayıcı cache + inflight dedup (bkz. API/v1/Libs/__init__.py)
+      # süreç-içi (in-memory). Çok worker'da her süreç ayrı cache tutar → dedup
+      # işlemez, soğuk çağrılar tekrarlanır. Kişisel kullanım için 1 worker yeterli.
+      WEB_WORKERS          : ${WEB_WORKERS:-1}
       # Kişisel kullanım: auth bilerek KAPALI (kumandayla giriş zahmetsiz olsun).
       # Public erişim istenirse .env'de AUTH_USER/AUTH_PASS doldur + burayı ${AUTH_USER:-} yap.
       AUTH_USER            : ""
