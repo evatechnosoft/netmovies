@@ -3,10 +3,88 @@
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
 
 **Tarih:** 2 Eylül 2026  
-**Aktif Sürüm:** `v0.1.26-poc` (Android TV APK Yayında) / `v0.1.27` (Yerelde derlendi, APK hazır)  
+**Aktif Sürüm:** `v0.1.28-poc` (GitHub Release yayında, OTA erişilebilir)  
 **Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
 **Yerel API:** `http://192.168.1.185:3310`  
-**GitHub Repo:** `evatechnosoft/netmovies`
+**GitHub Repo:** `evatechnosoft/netmovies` · **Dal:** `fix/general-stability`
+
+---
+
+## 🎬 2 Eylül 2026 — Kaynak Onarımı + v0.1.28-poc OTA (EN SON OTURUM)
+
+**Commit'ler (dal: `fix/general-stability`)**
+
+| Commit | Ne |
+|---|---|
+| `595a7c9` | Dizilla oynatma linki çözüldü + ölü domainler gömülü yedeğe alındı |
+| `07ae1ed` | Canlı TV M3UPlaylist'e taşındı, ölü RecTV varsayılan gizlendi |
+| `e543a04` | DiziYou araması WP AJAX ucuna taşındı |
+| `2ec7dd2` | v0.1.28-poc sürüm bump + APK |
+
+### 1. Dizilla — oynatma tamamen kırıktı, düzeldi
+Kök neden **üç katmanlıydı**:
+1. **Oynatıcı iframe HTML'de yok.** `div#playerLsDizilla` sunucudan boş geliyor; kaynaklar
+   `__NEXT_DATA__ → props.pageProps.secureData` içindeki **AES-256-CBC** bloğundan client-side
+   basılıyor. Anahtar arama ucuyla aynı: `base64(sha256(b"!!22xx!!90!!"))[:32]`, IV = 16 sıfır bayt,
+   PKCS#7. → `Dizilla._secure_data()` eklendi, `load_links` bu bloğu çözüyor.
+2. **`source2.php` 403** — token base64 ("+", "/", "=") içeriyor; `params=` ile göndermek
+   yüzde-kodluyor. → ham f-string query string kullanıldı (sitenin kendi JS'i de öyle yapıyor).
+3. **Yine 403** — `PluginBase.httpx` sabit `accept-encoding: gzip, deflate` + `connection: keep-alive`
+   gönderiyor; Cloudflare bunu bot parmak izi sayıyor. → pichive akışı için **düz `httpx.AsyncClient`**
+   (sadece tarayıcı UA) kullanılıyor (`_pichive_sources`).
+
+Ayrıca `h1` metnindeki `"Darknetİzle"` artefaktı temizlendi (`re.sub(r"\s*İzle$", ...)`).
+
+**Kanıt:** `search → 15` · `load_item 'Darknet' → 12 bölüm` · `load_links → 1` ·
+`master.m3u8 → HTTP 200, 6962 B, geçerli #EXTM3U`.
+
+### 2. Ölü domainler — `.env` bağımlılığı kaldırıldı
+Fallback'ler gitignored `.env`'den koda taşındı (temiz kurulumda da çalışsın):
+- `Dizilla.py` → `https://dizilla.now`
+- `DiziMom.py` → `https://www.dizimom.diy` (zincir: `.plus → .work → .food → .diy`; upstream `.kt`
+  hâlâ ölü `.plus`'ı gösterdiği için upstream sonucu bu ailedeyse override ediliyor)
+
+### 3. DiziYou — arama düzeldi
+`/?s=` artık boş kabuk dönüyor. Sonuçlar tema'nın `wp-admin/admin-ajax.php`
+(`action=data_fetch`) ucundan `div#searchelement` kartları olarak geliyor. WARP yedeği eklendi.
+**Kanıt:** `dark` → "Dark", "Dark Desire".
+
+### 4. Canlı TV — RecTV öldü, M3UPlaylist devraldı
+`docker-compose.yml`'de varsayılan: `M3U_SOURCES=https://iptv-org.github.io/iptv/countries/tr.m3u`.
+`admin_config.py → DEFAULT_CONFIG.hidden_providers`'a `"RecTV"` eklendi (silinmedi — yeni adres
+çıkarsa `/admin`'den görünür yapmak yeter).
+**Kanıt:** 174 kanal, örneklenen 20 kanalın 16'sı 200 + `#EXTM3U`; `a haber` → 1 sonuç → oynanabilir
+`.m3u8`; ana sayfada "RecTV" grep → 0.
+
+### 5. Alternatif kaynak araştırması — hepsi ölü (kanıtlandı)
+| Kaynak | Durum |
+|---|---|
+| RecTV | `b.prectv{30..90}.sbs` **NXDOMAIN**, `rectv.me` A kaydı yok, Telegram probe `None` |
+| InatBox | `dizibox.rest` + `boxbc.sbs` NXDOMAIN, upstream son commit 2025-02-23 |
+| SineWix | `ythls.kekikakademi.org` NXDOMAIN |
+| GolgeTV | `panel.cloudgolge.shop` NXDOMAIN |
+| CanliTV | bağımlı repo `keyiflerolsun/IPTV_YenirMi` → GitHub **451** (kaldırılmış) |
+
+→ Yeni tek-API canlı TV kaynağı eklenmedi; M3U listesi bu boşluğu dolduruyor.
+
+### 6. v0.1.28-poc OTA
+`versionCode 27` / `versionName 0.1.28` / `RELEASE_TAG "v0.1.28-poc"`.
+`assembleDebug` → **BUILD SUCCESSFUL (1m 43s)**, APK 19.822.686 B, kökte `NetMovies-TV-v0.1.28.apk`.
+Release doğrulaması uygulamanın kullandığı API yolundan: `tag_name: v0.1.28-poc`, `draft: false`,
+asset `state: uploaded`.
+
+### ⚠ Doğrulanmadı / açık
+- **TV cihazında OTA indirme + kurulum ve Faz 2 tema görünümü test edilmedi.**
+- Oynatıcı hata ekranında **GERİ tuşu** düzeltmesi hâlâ cihazda denenmedi.
+- `/admin` parolası internete açık tünelde `1234` — Dean şimdilik kabul etti.
+
+### 🔁 Tekrar düşülen tuzaklar (bir daha düşme)
+- **`stream`/`engine` Python kodu imaja gömülü.** `restart` ve `--force-recreate` kaynak değişikliğini
+  ALMAZ — sadece `up -d --build <svc>`. Bu oturumdaki 1 numaralı kök neden buydu.
+- `cloudflared` netns'i `stream`'e pinli → `stream` recreate edilirse `cloudflared` de edilmeli.
+- `docker exec ... python3 /tmp/x.py` Windows'ta path-mangle olur → **`//tmp/x.py`** yaz.
+- Karmaşık regex'ler `python -c` içinde Git Bash escaping'inde kırılır → script dosyası yaz + `docker cp`.
+- Arama testinde **kötü sorgu ≠ bozuk kaynak**: `kara` hiçbir sitede eşleşmiyor; `dark`/`breaking` kullan.
 
 ---
 
