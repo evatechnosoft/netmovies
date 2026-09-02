@@ -16,6 +16,9 @@
 @import url('./components/effects.min.css');
 @import url('./pages/detail.min.css');
 @import url('./pages/player.min.css');
+@import url('./pages/official_player.min.css');
+@import url('./pages/home.min.css');
+@import url('./pages/admin.min.css');
 @import url('./components/similar.min.css');
 @import url('./components/features.min.css');
 @import url('./base/responsive.min.css');

@@ -156,6 +156,9 @@ private fun CategoryRows(
 
     // Poster uzun-bas menüsü.
     var menuItem by remember { mutableStateOf<MediaItem?>(null) }
+    
+    // Ayarlar menüsü durumu
+    var showSettingsMenu by remember { mutableStateOf(false) }
 
     // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
     val firstFocus = remember { FocusRequester() }
@@ -198,11 +201,12 @@ private fun CategoryRows(
                                 onLongClick = onToggleMouseMode,
                             ),
                     )
-                    TvTopBarButton("🔎 Gözat", onClick = onOpenBrowse, onLongClick = onToggleVault)
-                    TvTopBarButton("⚙ Buton Eşleme", onClick = onOpenKeyMap, onLongClick = onToggleMouseMode)
-                    if (showVault) {
-                        TvTopBarButton("🔒 Özel Koleksiyon", onClick = onOpenVault, onLongClick = onToggleVault)
-                    }
+                    HomeSearchBarButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = onOpenBrowse,
+                        onLongClick = onToggleVault
+                    )
+                    TvTopBarButton("⚙ Ayarlar", onClick = { showSettingsMenu = true }, onLongClick = onToggleMouseMode)
                 }
             }
             sections.forEachIndexed { sIndex, (title, list) ->
@@ -242,6 +246,17 @@ private fun CategoryRows(
                 onPlay = { menuItem = null; onSelect(item) },
                 onToggleFavorite = { library.toggleFavorite(item); menuItem = null },
                 onClose = { menuItem = null },
+            )
+        }
+        
+        if (showSettingsMenu) {
+            SettingsMenu(
+                showVault = showVault,
+                onOpenKeyMap = onOpenKeyMap,
+                onOpenVault = onOpenVault,
+                onToggleVault = onToggleVault,
+                onToggleMouseMode = onToggleMouseMode,
+                onClose = { showSettingsMenu = false }
             )
         }
     }
@@ -353,15 +368,22 @@ private fun PosterMenu(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun MenuRow(label: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0x00000000))
+            .background(if (isFocused) Color(0xFF8B5CF6) else Color(0x00000000))
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
-        Text(label)
+        Text(
+            text = label,
+            color = if (isFocused) Color.White else Color(0xFFEDEDF2),
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
@@ -382,5 +404,83 @@ private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text)
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun HomeSearchBarButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.02f else 1.0f, tween(150), label = "searchScale")
+
+    Box(
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isFocused) Color(0xFF322A4A) else Color(0xFF1A1726))
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = if (isFocused) Color(0xFF8B5CF6) else Color(0x338B5CF6),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = "🔎 Film, Dizi veya Tür Ara...",
+            color = if (isFocused) Color.White else Color(0x88EDEDF2),
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsMenu(
+    showVault: Boolean,
+    onOpenKeyMap: () -> Unit,
+    onOpenVault: () -> Unit,
+    onToggleVault: () -> Unit,
+    onToggleMouseMode: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(
+        Modifier.fillMaxSize().background(Color(0xCC000000)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .width(320.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xF20F0F14))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "Ayarlar",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color(0xFF8B5CF6),
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            MenuRow("⚙ Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
+            MenuRow("🖱 Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
+            MenuRow(if (showVault) "👁 Özel Koleksiyonu Gizle" else "👁 Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
+            if (showVault) {
+                MenuRow("🔒 Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
+            }
+            MenuRow("❌ Kapat", onClose)
+        }
     }
 }

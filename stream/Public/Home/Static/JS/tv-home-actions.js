@@ -222,36 +222,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (linkMode) return; // liste sayfası: anchor'ın normal gezinmesi çalışsın
             const item = readItem(card);
-            if (document.body.classList.contains('mouse-mode')) {
-                event.preventDefault();
-                if (item.mediaType === 'serie') {
-                    window.location.href = `/icerik/${encode(item.plugin)}?url=${encode(item.url)}`;
-                } else {
-                    window.location.href = watchUrl(item);
-                }
-                return;
+            // Doğrudan içeriğe git
+            if (card.getAttribute('href')) {
+                return; // anchor normal gezinmeyi yapsın
             }
+            event.preventDefault();
             if (item.mediaType === 'serie') {
-                event.preventDefault();
-                openSeries(item);
+                window.location.href = `/icerik/${encode(item.plugin)}?url=${encode(item.url)}`;
             } else {
-                event.preventDefault();
-                card.focus();
+                window.location.href = watchUrl(item);
             }
         });
         if (!linkMode) {
-            card.addEventListener('dblclick', (event) => {
-                event.preventDefault();
-                const item = readItem(card);
-                if (item.mediaType === 'serie') openSeries(item);
-                else window.location.href = watchUrl(item);
-            });
             card.addEventListener('keydown', (event) => {
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
                 const item = readItem(card);
-                if (item.mediaType === 'serie') openSeries(item);
-                else window.location.href = watchUrl(item);
+                const href = card.getAttribute('href');
+                if (href) {
+                    window.location.href = href;
+                } else if (item.mediaType === 'serie') {
+                    window.location.href = `/icerik/${encode(item.plugin)}?url=${encode(item.url)}`;
+                } else {
+                    window.location.href = watchUrl(item);
+                }
             });
         }
         card.addEventListener('pointerdown', (event) => {

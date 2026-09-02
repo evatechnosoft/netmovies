@@ -2,36 +2,38 @@
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
 
-**Tarih:** 31 Ağustos 2026  
-**Aktif Sürüm:** `v0.1.26-poc` (Android TV APK Yayınlandı)  
+**Tarih:** 1 Eylül 2026  
+**Aktif Sürüm:** `v0.1.26-poc` (Android TV APK Yayında) / `v0.1.27` (Yerelde derlendi, APK hazır)  
 **Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
 **Yerel API:** `http://192.168.1.185:3310`  
 **GitHub Repo:** `evatechnosoft/netmovies`
 
 ---
 
-## 🎯 v0.1.26-poc ile Çözülen Sorunlar & Yeni Yetenekler (SON DURUM)
+## 🎯 1 Eylül 2026 Oturumu — Web Hata Düzeltmeleri, TV UI & Stabilizasyon (SON DURUM)
 
-1. **🧹 Üst Çubuk Temizliği & Özel Koleksiyon Alanı (`HomeScreen.kt`)**:
-   - Üstteki büyük `[🖱 Fare Modu]` butonu üst menüden kaldırıldı; `[🔎 Gözat]`, `[⚙ Buton Eşleme]` ve `[🔒 Özel Koleksiyon]` butonları ferah ve net şekilde yerleşti.
-2. **🖱️ Sanal Fare Modu (Virtual Mouse Pointer Mode) (`VirtualMouse.kt` & `HomeScreen.kt`)**:
-   - Büyük butona gerek olmadan: Boş alanda basılı tutarak, `[⚙ Buton Eşleme]` üzerinde basılı tutarak veya `NetMovies` logosuna tıklayarak ekranın ortasında açılır.
-   - **Yön tuşları:** Hassas fare imlecini ekranda gezdirir.
-   - **OK tuşu:** İmlecin altındaki öğeye dokunma/tıklama gönderir.
-   - **Geri tuşu:** Fare modunu kapatır.
-3. **⚡ Çoklu Sağlayıcı & Akıllı Kaynak Toplama (Multi-Provider Aggregation) (`PlayerScreen.kt`)**:
-   - Dizi ve filmler artık tek bir eklentiye bağımlı değil. Başlık arka planda **DiziYou, DiziMom, DiziBox, Dizilla, HDFilmCehennemi, RecTV** üzerinde eşzamanlı taranır ve bulunan tüm aktif linkler tek havuzda (`DiziYou · TR Dublaj`, `DiziMom · 1080p`, `DiziBox · Alternatif` vb.) toplanır.
-4. **🔄 Otomatik Hata Kurtarma & Sağlayıcı Değiştirme (Auto-Failover) (`PlayerScreen.kt`)**:
-   - Oynatıcı 404/410 veya akış hatası aldığında kullanıcıya hata ekranı düşürmeden otomatik olarak sıradaki sağlayıcıya geçer.
-5. **⚙ TV D-Pad ile Tam Odaklanma & Oynatıcı İçi Bölüm/Sağlayıcı Seçimi (`KeyMapScreen.kt`, `TouchButton.kt`, `PlayerScreen.kt`)**:
-   - Hata ekranı ("Tekrar Dene / Geri"), Buton Eşleme ve Ayarlar menüsü mor çerçeveli parlayan TV odaklanma stili (`isFocused`, `FocusRequester`) kazandı.
-   - Oynatıcı Ayarlar menüsünden doğrudan **Sağlayıcı Değiştirme** ve **Bölüm Seçimi** yapılabilir.
-6. **🚀 GitHub Releases OTA Sıralama Düzeltmesi**:
-   - GitHub Releases API `created_at` sırasına göre en güncel commit ile etiketlenerek TV'de anında `v0.1.26-poc` OTA bildiriminin çıkması sağlandı.
+1. **🛠 `unexpected char '\' at 1028` ve JS/Jinja Kaçış Hatası Giderildi (`category.html.j2`, `home.html.j2`)**:
+   - Resim posterlerindeki TMDB fallback `onerror` satırlarında tek tırnakları kaçırmaya çalışan kırılgan `replace("'", "\\'")` filtreleri temizlendi.
+   - Kartlara doğrudan `data-title="{{ item.title }}"` niteliği eklendi ve JS fallback'i `this.dataset.title` üzerinden hatasız hale getirildi.
+   - `home.html.j2` içindeki `loadLazy` fonksiyonunda tırnak kaçış regex'i sadeleştirilerek parse çökmesi engellendi.
+
+2. **🖱️ Web & Mobil Kart Tıklama Davranışı Düzeltildi (`tv-home-actions.js`)**:
+   - `tv-home-actions.js` dosyasında TV kumandası için tek tıklamayı yutup sadece kartı odaklayan (`preventDefault()`) blok kaldırıldı.
+   - Web ve fareli kullanımda kartlara doğrudan tek tıklandığında film/dizi sayfasına kesintisiz geçiş sağlandı.
+
+3. **🎨 UI & Izgara Yoğunluğu Optimizasyonu (`card.css`, `home.html.j2`, `category.html.j2`)**:
+   - Poster ızgara kart genişliği `110px` boyutuna getirilerek daha sık ve yoğun bir poster görünümü elde edildi.
+   - Uzun başlıklar için `marquee` animasyonu eklendi.
+   - Sayfalardaki mükerrer/gereksiz başlıklar (`breadcrumbs`) temizlendi.
+
+4. **📺 Android TV Client Geliştirmeleri & Derleme (`HomeScreen.kt`)**:
+   - Üst kısma geniş ve modern `HomeSearchBarButton` ("🔎 Film, Dizi veya Tür Ara...") eklendi.
+   - Ayarlar menüsü `SettingsMenu` modal yapısına dönüştürülerek buton eşleme, sanal fare modu ve özel koleksiyon erişimi derlendi.
+   - `./gradlew.bat assembleDebug` ile APK başarıyla üretildi (`app-debug.apk` ~19.99 MB, `BUILD SUCCESSFUL`).
 
 ---
 
-## 🎯 v0.1.24-poc / v0.1.25-poc Önceki Çözümler
+## 🎯 v0.1.26-poc ile Çözülen Sorunlar & Önceki Yetenekler
 
 1. **TV Kumanda D-Pad Üst Menü Navigasyonu (`HomeScreen.kt`)**:
    - `[🔎 Gözat]`, `[⚙ Buton Eşleme]` ve `[🔒 Özel Koleksiyon]` butonları ana sayfa raylarının en üstüne `LazyColumn` içine odaklanabilir TV bileşenleri olarak taşındı.

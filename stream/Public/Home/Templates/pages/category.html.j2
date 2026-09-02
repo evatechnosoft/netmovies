@@ -1,32 +1,17 @@
 {#- Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. -#}
 {% extends "_html_taban.html.j2" %}
 
-{% block breadcrumbs %}
-<nav class="breadcrumbs">
-    <a href="/{{ provider_query if provider_query else '' }}" class="breadcrumbs-link"><i class="fas fa-home"></i> <span class="sr-only" data-i18n="nav_home">{{ tr('nav_home') }}</span></a>
-    <span class="breadcrumbs-sep">/</span>
-    <a href="/eklenti/{{ eklenti_adi }}{{ provider_query }}" class="breadcrumbs-link">{{ eklenti_adi }}</a>
-    <span class="breadcrumbs-sep">/</span>
-    <span class="breadcrumbs-current unquote">{{ kategori_adi }}</span>
-</nav>
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block icerik %}
-<div class="page-header">
-    <div class="page-header-left">
-        <h1 class="page-header-title unquote">{{ kategori_adi }}</h1>
-        <div class="page-header-meta">
-            <a href="/eklenti/{{ eklenti_adi }}{{ provider_query }}" class="badge badge-link"><i class="fas fa-puzzle-piece"></i> {{ eklenti_adi }}</a>
-        </div>
-    </div>
-</div>
+
 
 <div class="grid grid-results">
     {% for item in items %}
     <a href="/icerik/{{ eklenti_adi }}?url={{ item.url }}{{ provider_query_amp }}" class="poster-card card-fade-in tv-focusable" style="animation-delay: {{ loop.index0 * 40 }}ms" aria-label="{{ item.title }}"
        data-tv-item="link" data-plugin="{{ eklenti_adi }}" data-content-url="{{ item.url }}" data-content-title="{{ item.title }}" data-poster="{{ item.poster or '' }}" data-media-type="serie">
         <div class="poster-card-img{% if not item.poster %} has-error{% endif %}">
-            {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="{{ item.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error');this.remove()">{% endif %}
+            {% if item.poster %}<img src="{{ poster(item.poster) }}" alt="{{ item.title }}" data-title="{{ item.title }}" loading="lazy" onerror="if(this.dataset.fb){this.parentElement.classList.add('has-error');this.remove();return;} this.dataset.fb=1; this.src='/tmdb-poster?title=' + encodeURIComponent(this.dataset.title || '');">{% endif %}
         </div>
         <div class="poster-card-overlay"><span class="poster-card-title">{{ item.title }}</span></div>
     </a>

@@ -10,52 +10,7 @@
 {# --- Sinema modu: sadece oynatıcı. Çevre panelleri CSS ile gizlenir; kaynak
    ve harici oynatıcı dişli menüsünden overlay olarak açılır. body.cinema-mode
    kaldırılırsa eski düzen aynen döner (geri-alınabilir). --- #}
-<style>
-  body.cinema-mode { overflow: hidden; background: #000; }
-  body.cinema-mode .header,
-  body.cinema-mode .footer,
-  body.cinema-mode .breadcrumbs,
-  body.cinema-mode .detail-container > .player-header,
-  body.cinema-mode .source-selection,
-  body.cinema-mode .external-player-bar,
-  body.cinema-mode #similar-section,
-  body.cinema-mode .player-controls-section { display: none; }
-  body.cinema-mode .content-shell { padding: 0; max-width: none; }
-  body.cinema-mode .detail-container {
-    position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
-    margin: 0; padding: 0; max-width: none; background: #000;
-  }
-  body.cinema-mode #video-player-container:not(.tv-pip-window),
-  body.cinema-mode #video-player-wrapper {
-    width: 100%; height: 100%; max-width: none; margin: 0; background: #000;
-  }
-  body.cinema-mode #video-player { width: 100%; height: 100%; object-fit: contain; background: #000; }
-  /* Çıkış (geri) — kumanda/imleç için sol üstte küçük düğme */
-  #cinema-back {
-    display: none; position: fixed; top: 12px; left: 12px; z-index: 1200;
-    width: 44px; height: 44px; place-items: center; border-radius: 50%;
-    background: rgba(0,0,0,.6); color: #fff; border: 1px solid var(--glass-edge);
-    opacity: 0; transition: opacity .2s ease;
-  }
-  /* Buton yerinde durur (görünmez, opacity:0) ama sadece SOL-ÜST köşeye fare/odak
-     gelince belirir — film izlerken dikkat dağıtmaz; cihazın geri tuşu esas.
-     Görünmez hover-zone: köşede geniş bir alan butonu ortaya çıkarır. */
-  body.cinema-mode #cinema-back { display: grid; }
-  #cinema-back::before { content: ""; position: absolute; top: -12px; left: -12px; width: 96px; height: 96px; }
-  #cinema-back:hover, #cinema-back:focus-visible,
-  body.cinema-mode[data-cinema-overlay] #cinema-back { opacity: 1; }
-  /* Kaynak / Harici oynatıcı overlay'i (dişliden açılır) */
-  #cinema-overlay-close { display: none; position: fixed; top: 12px; right: 12px; z-index: 1210;
-    width: 44px; height: 44px; place-items: center; border-radius: 50%;
-    background: rgba(0,0,0,.75); color: #fff; border: 1px solid var(--glass-edge); }
-  body.cinema-mode[data-cinema-overlay] #cinema-overlay-close { display: grid; }
-  body.cinema-mode[data-cinema-overlay="source"] .source-selection,
-  body.cinema-mode[data-cinema-overlay="external"] .external-player-bar {
-    display: block !important; position: fixed; inset: 0; z-index: 1100; overflow: auto;
-    padding: max(64px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
-    background: rgba(0,0,0,.94);
-  }
-</style>
+
 
 <button type="button" id="cinema-back" aria-label="Geri" onclick="history.back()"><i class="fas fa-arrow-left"></i></button>
 <button type="button" id="cinema-overlay-close" aria-label="Kapat"><i class="fas fa-times"></i></button>
@@ -87,12 +42,7 @@
         </div>
         <span class="external-player-status" id="external-player-status"></span>
     </div>
-    <style>
-    .external-player-bar { margin-top: .75rem; }
-    .external-player-hint { color: var(--muted, #8b93a1); font-size: .82rem; margin: .25rem 0 .75rem; }
-    .external-player-buttons { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .external-player-status { display: block; margin-top: .5rem; color: var(--muted, #8b93a1); font-size: .82rem; }
-    </style>
+
     <script type="module" src="{{ url_for('static_home', path='JS/external-player.min.js') }}" defer></script>
 
     <div id="video-player-container">
@@ -279,88 +229,7 @@
         </div>
     </div>
 
-    <style>
-    #video-player-container.tv-pip-window {
-        position: fixed;
-        right: 18px;
-        bottom: 18px;
-        z-index: 1500;
-        margin: 0;
-        border: 2px solid var(--primary-color);
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
-    }
-    #video-player-container.tv-pip-window #video-player-wrapper { aspect-ratio: 16 / 9; }
-    #video-player-container.tv-pip-size-1 { width: min(240px, calc(100vw - 28px)); }
-    #video-player-container.tv-pip-size-2 { width: min(360px, calc(100vw - 28px)); }
-    #video-player-container.tv-pip-size-3 { width: min(480px, calc(100vw - 28px)); }
-    #video-player-container.tv-pip-size-4 { width: min(640px, calc(100vw - 28px)); }
-    #video-player-wrapper { position: relative; }
-    /* Keep every essential control reachable in the smallest floating player. */
-    #video-player-container.tv-pip-window .bottom-controls { padding: 0 6px 5px; }
-    #video-player-container.tv-pip-window .control-row,
-    #video-player-container.tv-pip-window .control-group { gap: 0; }
-    #video-player-container.tv-pip-window .ctrl-btn {
-        width: 32px;
-        min-width: 32px;
-        height: 32px;
-        min-height: 32px;
-        font-size: .78rem;
-    }
-    #video-player-container.tv-pip-window .ctrl-label { display: none; }
-    #video-player-container.tv-pip-window .volume-slider { display: none; }
-    #video-player-container.tv-pip-window .time-display {
-        padding: 0 2px;
-        margin-left: 0;
-        font-size: .58rem;
-    }
-    #video-player-container.tv-pip-window #custom-backward,
-    #video-player-container.tv-pip-window #custom-forward { display: none; }
-    #video-player-container.tv-pip-window .progress-container {
-        height: 15px;
-        margin-bottom: 2px;
-    }
-    #video-player-container.tv-pip-window .progress-container::before,
-    #video-player-container.tv-pip-window .progress-bar-fill { height: 3px; }
-    #video-player-container.tv-pip-window .progress-handle { width: 10px; height: 10px; }
-    @media (max-width: 300px) {
-        #video-player-container.tv-pip-window #custom-mute { display: none; }
-        #video-player-container.tv-pip-window .time-display { display: none; }
-    }
-    .player-settings-panel {
-        position: absolute;
-        right: 12px;
-        bottom: 66px;
-        z-index: 20;
-        display: grid;
-        gap: 4px;
-        min-width: 188px;
-        padding: 7px;
-        border: 1px solid var(--glass-edge);
-        border-radius: 12px;
-        background: rgba(22, 18, 39, .97);
-        box-shadow: var(--shadow-strong);
-    }
-    .player-setting-item {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        width: 100%;
-        padding: 9px 10px;
-        border: 0;
-        border-radius: 8px;
-        background: transparent;
-        color: var(--text-color);
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
-    }
-    .player-setting-item:hover, .player-setting-item:focus-visible { background: rgba(139, 92, 246, .18); outline: none; }
-    .player-setting-item i { width: 18px; color: var(--primary-light); text-align: center; }
-    .player-setting-item strong { margin-left: auto; color: var(--primary-light); font-size: .82rem; }
-    .bottom-controls #custom-quality, .bottom-controls #custom-audio, .bottom-controls #custom-cc { display: none !important; }
-    </style>
+
 
     <div id="next-episode-panel" class="player-panel-shell is-hidden"></div>
     <section id="similar-section" class="similar-section"></section>

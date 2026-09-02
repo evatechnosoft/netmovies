@@ -1,0 +1,345 @@
+/* Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır. */
+
+/* Üst bant — ince pill buton nav (cloudstream tarzı, tek satır boydan boya) */
+.quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 8px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  background: var(--surface-glass);
+}
+.qn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  text-decoration: none;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--transition-speed) var(--transition-timing), background-color var(--transition-speed) var(--transition-timing), transform var(--transition-speed-fast) ease;
+}
+.qn-btn i {
+  font-size: .8rem;
+  color: var(--primary-light);
+}
+.qn-btn:hover, .qn-btn:focus-visible {
+  border-color: var(--primary-color);
+  background: var(--primary-soft);
+  outline: none;
+}
+.qn-btn:active {
+  transform: scale(0.96);
+}
+.qn-btn.is-active {
+  background: var(--primary-gradient);
+  border-color: var(--primary-light);
+  color: #fff;
+  box-shadow: var(--shadow-primary-glow-subtle);
+}
+.qn-btn.is-active i {
+  color: #fff;
+}
+.qn-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--glass-edge);
+}
+
+/* Paneller — üstteki buton toggle eder */
+.qn-panels {
+  margin: 0 0 18px;
+}
+.qn-panel {
+  margin: 0 0 12px;
+  padding: 16px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--border-radius-lg);
+  background: var(--glass-panel);
+  box-shadow: var(--shadow-card);
+  animation: fadeIn var(--transition-speed) ease forwards;
+}
+.qn-panel.is-hidden {
+  display: none;
+}
+.qn-panel-head {
+  margin: 0 0 12px;
+}
+.qn-panel-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-color);
+}
+.qn-panel-head h2 i {
+  color: var(--primary-light);
+  margin-right: 8px;
+}
+.qn-empty {
+  color: var(--text-muted);
+  font-size: .9rem;
+  padding: 8px 4px;
+}
+.qn-plugin-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+/* Raf başlığı — sadeleştir (kocaman değil) */
+.yeni-rafi .carousel-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.yeni-rafi .carousel-title i {
+  font-size: 1rem;
+  color: var(--primary-light);
+}
+.carousel-wrapper {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding-bottom: 8px;
+}
+.carousel-track {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: 12px;
+  overflow: hidden;
+}
+.poster-rail {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-rows: repeat(2, auto);
+  gap: 12px;
+}
+.carousel-track .poster-card {
+  width: auto;
+  aspect-ratio: 2/3;
+}
+.carousel-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 200px;
+}
+
+.quick-channel-card {
+  width: 112px;
+  flex: 0 0 112px;
+}
+
+/* Kanallar: hafif metin listesi (poster yok → lag yok), grid'i tam kaplar */
+.channels-dropdown {
+  grid-column: 1 / -1;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--border-radius);
+  background: var(--surface-glass);
+}
+.channels-dropdown > summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: var(--border-radius);
+  background: var(--surface-variant);
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background-color var(--transition-speed) ease;
+}
+.channels-dropdown > summary:hover {
+  background: var(--primary-soft);
+}
+.channels-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+.channels-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  content-visibility: auto;
+}
+.channels-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: .9rem;
+  background: var(--card-bg-color);
+  border: 1px solid transparent;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+.channels-list-item i {
+  color: var(--primary-light);
+  flex: 0 0 auto;
+  font-size: .9rem;
+}
+.channels-list-item:hover, .channels-list-item:focus-visible {
+  background: var(--primary-soft);
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+.channels-list-item:active {
+  transform: translateY(0);
+}
+.channels-list-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Plugin Poster Card */
+.plugin-poster-card {
+  min-height: auto;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+.plugin-poster {
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: var(--surface-variant);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+.plugin-poster img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  border-radius: var(--border-radius-sm);
+}
+.plugin-poster i {
+  font-size: 3rem;
+  color: var(--primary-light);
+}
+.plugin-poster-body {
+  padding: 12px 14px;
+}
+.plugin-poster-card .card-desc {
+  padding: 4px 14px 12px;
+  font-size: .8rem;
+}
+
+.home-settings-drawer {
+  width: min(100%, 900px);
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* Continue Watching Section */
+.continue-watching-tile {
+  margin: 0 0 18px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--border-radius);
+  background: var(--surface-glass);
+}
+.continue-watching-tile summary {
+  padding: 12px 16px;
+  color: var(--text-color);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.continue-watching-tile summary::-webkit-details-marker { display: none; }
+.continue-watching-tile summary i { margin-right: 10px; color: var(--primary-light); }
+.continue-watching-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 16px 16px;
+  scrollbar-width: thin;
+}
+.continue-watching-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  padding: 8px;
+  color: var(--text-color);
+  text-decoration: none;
+  border-radius: var(--border-radius-sm);
+  background: var(--card-bg-color);
+  border: 1px solid var(--glass-edge);
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+.continue-watching-item:hover, .continue-watching-item:focus-visible {
+  border-color: var(--primary-color);
+  background: var(--primary-soft);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-primary-glow-subtle);
+  outline: none;
+}
+.continue-watching-item:active {
+  transform: translateY(0);
+}
+.continue-watching-poster {
+  position: relative;
+  width: 48px;
+  height: 68px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-variant);
+  display: grid;
+  place-items: center;
+}
+.continue-watching-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.continue-watching-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--progress);
+  height: 4px;
+  background: var(--primary-gradient);
+}
+.continue-watching-title {
+  overflow: hidden;
+  font-size: .9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.continue-watching-title small {
+  display: block;
+  color: var(--text-muted);
+  font-size: .8rem;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .poster-rail { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .poster-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .carousel-track .poster-card { width: 100%; }
+  .qn-btn span { font-size: .78rem; }
+  .qn-sep { display: none; }
+}
