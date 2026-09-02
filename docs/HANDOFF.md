@@ -2,15 +2,71 @@
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
 
-**Tarih:** 2 Eylül 2026  
-**Aktif Sürüm:** `v0.1.28-poc` (GitHub Release yayında, OTA erişilebilir)  
+**Tarih:** 3 Eylül 2026  
+**Aktif Sürüm:** `v0.1.31-poc` (GitHub Release yayında, OTA erişilebilir)  
 **Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
 **Yerel API:** `http://192.168.1.185:3310`  
 **GitHub Repo:** `evatechnosoft/netmovies` · **Dal:** `fix/general-stability`
 
 ---
 
-## 🎬 2 Eylül 2026 — Kaynak Onarımı + v0.1.28-poc OTA (EN SON OTURUM)
+## 🚀 3 Eylül 2026 — DiziBox/MolyStream + Gözat Yeniden Tasarım + TMDB (EN SON OTURUM)
+
+**Commit'ler (dal: `fix/general-stability`)**
+
+| Commit | Ne |
+|---|---|
+| `9e4b865` | Gözat ekranı poster raflarına dönüştü + büyüteç arama (v0.1.29-poc) |
+| `d0b40e8` | DiziBox/MolyStream çözücü + poster proxy LRU cache (v0.1.30-poc) |
+| `8187ac9` | TV'de poster TMDB fallback (v0.1.31-poc) |
+
+### 1. DiziBox — "Oynatılacak kaynak bulunamadı" çözüldü (KÖK NEDEN)
+Zincir **üç katman**, eskiden ikincisi atlanıyordu:
+1. Bölüm sayfası → `div#video-area iframe` → `dizibox.live/player/king/king.php?v=<hex>`
+2. **`king.php` sadece SARMALAYICI** — gerçek oynatıcı içindeki **ikinci iframe'de**:
+   `dbx.molystream.org/embed/<id>`. Bu katman izlenmediği için `load_links` hep `[]` dönüyordu.
+3. MolyStream sayfa gövdesi **CryptoJS ile şifreli**: `CryptoJS.AES.decrypt("<ct>", "<pw>")`
+   → OpenSSL `"Salted__"` formatı, **EVP_BytesToKey (MD5, 1 tur)**, AES-256-CBC, PKCS#7.
+   Çözülen HTML'deki jwplayer `file:` alanı doğrudan HLS master playlist veriyor.
+
+→ `DiziBox.py`: `_evp_bytes_to_key()`, `_cryptojs_decrypt()`, `_molystream()` eklendi;
+`load_links` iç iframe'i takip ediyor.
+**Kanıt:** `load_links` `[]` → `1` kaynak · `dbx.molystream.org/embed/sheila/9344-...` →
+`HTTP 200, 149 B, #EXTM3U, RESOLUTION=1920x1080` · engine log `GET - 200 - 5.34 sn`.
+⚠ **TV cihazında oynatma denenmedi.**
+
+### 2. Poster proxy cache — "çok geç yükleniyor"
+`stream/Public/Proxy/Routers/image.py`'ye süreç-içi **LRU + bayt sınırlı** cache
+(`IMAGE_CACHE_MB`, varsayılan 128MB) eklendi; `X-Cache: HIT/MISS` header'ı ile ölçülebilir.
+**Kanıt:** aynı poster `MISS 0.538 sn` → `HIT 0.022 sn`.
+⚠ In-memory → `WEB_WORKERS=1` şart (zaten öyle).
+
+### 3. Gözat ekranı yeniden tasarlandı (v0.1.29)
+Dean'in üç şikâyeti karşılandı:
+- Düz metin listesi → her (eklenti, kategori) bir **poster rafı** (`Shelf`), ana sayfadaki gibi.
+- Kaba arama çubuğu → sadece **büyüteç**; seçilince metin alanına açılıyor.
+- "Çıkınca liste en üstten başlıyor" → `rememberLazyListState()` + son odaklı raf indeksi
+  **ekran seviyesine hoist** edildi; arama sonucundan dönünce kaldığı yerden devam.
+- İlk 6 raf paralel önyükleniyor (`PREFETCH_SHELVES`); boş dönen raf hiç çizilmiyor.
+
+### 4. TMDB anahtarı aktif + TV fallback (v0.1.31)
+Kök neden: anahtar hiç yoktu (`TMDB=[]`) → `/tmdb-poster` 404 dönüyordu. Dean anahtarı verdi,
+**gitignored `.env`'e** yazıldı (kodda ASLA).
+**Kanıt:** container içi `TMDB key: DOLU (32 karakter)` · `/tmdb-poster?title=Dark` →
+`302 → image.tmdb.org/t/p/w500/lUXX0AeneW2v0FK9YuXlrTwkI3H.jpg`.
+TV tarafı: yeni `ui/PosterImage.kt` ortak bileşeni — Coil `onError` tetiklenince
+`/tmdb-poster?title=`'a düşüyor (poster hiç yoksa doğrudan TMDB ile başlıyor).
+Home + Gözat posterleri bu bileşene geçti.
+
+### ⚠ Doğrulanmadı / açık (bu oturum)
+- DiziBox'ın TV'de **gerçekten oynadığı** doğrulanmadı.
+- Yeni Gözat raflarının D-pad davranışı ve odak geri-yükleme cihazda denenmedi.
+- TMDB fallback'in TV ekranında dolduğu görülmedi (sunucu ucu doğrulandı).
+- Oynatıcı hata ekranı GERİ tuşu fix'i hâlâ cihazda denenmedi.
+
+---
+
+## 🎬 2 Eylül 2026 — Kaynak Onarımı + v0.1.28-poc OTA
 
 **Commit'ler (dal: `fix/general-stability`)**
 
