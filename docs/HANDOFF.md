@@ -2,7 +2,7 @@
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
 
-**Tarih:** 1 Eylül 2026  
+**Tarih:** 2 Eylül 2026  
 **Aktif Sürüm:** `v0.1.26-poc` (Android TV APK Yayında) / `v0.1.27` (Yerelde derlendi, APK hazır)  
 **Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
 **Yerel API:** `http://192.168.1.185:3310`  
@@ -10,7 +10,39 @@
 
 ---
 
-## 🎯 1 Eylül 2026 Oturumu — Web Hata Düzeltmeleri, TV UI & Stabilizasyon (SON DURUM)
+## 🎯 2 Eylül 2026 Oturumu — Faz 1 Stabilizasyon + Media3 Geçişi (SON DURUM)
+
+**Commit'ler (dal: `fix/general-stability`):**
+- `542a450` — Faz 1: TV `load_item` `encoded_url` sözleşmesi + kontrat testi (JVM PASSED),
+  provider cache izolasyonu (`_cache_key` provider_url içerir, `_active_provider_url` admin
+  config'ten → web+TV birleşik provider) + pytest 3/3, poster hattı birleştirildi
+  (content/search → `poster()` proxy + tmdb fallback), compose `service_healthy` +
+  `WEB_WORKERS=1`, `.gitignore` `data/`→`/data/` (tv/data/ paketi tuzağı).
+- `7d4ed47` — Codex yarım-UI refactoru (pages/*.css ayrımı, header sadeleştirme, HomeScreen).
+
+**⚠ COMMIT EDİLMEMİŞ çalışma ağacı (client-tv/, 2 ajan çıktısı birleşik):**
+1. *Geri-tuşu bug fix* (`PlayerScreen.kt`): hata ekranında `BackHandler` → `error != null → onBack()`,
+   `onKeyEvent` hata durumunda tuş yutmuyor, `ActionRow`'a `focusGroup()`. Kod doğru görünüyor.
+2. *Media3 1.4.1 → 1.11.0*: compileSdk 36, AGP 8.9.1, gradle wrapper 8.11.1.
+3. **BUILD FAILED — bilinen kök neden:** Media3 1.11 kotlin-stdlib **2.2.x** çekiyor; kök
+   `client-tv/build.gradle.kts`'de Kotlin plugin'ler **2.0.20** kaldı → "metadata 2.2.0,
+   expected 2.0.0". **Sonraki adım:** 3 Kotlin plugin'i (android/compose/serialization)
+   **2.2.10**'a çek, `./gradlew.bat --stop` + `:app:assembleDebug` → yeşilse backfix ve
+   Media3'ü AYRI commit'le.
+
+**⚠ Docker/canlı (502):**
+- Kök neden 2 katman: (1) compose `service_started` cold-start yarışı → `542a450` ile çözüldü
+  (canlıda henüz doğrulanmadı), (2) Docker Desktop'ın kendisi hastaydı (API 500, buildkit
+  "no such job", iç DNS timeout) → restart edildi; `cloudflared:2026.1.2` imajı yeniden
+  çekildi (IMAGE_OK). Oturum sonunda `COMPOSE_BAKE=false docker compose up -d --build`
+  arka planda ateşlendi — **sonucu doğrulanamadı**.
+- **Sonraki adım:** `docker ps` → hepsi healthy mi + `curl localhost:3310/health` +
+  w.evaitec.com 200 mü. Stream rebuild olduysa cloudflared'i de recreate et
+  (netns pinli — bkz. memory: stream rebuild → tünel kopar).
+
+---
+
+## 🎯 1 Eylül 2026 Oturumu — Web Hata Düzeltmeleri, TV UI & Stabilizasyon
 
 1. **🛠 `unexpected char '\' at 1028` ve JS/Jinja Kaçış Hatası Giderildi (`category.html.j2`, `home.html.j2`)**:
    - Resim posterlerindeki TMDB fallback `onerror` satırlarında tek tırnakları kaçırmaya çalışan kırılgan `replace("'", "\\'")` filtreleri temizlendi.
