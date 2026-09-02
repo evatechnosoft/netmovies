@@ -58,12 +58,16 @@
   --border-radius-xl: 20px;
   --border-radius-xxl: 24px;
   --border-radius-pill: 999px;
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 0.75rem;
-  --spacing-lg: 1rem;
-  --spacing-xl: 1.5rem;
-  --spacing-xxl: 2rem;
+  /* Spacing ölçeği — 4px tabanlı ritim. Sayfa/komponent CSS'leri bu ölçeğe
+     bağlanır; ham px/rem yazmak yerine buradaki adımlardan biri seçilir. */
+  --spacing-2xs: 0.125rem; /*  2px */
+  --spacing-xs: 0.25rem;   /*  4px */
+  --spacing-sm: 0.5rem;    /*  8px */
+  --spacing-md: 0.75rem;   /* 12px */
+  --spacing-lg: 1rem;      /* 16px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-xxl: 2rem;     /* 32px */
+  --spacing-3xl: 3rem;     /* 48px */
 
   /* Typography */
   --font-family: "Inter", "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -95,8 +99,25 @@
 
   /* Layout */
   --container-max-width: 1400px;
+  /* Header yüksekliği tek kaynak: header.css yüksekliği, layout.css'teki
+     .content-shell üst boşluğu ve responsive.css hepsi buradan okur. */
+  --header-height: 56px;
+  --header-height-mobile: 52px;
   --z-index-dropdown: 1000;
   --z-index-modal: 2000;
+
+  /* Focus — klavye (Tab), D-pad ve imleç modunun ortak odak halkası.
+     Tek kaynak: halkayı burada değiştir, tüm sayfalarda değişir. */
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 3px;
+  --focus-ring-color: var(--primary-light);
+  --focus-ring-radius: var(--border-radius-sm);
+  --focus-ring-z: 6;
+
+  /* Yatay içerik rafları (ana sayfa "Yeni Çıkanlar") */
+  --rail-columns: 10;
+  --rail-gap: var(--spacing-md);
+  --rail-poster-radius: var(--border-radius);
 
   /* Glass */
   --surface-glass: rgba(255, 255, 255, 0.04);

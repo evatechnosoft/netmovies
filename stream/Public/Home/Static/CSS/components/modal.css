@@ -65,7 +65,7 @@
 }
 
 .provider-recovery-modal .modal-title i {
-  color: var(--primary);
+  color: var(--primary-color);
   margin-right: var(--spacing-xs);
 }
 

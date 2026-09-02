@@ -94,7 +94,7 @@
 /* Mobile content-shell adjustment for fixed header */
 @media (max-width: 768px) {
   .content-shell {
-    padding-top: calc(52px + var(--spacing-sm));
+    padding-top: calc(var(--header-height-mobile) + var(--spacing-sm));
     padding-bottom: var(--spacing-xxl);
   }
 }

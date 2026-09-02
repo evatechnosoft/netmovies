@@ -9,8 +9,8 @@
 
 .content-shell {
   flex: 1 0 auto;
-  /* header is 56px fixed; keep just a small breathing gap below it */
-  padding-top: calc(56px + var(--spacing-md));
+  /* header yüksekliği --header-height token'ından; altında küçük bir nefes payı */
+  padding-top: calc(var(--header-height) + var(--spacing-md));
   padding-bottom: var(--spacing-lg);
   width: 100%;
 }

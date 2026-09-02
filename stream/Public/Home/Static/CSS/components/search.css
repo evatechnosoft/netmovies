@@ -107,8 +107,12 @@
   transition: background-color var(--transition-speed) ease-out;
 }
 
-.search-input:focus {
-  outline: none;
+/* Odak halkası bilerek sıfırlanmıyor: klavye/D-pad ile arama kutusuna
+   gelindiğinde halka görünür kalsın. Kutu kenara dayalı olduğu için halka
+   içeri (negatif offset) çizilir, taşma yapmaz. */
+.search-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: calc(-1 * var(--focus-ring-offset));
 }
 
 .search-input::placeholder {

@@ -46,7 +46,7 @@
 }
 
 .card-icon i {
-  font-size: 1.25rem;
+  font-size: var(--font-size-lg);
   color: var(--primary-color);
 }
 
@@ -112,7 +112,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   background: linear-gradient(160deg, var(--card-bg-color) 0%, rgba(139, 92, 246, 0.08) 100%);
   border: 1px solid rgba(139, 92, 246, 0.08);
 }
@@ -125,7 +125,7 @@
   content: "\f008";
   font-family: "Font Awesome 6 Free";
   font-weight: 900;
-  font-size: 2rem;
+  font-size: var(--font-size-xxl);
   color: var(--primary-color);
   opacity: 0.25;
   line-height: 1;
@@ -141,7 +141,7 @@
   color: var(--text-dim);
   opacity: 0.45;
   text-align: center;
-  padding: 0 8px;
+  padding: 0 var(--spacing-sm);
 }
 
 .poster-card-img img {
@@ -278,7 +278,7 @@
   transition: all var(--transition-speed) var(--transition-timing);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .badge-link:hover {
@@ -376,8 +376,8 @@ body.mouse-mode .badge-link:hover,
 body.mouse-mode .tv-focusable:hover,
 body.mouse-mode .continue-watching-item:hover,
 body.mouse-mode .channel-card:hover {
-  outline: 3px solid var(--primary-light);
-  outline-offset: 3px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
   transition: outline-color .05s linear, filter .05s linear;
   z-index: 6;
 }
@@ -406,18 +406,18 @@ textarea:focus-visible,
 .card:focus-visible,
 .plugin-card:focus-visible,
 .channels-list-item:focus-visible {
-  outline: 3px solid var(--primary-light);
-  outline-offset: 3px;
-  border-radius: 8px;
-  z-index: 6;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--focus-ring-radius);
+  z-index: var(--focus-ring-z);
 }
 
 /* Arama kutusu odakta belirgin olsun (odak imleç modunda da görünür). */
 .global-search-input:focus,
 input[type="search"]:focus,
 .search-input:focus {
-  outline: 2px solid var(--primary-light);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* Hafif basma (:active) geri bildirimi TÜM sayfalarda — mouse moduyla sınırlı

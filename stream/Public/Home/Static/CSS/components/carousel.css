@@ -68,8 +68,13 @@
   transition: border-color var(--transition-speed) var(--transition-timing);
 }
 
+/* Halka sarmalayıcıda: input kenarlıksız ve form `overflow: hidden` olduğu için
+   input'un kendi outline'ı kırpılırdı. Ring dışarıda çizilir → klavye/D-pad ile
+   arama kutusuna gelindiği net görünür. */
 .plugin-search-form:focus-within {
   border-color: var(--primary-color);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .plugin-search-form .search-input {
@@ -518,8 +523,8 @@
 }
 
 .carousel-track .poster-card.tv-focusable:focus-visible {
-  outline: 3px solid var(--primary-light);
-  outline-offset: 4px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
   transform: translateY(-3px);
 }
 
@@ -560,7 +565,7 @@
 .tv-episode-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--text-muted); font-size: 28px; cursor: pointer; }
 .tv-episode-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .tv-episode-item { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--glass-edge); border-radius: var(--border-radius); color: var(--text-color); text-decoration: none; background: rgba(255,255,255,.03); }
-.tv-episode-item:hover, .tv-episode-item:focus-visible { border-color: var(--primary-color); background: rgba(139,92,246,.13); outline: none; }
+.tv-episode-item:hover, .tv-episode-item:focus-visible { border-color: var(--primary-color); background: var(--primary-soft); }
 .tv-episode-number { color: var(--primary-light); font-weight: 800; min-width: 28px; }
 
 /* Skeleton poster cards (carousel) */
