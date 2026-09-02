@@ -20,12 +20,12 @@ from KekikStream.Core import (
 )
 
 try:
-    from Plugins.__dizi_common import fetch_html, normalize_url
+    from Plugins.__dizi_common import fetch_html, get_warp_client, normalize_url
     from Plugins.__kekik_domain import discover_main_url
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
-    from __dizi_common import fetch_html, normalize_url
+    from __dizi_common import fetch_html, get_warp_client, normalize_url
     from __kekik_domain import discover_main_url
 
 # Güncel domain otomatik çekilir; DIZIYOU_URL ile elle sabitlenebilir.
@@ -85,21 +85,49 @@ class DiziYou(PluginBase):
         return results
 
     # ------------------------------------------------------------------ Arama
+    async def _search_fragment(self, query: str) -> str:
+        """Tema'nın canlı arama AJAX ucundan sonuç HTML parçasını çeker."""
+        endpoint = f"{self.main_url}/wp-admin/admin-ajax.php"
+        payload  = {"action": "data_fetch", "keyword": query}
+        headers  = {
+            "Referer"         : f"{self.main_url}/",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+
+        try:
+            resp = await self.httpx.post(endpoint, data=payload, headers=headers, timeout=10.0)
+            if resp.status_code == 200:
+                return resp.text
+        except Exception:
+            pass
+
+        warp = get_warp_client()
+        if warp:
+            try:
+                resp = await warp.post(endpoint, data=payload, headers=headers, timeout=15.0)
+                if resp.status_code == 200:
+                    return resp.text
+            except Exception:
+                pass
+
+        return ""
+
     async def search(self, query: str) -> list[SearchResult]:
-        text     = await fetch_html(self.httpx, f"{self.main_url}/?s={query}")
-        secici   = HTMLHelper(text)
+        # `/?s=` sayfası artık sonuç barındırmıyor (boş kabuk döner); sonuçlar
+        # tema'nın WordPress AJAX ucundan `div#searchelement` kartları olarak gelir.
+        secici = HTMLHelper(await self._search_fragment(query))
 
         results: list[SearchResult] = []
-        # Arama sonuçları hem liste konteynerinde hem tekil kartlarda gelebilir.
-        for node in secici.select("div#list-series, div.single-item"):
-            link = node.select_first("div#categorytitle a") or node.select_first("a")
+        for node in secici.select("div#searchelement"):
+            # İlk <a> poster linki (metinsiz), başlık ikinci <a>'da.
+            link = next((a for a in node.select("a") if a.text(strip=True)), None)
             if not link:
                 continue
             title = link.text(strip=True)
-            href  = link.attrs.get("href")
+            href  = link.attrs.get("href") or node.select_attr("a", "href")
             if not title or not href:
                 continue
-            poster = node.select_attr("img", "src")
+            poster = node.select_poster("img")
             results.append(
                 SearchResult(
                     title  = title,
