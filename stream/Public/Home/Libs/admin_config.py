@@ -31,6 +31,10 @@ DEFAULT_CONFIG: dict = {
         "Animeler", "Animely", "AnimPow", "Anizium", "AsyaAnimeleri",
         "AsyaMinik", "AsyaWatch", "DiziAsia", "DiziAsya", "DramaDizilerim",
         "KoreanTurk", "OpenAnime", "TrAnimeIzle", "WebDramaTurkey",
+        # RecTV'nin domain ailesi (b.prectvNN.sbs) tamamen NXDOMAIN; upstream .kt de
+        # hâlâ ölü 38'i gösteriyor. Canlı TV artık M3UPlaylist'ten geliyor. Yeni bir
+        # adres çıkarsa /admin'den görünür yapmak yeterli.
+        "RecTV",
         *ADULT_PROVIDERS,
     ],
     "hidden_categories": [

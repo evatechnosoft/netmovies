@@ -76,7 +76,9 @@ services:
       # kaynakları (HDFilmCehennemi/RecTV) bloklatıp movie=0 yapıyordu.
       WARP_PROXY: http://netmovies-warp:8080
       # Kendi M3U/M3U8 listeleriniz (virgülle ayrılmış dosya yolu veya URL).
-      M3U_SOURCES: ${M3U_SOURCES:-}
+      # Varsayılan: iptv-org'un bakımlı TR kanal listesi — RecTV'nin domain ailesi
+      # (b.prectvNN.sbs) tamamen NXDOMAIN olduğu için Canlı TV bu listeden gelir.
+      M3U_SOURCES: ${M3U_SOURCES:-https://iptv-org.github.io/iptv/countries/tr.m3u}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
       # Aşağıdakiler yalnızca elle SABİTLEMEK istersen; boşsa otomatik çalışır.
       RECTV_URL: ${RECTV_URL:-}
