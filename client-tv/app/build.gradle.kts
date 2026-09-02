@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace  = "com.evaitec.netmovies.tv"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.evaitec.netmovies.tv"
@@ -70,9 +70,9 @@ dependencies {
     implementation("androidx.tv:tv-material:1.0.0")
 
     // Media3 / ExoPlayer (HLS oynatma)
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.11.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
+    implementation("androidx.media3:media3-ui:1.11.0")
 
     // Ağ (Retrofit + kotlinx.serialization)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

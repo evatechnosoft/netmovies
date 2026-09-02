@@ -208,8 +208,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
 
     // Ayar menüsü açıksa Geri onu kapatsın; kontroller görünürse gizlesin; yoksa çık.
+    // Hata ekranındayken Geri her zaman doğrudan çıkışa gider (retry butonunda kilitlenmez).
     BackHandler(enabled = true) {
         when {
+            error != null -> onBack()
             scrubMode -> scrubMode = false
             showSettings -> showSettings = false
             showControls -> showControls = false
@@ -406,6 +408,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             .focusRequester(rootFocus)
             .onKeyEvent { ke ->
                 when {
+                    // Hata ekranında tuşları tüketme: overlay butonları (Tekrar dene / Geri)
+                    // arası d-pad navigasyonu ve BACK, Compose'a serbest kalsın.
+                    error != null -> false
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
                     showSettings -> false
                     else -> controller.process(ke.nativeKeyEvent)
@@ -892,7 +897,10 @@ private fun ActionRow(onAction: () -> Unit, actionLabel: String, onBack: () -> U
     LaunchedEffect(Unit) {
         runCatching { firstFocus.requestFocus() }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Row(
+        modifier = Modifier.focusGroup(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         TouchButton(actionLabel, onAction, modifier = Modifier.focusRequester(firstFocus), accent = true)
         TouchButton("Geri", onBack)
     }
