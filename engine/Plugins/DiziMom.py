@@ -8,11 +8,14 @@ from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult,
 from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
+# Domain zinciri: dizimom.plus → .work → .food → .diy. Upstream .kt hâlâ ölü .plus'ı
+# gösterdiği için gömülü yedek doğrulanmış son adrese çekildi; aksi halde temiz bir
+# kurulumda (.env'siz) DiziMom boş dönüyordu.
 _DISCOVERED_URL = discover_main_url(
-    "DiziMom/src/main/kotlin/com/keyiflerolsun/DiziMom.kt", "https://www.dizimom.plus", "DIZIMOM_URL"
+    "DiziMom/src/main/kotlin/com/keyiflerolsun/DiziMom.kt", "https://www.dizimom.diy", "DIZIMOM_URL"
 )
 _MAIN_URL = os.getenv("DIZIMOM_URL") or (
-    "https://www.dizimom.work" if _DISCOVERED_URL.endswith("dizimom.plus") else _DISCOVERED_URL
+    "https://www.dizimom.diy" if _DISCOVERED_URL.endswith(("dizimom.plus", "dizimom.work", "dizimom.food")) else _DISCOVERED_URL
 )
 
 
