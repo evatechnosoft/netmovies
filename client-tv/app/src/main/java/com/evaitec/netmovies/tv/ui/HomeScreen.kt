@@ -36,7 +36,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,12 +44,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
-import com.evaitec.netmovies.tv.data.proxiedPoster
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -304,12 +301,7 @@ private fun PosterCard(
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
-        AsyncImage(
-            model = proxiedPoster(item.poster),
-            contentDescription = item.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
+        PosterImage(poster = item.poster, title = item.title)
         // Başlık degradesi — poster ne olursa olsun yazı okunur kalsın.
         Box(
             Modifier

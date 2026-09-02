@@ -42,7 +42,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -51,11 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PluginInfo
-import com.evaitec.netmovies.tv.data.proxiedPoster
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -486,12 +483,7 @@ private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick
             .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() },
     ) {
-        AsyncImage(
-            model = proxiedPoster(item.poster),
-            contentDescription = item.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
+        PosterImage(poster = item.poster, title = item.title)
         Box(
             Modifier
                 .align(Alignment.BottomStart)

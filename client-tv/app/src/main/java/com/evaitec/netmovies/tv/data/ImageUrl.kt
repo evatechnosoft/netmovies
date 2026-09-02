@@ -11,3 +11,11 @@ fun proxiedPoster(url: String?): String? {
     val base = ServerResolver.activeBaseString()
     return "$base/proxy/image?url=" + Uri.encode(url)
 }
+
+// Kaynak posteri yoksa/kırıksa sunucunun TMDB fallback'ine düşer: başlığa göre
+// afiş arar ve image.tmdb.org'a 302 döner. Anahtar yoksa 404 → gri kutu kalır.
+fun tmdbPoster(title: String?): String? {
+    if (title.isNullOrBlank()) return null
+    val base = ServerResolver.activeBaseString()
+    return "$base/tmdb-poster?title=" + Uri.encode(title)
+}
