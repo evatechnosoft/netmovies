@@ -26,6 +26,48 @@ _EXEMPT_PREFIXES = (
 )
 
 
+ADMIN_PASS = os.getenv("ADMIN_PASS", "")
+
+# Yalnız yönetim yüzeyi — izleme tarafı açık kalır
+_ADMIN_PREFIXES = (
+    "/admin",
+    "/api/admin",
+)
+
+
+class AdminAuthMiddleware(BaseHTTPMiddleware):
+    """Sadece /admin ve /api/admin'i parola ile korur.
+
+    Genel Basic Auth kapalıyken (AUTH_USER boş) bile yönetim paneli public tünelden
+    şifresiz erişilebiliyordu; kaynak/kategori ayarları herkese açıktı. Kullanıcı adı
+    önemsizdir, yalnız ADMIN_PASS doğrulanır — kumandayla girmesi kolay olsun diye.
+    ADMIN_PASS boşsa koruma devre dışıdır (eski davranış).
+    """
+
+    async def dispatch(self, request, call_next):
+        if not ADMIN_PASS:
+            return await call_next(request)
+
+        if not request.url.path.startswith(_ADMIN_PREFIXES):
+            return await call_next(request)
+
+        header = request.headers.get("Authorization", "")
+        if header.startswith("Basic "):
+            try:
+                decoded  = base64.b64decode(header[6:]).decode("utf-8")
+                _, _, pwd = decoded.partition(":")
+                if secrets.compare_digest(pwd, ADMIN_PASS):
+                    return await call_next(request)
+            except Exception:
+                pass
+
+        return Response(
+            status_code = 401,
+            headers     = {"WWW-Authenticate": 'Basic realm="NetMovies Admin"'},
+            content     = "Yönetim paneli parolası gerekli",
+        )
+
+
 class BasicAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         # Auth kapalı (kullanıcı/şifre verilmemiş) → dokunma

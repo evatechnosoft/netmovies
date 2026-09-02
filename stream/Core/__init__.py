@@ -22,8 +22,10 @@ kekik_FastAPI.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credenti
 kekik_FastAPI.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # NetMovies: env-tabanlı Basic Auth (AUTH_USER boşsa devre dışı)
-from Core.Modules._auth import BasicAuthMiddleware
+from Core.Modules._auth import AdminAuthMiddleware, BasicAuthMiddleware
 kekik_FastAPI.add_middleware(BasicAuthMiddleware)
+# İzleme açık kalsa bile yönetim paneli ADMIN_PASS ile korunur
+kekik_FastAPI.add_middleware(AdminAuthMiddleware)
 
 # ! ----------------------------------------» Routers
 

@@ -122,10 +122,15 @@ services:
       # süreç-içi (in-memory). Çok worker'da her süreç ayrı cache tutar → dedup
       # işlemez, soğuk çağrılar tekrarlanır. Kişisel kullanım için 1 worker yeterli.
       WEB_WORKERS          : ${WEB_WORKERS:-1}
-      # Kişisel kullanım: auth bilerek KAPALI (kumandayla giriş zahmetsiz olsun).
-      # Public erişim istenirse .env'de AUTH_USER/AUTH_PASS doldur + burayı ${AUTH_USER:-} yap.
-      AUTH_USER            : ""
-      AUTH_PASS            : ""
+      # Basic Auth — .env'den okunur. Sabit "" bırakıldığı sürece .env doldurulsa bile
+      # auth KAPALI kalıyordu ve public tünel (w.evaitec.com) admin dahil şifresiz
+      # açıktı. AUTH_USER boşsa middleware kendini devre dışı bırakır (bkz. _auth.py),
+      # yani yerel-only kullanımda .env'i boş bırakmak hâlâ mümkün.
+      AUTH_USER            : ${AUTH_USER:-}
+      AUTH_PASS            : ${AUTH_PASS:-}
+      # Yönetim paneli parolası — izleme açık kalırken /admin ve /api/admin kilitlenir.
+      # Boşsa koruma yok. Public tünelde MUTLAKA dolu olmalı.
+      ADMIN_PASS           : ${ADMIN_PASS:-}
       PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
       # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
       TMDB_API_KEY         : ${TMDB_API_KEY:-}

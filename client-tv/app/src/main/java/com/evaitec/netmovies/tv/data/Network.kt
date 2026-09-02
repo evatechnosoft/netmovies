@@ -24,7 +24,17 @@ object Network {
         .connectTimeout(6, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(50, TimeUnit.SECONDS)
-        .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        // Ağ logu yalnız debug'da: release'te URL + Authorization header'i logcat'e
+        // dökmesin (kimlik sızıntısı).
+        .addInterceptor(
+            HttpLoggingInterceptor().apply {
+                level = if (BuildConfig.DEBUG) {
+                    HttpLoggingInterceptor.Level.BASIC
+                } else {
+                    HttpLoggingInterceptor.Level.NONE
+                }
+            }
+        )
         .build()
 
     val api: NetMoviesApi by lazy {
