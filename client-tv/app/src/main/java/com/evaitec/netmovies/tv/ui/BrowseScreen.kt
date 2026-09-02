@@ -8,16 +8,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,8 +74,18 @@ import java.net.URLDecoder
 private fun decode(s: String): String =
     runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s)
 
-// Eklenti/kategori tarayıcı: eklenti → kategori seç → içerikler inline grid → poster seç → oynat.
-// Tek ekran, derin sayfa nav yok (Geri: grid → kategori listesi → çık).
+/** Bir raf = (eklenti, kategori) çifti. Ana sayfadaki gibi yatay poster şeridi. */
+private data class Shelf(
+    val plugin: PluginInfo,
+    val encUrl: String,
+    val encCat: String,
+) {
+    val key: String get() = "${plugin.name}|$encCat"
+    val title: String get() = "${plugin.name} · ${decode(encCat)}"
+}
+
+// Gözat: her kategori kendi içeriğini poster rafı olarak gösterir (düz metin listesi yerine).
+// Arama üstte sadece büyüteç; seçilince metin alanına dönüşür.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun BrowseScreen(
@@ -99,210 +115,300 @@ fun BrowseScreen(
         }
     }
 
-    // Seçilen kategori / arama sonucu görünümü (null → kategori listesi).
-    var catItems by remember { mutableStateOf<List<MediaItem>?>(null) }
-    var catTitle by remember { mutableStateOf("") }
-    var catLoading by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-
-    fun openCategory(plugin: PluginInfo, encUrl: String, encCat: String) {
-        catTitle = "${plugin.name} · ${decode(encCat)}"
-        catItems = emptyList()
-        catLoading = true
-        scope.launch {
-            catItems = withTimeoutOrNull(20_000) {
-                try {
-                    Network.api.getMainPage(plugin.name, 1, encUrl, encCat).result
-                        .map { it.copy(plugin = plugin.name, category = decode(encCat)) }
-                } catch (e: Exception) {
-                    emptyList()
-                }
-            } ?: emptyList()
-            catLoading = false
+    val shelves = remember(plugins) {
+        plugins.flatMap { plugin ->
+            plugin.mainPage.entries.map { Shelf(plugin, it.key, it.value) }
         }
     }
+
+    // Raf içerikleri: ekran boyunca yaşar → yukarı/aşağı gezinirken tekrar çekilmez.
+    val shelfCache = remember { mutableStateMapOf<String, List<MediaItem>>() }
+
+    // Kaydırma konumu ve son odaklı raf ekran seviyesinde tutulur; arama sonucuna
+    // girip çıkınca liste en üstten başlamasın (Dean: "en üstten başlıyor, olmuyor").
+    val listState = rememberLazyListState()
+    var focusedShelf by remember { mutableStateOf(0) }
+
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<MediaItem>?>(null) }
+    var resultsTitle by remember { mutableStateOf("") }
+    var resultsLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
-            val list = Network.api.getAllPlugins().result
-            rawPlugins = list
-            loading = false
-            if (vaultMode) {
-                val adultPlg = list.firstOrNull { isAdultPlugin(it.name) }
-                if (adultPlg != null && adultPlg.mainPage.isNotEmpty()) {
-                    val firstEntry = adultPlg.mainPage.entries.first()
-                    openCategory(adultPlg, firstEntry.key, firstEntry.value)
-                }
-            }
+            rawPlugins = Network.api.getAllPlugins().result
         } catch (e: Exception) {
             error = e.message ?: "Eklentiler yüklenemedi"
-            loading = false
         }
+        loading = false
     }
 
     BackHandler(enabled = true) {
-        if (catItems != null && !vaultMode) catItems = null else onBack()
+        when {
+            searchOpen     -> { searchOpen = false; query = "" }
+            results != null -> results = null
+            else            -> onBack()
+        }
     }
 
     // Tüm eklentilerde paralel ara, birleştir.
     fun doSearch(q: String) {
-        val query2 = q.trim()
-        if (query2.isEmpty()) return
-        catTitle = "Arama: $query2"
-        catItems = emptyList()
-        catLoading = true
+        val term = q.trim()
+        if (term.isEmpty()) return
+        searchOpen = false
+        resultsTitle = "Arama: $term"
+        results = emptyList()
+        resultsLoading = true
         scope.launch {
             val names = plugins.map { it.name }
-            catItems = if (names.isEmpty()) emptyList() else coroutineScope {
+            results = if (names.isEmpty()) emptyList() else coroutineScope {
                 names.map { n ->
                     async {
                         // Yavaş kaynak (12s) tüm aramayı kilitlemesin → o kaynak boş sayılır.
                         withTimeoutOrNull(12_000) {
-                            runCatching { Network.api.search(n, query2).result.map { it.copy(plugin = n) } }
+                            runCatching { Network.api.search(n, term).result.map { it.copy(plugin = n) } }
                                 .getOrDefault(emptyList())
                         } ?: emptyList()
                     }
                 }.awaitAll().flatten()
             }
-            catLoading = false
+            resultsLoading = false
         }
     }
 
     Column(Modifier.fillMaxSize()) {
-        SearchBar(query = query, onQueryChange = { query = it }, onSearch = { doSearch(query) })
+        BrowseTopBar(
+            open = searchOpen,
+            query = query,
+            onQueryChange = { query = it },
+            onOpen = { searchOpen = true },
+            onSearch = { doSearch(query) },
+        )
         Box(Modifier.fillMaxSize()) {
             when {
-                catItems != null -> ItemGrid(
-                    title = catTitle,
-                    items = catItems!!,
-                    loading = catLoading,
+                results != null -> ItemGrid(
+                    title = resultsTitle,
+                    items = results!!,
+                    loading = resultsLoading,
                     onSelect = onSelect,
                 )
-                loading -> Center("Eklentiler yükleniyor…")
+                loading      -> Center("Eklentiler yükleniyor…")
                 error != null -> Center(error!!)
-                else -> CategoryList(plugins, onOpen = ::openCategory)
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(NmDim.PillRadius)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = NmDim.SafeH, end = NmDim.SafeH, top = NmDim.SafeV, bottom = 8.dp)
-            .clip(shape)
-            .background(if (focused) NmColor.SurfaceHigh else NmColor.Surface)
-            .nmFocusRing(focused, shape)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-    ) {
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            textStyle = TextStyle(color = NmColor.OnSurface, fontSize = NmType.Body),
-            cursorBrush = SolidColor(NmColor.Primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch() }, onDone = { onSearch() }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused },
-            decorationBox = { inner ->
-                if (query.isEmpty()) {
-                    Text(
-                        text = "🔎  Ara — tüm kaynaklarda…",
-                        color = NmColor.OnSurfaceFaint,
-                        fontSize = NmType.Body,
-                    )
-                }
-                inner()
-            },
-        )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun CategoryList(
-    plugins: List<PluginInfo>,
-    onOpen: (PluginInfo, String, String) -> Unit,
-) {
-    val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(plugins) { runCatching { firstFocus.requestFocus() } }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().focusGroup(),
-        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        item {
-            Text(
-                text = "Gözat — Eklenti & Kategoriler",
-                fontWeight = FontWeight.Bold,
-                fontSize = NmType.ScreenTitle,
-                color = NmColor.OnSurface,
-                modifier = Modifier.padding(bottom = 12.dp),
-            )
-        }
-        plugins.forEachIndexed { pIndex, plugin ->
-            item {
-                Text(
-                    text = plugin.name,
-                    color = NmColor.Primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = NmType.RowTitle,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
+                else -> ShelfList(
+                    shelves = shelves,
+                    cache = shelfCache,
+                    listState = listState,
+                    focusedShelf = focusedShelf,
+                    onShelfFocused = { focusedShelf = it },
+                    onSelect = onSelect,
                 )
             }
-            val entries = plugin.mainPage.entries.toList()
-            itemsIndexed(entries, plugin, pIndex, firstFocus, onOpen)
         }
     }
 }
 
-// LazyListScope içinde kategori satırlarını üretir (ilk plugin'in ilk satırına focus).
-private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
-    entries: List<Map.Entry<String, String>>,
-    plugin: PluginInfo,
-    pIndex: Int,
-    firstFocus: FocusRequester,
-    onOpen: (PluginInfo, String, String) -> Unit,
+// --------------------------------------------------------------------- Üst bar
+// Kapalıyken sadece büyüteç düğmesi; OK'a basınca metin alanı açılır (Dean: "çok kaba").
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun BrowseTopBar(
+    open: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onOpen: () -> Unit,
+    onSearch: () -> Unit,
 ) {
-    items(entries.size) { i ->
-        val (encUrl, encCat) = entries[i].toPair()
-        val mod = if (pIndex == 0 && i == 0) Modifier.focusRequester(firstFocus) else Modifier
-        CategoryRow(label = decode(encCat), modifier = mod) { onOpen(plugin, encUrl, encCat) }
+    val fieldFocus = remember { FocusRequester() }
+    LaunchedEffect(open) { if (open) runCatching { fieldFocus.requestFocus() } }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = NmDim.SafeH, end = NmDim.SafeH, top = NmDim.SafeV, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Gözat",
+            fontWeight = FontWeight.Bold,
+            fontSize = NmType.ScreenTitle,
+            color = NmColor.OnSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (open) {
+            var focused by remember { mutableStateOf(false) }
+            val shape = RoundedCornerShape(NmDim.PillRadius)
+            Box(
+                modifier = Modifier
+                    .width(320.dp)
+                    .clip(shape)
+                    .background(NmColor.SurfaceHigh)
+                    .nmFocusRing(focused, shape)
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            ) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(color = NmColor.OnSurface, fontSize = NmType.Body),
+                    cursorBrush = SolidColor(NmColor.Primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSearch() }, onDone = { onSearch() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(fieldFocus)
+                        .onFocusChanged { focused = it.isFocused },
+                    decorationBox = { inner ->
+                        if (query.isEmpty()) {
+                            Text("Ara…", color = NmColor.OnSurfaceFaint, fontSize = NmType.Body)
+                        }
+                        inner()
+                    },
+                )
+            }
+        } else {
+            IconPill(glyph = "🔎", onClick = onOpen)
+        }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CategoryRow(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun IconPill(glyph: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(NmDim.RowRadius)
+    val scale = nmFocusScale(focused, NmDim.FocusScalePill, label = "browseIcon")
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
+        modifier = Modifier
+            .size(46.dp)
+            .nmScale(scale)
+            .clip(CircleShape)
             .background(if (focused) NmColor.Primary else NmColor.Surface)
-            .nmFocusRing(focused, shape)
+            .nmFocusRing(focused, CircleShape)
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 13.dp),
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            fontSize = NmType.Body,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
-            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
-        )
+        Text(glyph, fontSize = NmType.Body, color = NmColor.OnSurface)
     }
 }
 
+// --------------------------------------------------------------------- Raflar
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ShelfList(
+    shelves: List<Shelf>,
+    cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    focusedShelf: Int,
+    onShelfFocused: (Int) -> Unit,
+    onSelect: (MediaItem) -> Unit,
+) {
+    // Bu liste her ekrana dönüşte yeniden oluşur; odağı SON kalınan rafa geri ver
+    // (yeniden en üste atlamasın). Kullanıcı gezinmeye başlayınca bir daha çalmaz.
+    var pendingFocus by remember { mutableStateOf(true) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        contentPadding = PaddingValues(bottom = NmDim.SafeV + 16.dp),
+        verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
+    ) {
+        items(shelves.size) { index ->
+            ShelfRow(
+                shelf = shelves[index],
+                cache = cache,
+                // Hedef raf boş çıkarsa (kaynak ölü) odak sonraki dolu rafa düşsün.
+                autoFocus = pendingFocus && index >= focusedShelf,
+                onFocusConsumed = { pendingFocus = false },
+                onFocused = { onShelfFocused(index) },
+                onSelect = onSelect,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ShelfRow(
+    shelf: Shelf,
+    cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
+    autoFocus: Boolean,
+    onFocusConsumed: () -> Unit,
+    onFocused: () -> Unit,
+    onSelect: (MediaItem) -> Unit,
+) {
+    val items = cache[shelf.key]
+
+    // Raf ekrana girdiğinde içeriğini çeker; sonuç önbellekte kalır.
+    LaunchedEffect(shelf.key) {
+        if (cache.containsKey(shelf.key)) return@LaunchedEffect
+        val loaded = withTimeoutOrNull(20_000) {
+            runCatching {
+                Network.api.getMainPage(shelf.plugin.name, 1, shelf.encUrl, shelf.encCat).result
+                    .map { it.copy(plugin = shelf.plugin.name, category = decode(shelf.encCat)) }
+            }.getOrDefault(emptyList())
+        } ?: emptyList()
+        cache[shelf.key] = loaded
+    }
+
+    // Boş dönen kategori (ölü/değişmiş kaynak) hiç yer kaplamasın.
+    if (items != null && items.isEmpty()) return
+
+    val firstFocus = remember { FocusRequester() }
+    LaunchedEffect(autoFocus, items) {
+        if (autoFocus && !items.isNullOrEmpty()) {
+            runCatching { firstFocus.requestFocus() }.onSuccess { onFocusConsumed() }
+        }
+    }
+
+    Column(Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus) onFocused() }) {
+        Text(
+            text = shelf.title,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = NmType.RowTitle,
+            color = NmColor.OnSurface,
+            modifier = Modifier.padding(start = NmDim.SafeH, bottom = 2.dp),
+        )
+        if (items == null) {
+            ShelfSkeleton()
+        } else {
+            LazyRow(
+                modifier = Modifier.focusGroup(),
+                // Odak büyüteci kartı taşırdığı için dikey nefes payı bırakılır.
+                contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+            ) {
+                itemsIndexed(items) { i, item ->
+                    val mod = Modifier
+                        .width(NmDim.PosterWidth)
+                        .then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                    BrowsePoster(item, modifier = mod) { onSelect(item) }
+                }
+            }
+        }
+    }
+}
+
+/** İçerik gelene kadar rafın yerini tutan gri poster iskeleti (liste zıplamasın). */
+@Composable
+private fun ShelfSkeleton() {
+    Row(
+        modifier = Modifier.padding(horizontal = NmDim.SafeH, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+    ) {
+        repeat(4) {
+            Box(
+                Modifier
+                    .width(NmDim.PosterWidth)
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(NmDim.CardRadius))
+                    .background(NmColor.Surface),
+            )
+        }
+    }
+}
+
+// --------------------------------------------------------------- Arama sonucu
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ItemGrid(
@@ -314,13 +420,13 @@ private fun ItemGrid(
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(items) { if (items.isNotEmpty()) runCatching { firstFocus.requestFocus() } }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH)) {
         Text(
             text = title,
             fontWeight = FontWeight.Bold,
-            fontSize = NmType.ScreenTitle,
+            fontSize = NmType.RowTitle,
             color = NmColor.OnSurface,
-            modifier = Modifier.padding(bottom = 12.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
         )
         when {
             loading -> Center("Yükleniyor…")
