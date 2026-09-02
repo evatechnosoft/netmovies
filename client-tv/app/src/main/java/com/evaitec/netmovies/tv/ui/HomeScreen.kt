@@ -1,31 +1,28 @@
 package com.evaitec.netmovies.tv.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,7 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,8 +51,14 @@ import com.evaitec.netmovies.tv.HomeViewModel
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.proxiedPoster
-
-private val POSTER_WIDTH = 104.dp   // ana sayfa carousel poster boyuyla uyumlu (küçük — focus'ta büyür)
+import com.evaitec.netmovies.tv.ui.theme.NmColor
+import com.evaitec.netmovies.tv.ui.theme.NmDim
+import com.evaitec.netmovies.tv.ui.theme.NmType
+import com.evaitec.netmovies.tv.ui.theme.nmBottomScrim
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRingOnly
+import com.evaitec.netmovies.tv.ui.theme.nmFocusScale
+import com.evaitec.netmovies.tv.ui.theme.nmScale
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -66,31 +69,28 @@ fun TvTopBarButton(
     modifier: Modifier = Modifier,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.08f else 1.0f, tween(150), label = "btnScale")
+    val scale = nmFocusScale(isFocused, label = "topBarBtnScale")
+    val shape = RoundedCornerShape(NmDim.PillRadius)
 
     Box(
         modifier = modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isFocused) Color(0xFF8B5CF6) else Color(0xFF241F33))
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) Color.White else Color(0x338B5CF6),
-                shape = RoundedCornerShape(20.dp)
-            )
+            .nmScale(scale)
+            .clip(shape)
+            .background(if (isFocused) NmColor.Primary else NmColor.SurfaceHigh)
+            .nmFocusRing(isFocused, shape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 11.dp),
     ) {
         Text(
             text = label,
-            color = if (isFocused) Color.White else Color(0xFFEDEDF2),
+            color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurface,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 14.sp,
+            fontSize = NmType.Label,
         )
     }
 }
@@ -156,7 +156,7 @@ private fun CategoryRows(
 
     // Poster uzun-bas menüsü.
     var menuItem by remember { mutableStateOf<MediaItem?>(null) }
-    
+
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
 
@@ -178,49 +178,27 @@ private fun CategoryRows(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
+            verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "NetMovies",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                        color = Color(0xFF8B5CF6),
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .combinedClickable(
-                                onClick = onToggleMouseMode,
-                                onLongClick = onToggleMouseMode,
-                            ),
-                    )
-                    HomeSearchBarButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = onOpenBrowse,
-                        onLongClick = onToggleVault
-                    )
-                    TvTopBarButton("⚙ Ayarlar", onClick = { showSettingsMenu = true }, onLongClick = onToggleMouseMode)
-                }
-            }
+            item { TopBar(onOpenBrowse, onToggleVault, onToggleMouseMode) { showSettingsMenu = true } }
+
             sections.forEachIndexed { sIndex, (title, list) ->
                 item {
                     Text(
                         text = title,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 24.dp, top = 6.dp, bottom = 6.dp),
+                        fontSize = NmType.RowTitle,
+                        color = NmColor.OnSurface,
+                        modifier = Modifier.padding(start = NmDim.SafeH, bottom = 2.dp),
                     )
                 }
                 item {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.focusGroup(),
+                        // Odak büyüteci kartı taşırdığı için dikey nefes payı bırakılır.
+                        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                     ) {
                         itemsIndexed(list) { index, item ->
                             val cardModifier =
@@ -248,7 +226,7 @@ private fun CategoryRows(
                 onClose = { menuItem = null },
             )
         }
-        
+
         if (showSettingsMenu) {
             SettingsMenu(
                 showVault = showVault,
@@ -262,6 +240,44 @@ private fun CategoryRows(
     }
 }
 
+// Sade üst bar: marka + tam genişlik arama + ayarlar. Tek odak grubu.
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun TopBar(
+    onOpenBrowse: () -> Unit,
+    onToggleVault: () -> Unit,
+    onToggleMouseMode: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusGroup()
+            .padding(horizontal = NmDim.SafeH, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "NetMovies",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = NmType.Wordmark,
+            color = NmColor.Primary,
+            modifier = Modifier
+                .padding(end = 4.dp)
+                .combinedClickable(
+                    onClick = onToggleMouseMode,
+                    onLongClick = onToggleMouseMode,
+                ),
+        )
+        HomeSearchBarButton(
+            modifier = Modifier.weight(1f),
+            onClick = onOpenBrowse,
+            onLongClick = onToggleVault,
+        )
+        TvTopBarButton("⚙  Ayarlar", onClick = onOpenSettings, onLongClick = onToggleMouseMode)
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PosterCard(
@@ -271,61 +287,58 @@ private fun PosterCard(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // D-pad focus → "büyüteç": kart büyür, primary çerçeve/glow, üstte kalır.
+    // D-pad focus → "büyüteç": kart büyür, beyaz odak halkası, üstte kalır.
     // combinedClickable → OK tek bas = oynat, OK basılı tut = menü (favori vb.).
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (focused) 1.18f else 1f,
-        animationSpec = tween(durationMillis = 150),
-        label = "posterScale",
-    )
-    val shape = RoundedCornerShape(8.dp)
+    val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "posterScale")
+    val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
         modifier = modifier
-            .width(POSTER_WIDTH)
+            .width(NmDim.PosterWidth)
             .aspectRatio(2f / 3f)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .nmScale(scale)
             .zIndex(if (focused) 1f else 0f)
             .clip(shape)
-            .background(Color(0xFF241F33))
-            .border(
-                width = if (focused) 2.5.dp else 0.dp,
-                color = if (focused) Color(0xFF8B5CF6) else Color.Transparent,
-                shape = shape,
-            )
+            .background(NmColor.SurfaceHigh)
+            .nmFocusRingOnly(focused, shape)
             .onFocusChanged { focused = it.isFocused }
             .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
-        Box(Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = proxiedPoster(item.poster),
-                contentDescription = item.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (isFavorite) {
-                Text(
-                    text = "★",
-                    color = Color(0xFFFFC107),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp),
-                )
-            }
+        AsyncImage(
+            model = proxiedPoster(item.poster),
+            contentDescription = item.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        // Başlık degradesi — poster ne olursa olsun yazı okunur kalsın.
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(54.dp)
+                .background(nmBottomScrim),
+        )
+        if (isFavorite) {
             Text(
-                text = item.title.orEmpty(),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+                text = "★",
+                color = NmColor.Star,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(4.dp),
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp),
             )
         }
+        Text(
+            text = item.title.orEmpty(),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = NmType.Caption,
+            color = NmColor.OnSurface,
+            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 7.dp),
+        )
     }
 }
 
@@ -339,28 +352,42 @@ private fun PosterMenu(
     onToggleFavorite: () -> Unit,
     onClose: () -> Unit,
 ) {
+    ModalCard(title = item.title ?: "Seçenekler") {
+        MenuRow("▶  Oynat", onPlay)
+        MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
+        MenuRow("Kapat", onClose)
+    }
+}
+
+// Ortak modal kabuğu: scrim + panel + başlık. Menülerin görünümü tek yerden gelir.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ModalCard(title: String, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(NmDim.PanelRadius)
     Box(
-        Modifier.fillMaxSize().background(Color(0xCC000000)),
+        Modifier.fillMaxSize().background(NmColor.Scrim),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier = Modifier
-                .width(320.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xF20F0F14))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .width(NmDim.DialogWidth)
+                .clip(shape)
+                .background(NmColor.SurfaceDialog)
+                .nmFocusRing(false, shape)
+                .focusGroup()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = item.title ?: "Seçenekler",
+                text = title,
                 fontWeight = FontWeight.Bold,
+                fontSize = NmType.ScreenTitle,
+                color = NmColor.Primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 10.dp),
             )
-            MenuRow("▶  Oynat", onPlay)
-            MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
-            MenuRow("Kapat", onClose)
+            content()
         }
     }
 }
@@ -369,20 +396,23 @@ private fun PosterMenu(
 @Composable
 private fun MenuRow(label: String, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isFocused) Color(0xFF8B5CF6) else Color(0x00000000))
+            .clip(shape)
+            .background(if (isFocused) NmColor.Primary else NmColor.Surface)
+            .nmFocusRing(isFocused, shape)
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 13.dp),
     ) {
         Text(
             text = label,
-            color = if (isFocused) Color.White else Color(0xFFEDEDF2),
-            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal
+            fontSize = NmType.Body,
+            color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurface,
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }
@@ -390,11 +420,11 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message)
-            androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
-            TouchButton("Tekrar dene", onRetry)
+            Text(message, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
+            Spacer(Modifier.height(16.dp))
+            TouchButton("Tekrar dene", onRetry, accent = true)
         }
     }
 }
@@ -403,7 +433,7 @@ private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
 @Composable
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text)
+        Text(text, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
     }
 }
 
@@ -415,32 +445,29 @@ fun HomeSearchBarButton(
     onLongClick: (() -> Unit)? = null,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.02f else 1.0f, tween(150), label = "searchScale")
+    val scale = nmFocusScale(isFocused, NmDim.FocusScaleRow, label = "searchScale")
+    val shape = RoundedCornerShape(NmDim.PillRadius)
 
     Box(
         modifier = modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isFocused) Color(0xFF322A4A) else Color(0xFF1A1726))
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) Color(0xFF8B5CF6) else Color(0x338B5CF6),
-                shape = RoundedCornerShape(20.dp)
-            )
+            .nmScale(scale)
+            .clip(shape)
+            .background(if (isFocused) NmColor.SurfaceHigh else NmColor.Surface)
+            .nmFocusRing(isFocused, shape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 11.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
-            text = "🔎 Film, Dizi veya Tür Ara...",
-            color = if (isFocused) Color.White else Color(0x88EDEDF2),
+            text = "🔎  Film, dizi veya tür ara…",
+            color = if (isFocused) NmColor.OnSurface else NmColor.OnSurfaceFaint,
             fontWeight = FontWeight.Medium,
-            fontSize = 14.sp,
+            fontSize = NmType.Label,
         )
     }
 }
@@ -455,32 +482,13 @@ private fun SettingsMenu(
     onToggleMouseMode: () -> Unit,
     onClose: () -> Unit,
 ) {
-    Box(
-        Modifier.fillMaxSize().background(Color(0xCC000000)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier
-                .width(320.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xF20F0F14))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = "Ayarlar",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = Color(0xFF8B5CF6),
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-            MenuRow("⚙ Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
-            MenuRow("🖱 Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
-            MenuRow(if (showVault) "👁 Özel Koleksiyonu Gizle" else "👁 Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
-            if (showVault) {
-                MenuRow("🔒 Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
-            }
-            MenuRow("❌ Kapat", onClose)
+    ModalCard(title = "Ayarlar") {
+        MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
+        MenuRow("🖱  Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
+        MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
+        if (showVault) {
+            MenuRow("🔒  Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
         }
+        MenuRow("✕  Kapat", onClose)
     }
 }

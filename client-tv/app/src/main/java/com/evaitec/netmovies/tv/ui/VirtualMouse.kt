@@ -33,10 +33,12 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
+import com.evaitec.netmovies.tv.ui.theme.NmColor
+import com.evaitec.netmovies.tv.ui.theme.NmDim
+import com.evaitec.netmovies.tv.ui.theme.NmType
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -111,15 +113,15 @@ fun VirtualMouseOverlay(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xE68B5CF6))
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+                .padding(top = NmDim.SafeV)
+                .clip(RoundedCornerShape(NmDim.PillRadius))
+                .background(NmColor.Primary)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
                 text = "🖱 Sanal Fare Modu — Yön tuşları: Hareket · OK: Tıkla · Geri: Çık",
-                color = Color.White,
-                fontSize = 12.sp,
+                color = NmColor.OnPrimary,
+                fontSize = NmType.Caption,
             )
         }
 
@@ -144,9 +146,9 @@ fun VirtualMouseOverlay(
                     close()
                 }
                 // Dış beyaz gölge / çizgi
-                drawPath(path, color = Color.White, style = Stroke(width = 4f))
+                drawPath(path, color = NmColor.FocusRing, style = Stroke(width = 4f))
                 // İç mor dolgu
-                drawPath(path, color = if (isClicking) Color(0xFFEF4444) else Color(0xFF8B5CF6), style = Fill)
+                drawPath(path, color = if (isClicking) Color(0xFFEF4444) else NmColor.Primary, style = Fill)
             }
         }
     }

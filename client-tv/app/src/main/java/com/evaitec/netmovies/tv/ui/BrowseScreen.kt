@@ -1,11 +1,9 @@
 package com.evaitec.netmovies.tv.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -36,16 +35,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -53,6 +50,14 @@ import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PluginInfo
 import com.evaitec.netmovies.tv.data.proxiedPoster
+import com.evaitec.netmovies.tv.ui.theme.NmColor
+import com.evaitec.netmovies.tv.ui.theme.NmDim
+import com.evaitec.netmovies.tv.ui.theme.NmType
+import com.evaitec.netmovies.tv.ui.theme.nmBottomScrim
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRingOnly
+import com.evaitec.netmovies.tv.ui.theme.nmFocusScale
+import com.evaitec.netmovies.tv.ui.theme.nmScale
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -184,27 +189,35 @@ fun BrowseScreen(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SearchBar(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.PillRadius)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp)
+            .padding(start = NmDim.SafeH, end = NmDim.SafeH, top = NmDim.SafeV, bottom = 8.dp)
             .clip(shape)
-            .background(Color(0xFF1A1726))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .background(if (focused) NmColor.SurfaceHigh else NmColor.Surface)
+            .nmFocusRing(focused, shape)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
         BasicTextField(
             value = query,
             onValueChange = onQueryChange,
             singleLine = true,
-            textStyle = TextStyle(color = Color(0xFFEDEDF2), fontSize = 16.sp),
-            cursorBrush = SolidColor(Color(0xFF8B5CF6)),
+            textStyle = TextStyle(color = NmColor.OnSurface, fontSize = NmType.Body),
+            cursorBrush = SolidColor(NmColor.Primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }, onDone = { onSearch() }),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused },
             decorationBox = { inner ->
                 if (query.isEmpty()) {
-                    Text("Ara — tüm kaynaklarda…", color = Color(0x88EDEDF2))
+                    Text(
+                        text = "🔎  Ara — tüm kaynaklarda…",
+                        color = NmColor.OnSurfaceFaint,
+                        fontSize = NmType.Body,
+                    )
                 }
                 inner()
             },
@@ -222,20 +235,27 @@ private fun CategoryList(
     LaunchedEffect(plugins) { runCatching { firstFocus.requestFocus() } }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(24.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxSize().focusGroup(),
+        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         item {
-            Text("Gözat — Eklenti & Kategoriler", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
+            Text(
+                text = "Gözat — Eklenti & Kategoriler",
+                fontWeight = FontWeight.Bold,
+                fontSize = NmType.ScreenTitle,
+                color = NmColor.OnSurface,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
         }
         plugins.forEachIndexed { pIndex, plugin ->
             item {
                 Text(
                     text = plugin.name,
-                    color = Color(0xFF8B5CF6),
+                    color = NmColor.Primary,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    fontSize = NmType.RowTitle,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
                 )
             }
             val entries = plugin.mainPage.entries.toList()
@@ -263,16 +283,23 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
 @Composable
 private fun CategoryRow(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (focused) Color(0x338B5CF6) else Color(0xFF1A1726))
+            .clip(shape)
+            .background(if (focused) NmColor.Primary else NmColor.Surface)
+            .nmFocusRing(focused, shape)
             .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 13.dp),
     ) {
-        Text(label, fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal)
+        Text(
+            text = label,
+            fontSize = NmType.Body,
+            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+        )
     }
 }
 
@@ -287,15 +314,23 @@ private fun ItemGrid(
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(items) { if (items.isNotEmpty()) runCatching { firstFocus.requestFocus() } }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            fontSize = NmType.ScreenTitle,
+            color = NmColor.OnSurface,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
         when {
             loading -> Center("Yükleniyor…")
             items.isEmpty() -> Center("İçerik bulunamadı")
             else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.focusGroup(),
+                columns = GridCells.Adaptive(minSize = NmDim.GridPosterMin),
+                contentPadding = PaddingValues(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
                 items(items.size) { i ->
                     val mod = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier
@@ -310,23 +345,16 @@ private fun ItemGrid(
 @Composable
 private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (focused) 1.12f else 1f,
-        animationSpec = tween(150),
-        label = "browseScale",
-    )
-    val shape = RoundedCornerShape(8.dp)
+    val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "browseScale")
+    val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
         modifier = modifier
             .aspectRatio(2f / 3f)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .nmScale(scale)
+            .zIndex(if (focused) 1f else 0f)
             .clip(shape)
-            .background(Color(0xFF241F33))
-            .border(
-                width = if (focused) 2.5.dp else 0.dp,
-                color = if (focused) Color(0xFF8B5CF6) else Color.Transparent,
-                shape = shape,
-            )
+            .background(NmColor.SurfaceHigh)
+            .nmFocusRingOnly(focused, shape)
             .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() },
     ) {
@@ -336,12 +364,24 @@ private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(54.dp)
+                .background(nmBottomScrim),
+        )
         Text(
             text = item.title.orEmpty(),
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            fontSize = NmType.Caption,
+            color = NmColor.OnSurface,
             fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(4.dp),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 7.dp),
         )
     }
 }
@@ -349,5 +389,7 @@ private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun Center(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text) }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
+    }
 }

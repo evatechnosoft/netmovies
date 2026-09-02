@@ -9,17 +9,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.evaitec.netmovies.tv.ui.theme.NmColor
+import com.evaitec.netmovies.tv.ui.theme.NmDim
+import com.evaitec.netmovies.tv.ui.theme.NmType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.UpdateUi
 import com.evaitec.netmovies.tv.UpdateViewModel
-
-private val BANNER_BG = Color(0xFF2A2140)
-private val BANNER_TEXT = Color(0xFFF3F1FA)   // açık — koyu banner üstünde okunur
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -40,12 +39,17 @@ private fun Bar(message: String, actionLabel: String?, onAction: (() -> Unit)?) 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(BANNER_BG)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .background(NmColor.BannerBg)
+            .padding(horizontal = NmDim.SafeH, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(message, color = BANNER_TEXT, modifier = Modifier.padding(end = 8.dp))
+        Text(
+            text = message,
+            color = NmColor.OnSurface,
+            fontSize = NmType.Label,
+            modifier = Modifier.padding(end = 8.dp),
+        )
         if (actionLabel != null && onAction != null) {
             TouchButton(actionLabel, onAction)
         }

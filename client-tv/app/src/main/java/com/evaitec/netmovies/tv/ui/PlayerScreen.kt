@@ -59,7 +59,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
@@ -86,6 +85,11 @@ import com.evaitec.netmovies.tv.data.StreamLink
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.input.RemoteAction
 import com.evaitec.netmovies.tv.input.RemoteInputController
+import com.evaitec.netmovies.tv.ui.theme.NmColor
+import com.evaitec.netmovies.tv.ui.theme.NmDim
+import com.evaitec.netmovies.tv.ui.theme.NmType
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
+import com.evaitec.netmovies.tv.ui.theme.nmPlayerScrim
 import kotlinx.coroutines.delay
 
 // Oynatma hızı seçenekleri (çark → Hız).
@@ -443,9 +447,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         seekHint?.let {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xB3000000))
-                        .padding(horizontal = 24.dp, vertical = 14.dp),
-                ) { Text(it, fontWeight = FontWeight.Bold) }
+                    Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.Scrim)
+                        .padding(horizontal = 28.dp, vertical = 16.dp),
+                ) {
+                    Text(
+                        text = it,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = NmType.ScreenTitle,
+                        color = NmColor.OnSurface,
+                    )
+                }
             }
         }
 
@@ -560,29 +571,31 @@ private fun ControlsOverlay(
 ) {
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
-        // Sağ üst: küçük metin butonlar (önizleme / ayarlar).
+        // Sağ üst: mod butonları (önizleme / ayarlar) — TV güvenli alan içinde.
         Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             TextPill("Önizleme", onScrub)
             TextPill("Ayarlar", onOpenSettings)
         }
 
-        // Alt kompakt kontrol çubuğu: ince ilerleme + tek satır ikon kontroller.
+        // Alt kontrol çubuğu: degrade zemin + ilerleme + ortalanmış kontrol grubu.
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color(0x80000000))
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+                .background(nmPlayerScrim)
+                .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // İnce ilerleme çubuğu — dokununca o orana atla.
+            // İlerleme çubuğu — dokununca o orana atla.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(14.dp)
+                    .height(16.dp)
                     .pointerInput(duration) {
                         detectTapGestures { o ->
                             if (size.width > 0) onSeekToFraction((o.x / size.width).coerceIn(0f, 1f))
@@ -591,34 +604,34 @@ private fun ControlsOverlay(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Box(
-                    Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp))
-                        .background(Color(0x55FFFFFF)),
+                    Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
+                        .background(NmColor.TrackIdle),
                 ) {
                     Box(
-                        Modifier.fillMaxWidth(fraction).height(3.dp).clip(RoundedCornerShape(2.dp))
-                            .background(Color(0xFF8B5CF6)),
+                        Modifier.fillMaxWidth(fraction).height(5.dp).clip(RoundedCornerShape(3.dp))
+                            .background(NmColor.Primary),
                     )
                 }
             }
-            // Tek satır: süre — kontroller (ortada) — süre.
+            // Tek satır: geçen süre — kontrol grubu (ortada) — toplam süre.
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(fmtTime(position), color = Color(0xCCEDEDF2), fontSize = 12.sp)
+                Text(fmtTime(position), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconBtn(Icons.Filled.Replay10, 34.dp, 24.dp, onSeekBack)
+                    IconBtn(Icons.Filled.Replay10, 40.dp, 26.dp, onSeekBack)
                     IconBtn(
                         if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        44.dp, 28.dp, onPlayPause, accent = true,
+                        52.dp, 32.dp, onPlayPause, accent = true,
                     )
-                    IconBtn(Icons.Filled.Forward10, 34.dp, 24.dp, onSeekFwd)
+                    IconBtn(Icons.Filled.Forward10, 40.dp, 26.dp, onSeekFwd)
                 }
-                Text(fmtTime(duration), color = Color(0xCCEDEDF2), fontSize = 12.sp)
+                Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
             }
         }
     }
@@ -632,11 +645,11 @@ private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: and
         modifier = Modifier
             .size(box)
             .clip(CircleShape)
-            .background(if (accent) Color(0xE68B5CF6) else Color(0x66000000))
+            .background(if (accent) NmColor.Primary else NmColor.ScrimSoft)
             .pointerInput(Unit) { detectTapGestures { onTap() } },
         contentAlignment = Alignment.Center,
     ) {
-        Image(icon, contentDescription = null, modifier = Modifier.size(ic), colorFilter = ColorFilter.tint(Color.White))
+        Image(icon, contentDescription = null, modifier = Modifier.size(ic), colorFilter = ColorFilter.tint(NmColor.OnPrimary))
     }
 }
 
@@ -646,12 +659,12 @@ private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: and
 private fun TextPill(label: String, onTap: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0x99000000))
+            .clip(RoundedCornerShape(NmDim.PillRadius))
+            .background(NmColor.ScrimSoft)
             .pointerInput(Unit) { detectTapGestures { onTap() } }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Text(label, color = Color(0xFFEDEDF2), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = NmColor.OnSurface, fontSize = NmType.Caption, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -666,11 +679,16 @@ private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) 
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .background(Color(0xB3000000))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .background(nmPlayerScrim)
+                .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("⏱  Önizleme — ◀ ▶ gez · OK atla · Geri iptal", fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "⏱  Önizleme — ◀ ▶ gez · OK atla · Geri iptal",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = NmType.Label,
+                color = NmColor.OnSurface,
+            )
             BoxWithConstraints(Modifier.fillMaxWidth().height(150.dp)) {
                 val thumbW = 220.dp
                 val offsetX = (maxWidth - thumbW) * fraction
@@ -679,8 +697,9 @@ private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) 
                         .offset(x = offsetX)
                         .width(thumbW)
                         .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black),
+                        .clip(RoundedCornerShape(NmDim.CardRadius))
+                        .background(Color.Black)
+                        .nmFocusRing(true, RoundedCornerShape(NmDim.CardRadius)),
                 ) {
                     AndroidView(
                         factory = { ctx ->
@@ -694,24 +713,27 @@ private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) 
                     )
                     Text(
                         text = fmtTime(scrubPos),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = NmType.Caption,
+                        color = NmColor.OnSurface,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .background(Color(0xB3000000))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                            .background(NmColor.Scrim)
+                            .padding(horizontal = 10.dp, vertical = 3.dp),
                     )
                 }
             }
             Box(
-                Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x55FFFFFF)),
+                Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(NmColor.TrackIdle),
             ) {
                 Box(
                     Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF8B5CF6)),
+                        .background(NmColor.Primary),
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(fmtTime(scrubPos), color = Color(0xCCEDEDF2))
-                Text(fmtTime(duration), color = Color(0xCCEDEDF2))
+                Text(fmtTime(scrubPos), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
+                Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
             }
         }
     }
@@ -744,16 +766,20 @@ private fun SettingsPanel(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .width(340.dp)
-            .background(Color(0xF20F0F14))
-            .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+            .width(NmDim.PanelWidth)
+            .background(NmColor.SurfaceDialog)
+            .border(
+                width = 2.dp,
+                color = NmColor.Primary,
+                shape = RoundedCornerShape(topStart = NmDim.PanelRadius, bottomStart = NmDim.PanelRadius),
+            )
             .focusRequester(panelFocus)
             .focusGroup()
-            .padding(20.dp),
+            .padding(horizontal = 22.dp, vertical = NmDim.SafeV),
     ) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
         ) {
             SectionTitle("📺 Sağlayıcı & Kaynak")
             if (links.isEmpty()) MutedRow("—")
@@ -818,41 +844,50 @@ private fun SettingsPanel(
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        color = Color(0xFF8B5CF6),
+        color = NmColor.Primary,
         fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
-        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+        fontSize = NmType.RowTitle,
+        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
     )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun MutedRow(text: String) {
-    Text(text, color = Color(0x99EDEDF2), modifier = Modifier.padding(vertical = 6.dp))
+    Text(
+        text = text,
+        color = NmColor.OnSurfaceFaint,
+        fontSize = NmType.Body,
+        modifier = Modifier.padding(vertical = 6.dp),
+    )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isFocused) Color(0xFF8B5CF6) else if (selected) Color(0x338B5CF6) else Color(0xFF1E1A2B))
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) Color.White else Color(0x228B5CF6),
-                shape = RoundedCornerShape(8.dp)
+            .clip(shape)
+            .background(
+                when {
+                    isFocused -> NmColor.Primary
+                    selected  -> NmColor.PrimarySelected
+                    else      -> NmColor.Surface
+                }
             )
+            .nmFocusRing(isFocused, shape)
             .clickable { onClick() }
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Text(
-            text = (if (selected) "● " else "   ") + label,
-            color = if (isFocused) Color.White else if (selected) Color(0xFFEDEDF2) else Color(0xCCEDEDF2),
+            text = (if (selected) "●  " else "     ") + label,
+            fontSize = NmType.Label,
+            color = if (isFocused) NmColor.OnPrimary else if (selected) NmColor.OnSurface else NmColor.OnSurfaceMuted,
             fontWeight = if (isFocused || selected) FontWeight.SemiBold else FontWeight.Normal,
         )
     }
@@ -861,7 +896,14 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun Overlay(message: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(message) }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.ScrimSoft)
+                .padding(horizontal = 26.dp, vertical = 14.dp),
+        ) {
+            Text(message, fontSize = NmType.Body, color = NmColor.OnSurface)
+        }
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -873,18 +915,22 @@ private fun PlayerOverlay(
     onAction: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    val shape = RoundedCornerShape(NmDim.PanelRadius)
+    Box(
+        Modifier.fillMaxSize().background(NmColor.Scrim).padding(NmDim.SafeArea),
+        contentAlignment = Alignment.Center,
+    ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xEE161320))
-                .border(1.dp, Color(0xFF8B5CF6), RoundedCornerShape(16.dp))
-                .padding(28.dp),
+                .clip(shape)
+                .background(NmColor.SurfaceDialog)
+                .border(1.dp, NmColor.Primary, shape)
+                .padding(32.dp),
         ) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF8B5CF6))
-            Text(message, color = Color(0xCCEDEDF2), fontSize = 14.sp)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = NmType.ScreenTitle, color = NmColor.Primary)
+            Text(message, color = NmColor.OnSurfaceMuted, fontSize = NmType.Label)
             ActionRow(onAction = onAction, actionLabel = actionLabel, onBack = onBack)
         }
     }
