@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import re
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from KekikStream.Core import (
     Episode,
@@ -24,6 +28,31 @@ _MAIN_URL = discover_main_url(
     "DIZIBOX_URL",
 )
 _COOKIES = {"LockUser": "true", "isTrustedUser": "true", "dbxu": "1722403730363"}
+_BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
+def _evp_bytes_to_key(password: bytes, salt: bytes, key_len: int = 32, iv_len: int = 16) -> tuple[bytes, bytes]:
+    """OpenSSL EVP_BytesToKey (MD5, 1 tur) — CryptoJS'in parola modunun türetmesi."""
+    material = b""
+    block    = b""
+    while len(material) < key_len + iv_len:
+        block     = hashlib.md5(block + password + salt).digest()
+        material += block
+    return material[:key_len], material[key_len:key_len + iv_len]
+
+
+def _cryptojs_decrypt(ciphertext: str, password: str) -> str | None:
+    """`CryptoJS.AES.decrypt(ct, pw)` karşılığı: "Salted__" + tuz + AES-256-CBC."""
+    try:
+        raw = base64.b64decode(ciphertext)
+        if raw[:8] != b"Salted__":
+            return None
+        key, iv   = _evp_bytes_to_key(password.encode(), raw[8:16])
+        decryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
+        plain     = decryptor.update(raw[16:]) + decryptor.finalize()
+        return plain[:-plain[-1]].decode("utf-8", "replace")
+    except Exception:
+        return None
 
 
 class DiziBox(PluginBase):
@@ -111,6 +140,47 @@ class DiziBox(PluginBase):
             if not iframe_url:
                 continue
             iframe_text = await fetch_html(self.httpx, iframe_url, headers={"Referer": page})
+
+            # king.php yalnızca bir SARMALAYICI: gerçek oynatıcı içindeki ikinci
+            # iframe'de (molystream). Eskiden bu katman atlandığı için load_links
+            # hep boş dönüyordu ("Oynatılacak kaynak bulunamadı").
+            nested = absolute(iframe_url, first_attr(HTMLHelper(iframe_text), ("iframe",), "src"))
+            if nested and nested != iframe_url:
+                results.extend(await self._molystream(nested, referer=iframe_url))
+                if not results:
+                    nested_text = await fetch_html(self.httpx, nested, headers={"Referer": iframe_url})
+                    results.extend(extract_embedded_sources(nested_text, nested, self.name))
+                    self.collect_results(results, await self.extract(nested, referer=iframe_url))
+
             results.extend(extract_embedded_sources(iframe_text, iframe_url, self.name))
             self.collect_results(results, await self.extract(iframe_url, referer=page))
         return self.deduplicate(results)
+
+    async def _molystream(self, embed_url: str, referer: str) -> list[ExtractResult]:
+        """MolyStream embed'ini çözer: sayfa gövdesi CryptoJS ile şifreli.
+
+        `CryptoJS.AES.decrypt("<ct>", "<pw>")` çağrısındaki iki argüman sayfada düz
+        duruyor; parola OpenSSL parola modu (MD5 KDF) ile kullanılıyor. Çözülen HTML
+        içindeki jwplayer `file:` alanı doğrudan HLS master playlist'i veriyor.
+        """
+        text  = await fetch_html(self.httpx, embed_url, headers={"Referer": referer})
+        match = re.search(r'CryptoJS\.AES\.decrypt\("([^"]+)"\s*,\s*"([^"]+)"\)', text, re.S)
+        if not match:
+            return []
+
+        player = _cryptojs_decrypt(match.group(1), match.group(2))
+        if not player:
+            return []
+
+        file_match = re.search(r"""file\s*:\s*['"]([^'"]+)['"]""", player)
+        if not file_match:
+            return []
+
+        return [
+            ExtractResult(
+                name       = f"{self.name} | MolyStream",
+                url        = absolute(embed_url, file_match.group(1)) or file_match.group(1),
+                referer    = embed_url,
+                user_agent = _BROWSER_UA,
+            )
+        ]

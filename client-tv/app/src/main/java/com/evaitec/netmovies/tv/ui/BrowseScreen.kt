@@ -74,6 +74,9 @@ import java.net.URLDecoder
 private fun decode(s: String): String =
     runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s)
 
+/** Ekran açılır açılmaz paralel çekilecek raf sayısı (üstteki görünür bölge). */
+private const val PREFETCH_SHELVES = 6
+
 /** Bir raf = (eklenti, kategori) çifti. Ana sayfadaki gibi yatay poster şeridi. */
 private data class Shelf(
     val plugin: PluginInfo,
@@ -83,6 +86,15 @@ private data class Shelf(
     val key: String get() = "${plugin.name}|$encCat"
     val title: String get() = "${plugin.name} · ${decode(encCat)}"
 }
+
+/** Rafın içeriğini çeker; hata/zaman aşımı boş liste (raf gizlenir). */
+private suspend fun fetchShelf(shelf: Shelf): List<MediaItem> =
+    withTimeoutOrNull(20_000) {
+        runCatching {
+            Network.api.getMainPage(shelf.plugin.name, 1, shelf.encUrl, shelf.encCat).result
+                .map { it.copy(plugin = shelf.plugin.name, category = decode(shelf.encCat)) }
+        }.getOrDefault(emptyList())
+    } ?: emptyList()
 
 // Gözat: her kategori kendi içeriğini poster rafı olarak gösterir (düz metin listesi yerine).
 // Arama üstte sadece büyüteç; seçilince metin alanına dönüşür.
@@ -123,6 +135,18 @@ fun BrowseScreen(
 
     // Raf içerikleri: ekran boyunca yaşar → yukarı/aşağı gezinirken tekrar çekilmez.
     val shelfCache = remember { mutableStateMapOf<String, List<MediaItem>>() }
+    // Aynı rafı hem önyükleme hem de satırın kendisi çekmesin.
+    val started = remember { mutableSetOf<String>() }
+
+    // İlk raflar ekrana girmeyi beklemeden PARALEL çekilir; sunucu tarafı 30 dk
+    // cache'lediği için sonraki açılışlar anında gelir (Dean: "çok geç yükleniyor").
+    LaunchedEffect(shelves) {
+        val head = shelves.take(PREFETCH_SHELVES).filter { started.add(it.key) }
+        if (head.isEmpty()) return@LaunchedEffect
+        coroutineScope {
+            head.map { shelf -> async { shelfCache[shelf.key] = fetchShelf(shelf) } }.awaitAll()
+        }
+    }
 
     // Kaydırma konumu ve son odaklı raf ekran seviyesinde tutulur; arama sonucuna
     // girip çıkınca liste en üstten başlamasın (Dean: "en üstten başlıyor, olmuyor").
@@ -198,6 +222,7 @@ fun BrowseScreen(
                 else -> ShelfList(
                     shelves = shelves,
                     cache = shelfCache,
+                    started = started,
                     listState = listState,
                     focusedShelf = focusedShelf,
                     onShelfFocused = { focusedShelf = it },
@@ -298,6 +323,7 @@ private fun IconPill(glyph: String, onClick: () -> Unit) {
 private fun ShelfList(
     shelves: List<Shelf>,
     cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
+    started: MutableSet<String>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     focusedShelf: Int,
     onShelfFocused: (Int) -> Unit,
@@ -317,6 +343,7 @@ private fun ShelfList(
             ShelfRow(
                 shelf = shelves[index],
                 cache = cache,
+                started = started,
                 // Hedef raf boş çıkarsa (kaynak ölü) odak sonraki dolu rafa düşsün.
                 autoFocus = pendingFocus && index >= focusedShelf,
                 onFocusConsumed = { pendingFocus = false },
@@ -332,6 +359,7 @@ private fun ShelfList(
 private fun ShelfRow(
     shelf: Shelf,
     cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
+    started: MutableSet<String>,
     autoFocus: Boolean,
     onFocusConsumed: () -> Unit,
     onFocused: () -> Unit,
@@ -341,14 +369,8 @@ private fun ShelfRow(
 
     // Raf ekrana girdiğinde içeriğini çeker; sonuç önbellekte kalır.
     LaunchedEffect(shelf.key) {
-        if (cache.containsKey(shelf.key)) return@LaunchedEffect
-        val loaded = withTimeoutOrNull(20_000) {
-            runCatching {
-                Network.api.getMainPage(shelf.plugin.name, 1, shelf.encUrl, shelf.encCat).result
-                    .map { it.copy(plugin = shelf.plugin.name, category = decode(shelf.encCat)) }
-            }.getOrDefault(emptyList())
-        } ?: emptyList()
-        cache[shelf.key] = loaded
+        if (!started.add(shelf.key)) return@LaunchedEffect   // önyükleme zaten aldı
+        cache[shelf.key] = fetchShelf(shelf)
     }
 
     // Boş dönen kategori (ölü/değişmiş kaynak) hiç yer kaplamasın.
