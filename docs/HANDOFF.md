@@ -20,15 +20,12 @@
   `WEB_WORKERS=1`, `.gitignore` `data/`→`/data/` (tv/data/ paketi tuzağı).
 - `7d4ed47` — Codex yarım-UI refactoru (pages/*.css ayrımı, header sadeleştirme, HomeScreen).
 
-**⚠ COMMIT EDİLMEMİŞ çalışma ağacı (client-tv/, 2 ajan çıktısı birleşik):**
-1. *Geri-tuşu bug fix* (`PlayerScreen.kt`): hata ekranında `BackHandler` → `error != null → onBack()`,
-   `onKeyEvent` hata durumunda tuş yutmuyor, `ActionRow`'a `focusGroup()`. Kod doğru görünüyor.
-2. *Media3 1.4.1 → 1.11.0*: compileSdk 36, AGP 8.9.1, gradle wrapper 8.11.1.
-3. **BUILD FAILED — bilinen kök neden:** Media3 1.11 kotlin-stdlib **2.2.x** çekiyor; kök
-   `client-tv/build.gradle.kts`'de Kotlin plugin'ler **2.0.20** kaldı → "metadata 2.2.0,
-   expected 2.0.0". **Sonraki adım:** 3 Kotlin plugin'i (android/compose/serialization)
-   **2.2.10**'a çek, `./gradlew.bat --stop` + `:app:assembleDebug` → yeşilse backfix ve
-   Media3'ü AYRI commit'le.
+- `54d76d2` — TV oynatıcı hata ekranında GERİ tuşu fix'i (`BackHandler` `error != null → onBack()`,
+  `onKeyEvent` hata state'inde tuş yutmuyor, `ActionRow.focusGroup()`) + **Media3 1.4.1 → 1.11.0**.
+  Gereken zincir: compileSdk 36, AGP 8.9.1, gradle 8.11.1, **Kotlin plugin 2.0.20 → 2.2.10**
+  (Media3 1.11 kotlin-stdlib 2.2.x çekiyor; eskisinde "metadata 2.2.0, expected 2.0.0" ile
+  derleme kırılıyordu). Kanıt: `assembleDebug` + `testDebugUnitTest` → **BUILD SUCCESSFUL**.
+  ⚠ Cihazda (gerçek TV) davranış testi YAPILMADI — APK'yı yükleyip hata ekranında BACK'i dene.
 
 **⚠ Docker/canlı (502):**
 - Kök neden 2 katman: (1) compose `service_started` cold-start yarışı → `542a450` ile çözüldü
