@@ -282,3 +282,54 @@ class ResolveSourcesContractTest(unittest.TestCase):
 
         self.assertEqual(200, res.status_code)
         self.assertEqual([], res.json()["result"]["sources"])
+
+
+class PlayerProofTest(unittest.TestCase):
+    """Tek kullanımlık oynatıcı imzası (X-Sp) — her istekte yeniden üretilmeli."""
+
+    def test_material_becomes_a_fresh_signature(self) -> None:
+        from Public.Proxy.Libs.player_proof import apply_player_proof
+
+        headers = apply_player_proof({"X-Sp-Secret": "abc", "X-Sp-Time": "1788430142", "Origin": "https://x"})
+
+        self.assertIn("X-Sp", headers)
+        self.assertTrue(headers["X-Sp"].startswith("1788430142."))
+        self.assertEqual("https://x", headers["Origin"])
+
+    def test_material_is_never_leaked_upstream(self) -> None:
+        from Public.Proxy.Libs.player_proof import apply_player_proof
+
+        headers = apply_player_proof({"X-Sp-Secret": "abc", "X-Sp-Time": "1788430142"})
+
+        self.assertNotIn("X-Sp-Secret", headers)
+        self.assertNotIn("X-Sp-Time", headers)
+
+    def test_each_call_produces_a_different_signature(self) -> None:
+        """Aynı imza ikinci kez gönderilirse kaynak 404 veriyor (ölçüldü)."""
+        from Public.Proxy.Libs.player_proof import apply_player_proof
+
+        first = apply_player_proof({"X-Sp-Secret": "abc", "X-Sp-Time": "100"})["X-Sp"]
+        second = apply_player_proof({"X-Sp-Secret": "abc", "X-Sp-Time": "100"})["X-Sp"]
+
+        self.assertNotEqual(first, second)
+
+    def test_sources_without_material_are_untouched(self) -> None:
+        from Public.Proxy.Libs.player_proof import apply_player_proof
+
+        headers = apply_player_proof({"Referer": "https://x/"})
+
+        self.assertEqual({"Referer": "https://x/"}, headers)
+
+    def test_signed_sources_are_routed_through_the_proxy(self) -> None:
+        from Public.API.v1.Routers.resolve_sources import route_through_proxy
+
+        sources = [
+            {"name": "A", "url": "https://cdn/a.m3u8", "extra_headers": {"X-Sp-Secret": "s", "X-Sp-Time": "1"}},
+            {"name": "B", "url": "https://cdn/b.m3u8"},
+        ]
+        routed = route_through_proxy(sources, "http://ev:3310")
+
+        self.assertTrue(routed[0]["url"].startswith("http://ev:3310/proxy/video?url="))
+        self.assertTrue(routed[0]["proxied"])
+        self.assertNotIn("extra_headers", routed[0], "imza malzemesi istemciye sızmamalı")
+        self.assertEqual("https://cdn/b.m3u8", routed[1]["url"], "başlık istemeyen kaynak proxy'ye alınmaz")

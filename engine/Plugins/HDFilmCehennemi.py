@@ -1,13 +1,27 @@
 # NetMovies — HDFilmCehennemi eklentisi
-# KekikStream PluginBase formatına, keyiflerolsun/Kekik-cloudstream (Kotlin) referans
-# alınarak uyarlanmıştır. Tek dosya, harici extractor'a bağımlı değildir; oynatma
-# linkini sitenin kendi "playerr" scriptinden (P.A.C.K.E.R + base64) çözer.
+#
+# Site 2026 Eylül'ünde `hdfilmcehennemi.now` adresine taşındı ve TEMA DEĞİŞTİ:
+# eski özel tema yerine WordPress "oldmovie" (DooPlay türevi) kullanılıyor.
+# Eski parser'ın seçicileri (`div.section-content a.poster`, `/search?q=` JSON ucu,
+# `div.alternative-links`) yeni sitede hiç eşleşmiyordu → eklenti tamamen boş
+# dönüyordu. Bu dosya yeni yapıya göre yazılmıştır.
+#
+# Oynatma zinciri (dördü de zorunlu, biri atlanırsa link çıkmaz):
+#   1. İçerik sayfası      → `videoAjax.nonce` + `data-post-id` + `data-player-name`
+#   2. wp-admin/admin-ajax → action=get_video_url  → setplay.shop/player/?t=...
+#   3. setplay sayfası     → `SPG.cerceve(id, veri, anahtar)` XOR ile gizlenmiş
+#                            iç oynatıcı adresi (fastplay.mom/video/<id>)
+#   4. fastplay sayfası    → `window.FSP.stream` (HLS master) + `SPG_A` koruma
+#                            parametreleri. Manifest isteği `X-Sp` "oynatıcı kanıtı"
+#                            başlığı olmadan 404 döner (sitenin kendi notu böyle
+#                            diyor: adresi tekrar oynatmak yetmez, başlık şart).
 
 from __future__ import annotations
 
-import re
-import json
 import base64
+import json
+import random
+import re
 
 from KekikStream.Core import (
     PluginBase,
@@ -23,63 +37,54 @@ from KekikStream.Core import (
 
 try:
     from Plugins.__kekik_domain import discover_main_url
-    from Plugins._js_player     import extract_player_config
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
     from __kekik_domain import discover_main_url
-    from _js_player     import extract_player_config
 
-# Güncel domain otomatik çekilir; HDFC_URL ile elle sabitlenebilir.
+# Upstream (Kekik-cloudstream) hâlâ ölü `.nl` adresini gösteriyor; `.nl` 403,
+# `.now` 200 döndüğü için bu aile override edilir. HDFC_URL ile elle sabitlenebilir.
 _MAIN_URL = discover_main_url(
     "HDFilmCehennemi/src/main/kotlin/com/keyiflerolsun/HDFilmCehennemi.kt",
-    "https://www.hdfilmcehennemi.nl",
+    "https://www.hdfilmcehennemi.now",
     "HDFC_URL",
 )
+if "hdfilmcehennemi" in _MAIN_URL and not _MAIN_URL.endswith(".now"):
+    _MAIN_URL = "https://www.hdfilmcehennemi.now"
+
+_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
 
-# ----------------------------------------------------------------------------
-# P.A.C.K.E.R. (Dean Edwards) unpacker — sitenin "eval(function(p,a,c,k,e,d)...)"
-# ile paketlenmiş player scriptini açmak için. Kotlin tarafındaki getAndUnpack
-# karşılığı.
-# ----------------------------------------------------------------------------
-class _JSUnpacker:
-    _ARGS = re.compile(
-        r"}\s*\(\s*'(.*)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)",
-        re.DOTALL,
-    )
+def _unxor(data_b64: str, key_b64: str) -> str:
+    """setplay'in iç oynatıcı adresini gizlediği XOR şeması (base64 veri ⊕ base64 anahtar)."""
+    data = base64.b64decode(data_b64)
+    key  = base64.b64decode(key_b64)
+    return "".join(chr(data[i] ^ key[i % len(key)]) for i in range(len(data)))
 
-    @staticmethod
-    def _unbase(value: str, radix: int) -> int:
-        alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        result = 0
-        for ch in value:
-            result = result * radix + alphabet.index(ch)
-        return result
 
-    @classmethod
-    def detect(cls, script: str) -> bool:
-        return "}(" in script and "split('|')" in script and "eval(" in script
+def _base36(value: int) -> str:
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+    if value == 0:
+        return "0"
+    out = ""
+    while value:
+        value, rem = divmod(value, 36)
+        out = digits[rem] + out
+    return out
 
-    @classmethod
-    def unpack(cls, script: str) -> str:
-        match = cls._ARGS.search(script)
-        if not match:
-            return script
 
-        payload, radix, count, symtab_raw = match.groups()
-        radix = int(radix)
-        symtab = symtab_raw.split("|")
+def _fnv1a(text: str) -> str:
+    h = 2166136261
+    for ch in text:
+        h ^= ord(ch)
+        h = (h * 16777619) & 0xFFFFFFFF
+    return format(h, "x")
 
-        def repl(m: re.Match) -> str:
-            word = m.group(0)
-            idx = cls._unbase(word, radix)
-            if idx < len(symtab) and symtab[idx]:
-                return symtab[idx]
-            return word
 
-        payload = payload.replace("\\'", "'").replace("\\\\", "\\")
-        return re.sub(r"\b\w+\b", repl, payload)
+def _player_proof(sp: str, sp_t: int) -> str:
+    """fastplay'in `X-Sp` başlığı: <zaman>.<rastgele36>.<fnv1a(sp|zaman|rastgele)>."""
+    rand = _base36(int(2176782336 * random.random()))
+    return f"{sp_t}.{rand}.{_fnv1a(f'{sp}|{sp_t}|{rand}')}"
 
 
 class HDFilmCehennemi(PluginBase):
@@ -89,30 +94,45 @@ class HDFilmCehennemi(PluginBase):
     favicon     = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "HDFilmCehennemi — Türkçe dublaj/altyazı film ve dizi kaynağı."
 
+    # Yeni sitenin gerçek bölümleri. Diziler ve bölümler artık ayrı ayrı listeleniyor
+    # (eski `/yabancidiziizle-2` yolu 404).
     main_page = {
-        f"{main_url}"                                     : "Yeni Eklenen Filmler",
-        f"{main_url}/yabancidiziizle-2"                   : "Yeni Eklenen Diziler",
-        f"{main_url}/category/tavsiye-filmler-izle2"      : "Tavsiye Filmler",
-        f"{main_url}/imdb-7-puan-uzeri-filmler"           : "IMDB 7+ Filmler",
-        f"{main_url}/en-cok-begenilen-filmleri-izle"      : "En Çok Beğenilenler",
-        f"{main_url}/tur/aksiyon-filmleri-izleyin-3"      : "Aksiyon",
-        f"{main_url}/tur/komedi-filmlerini-izleyin-1"     : "Komedi",
-        f"{main_url}/tur/korku-filmlerini-izle-2/"        : "Korku",
-        f"{main_url}/tur/bilim-kurgu-filmlerini-izleyin-2": "Bilim Kurgu",
-        f"{main_url}/tur/animasyon-filmlerini-izleyin-4"  : "Animasyon",
+        f"{main_url}"                       : "Yeni Eklenen Filmler",
+        f"{main_url}/dizi/"                 : "Diziler",
+        f"{main_url}/bolum/"                : "Son Bölümler",
+        f"{main_url}/tur/aksiyon/"          : "Aksiyon",
+        f"{main_url}/tur/komedi/"           : "Komedi",
+        f"{main_url}/tur/korku/"            : "Korku",
+        f"{main_url}/tur/bilim-kurgu/"      : "Bilim Kurgu",
+        f"{main_url}/tur/animasyon/"        : "Animasyon",
+        f"{main_url}/tur/dram/"             : "Dram",
+        f"{main_url}/tur/gerilim/"          : "Gerilim",
     }
 
     # ------------------------------------------------------------------ Ana sayfa
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
-        response = await self.httpx.get(url)
+        target   = url if page <= 1 else f"{url.rstrip('/')}/page/{page}/"
+        response = await self.httpx.get(target, headers={"User-Agent": _UA})
         secici   = HTMLHelper(response.text)
 
         results: list[MainPageResult] = []
-        for node in secici.select("div.section-content a.poster"):
-            title = node.select_text("strong.poster-title")
-            href  = node.attrs.get("href")
-            if not title or not href:
+        # Tema iki kart biçimi kullanıyor: ana sayfa/arşiv (`article .poster`) ve
+        # arama sonucu (`.result-item`). İkisi de aynı yapıya indirgeniyor.
+        for node in secici.select("div.items article, div.result-item article"):
+            href = node.select_attr("a", "href")
+            if not href or "/tur/" in href:
                 continue
+
+            title = (
+                node.select_text("div.title a")
+                or node.select_text("div.data h3 a")
+                or node.select_attr("img", "alt")
+            )
+            if not title:
+                continue
+            # Kart başlığı yoksa img alt'ına düşülüyor; tema oraya "… Poster" yazıyor.
+            title = re.sub(r"\s*Poster$", "", title.strip())
+
             poster = node.select_attr("img", "data-src") or node.select_attr("img", "src")
             results.append(
                 MainPageResult(
@@ -126,25 +146,22 @@ class HDFilmCehennemi(PluginBase):
 
     # ------------------------------------------------------------------ Arama
     async def search(self, query: str) -> list[SearchResult]:
+        # Eski `/search?q=` JSON ucu 404; WordPress'in kendi arama sayfası kullanılıyor.
         response = await self.httpx.get(
-            f"{self.main_url}/search?q={query}",
-            headers={"X-Requested-With": "fetch"},
+            f"{self.main_url}/?s={query}",
+            headers={"User-Agent": _UA},
         )
-        try:
-            payload = response.json()
-        except Exception:
-            return []
+        secici = HTMLHelper(response.text)
 
         results: list[SearchResult] = []
-        for html in payload.get("results", []):
-            secici = HTMLHelper(html)
-            title  = secici.select_text("h4.title")
-            href   = secici.select_attr("a", "href")
-            if not title or not href:
+        for node in secici.select("div.result-item article"):
+            href  = node.select_attr("a", "href")
+            title = node.select_text("div.title a") or node.select_attr("img", "alt")
+            if not href or not title:
                 continue
-            poster = secici.select_attr("img", "src") or secici.select_attr("img", "data-src")
-            if poster:
-                poster = poster.replace("/thumb/", "/list/")
+            title = re.sub(r"\s*Poster$", "", title.strip())
+
+            poster = node.select_attr("img", "data-src") or node.select_attr("img", "src")
             results.append(
                 SearchResult(
                     title  = title,
@@ -156,44 +173,54 @@ class HDFilmCehennemi(PluginBase):
 
     # ------------------------------------------------------------------ Detay
     async def load_item(self, url: str) -> MovieInfo | SeriesInfo:
-        response = await self.httpx.get(url)
+        response = await self.httpx.get(url, headers={"User-Agent": _UA})
         secici   = HTMLHelper(response.text)
 
-        title = secici.select_text("h1.section-title")
-        title = title.split(" izle")[0].strip() if title else title
-        poster = None
-        posters = secici.select_attrs("aside.post-info-poster img.lazyload", "data-src")
-        if posters:
-            poster = self.fix_url(posters[-1])
-        tags        = secici.select_texts("div.post-info-genres a")
-        description = secici.select_text("article.post-info-content > p")
-        year        = secici.select_text("div.post-info-year-country a")
-        rating      = secici.regex_first(r"([\d.,]+)", secici.select_text("div.post-info-imdb-rating span"))
-        actors      = secici.select_texts("div.post-info-cast a strong")
+        title = secici.select_text("div.data h1") or secici.og_title or ""
+        title = re.sub(r"\s*(izle|Türkçe Dublaj|Türkçe Altyazılı).*$", "", title).strip()
 
-        is_series = bool(secici.select("div.seasons"))
+        poster      = secici.og_poster or secici.select_attr("div.poster img", "src")
+        description = secici.select_text("div.wp-content p") or secici.og_description
+        tags        = secici.select_texts("div.sgeneros a")
+        year        = secici.regex_first(r"(\d{4})", secici.select_text("span.date") or "")
+        rating      = secici.regex_first(r"([\d.,]+)", secici.select_text("span.dt_rating_vgs") or "")
+        actors      = secici.select_texts("div.person div.name a")
 
-        if is_series:
+        # Dizi mi? Bölüm listesi `/bolum/` linkleriyle geliyor.
+        episode_nodes = [
+            node for node in secici.select("ul.episodios li")
+            if node.select_attr("a", "href")
+        ]
+
+        if episode_nodes:
             episodes: list[Episode] = []
-            for node in secici.select("div.seasons-tab-content a"):
-                ep_name = node.select_text("h4")
-                ep_href = node.attrs.get("href")
-                if not ep_name or not ep_href:
-                    continue
-                se = re.search(r"(\d+)\.\s?Sezon", ep_name)
-                ep = re.search(r"(\d+)\.\s?Bölüm", ep_name)
+            for node in episode_nodes:
+                href    = node.select_attr("a", "href")
+                ep_name = node.select_text("div.episodiotitle a") or node.select_text("a") or ""
+                numer   = node.select_text("div.numerando") or ""
+                # Tema numarayı ya `div.numerando` içinde ("1 - 3") ya da bölüm
+                # başlığında ("1x3") veriyor; ikisi de aynı şekilde okunur.
+                se_ep   = re.findall(r"(\d+)", numer) or re.findall(r"(\d+)\s*x\s*(\d+)", ep_name)
+                if se_ep and isinstance(se_ep[0], tuple):
+                    se_ep = list(se_ep[0])
+                season  = int(se_ep[0]) if len(se_ep) > 0 else 1
+                number  = int(se_ep[1]) if len(se_ep) > 1 else None
+                # Tema numaralandırmayı "1 - 3" diye veriyor; kumandada okunur hâle getir.
+                label   = f"{season}. Sezon {number}. Bölüm" if number else f"{season}. Sezon"
+                if ep_name.strip() and not re.fullmatch(r"[\dxX\s-]+", ep_name.strip()):
+                    label = f"{label} · {ep_name.strip()}"
                 episodes.append(
                     Episode(
-                        season  = int(se.group(1)) if se else 1,
-                        episode = int(ep.group(1)) if ep else None,
-                        title   = ep_name,
-                        url     = self.fix_url(ep_href),
+                        season  = season,
+                        episode = number,
+                        title   = label,
+                        url     = self.fix_url(href),
                     )
                 )
             return SeriesInfo(
                 url         = url,
                 title       = title,
-                poster      = poster,
+                poster      = self.fix_url(poster) if poster else None,
                 description = description,
                 tags        = tags,
                 rating      = rating,
@@ -205,7 +232,7 @@ class HDFilmCehennemi(PluginBase):
         return MovieInfo(
             url         = url,
             title       = title,
-            poster      = poster,
+            poster      = self.fix_url(poster) if poster else None,
             description = description,
             tags        = tags,
             rating      = rating,
@@ -215,104 +242,112 @@ class HDFilmCehennemi(PluginBase):
 
     # ------------------------------------------------------------------ Linkler
     async def load_links(self, url: str) -> list[ExtractResult]:
-        response = await self.httpx.get(url)
-        secici   = HTMLHelper(response.text)
+        page = await self.httpx.get(url, headers={"User-Agent": _UA})
+        html = page.text
+
+        nonce_match = re.search(r"videoAjax\s*=\s*\{[^}]*nonce:\s*'([^']+)'", html)
+        post_match  = re.search(r'data-post-id="(\d+)"', html)
+        if not nonce_match or not post_match:
+            return []
+
+        nonce   = nonce_match.group(1)
+        post_id = post_match.group(1)
+        players = [
+            name for name in dict.fromkeys(re.findall(r'data-player-name="([^"]+)"', html))
+            if name and "'" not in name
+        ] or ["SetPlay"]
 
         results: list[ExtractResult] = []
-
-        for group in secici.select("div.alternative-links"):
-            lang = (group.attrs.get("data-lang") or "").upper()
-            for button in group.select("button.alternative-link"):
-                source   = button.text(strip=True).replace("(HDrip Xbet)", "").strip()
-                video_id = button.attrs.get("data-video")
-                if not video_id:
-                    continue
-
-                try:
-                    api = await self.httpx.get(
-                        f"{self.main_url}/video/{video_id}/",
-                        headers={"Content-Type": "application/json", "X-Requested-With": "fetch"},
-                        timeout=8.0,
-                    )
-                    iframe_match = re.search(r'data-src=\\"([^"]+)', api.text)
-                    if not iframe_match:
-                        continue
-                    iframe = iframe_match.group(1).replace("\\", "")
-                    if "?rapidrame_id=" in iframe:
-                        iframe = f"{self.main_url}/playerr/" + iframe.split("?rapidrame_id=")[1]
-
-                    extracted = await self._invoke_local_source(iframe, f"{source} {lang}".strip())
-                    if extracted:
-                        results.append(extracted)
-                except Exception:
-                    continue
+        for player_name in players:
+            try:
+                extracted = await self._resolve_player(url, nonce, post_id, player_name)
+            except Exception:
+                continue
+            if extracted:
+                results.append(extracted)
 
         return self.deduplicate(results)
 
-    async def _invoke_local_source(self, iframe_url: str, source_name: str) -> ExtractResult | None:
-        """Sitenin kendi player scriptinden m3u8 + altyazıları çözer."""
-        try:
-            response = await self.httpx.get(iframe_url, headers={"Referer": f"{self.main_url}/"}, timeout=8.0)
-            html     = response.text
-
-            # Altyazı/video için göreli URL'ler player origin'ine göre düzeltilir.
-            origin = re.match(r"https?://[^/]+", iframe_url)
-            origin = origin.group(0) if origin else self.main_url
-
-            def _fix(u: str) -> str:
-                if not u:
-                    return u
-                if u.startswith("http"):
-                    return u
-                if u.startswith("//"):
-                    return "https:" + u
-                return origin + ("" if u.startswith("/") else "/") + u
-
-            video_url: str | None = None
-            subtitles: list[Subtitle] = []
-
-            # 1) Birincil yol: sitenin kendi JS'ini V8'de çalıştır
-            config = extract_player_config(html)
-            if config:
-                sources = config.get("sources") or []
-                if sources:
-                    first = sources[0]
-                    video_url = _fix(first.get("file") or first.get("src") or "")
-                for track in config.get("tracks") or []:
-                    if track.get("kind") == "captions" and track.get("file"):
-                        subtitles.append(
-                            Subtitle(
-                                name = track.get("label") or "Altyazı",
-                                url  = _fix(track["file"]),
-                            )
-                        )
-
-            # 2) Yedek: eski file_link="<base64>" şeması (P.A.C.K.E.R'lı)
-            if not video_url:
-                script = None
-                for m in re.finditer(r"<script[^>]*>(.*?)</script>", html, re.DOTALL):
-                    body = m.group(1)
-                    if "file_link" in body:
-                        script = body
-                        break
-                if script:
-                    if _JSUnpacker.detect(script):
-                        script = _JSUnpacker.unpack(script)
-                    link_match = re.search(r'file_link="([^"]+)"', script)
-                    if link_match:
-                        try:
-                            video_url = base64.b64decode(link_match.group(1)).decode("utf-8")
-                        except Exception:
-                            video_url = None
-
-            if not video_url:
-                return None
-
-            return ExtractResult(
-                name      = f"{self.name} | {source_name}",
-                url       = video_url,
-                referer   = f"{self.main_url}/",
-                subtitles = subtitles,
-            )
-        except Exception:
+    async def _resolve_player(self, page_url: str, nonce: str, post_id: str, player_name: str) -> ExtractResult | None:
+        """Tek bir oynatıcı seçeneğini HLS akışına kadar çözer."""
+        ajax = await self.httpx.post(
+            f"{self.main_url}/wp-admin/admin-ajax.php",
+            data    = {
+                "action"     : "get_video_url",
+                "nonce"      : nonce,
+                "post_id"    : post_id,
+                "player_name": player_name,
+                "part_key"   : "",
+            },
+            headers = {
+                "User-Agent"      : _UA,
+                "Referer"         : page_url,
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            timeout = 15.0,
+        )
+        payload = ajax.json()
+        embed   = (payload.get("data") or {}).get("url")
+        if not embed:
             return None
+
+        return await self._resolve_embed(embed, player_name)
+
+    async def _resolve_embed(self, embed_url: str, player_name: str) -> ExtractResult | None:
+        """setplay → (XOR) → fastplay → HLS master. Zincirin son üç halkası."""
+        setplay = await self.httpx.get(
+            embed_url,
+            headers = {"User-Agent": _UA, "Referer": f"{self.main_url}/"},
+            timeout = 15.0,
+        )
+
+        frame = re.search(r'SPG\.cerceve\("[^"]+","([^"]+)","([^"]+)"\)', setplay.text)
+        if not frame:
+            return None
+
+        inner = _unxor(frame.group(1).replace("\\/", "/"), frame.group(2))
+        origin_match = re.match(r"https?://[^/]+", inner)
+        if not origin_match:
+            return None
+        origin = origin_match.group(0)
+
+        fast = await self.httpx.get(
+            inner,
+            headers = {"User-Agent": _UA, "Referer": "https://setplay.shop/"},
+            timeout = 15.0,
+        )
+
+        stream_match = re.search(r'stream:\s*"([^"]+)"', fast.text)
+        if not stream_match:
+            return None
+
+        stream = stream_match.group(1)
+        stream = stream if stream.startswith("http") else origin + stream
+
+        # Manifest, oynatıcı kanıtı (X-Sp) olmadan 404 döner — VE kanıt TEK
+        # KULLANIMLIK: aynısı ikinci istekte yine 404 verir (kanıtlandı). Bu yüzden
+        # imzanın kendisi değil MALZEMESİ taşınır; proxy her istekte yeniden üretir
+        # (bkz. stream/Public/Proxy/Libs/player_proof.py).
+        proof_headers: dict[str, str] = {}
+        spg_match = re.search(r"SPG_A=(\{.*?\});", fast.text)
+        if spg_match:
+            try:
+                spg = json.loads(spg_match.group(1))
+                if spg.get("sp") and spg.get("spT"):
+                    proof_headers["X-Sp-Secret"] = str(spg["sp"])
+                    proof_headers["X-Sp-Time"]   = str(int(spg["spT"]))
+            except Exception:
+                pass
+
+        subtitles: list[Subtitle] = []
+        for name, sub_url in re.findall(r'\{\s*"?label"?\s*:\s*"([^"]+)"\s*,\s*"?file"?\s*:\s*"([^"]+)"', fast.text):
+            subtitles.append(Subtitle(name=name, url=sub_url if sub_url.startswith("http") else origin + sub_url))
+
+        return ExtractResult(
+            name          = f"{self.name} | {player_name}",
+            url           = stream,
+            referer       = inner,
+            user_agent    = _UA,
+            subtitles     = subtitles,
+            extra_headers = {"Origin": origin, **proof_headers},
+        )

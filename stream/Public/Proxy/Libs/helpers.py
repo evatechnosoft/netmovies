@@ -8,6 +8,10 @@ import httpx, traceback, re, json
 
 _proxy_url = PROXIES.get("https") or PROXIES.get("http") if PROXIES else None
 
+from .player_proof import apply_player_proof
+from .proxy_token import issue_proxy_token
+
+
 def parse_extra_headers(raw: str | None) -> dict[str, str] | None:
     """'extra_headers' query param'ını (JSON obje) dict'e çözer. Bozuk/boş girişte sessizce None döner."""
     if not raw:
@@ -76,6 +80,10 @@ def prepare_request_headers(request: Request, url: str, referer: str | None, use
     # özellikle identity kalmalı, aksi halde HLS manifest rewrite bozulur.
     if extra_headers:
         headers.update(extra_headers)
+
+    # Tek kullanımlık oynatıcı imzası (X-Sp): malzeme geldiyse HER istekte yeniden
+    # üretilir. Aynı imzayı tekrar göndermek kaynakta 404 üretiyor.
+    headers = apply_player_proof(headers)
 
     headers["Accept"]          = "*/*"
     headers["Accept-Encoding"] = "identity"
@@ -171,7 +179,18 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
     lines           = text.split('\n')
     new_lines       = []
     extra_headers_q = f'&extra_headers={quote(json.dumps(extra_headers), safe="")}' if extra_headers else ''
-    proxy_token_q   = f'&proxy_token={quote(proxy_token, safe="")}' if proxy_token else ''
+
+    def token_for(absolute_url: str) -> str:
+        """Manifest'ten türeyen URL için token.
+
+        Token host'a bağlı; segmentler çoğu kez BAŞKA bir CDN host'unda duruyor
+        (ör. manifest fastplay.mom, segment srv.…cfd) ve gelen token o host'u
+        kapsamadığı için proxy kendi isteğini 403'lüyordu. Manifest zaten bu
+        proxy tarafından çekildiği için içindeki adreslere token verilir.
+        """
+        if not proxy_token:
+            return ''
+        return f'&proxy_token={quote(issue_proxy_token([absolute_url]), safe="")}'
 
     for line in lines:
         stripped = line.strip()
@@ -193,7 +212,7 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
                     if force_proxy:
                         proxy_url += '&force_proxy=1'
                     proxy_url += extra_headers_q
-                    proxy_url += proxy_token_q
+                    proxy_url += token_for(absolute_url)
                     return f'URI="{proxy_url}"'
 
                 # Segment ise doğrudan CDN
@@ -219,7 +238,7 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
                 if force_proxy:
                     proxy_url += '&force_proxy=1'
                 proxy_url += extra_headers_q
-                proxy_url += proxy_token_q
+                proxy_url += token_for(absolute_url)
                 new_lines.append(proxy_url)
 
         else:

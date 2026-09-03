@@ -103,6 +103,7 @@ async def _links_for(plugin_name: str, encoded_url: str, episode_index: int, dia
             "url"        : link.url,
             "referer"    : link.referer or "",
             "user_agent" : link.user_agent or "",
+            "extra_headers": getattr(link, "extra_headers", None) or {},
             "subtitles"  : [sub.model_dump() for sub in (link.subtitles or [])],
         }
         for link in links
