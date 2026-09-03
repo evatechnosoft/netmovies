@@ -10,6 +10,56 @@
 
 ---
 
+## 🔗 3 Eylül 2026 (2. oturum, devam) — Zincir tek uca taşındı, istemci ayrımı kalktı (EN SON, v0.1.34-poc)
+
+**Commit:** `c8e4b4f` · **Release:** `v0.1.34-poc` (OTA'da en yeni — doğrulandı)
+
+Dean: *"her şey arkada olsun, ortam tüketsin, TV/telefon/web ayrımından kurtul."*
+
+### Önce ne yanlıştı
+Aynı iş **iki yerde, iki farklı davranışla** duruyordu: TV uygulaması altı sağlayıcıyı
+kendi arıyor, kendi sıralıyordu; web yalnız seçili sağlayıcının linkleriyle yetiniyordu.
+Bir kural değişince iki yerde değiştirmek gerekiyordu ve ikisi kaçınılmaz olarak ayrışıyordu.
+
+### Yeni tek uç
+```
+GET /api/v1/resolve_sources?plugin=&encoded_url=&title=&episode=&mode=fast|full
+  seçili sağlayıcı → (dizi ise bölüm çözme) → alternatif sağlayıcılarda arama
+  → link toplama → dil sıralaması → teşhis kaydı
+```
+- `engine/.../resolve_sources.py` — zincir + `Diagnostics` (her adım hem konsola hem
+  **yanıta** yazılır). Alternatif aramalar `asyncio.gather` ile paralel.
+- `stream/.../resolve_sources.py` — dil kuralını uygular (`language.py`) ve her kaynağa
+  okunur `language: {rank, label}` ekler. **Tek kural, tek yer.**
+- `mode=fast`: yalnız seçili sağlayıcı (ilk oynatma beklemesin) · `mode=full`: alternatifler dahil.
+
+### İstemciler artık sadece tüketiyor
+- **client-tv**: arama/eşleştirme/sıralama kodu **silindi**. `SourceResolver.kt` yalnız
+  sunum yardımcısı (etiket + altyazı dil kodu). İki çağrı: fast → full.
+  Sunucunun teşhis kaydı istemci günlüğüne karışıyor → **Kaynak raporu tek yerde**.
+- **web (`izle.py`)**: aynı ucu kullanıyor → web artık **alternatif sağlayıcıları da görüyor**.
+
+### smoke.sh — yanlış alarmın kök nedeni bulundu
+Rebuild'in hemen ardından çalıştırıldığında container ayakta ama `healthy` değildi;
+ısınmadan yapılan çağrılar boş dönüp "katalog boş" alarmı üretiyordu (önceki oturumda
+"kök nedeni doğrulanmadı" diye not düşülen kırmızı buydu). **Isınma adımı** eklendi
+(healthy olana dek en fazla 120 sn bekler) + zincir adımı eklendi.
+
+**Kanıt:** stream **43/43** OK · client-tv **5/5** OK · smoke **kapı YEŞİL** ·
+gerçek veriyle `resolve_sources` → `HDFilmCehennemi · 1 kaynak · Türkçe altyazı`,
+teşhis 8 satır: `fail arama — RecTV · ConnectError: Name or service not known`,
+`warn arama — DiziYou · sonuç yok` → **ölü kaynak artık sessiz değil** ·
+GitHub API en yeni release `v0.1.34-poc`.
+
+### ⚠ Doğrulanmadı / açık
+- Cihazda denenmedi (Dean deneyecek).
+- `RecTV` domaini ölü (`ConnectError`) — zincirde her seferinde bir tur harcıyor.
+  Sağlık süzmesi `resolve_sources`'a da uygulanabilir (aggregate'te var, burada yok).
+- Uzak sağlayıcı (`provider_url` dolu) yolunda web hâlâ tekil `load_links` kullanıyor;
+  yalnız yerel engine yolu tek uçtan geçiyor.
+
+---
+
 ## 🩺 3 Eylül 2026 (2. oturum, devam) — Teşhis günlüğü + dil kuralı tek yerde (EN SON, v0.1.33-poc)
 
 **Commit:** `0ad3d36` · **Release:** `v0.1.33-poc` (OTA'da en yeni)
