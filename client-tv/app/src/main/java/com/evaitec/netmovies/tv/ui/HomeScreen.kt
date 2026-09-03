@@ -42,6 +42,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -464,6 +465,50 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
+private fun SliderRow(label: String, value: Int, onChange: (Int) -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    val filled = (value / 10).coerceIn(0, 10)
+    val bar = "█".repeat(filled) + "░".repeat(10 - filled)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (isFocused) NmColor.Primary else NmColor.Surface)
+            .nmFocusRing(isFocused, shape)
+            .onFocusChanged { isFocused = it.isFocused }
+            // TV'de gercek slider yok: satir odakliyken SOL/SAG degeri 10'ar puan surer.
+            // Preview kullanilir ki ok tuslari odagi komsu satira kaydirmasin.
+            .onPreviewKeyEvent { keyEvent ->
+                val native = keyEvent.nativeKeyEvent
+                if (native.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+                when (native.keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { onChange((value - 10).coerceIn(0, 100)); true }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { onChange((value + 10).coerceIn(0, 100)); true }
+                    else -> false
+                }
+            }
+            .focusable()
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = label,
+                fontSize = NmType.Body,
+                color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurface,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+            )
+            Text(
+                text = "$bar  %$value",
+                fontSize = NmType.Body,
+                color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
 private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -529,6 +574,8 @@ private fun SettingsMenu(
     updateVm: UpdateViewModel = viewModel(),
 ) {
     val updateState by updateVm.ui.collectAsStateWithLifecycle()
+    // Fare modu hic acilmamis olabilir; ayarlar burada da okunabilsin diye.
+    MouseSettings.attach(androidx.compose.ui.platform.LocalContext.current)
     ModalCard(title = "Ayarlar", onClose = onClose) {
         // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
         // ekrandaki numarayla cevaplanır.
@@ -546,7 +593,13 @@ private fun SettingsMenu(
         }
         MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
-        MenuRow("🖱  Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
+        MenuRow(
+            if (MouseSettings.enabled) "🖱  Sanal Fare: Açık" else "🖱  Sanal Fare: Kapalı",
+            onClick = { onClose(); onToggleMouseMode() },
+        )
+        // Fare ayarlari: menuyu kapatmadan SOL/SAG ile surulur, imlec aninda uyar.
+        SliderRow("↔  Fare hızı", MouseSettings.speedPct) { MouseSettings.setSpeed(it) }
+        SliderRow("⬜  İmleç boyutu", MouseSettings.sizePct) { MouseSettings.setSize(it) }
         MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
         if (showVault) {
             MenuRow("🔒  Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
