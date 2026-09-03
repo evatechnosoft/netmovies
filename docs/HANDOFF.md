@@ -10,6 +10,47 @@
 
 ---
 
+## 🎛️ 3 Eylül 2026 (2. oturum, devam) — GERİ tuşu + OTA teşhisi (EN SON, v0.1.35-poc)
+
+**Commit:** `5edae3e` · **Release:** `v0.1.35-poc`
+
+Dean: *"geri tuşu direkt çıkıyor, listede aşağı inince bir üst satıra çıkmalı ·
+[uygulama] açmıyor · güncelleme de hiç gelmedi."*
+
+### 1. GERİ tuşu — ana ekranda BackHandler HİÇ YOKTU
+Sistem geri tuşu doğrudan uygulamayı kapatıyordu; kullanıcı raflarda gezerken
+yanlışlıkla çıkıyordu. Artık:
+- **HomeScreen**: liste aşağıdaysa GERİ → en üste kaydırır + odağı ilk karta verir;
+  en üstteyken çıkar (`onExit`, MainActivity `finish()`).
+- **BrowseScreen**: arama/sonuç açıksa onu kapatır → değilse en üste döner → en üstte ana ekrana.
+
+### 2. "Güncelleme hiç gelmedi" — kök neden: hata SESSİZCE yutuluyordu
+`UpdateViewModel.check()` içi `catch (_: Exception)` idi. Ağ kesintisi, **GitHub hız
+sınırı** (kimliksiz istek **saatte 60, IP başına** — ev ağı ve geliştirme testleri aynı
+IP'yi paylaşıyor) veya bozuk yanıt olduğunda ekranda hiçbir iz kalmıyordu.
+Artık: banner'da görünür hata + "Tekrar" · her adım `PlaybackLog`'a yazılır ·
+**Ayarlar → "Sürüm: v0.1.35-poc"** satırı + **"Güncellemeyi kontrol et"**.
+⚠ Bu teşhis yalnız v0.1.35+ ile gelir; eski APK hâlâ sessiz kalır (elle kurulum gerekebilir:
+release sayfasındaki APK).
+
+### 3. Eski istemciler de imzalı kaynakları oynatsın
+`route_through_proxy` ortak modüle alındı (`stream/Public/API/v1/Libs/source_proxy.py`)
+ve **`load_links`** ucunda da uygulanıyor. Böylece güncelleme alamamış APK'lar bile
+HDFilmCehennemi'yi oynatabiliyor — imza (X-Sp) ve Referer işini sunucu yapıyor.
+
+**Kanıt:** stream **48/48** OK · client-tv **5/5** OK · `assembleDebug BUILD SUCCESSFUL` ·
+smoke **kapı YEŞİL** · yeni yol `master/varyant/segment 200 (2.4MB)` ·
+eski yol `load_links → proxied: True` · GitHub API en yeni `v0.1.35-poc`.
+
+### ⚠ Doğrulanmadı / açık
+- **Cihazda denenmedi**: geri tuşunun yeni davranışı, güncelleme şeridinin görünmesi.
+- OTA'nın Dean'in cihazında **neden** gelmediği hâlâ kesin değil (hız sınırı en olası;
+  artık ekranda sebebi yazacak).
+- "Açmıyor" şikâyeti muhtemelen eski APK + eski `load_links` yolundandı; sunucu tarafı
+  düzeltildi ama cihazda doğrulanmadı.
+
+---
+
 ## 🎬 3 Eylül 2026 (2. oturum, devam) — HDFilmCehennemi `.now`: site taşındı + tema değişti (EN SON)
 
 **Commit:** `6960e50`
