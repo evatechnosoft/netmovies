@@ -10,6 +10,50 @@
 
 ---
 
+## 🩺 3 Eylül 2026 (2. oturum, devam) — Teşhis günlüğü + dil kuralı tek yerde (EN SON, v0.1.33-poc)
+
+**Commit:** `0ad3d36` · **Release:** `v0.1.33-poc` (OTA'da en yeni)
+
+Dean: *"hata yakala, log tut, artık bak sonra duruma · o olursa bu, netleştir."*
+
+### 1. Hiçbir hata sessizce yutulmuyor (TV)
+`client-tv/.../data/PlaybackLog.kt` — arama, bölüm çözme, link çekme ve oynatma
+denemelerinin **her adımı** kayda geçer: logcat (`NetMoviesPlayback` tag) + 200 satırlık
+halka tampon. `runCatching{}.getOrNull()` yerine `loggedOrNull(stage, detail)`: zincir
+devam eder ama hata **görünür**.
+**Cihazda okunur:** oynatıcı → Ayarlar → **🩺 Kaynak raporu** → "Son denemeleri göster".
+PC/adb gerekmiyor — Dean hatayı gördüğü anda ne olduğunu okuyabilir.
+
+### 2. Dil kuralı netleştirildi + tek yere alındı
+Kural tek cümle: **Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.**
+- Sunucu: `stream/Public/API/v1/Libs/language.py` (`language_rank/order_by_language`).
+  `/api/v1/load_links` **ve** web `izle` akışı artık sıralı liste döndürüyor → web ve TV
+  aynı sırayı görür. (TV ayrıca kendi tarafında da uygular — çift güvence.)
+- Görünürlük: kaynak listesi ve durum satırı `"DiziBox · Türkçe dublaj"` yazıyor.
+  Etiketsiz kaynak "dil bilinmiyor" grubuna düşer ve **öyle görünür** — sessiz tahmin yok.
+
+### 3. Sunucu tarafı sessiz `except`'ler loglandı
+- `aggregate_new`: kategori eşleşmedi / kaynak boş döndü / kaynak hata verdi + özet satırı.
+  **Canlı TV rafının aylarca boş kalması tam bu körlüktü.**
+- `load_links` + `izle`: kaç kaynak geldi, ilk sıradaki dil ne.
+
+**Kanıt:** stream **39/39** test OK · client-tv **8/8** OK · `assembleDebug BUILD SUCCESSFUL` ·
+smoke **kapı YEŞİL** · `docker logs netmovies-engine` → `∑ aggregate: type=serie_foreign ·
+10 içerik · 6 kaynak tarandı` · `docker logs netmovies-stream` → `▶ load_links: M3UPlaylist ·
+1 kaynak · ilk sıra: dil bilinmiyor` · GitHub API'de en yeni release `v0.1.33-poc`.
+
+### ⚠ Doğrulanmadı / açık
+- **Cihazda denenmedi** (Dean deneyecek): kaynak raporu ekranının okunabilirliği, zincirin
+  gerçekten sıradakine geçmesi, dublaj önceliğinin doğru linki seçmesi.
+- Dil tespiti hâlâ **kaynağın etiketine** bakıyor. Etiketsiz veren site "dil bilinmiyor"
+  grubunda kalır — kaynak raporunda bu görünür; sık çıkarsa plugin'e dil alanı eklenmeli.
+- Web'de alternatif **sağlayıcı** araması yok (TV'de var). Web yalnız seçili sağlayıcının
+  linkleri arasında otomatik geçiş yapıyor (bu zaten vardı) + artık dil sırasıyla.
+- Bir smoke koşusunda rebuild'in hemen ardından 1 adım kırmızı görüldü, tekrarında yeşil;
+  **kök nedeni doğrulanmadı** (muhtemelen container yeni ayaktayken soğuk çağrı).
+
+---
+
 ## ▶️ 3 Eylül 2026 (2. oturum, devam) — Oynatma zinciri yeniden yazıldı + v0.1.32-poc OTA (EN SON)
 
 **Commit'ler:** `b6df088` (oynatıcı) · `bc5b11c` (APK) · **Release:** `v0.1.32-poc` (prerelease, OTA yayında)
