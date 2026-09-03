@@ -1,9 +1,10 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
-import asyncio, ipaddress, os
+import asyncio, ipaddress, os, time
 from collections   import OrderedDict
-from urllib.parse  import urlsplit
+from urllib.parse  import quote, urlsplit
 from fastapi       import Request, Response
+from fastapi.responses import RedirectResponse
 from .             import proxy_router
 from ..Libs.helpers import prepare_request_headers, shared_client, DEFAULT_REFERER
 
@@ -45,6 +46,48 @@ def _cache_put(key: str, content_type: str, content: bytes) -> None:
         _img_cache_bytes -= len(dropped)
 
 
+# Kırık poster negatif cache. Ölü/hotlink-korumalı poster URL'leri her rafta
+# tekrar ediyor; her denemede kaynak CDN'e TLS + timeout turu yapılıyordu →
+# raf geç doluyordu. Başarısız URL kısa süre hatırlanır, doğrudan fallback'e
+# gidilir. TTL kısa: kaynak düzelirse kendiliğinden geri döner.
+_NEG_TTL         = 600  # 10 dk
+_NEG_MAX_ENTRIES = 2048
+_neg_cache: "OrderedDict[str, float]" = OrderedDict()
+
+
+def _neg_hit(url: str) -> bool:
+    expires = _neg_cache.get(url)
+    if expires is None:
+        return False
+    if expires <= time.monotonic():
+        _neg_cache.pop(url, None)
+        return False
+    return True
+
+
+def _neg_put(url: str) -> None:
+    _neg_cache[url] = time.monotonic() + _NEG_TTL
+    _neg_cache.move_to_end(url)
+    while len(_neg_cache) > _NEG_MAX_ENTRIES:
+        _neg_cache.popitem(last=False)
+
+
+def _fallback(title: str | None, cache_state: str) -> Response:
+    """Poster zincirinin son halkası: başlık varsa TMDB'ye yönlendir, yoksa 502.
+
+    502'de istemci placeholder gösterir. Zincirin tamamı sunucuda olduğu için
+    web şablonları, JS ve TV istemcisi aynı davranışı ayrı ayrı kurmak zorunda
+    kalmaz (eskiden her biri kendi onerror zincirini taşıyordu).
+    """
+    if title:
+        return RedirectResponse(
+            url         = f"/tmdb-poster?title={quote(title, safe='')}",
+            status_code = 302,
+            headers     = {"Cache-Control": "public, max-age=3600", "X-Cache": cache_state},
+        )
+    return Response(status_code=502, content="Görsel alınamadı", headers={"X-Cache": cache_state})
+
+
 async def _host_is_public(host: str) -> bool:
     """SSRF koruması: host'un çözümlenen tüm IP'leri global (public) olmalı.
     localhost/özel/link-local/loopback adreslerine istek engellenir."""
@@ -68,8 +111,18 @@ async def _host_is_public(host: str) -> bool:
 
 
 @proxy_router.get("/image")
-async def image_proxy(request: Request, url: str, referer: str = None, user_agent: str = None):
-    """Poster/afiş görsel proxy'si — hotlink korumasını aşar + cache'ler."""
+async def image_proxy(request: Request, url: str = "", referer: str = None, user_agent: str = None, title: str = ""):
+    """Poster zinciri: kaynak → proxy cache → TMDB (başlıkla) → placeholder.
+
+    `title` verilirse kaynak poster boş/kırık olduğunda TMDB fallback'ine
+    yönlendirilir; verilmezse 502 döner ve istemci placeholder gösterir.
+    """
+    if not url:
+        return _fallback(title, "SKIP")
+
+    if _neg_hit(url):
+        return _fallback(title, "NEG")
+
     cached = _cache_get(url)
     if cached:
         return Response(
@@ -85,9 +138,11 @@ async def image_proxy(request: Request, url: str, referer: str = None, user_agen
 
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https"):
-        return Response(status_code=400, content="Geçersiz şema")
+        # Şema/host hataları kalıcıdır: fallback'e düş ama negatif cache'e yazma
+        # (girdi zaten sabit, yeniden denemenin maliyeti yok).
+        return _fallback(title, "BAD_SCHEME")
     if not await _host_is_public(parts.hostname or ""):
-        return Response(status_code=403, content="Engellenen host")
+        return _fallback(title, "BLOCKED_HOST")
 
     # Referer verilmezse kaynağın kendi origin'ini kullan (çoğu hotlink kontrolü
     # same-origin Referer bekler); yoksa DEFAULT_REFERER.
@@ -101,15 +156,18 @@ async def image_proxy(request: Request, url: str, referer: str = None, user_agen
 
         response = await shared_client.get(url, headers=request_headers)
         if response.status_code >= 400:
-            return Response(status_code=502, content=f"Görsel kaynağı hatası: {response.status_code}")
+            _neg_put(url)
+            return _fallback(title, f"UPSTREAM_{response.status_code}")
 
         content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
         if not content_type.startswith("image/"):
-            return Response(status_code=415, content="Görsel değil")
+            _neg_put(url)
+            return _fallback(title, "NOT_IMAGE")
 
         content = response.content
         if len(content) > _MAX_IMAGE_BYTES:
-            return Response(status_code=413, content="Görsel çok büyük")
+            _neg_put(url)
+            return _fallback(title, "TOO_LARGE")
 
         _cache_put(url, content_type, content)
 
@@ -123,6 +181,8 @@ async def image_proxy(request: Request, url: str, referer: str = None, user_agen
                 "X-Cache"                     : "MISS",
             },
         )
-    except Exception as e:
-        # 502 → tarayıcıda <img> onerror tetiklenir → mevcut placeholder gösterilir.
-        return Response(status_code=502, content=f"Proxy hatası: {str(e)}")
+    except Exception:
+        # Ağ/timeout hatası: URL'i kısa süre kara listeye al, zincirin bir sonraki
+        # halkasına geç (TMDB varsa oraya, yoksa placeholder).
+        _neg_put(url)
+        return _fallback(title, "FETCH_ERROR")

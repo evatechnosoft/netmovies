@@ -2,18 +2,24 @@ package com.evaitec.netmovies.tv.data
 
 import android.net.Uri
 
-// Poster URL'ini stream'in /proxy/image endpoint'inden geçirir (hotlink koruması
-// + cache). Aktif sunucu (local/uzak) ServerResolver'dan alınır → posterler de
-// içerikle aynı sunucuya gider. Boş/yerel URL olduğu gibi döner.
-fun proxiedPoster(url: String?): String? {
-    if (url.isNullOrBlank()) return null
-    if (url.startsWith("/") || url.startsWith("data:")) return url
+// Poster URL üreteci — sunucudaki Jinja `poster(url, title)` ve web'deki
+// posterUrl() ile AYNI sözleşme. Zincirin tamamı /proxy/image içinde çalışır:
+// kaynak → proxy cache → TMDB (başlıkla) → placeholder. İstemcinin ayrı bir
+// fallback denemesi kurmasına gerek yoktur.
+// Aktif sunucu (local/uzak) ServerResolver'dan alınır → posterler de içerikle
+// aynı sunucuya gider. Boş/yerel URL olduğu gibi döner.
+fun proxiedPoster(url: String?, title: String? = null): String? {
+    if (!url.isNullOrBlank() && (url.startsWith("/") || url.startsWith("data:"))) return url
+    if (url.isNullOrBlank() && title.isNullOrBlank()) return null
+
     val base = ServerResolver.activeBaseString()
-    return "$base/proxy/image?url=" + Uri.encode(url)
+    val query = StringBuilder("url=").append(Uri.encode(url ?: ""))
+    if (!title.isNullOrBlank()) query.append("&title=").append(Uri.encode(title))
+    return "$base/proxy/image?$query"
 }
 
-// Kaynak posteri yoksa/kırıksa sunucunun TMDB fallback'ine düşer: başlığa göre
-// afiş arar ve image.tmdb.org'a 302 döner. Anahtar yoksa 404 → gri kutu kalır.
+// Doğrudan TMDB fallback'i — poster hattı dışında (ör. yalnız başlık bilinen
+// yerler) gerekirse kullanılır.
 fun tmdbPoster(title: String?): String? {
     if (title.isNullOrBlank()) return null
     val base = ServerResolver.activeBaseString()

@@ -12,14 +12,22 @@ home_template = Jinja2Templates(directory="Public/Home/Templates")
 
 from urllib.parse import quote as _quote
 
-def _poster_proxy(url: str | None) -> str:
-    """Poster URL'lerini görsel-proxy üzerinden geçirir (hotlink koruması + cache).
-    Boş/yerel URL'ler olduğu gibi bırakılır."""
-    if not url:
-        return ""
-    if url.startswith(("/", "data:")):
+def _poster_proxy(url: str | None, title: str | None = None) -> str:
+    """Poster URL'i üretir — zincirin tamamı sunucuda: kaynak → proxy cache →
+    TMDB (başlıkla) → placeholder.
+
+    `title` verilirse kaynak poster boş/kırık olduğunda proxy TMDB'ye yönlendirir;
+    şablonların ayrı ayrı `onerror` zinciri taşımasına gerek kalmaz. Yerel/data
+    URL'leri olduğu gibi bırakılır."""
+    if url and url.startswith(("/", "data:")):
         return url
-    return f"/proxy/image?url={_quote(url, safe='')}"
+    if not url and not title:
+        return ""
+
+    query = f"url={_quote(url or '', safe='')}"
+    if title:
+        query += f"&title={_quote(title, safe='')}"
+    return f"/proxy/image?{query}"
 
 home_template.env.globals["poster"] = _poster_proxy
 

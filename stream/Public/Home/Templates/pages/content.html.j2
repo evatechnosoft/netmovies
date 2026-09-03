@@ -14,11 +14,11 @@
 {% block icerik %}
 <section class="content-hero">
     <div class="content-hero-backdrop">
-        <img src="{{ poster(content.poster) }}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+        <img src="{{ poster(content.poster, content.title) }}" alt="" loading="lazy" onerror="this.style.opacity='0'">
     </div>
     <div class="content-hero-info">
         <div class="content-poster-wrap{% if not content.poster %} has-error{% endif %}">
-            {% if content.poster %}<img src="{{ poster(content.poster) }}" alt="{{ content.title }}" data-title="{{ content.title }}" loading="lazy" onerror="if(this.dataset.fb){this.parentElement.classList.add('has-error');this.remove();return;} this.dataset.fb=1; this.src='/tmdb-poster?title=' + encodeURIComponent(this.dataset.title || '');">{% endif %}
+            {% if content.poster or content.title %}<img src="{{ poster(content.poster, content.title) }}" alt="{{ content.title }}" loading="lazy" onerror="this.parentElement.classList.add('has-error'); this.remove();">{% endif %}
         </div>
         <div class="content-meta">
             <h1 class="content-title">{{ content.title }}</h1>
