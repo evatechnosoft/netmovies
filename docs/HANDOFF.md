@@ -10,7 +10,40 @@
 
 ---
 
-## 🧪 3 Eylül 2026 (2. oturum) — Faz 1: sözleşme testleri + Canlı TV rafı fix (EN SON OTURUM)
+## 🖼️ 3 Eylül 2026 (2. oturum, devam) — Faz 2: tek poster hattı (EN SON)
+
+**Commit:** `fb3f68c` — `feat(poster): tek poster hattı`
+
+Poster fallback zinciri **dört ayrı yerde** kuruluydu ve davranışları farklıydı:
+her Jinja şablonunda inline `onerror`, `content-browser.js`'te ikinci deneme,
+`home.html.j2` inline script'inde üçüncü bir varyant, TV'de Coil `onError` state'i.
+
+**Yeni sözleşme — zincirin tamamı sunucuda:**
+`/proxy/image?url=<kaynak>&title=<başlık>` → kaynak → proxy LRU cache → TMDB (302) → placeholder
+
+- `image.py`: `title` parametresi + fallback halkası. **Kırık poster negatif cache'i**
+  (10 dk): ölü poster her rafta tekrarlanıp her seferinde CDN'e TLS + timeout turu
+  yapıyordu. `X-Cache` artık nedeni de söylüyor: `MISS/HIT/NEG/UPSTREAM_404/
+  NOT_IMAGE/BLOCKED_HOST/BAD_SCHEME/TOO_LARGE/FETCH_ERROR` → teşhis header'dan okunur.
+- Tek helper üç yerde aynı URL'i üretir: Jinja `poster(url, title)`,
+  yeni `Static/JS/utils/poster.js` → `posterUrl(poster, title)`,
+  Kotlin `proxiedPoster(url, title)`. Şablonlardaki kopya `onerror` zincirleri silindi.
+- `stream/tests/test_poster_pipeline.py` — 13 test (helper sözleşmesi, cache HIT/MISS,
+  negatif cache, TMDB fallback, MIME reddi, SSRF reddi).
+
+**Kanıt:** `31/31 OK` · gerçek poster `MISS 0.162s → HIT 0.018s` · kırık poster
+`302 → /tmdb-poster` (2. istek `NEG 0.013s`, ağ turu yok) · `url=&title=Dark` →
+TMDB'den `200 image/jpeg 70331B` · ana sayfada eski `tmdb-poster` onerror kalıntısı **0**,
+`title`'lı poster URL **36** · TV `compileDebugKotlin` + `testDebugUnitTest` **exit 0**.
+
+CSS'te `aspect-ratio: 2/3` zaten vardı → layout shift maddesi ek iş istemedi.
+
+⚠ **Doğrulanmadı:** TV cihazında posterlerin göründüğü; APK sürüm bump'ı ve OTA
+yayını yapılmadı (Kotlin değişikliği sadece derlendi).
+
+---
+
+## 🧪 3 Eylül 2026 (2. oturum) — Faz 1: sözleşme testleri + Canlı TV rafı fix
 
 **Commit'ler (dal: `fix/general-stability`)**
 
