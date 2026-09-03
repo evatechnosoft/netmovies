@@ -19,7 +19,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +51,8 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
+import com.evaitec.netmovies.tv.BuildConfig
+import com.evaitec.netmovies.tv.UpdateViewModel
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.ui.theme.NmColor
@@ -96,6 +103,7 @@ fun TvTopBarButton(
 @Composable
 fun HomeScreen(
     onSelect: (MediaItem) -> Unit,
+    onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
@@ -114,14 +122,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
             }
         }
     }
@@ -133,6 +141,7 @@ private fun CategoryRows(
     items: List<MediaItem>,
     library: Library,
     onSelect: (MediaItem) -> Unit,
+    onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
@@ -164,6 +173,23 @@ private fun CategoryRows(
         runCatching { firstFocus.requestFocus() }
     }
 
+    // GERİ tuşu: listede aşağıdayken uygulamadan ATMAZ — önce en üste döner.
+    // TV alışkanlığı bu; kullanıcı rafların arasında gezerken yanlışlıkla çıkmasın.
+    // En üstteyken ikinci GERİ çıkışa gider.
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
+    BackHandler(enabled = true) {
+        if (atTop) {
+            onExit()
+        } else {
+            scope.launch {
+                listState.animateScrollToItem(0)
+                runCatching { firstFocus.requestFocus() }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -174,6 +200,7 @@ private fun CategoryRows(
             }
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
@@ -473,8 +500,13 @@ private fun SettingsMenu(
     onToggleVault: () -> Unit,
     onToggleMouseMode: () -> Unit,
     onClose: () -> Unit,
+    updateVm: UpdateViewModel = viewModel(),
 ) {
     ModalCard(title = "Ayarlar") {
+        // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
+        // ekrandaki numarayla cevaplanır.
+        MenuRow("ℹ  Sürüm: ${BuildConfig.RELEASE_TAG}", onClick = {})
+        MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
         MenuRow("🖱  Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
         MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })

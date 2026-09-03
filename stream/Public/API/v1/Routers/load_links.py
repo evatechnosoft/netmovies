@@ -5,6 +5,7 @@ from Core           import Request
 from .              import api_v1_router, api_v1_global_message
 from ..Libs         import fuck_dmca, get_client_headers
 from ..Libs.language import language_name, language_rank, order_by_language
+from ..Libs.source_proxy import route_through_proxy
 
 @api_v1_router.get("/load_links")
 async def load_links(request:Request):
@@ -13,7 +14,9 @@ async def load_links(request:Request):
     # Dil tercihi tek kuralla, tek yerde: Türkçe dublaj → Türkçe altyazı → bilinmiyor.
     # Web ve TV aynı sırayı görür (TV ayrıca kendi tarafında da uygular).
     if isinstance(result, list):
-        result = order_by_language(result)
+        # Eski istemciler (güncellenmemiş APK) imza başlığı üretemez; imzalı
+        # kaynaklar burada da proxy'ye bağlanır ki onlarda da oynatma çalışsın.
+        result = route_through_proxy(order_by_language(result), str(request.base_url).rstrip("/"))
         plugin = (request.state.veri or {}).get("plugin", "?")
         if result:
             konsol.log(

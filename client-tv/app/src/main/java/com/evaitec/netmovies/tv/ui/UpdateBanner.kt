@@ -28,7 +28,8 @@ fun UpdateBanner(vm: UpdateViewModel = viewModel()) {
         is UpdateUi.Available   -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir") { vm.download(s.info) }
         is UpdateUi.Downloading -> Bar("İndiriliyor (${s.tag})… kurulum ekranı birazdan açılır.", null, null)
         is UpdateUi.Opened      -> Bar("Kurulum başlatıldı (${s.tag}). İzin isterse onayla.", null, null)
-        is UpdateUi.Failed      -> Bar("Güncelleme hatası: ${s.message}", "Tekrar") { vm.check() }
+        is UpdateUi.Failed      -> Bar("Güncelleme kontrol edilemedi: ${s.message}", "Tekrar") { vm.check(verbose = true) }
+        is UpdateUi.UpToDate    -> Bar("Uygulama güncel (${s.tag})", null, null)
         UpdateUi.Idle -> {} // banner yok
     }
 }

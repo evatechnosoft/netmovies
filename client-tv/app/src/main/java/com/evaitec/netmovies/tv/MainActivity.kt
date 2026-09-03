@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
                                     UpdateBanner()   // güncelleme varsa üstte şerit
                                     HomeScreen(
                                         onSelect = { selected = it },
+                                        // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
+                                        // en üstteyken uygulamadan çıkar (TV alışkanlığı).
+                                        onExit = { finish() },
                                         onOpenBrowse = { browseVaultMode = false; showBrowse = true },
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },

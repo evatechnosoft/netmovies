@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -165,10 +166,17 @@ fun BrowseScreen(
         loading = false
     }
 
+    // GERİ: arama/sonuç açıksa onu kapatır; raflarda aşağıdaysa önce EN ÜSTE döner;
+    // en üstteyken ana ekrana çıkar. Aşağıdayken tek basışta ekrandan atmaz.
+    val browseScope = rememberCoroutineScope()
+    val atTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
+    }
     BackHandler(enabled = true) {
         when {
-            searchOpen     -> { searchOpen = false; query = "" }
+            searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
+            !atTop          -> browseScope.launch { listState.animateScrollToItem(0) }
             else            -> onBack()
         }
     }

@@ -321,7 +321,7 @@ class PlayerProofTest(unittest.TestCase):
         self.assertEqual({"Referer": "https://x/"}, headers)
 
     def test_signed_sources_are_routed_through_the_proxy(self) -> None:
-        from Public.API.v1.Routers.resolve_sources import route_through_proxy
+        from Public.API.v1.Libs.source_proxy import route_through_proxy
 
         sources = [
             {"name": "A", "url": "https://cdn/a.m3u8", "extra_headers": {"X-Sp-Secret": "s", "X-Sp-Time": "1"}},
