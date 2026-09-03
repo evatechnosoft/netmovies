@@ -1,5 +1,6 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
+from CLI  import konsol
 from Core import Request, HTMLResponse, HTTPException
 from uuid import NAMESPACE_URL, uuid5
 from .    import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
@@ -8,6 +9,7 @@ from json         import loads, dumps
 from urllib.parse import urlparse, parse_qs, unquote, unquote_plus
 from Settings     import PROXY_URL, PROXY_FALLBACK_URL
 from Public.Proxy.Libs.proxy_token import issue_proxy_token
+from Public.API.v1.Libs.language     import language_name, language_rank, order_by_language
 from ..Libs.official_sources import get_official_sources
 
 
@@ -140,6 +142,16 @@ async def izle(
                         "subtitles"     : subtitles,
                     }
                 )
+
+        # Dil tercihi: Türkçe dublaj → Türkçe altyazı → bilinmiyor (API ile aynı kural).
+        links = order_by_language(links)
+        if links:
+            konsol.log(
+                f"[green]▶ izle:[/] {eklenti_adi} · {len(links)} kaynak · ilk sıra: "
+                f"{language_name(language_rank(links[0]))}"
+            )
+        else:
+            konsol.log(f"[yellow]∅ izle:[/] {eklenti_adi} · oynatılabilir kaynak yok")
 
         proxy_urls_for_token = [str(item.get("url") or "") for item in links]
         proxy_urls_for_token += [

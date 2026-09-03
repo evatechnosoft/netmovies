@@ -81,6 +81,9 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
+import com.evaitec.netmovies.tv.data.PlaybackLog
+import com.evaitec.netmovies.tv.data.languageLabel
+import com.evaitec.netmovies.tv.data.loggedOrNull
 import com.evaitec.netmovies.tv.data.StreamLink
 import com.evaitec.netmovies.tv.data.alternativePlugins
 import com.evaitec.netmovies.tv.data.guessSubtitleLang
@@ -135,6 +138,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
     // Oynatıcı UI durumu.
     var showSettings by remember { mutableStateOf(false) }
+    // Ayarlar → Kaynak raporu: son denemelerin cihazda okunabilir dökümü.
+    var showReport by remember { mutableStateOf(false) }
     var tracks by remember { mutableStateOf<Tracks?>(null) }
     var speed by remember { mutableFloatStateOf(1.0f) }
     var isPlaying by remember { mutableStateOf(false) }
@@ -245,9 +250,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             override fun onPlayerError(e: PlaybackException) {
                 // Otomatik kaynak geçişi: çalmayan link kullanıcıyı ekrandan atmaz,
                 // sessizce sıradaki denenir. Kuyruk bittiyse arama sürüyorsa beklenir.
+                val failed = links.getOrNull(currentLinkIndex)
+                PlaybackLog.fail(
+                    "oynatma",
+                    "${failed?.let { languageLabel(it) } ?: "kaynak"} açılmadı · ${e.errorCodeName}: ${e.message ?: "-"}",
+                )
                 if (links.size > currentLinkIndex + 1) {
                     currentLinkIndex++
-                    status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size})…"
+                    val next = links[currentLinkIndex]
+                    status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size}) · ${languageLabel(next)}"
                 } else if (searching) {
                     status = "Kaynak açılmadı, başka sağlayıcı aranıyor…"
                 } else {
@@ -271,7 +282,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
     // Kaynak kuyruğunu doldur — AŞAMALI.
     // Önce seçili sağlayıcı (ilk link gelir gelmez oynatma başlar), sonra arka
-    // planda diğer sağlayıcılar. Kullanıcı hepsinin taranmasını beklemez.
+    // planda diğer sağlayıcılar. Her adım PlaybackLog'a yazılır: bir içerik
+    // açılmazsa hangi sağlayıcının neden düştüğü Ayarlar → Kaynak raporu'nda görünür.
     LaunchedEffect(item.url, currentEpIndex, retryKey) {
         error = null
         ready = false
@@ -279,6 +291,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         currentLinkIndex = 0
         searching = true
         status = "Kaynak aranıyor…"
+        PlaybackLog.startSession(item.title, item.plugin)
 
         // Kuyruğa ekle: dil tercihine göre sırala (dublaj → Türkçe altyazı → diğer).
         // Zaten oynayan link varsa sırası bozulmasın diye yalnız kuyruğun kalanı sıralanır.
@@ -287,22 +300,35 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             val played = links.take(currentLinkIndex + 1)
             val pending = orderByLanguage(links.drop(currentLinkIndex + 1) + found)
             links = played + pending
+            PlaybackLog.info(
+                "kuyruk",
+                "${found.size} link eklendi · sıra: " +
+                    links.joinToString(" > ") { "${languageLabel(it)}" },
+            )
         }
 
         suspend fun linksOf(plugin: String, contentUrl: String, label: String): List<StreamLink> {
             var targetUrl = contentUrl
-            var found = runCatching { Network.api.loadLinks(plugin, targetUrl).result }.getOrDefault(emptyList())
+            var found = loggedOrNull("link", "$plugin · load_links") {
+                Network.api.loadLinks(plugin, targetUrl).result
+            } ?: emptyList()
 
             if (found.isEmpty()) {
                 // Dizi ana sayfası: bölüm listesini çek, seçili bölümü dene.
-                val info = runCatching { Network.api.loadItem(plugin, contentUrl) }.getOrNull()
+                val info = loggedOrNull("bölüm", "$plugin · load_item") { Network.api.loadItem(plugin, contentUrl) }
                 val epList = info?.result?.episodes ?: emptyList()
                 if (epList.isNotEmpty()) {
                     if (episodes.isEmpty()) episodes = epList
                     targetUrl = (epList.getOrNull(currentEpIndex) ?: epList.first()).url
-                    found = runCatching { Network.api.loadLinks(plugin, targetUrl).result }.getOrDefault(emptyList())
+                    PlaybackLog.info("bölüm", "$plugin · ${epList.size} bölüm bulundu")
+                    found = loggedOrNull("link", "$plugin · bölüm load_links") {
+                        Network.api.loadLinks(plugin, targetUrl).result
+                    } ?: emptyList()
                 }
             }
+
+            if (found.isEmpty()) PlaybackLog.warn("link", "$plugin · kaynak vermedi")
+            else PlaybackLog.info("link", "$plugin · ${found.size} link")
 
             val epText = episodes.getOrNull(currentEpIndex)?.title?.let { " · $it" } ?: ""
             return found.map { it.copy(name = "$label · ${it.name.ifBlank { "Oynatıcı" }}$epText") }
@@ -315,21 +341,27 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
         // 2) Alternatif sağlayıcılar — arka planda, sırayla; her bulunan kuyruğa eklenir.
         val query = searchableTitle(item.title)
-        if (query.isNotBlank()) {
+        if (query.isBlank()) {
+            PlaybackLog.warn("arama", "başlık boş — alternatif sağlayıcılar taranamadı")
+        } else {
             val candidates = alternativePlugins(item.plugin)
             candidates.forEachIndexed { index, plugin ->
                 if (links.isEmpty()) {
                     status = "$plugin aranıyor… (${index + 1}/${candidates.size})"
                 }
-                val match = runCatching {
-                    val results = Network.api.search(plugin, query).result
-                    results.firstOrNull { r ->
-                        r.title?.contains(query, ignoreCase = true) == true ||
-                            query.contains(r.title ?: "", ignoreCase = true)
-                    } ?: results.firstOrNull()
-                }.getOrNull()
+                val results = loggedOrNull("arama", "$plugin · \"$query\"") {
+                    Network.api.search(plugin, query).result
+                } ?: emptyList()
 
-                if (match != null) {
+                val match = results.firstOrNull { r ->
+                    r.title?.contains(query, ignoreCase = true) == true ||
+                        query.contains(r.title ?: "", ignoreCase = true)
+                } ?: results.firstOrNull()
+
+                if (match == null) {
+                    PlaybackLog.warn("arama", "$plugin · eşleşme yok")
+                } else {
+                    PlaybackLog.info("arama", "$plugin · eşleşti: ${match.title ?: "?"}")
                     val before = links.size
                     enqueue(linksOf(plugin, match.url, plugin))
                     if (before == 0 && links.isNotEmpty()) status = null
@@ -339,7 +371,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
         searching = false
         if (links.isEmpty()) {
+            PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir link vermedi")
             status = "Bu içerik için çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+        } else {
+            PlaybackLog.info("sonuç", "${links.size} kaynak hazır · oynatılan: ${languageLabel(links[currentLinkIndex])}")
         }
     }
 
@@ -348,9 +383,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
         if (link.url.isBlank()) {
             // Boş link kullanıcıya hata kutusu göstermez; sıradakine geçilir.
+            PlaybackLog.warn("oynatma", "boş link atlandı: ${link.name}")
             if (links.size > currentLinkIndex + 1) currentLinkIndex++
             return@LaunchedEffect
         }
+        PlaybackLog.info("oynatma", "deneniyor: ${languageLabel(link)}")
         try {
             ready = false; error = null
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
@@ -391,8 +428,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 .setMaxVideoSize(426, 240)
                 .setForceLowestBitrate(true)
                 .build()
-        } catch (_: Exception) {
-            // Hazırlama hatası da sessiz geçiş: sıradaki kaynak denenir.
+        } catch (e: Exception) {
+            // Hazırlama hatası da sessiz geçiş: sıradaki kaynak denenir — ama loglanır.
+            PlaybackLog.fail("oynatma", "hazırlanamadı: ${languageLabel(link)}", e)
             if (links.size > currentLinkIndex + 1) {
                 currentLinkIndex++
                 status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size})…"
@@ -538,6 +576,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
+                showReport = showReport,
+                onToggleReport = { showReport = !showReport },
                 onClose = { showSettings = false },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
@@ -772,6 +812,8 @@ private fun SettingsPanel(
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
     onSelectSpeed: (Float) -> Unit,
+    showReport: Boolean,
+    onToggleReport: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -797,10 +839,20 @@ private fun SettingsPanel(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
         ) {
+            // Sıra kuralı sabit: Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.
+            // Etiket her satırda yazar, hangi dilin oynadığı tahmine bırakılmaz.
             SectionTitle("📺 Sağlayıcı & Kaynak")
             if (links.isEmpty()) MutedRow("—")
             links.forEachIndexed { idx, link ->
-                SettingRow(link.name.ifBlank { "Kaynak ${idx + 1}" }, idx == currentLinkIndex) { onSelectSource(idx) }
+                SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
+            }
+
+            SectionTitle("🩺 Kaynak raporu")
+            SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
+            if (showReport) {
+                val report = PlaybackLog.snapshot()
+                if (report.isEmpty()) MutedRow("Kayıt yok")
+                report.take(40).forEach { entry -> MutedRow(entry.format()) }
             }
 
             if (episodes.isNotEmpty()) {

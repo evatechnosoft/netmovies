@@ -5,6 +5,7 @@
 
 import asyncio
 
+from CLI    import konsol
 from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
@@ -49,8 +50,13 @@ async def _fetch_from(name: str, page: int, media_type: str):
     plugin = plugin_manager.select_plugin(name)
     url, cat = _pick_category(plugin.main_page, media_type)
     if not url:
+        # Sessiz boş liste teşhis edilemiyordu: kaynak ölü mü, kategori adı mı
+        # tutmuyor ayırt edilemezdi (canlı TV rafı tam bu yüzden aylarca boştu).
+        konsol.log(f"[yellow]∅ aggregate:[/] {name} · '{media_type}' için kategori eşleşmedi")
         return []
     results = await plugin.get_main_page(page, url, cat)
+    if not results:
+        konsol.log(f"[yellow]∅ aggregate:[/] {name} · {cat} boş döndü")
     out = []
     for item in results or []:
         item_url = getattr(item, "url", "") or ""
@@ -107,8 +113,8 @@ async def aggregate_new(request: Request):
         healthy = {p["plugin"] for p in health.get("plugins", []) if p.get("ok")}
         if healthy:
             names = [n for n in names if n in healthy]
-    except Exception:
-        pass
+    except Exception as hata:
+        konsol.log(f"[yellow]⚠ aggregate:[/] sağlık süzmesi atlandı — {type(hata).__name__}: {hata}")
 
     batches = await asyncio.gather(
         *(_fetch_from(n, page, media_type) for n in names),
@@ -116,10 +122,13 @@ async def aggregate_new(request: Request):
     )
 
     merged = []
-    for b in batches:
+    for name, b in zip(names, batches):
         if isinstance(b, Exception):
+            konsol.log(f"[red]✖ aggregate:[/] {name} · {type(b).__name__}: {b}")
             continue  # çalışmayan kaynağı atla
         merged.extend(b)
+
+    konsol.log(f"[green]∑ aggregate:[/] type={media_type} · {len(merged)} içerik · {len(names)} kaynak tarandı")
 
     return {**api_v1_global_message, "result": {"type": media_type, "count": len(merged), "items": merged}}
 

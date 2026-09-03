@@ -27,6 +27,19 @@ fun languageRank(link: StreamLink): Int {
     return 2
 }
 
+/** Dil kuralının kullanıcıya gösterilen hâli — belirsizlik bırakmaz. */
+fun languageName(rank: Int): String = when (rank) {
+    0 -> "Türkçe dublaj"
+    1 -> "Türkçe altyazı"
+    else -> "dil bilinmiyor"
+}
+
+/** "DiziBox · Türkçe dublaj" — durum satırı ve kaynak raporu bunu gösterir. */
+fun languageLabel(link: StreamLink): String {
+    val provider = link.name.substringBefore(" · ").ifBlank { "Kaynak" }
+    return "$provider · ${languageName(languageRank(link))}"
+}
+
 /** Kuyruğu dil tercihine göre sıralar; grup içi sıra bozulmaz. */
 fun orderByLanguage(links: List<StreamLink>): List<StreamLink> = links.sortedBy(::languageRank)
 
