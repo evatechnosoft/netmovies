@@ -211,3 +211,74 @@ class ApiV1ContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResolveSourcesContractTest(unittest.TestCase):
+    """Oynatma zincirinin TEK ucu — TV, telefon ve web bunu tüketir."""
+
+    def setUp(self) -> None:
+        self.provider = FakeProvider()
+        self._real_client = Libs._client
+        Libs._client = httpx.AsyncClient(transport=httpx.MockTransport(self.provider.handler))
+        Libs._cache.clear()
+        Libs._inflight.clear()
+        self.client = TestClient(kekik_FastAPI)
+
+    def tearDown(self) -> None:
+        Libs._client = self._real_client
+        Libs._cache.clear()
+        Libs._inflight.clear()
+
+    def test_sources_are_ordered_and_labelled_by_language(self) -> None:
+        self.provider.result = {
+            "mode": "full",
+            "sources": [
+                {"name": "A · Oynatıcı", "url": "a"},
+                {"name": "B · Türkçe Altyazılı", "url": "b"},
+                {"name": "C · Türkçe Dublaj", "url": "c"},
+            ],
+            "episodes": [],
+            "diagnostics": [],
+        }
+        res = self.client.get("/api/v1/resolve_sources", params={"plugin": "DiziBox", "encoded_url": "x", "title": "Dark"})
+
+        sources = res.json()["result"]["sources"]
+        self.assertEqual(["c", "b", "a"], [s["url"] for s in sources])
+        self.assertEqual(
+            ["Türkçe dublaj", "Türkçe altyazı", "dil bilinmiyor"],
+            [s["language"]["label"] for s in sources],
+        )
+
+    def test_request_parameters_reach_the_engine(self) -> None:
+        self.provider.result = {"sources": [], "episodes": [], "diagnostics": []}
+        self.client.get(
+            "/api/v1/resolve_sources",
+            params={"plugin": "DiziBox", "encoded_url": "x", "title": "Dark", "mode": "fast", "episode": "3"},
+        )
+
+        self.assertEqual(["/api/v1/resolve_sources"], self.provider.paths)
+        self.assertEqual(
+            {"plugin": "DiziBox", "encoded_url": "x", "title": "Dark", "mode": "fast", "episode": "3"},
+            self.provider.params_of(),
+        )
+
+    def test_diagnostics_are_passed_through_to_clients(self) -> None:
+        """Kaynak raporu her istemcide aynı: teşhis kaydı sunucudan geliyor."""
+        self.provider.result = {
+            "sources": [],
+            "episodes": [],
+            "diagnostics": [{"level": "warn", "stage": "arama", "message": "DiziYou · sonuç yok"}],
+        }
+        res = self.client.get("/api/v1/resolve_sources", params={"plugin": "DiziBox", "encoded_url": "x"})
+
+        self.assertEqual(
+            [{"level": "warn", "stage": "arama", "message": "DiziYou · sonuç yok"}],
+            res.json()["result"]["diagnostics"],
+        )
+
+    def test_empty_source_list_is_not_an_error(self) -> None:
+        self.provider.result = {"sources": [], "episodes": [], "diagnostics": []}
+        res = self.client.get("/api/v1/resolve_sources", params={"plugin": "DiziBox", "encoded_url": "x"})
+
+        self.assertEqual(200, res.status_code)
+        self.assertEqual([], res.json()["result"]["sources"])

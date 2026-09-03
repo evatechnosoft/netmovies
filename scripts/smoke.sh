@@ -30,6 +30,21 @@ fail() { printf '  [HATA] %s\n' "$1"; fails=$((fails + 1)); }
 
 step() { printf '\n== %s\n' "$1"; }
 
+# 0) Isınma — rebuild'in hemen ardından çalıştırıldığında container ayakta ama
+#    henüz "healthy" değil; ısınmadan yapılan çağrılar boş dönüp yanlış alarm
+#    üretiyordu. Sağlık raporu gelene kadar (en fazla 120 sn) beklenir.
+step "Isınma"
+for name in netmovies-engine netmovies-stream; do
+  waited=0
+  while [[ $waited -lt 120 ]]; do
+    state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null)"
+    [[ "$state" == "healthy" ]] && break
+    sleep 3
+    waited=$((waited + 3))
+  done
+  [[ "$state" == "healthy" ]] && ok "$name hazır (${waited}sn)" || fail "$name ısınmadı (${waited}sn, durum: ${state:-yok})"
+done
+
 # 1) Container sağlığı — stream, engine "healthy" raporlamalı.
 step "Container sağlığı"
 for name in netmovies-engine netmovies-stream; do
@@ -69,7 +84,22 @@ channels="$(curl -s --max-time 60 "${AUTH_ARGS[@]}" "$BASE/api/v1/quick_channels
   | "$PY" -c 'import json,sys; print(len(json.load(sys.stdin).get("result") or []))' 2>/dev/null || echo 0)"
 [[ "$channels" -gt 0 ]] && ok "$channels kanal" || fail "kanal listesi boş"
 
-# 6) Sözleşme testleri — çalışan container içinde, gerçek import grafiğiyle.
+# 6) Oynatma zinciri — TV, telefon ve web'in ortak ucu.
+step "Oynatma zinciri (resolve_sources)"
+first="$(curl -s --max-time 60 "${AUTH_ARGS[@]}" "$BASE/api/v1/aggregate_new?type=movie"   | "$PY" -c 'import json,sys; items=(json.load(sys.stdin).get("result") or {}).get("items") or []; i=items[0] if items else {}; print(i.get("plugin",""));print(i.get("url",""));print(i.get("title",""))' 2>/dev/null)"
+plugin="$(printf '%s' "$first" | sed -n 1p)"
+curl_url="$(printf '%s' "$first" | sed -n 2p)"
+title="$(printf '%s' "$first" | sed -n 3p)"
+if [[ -z "$plugin" ]]; then
+  fail "katalog boş — zincir denenemedi"
+else
+  resolved="$(curl -s --max-time 90 "${AUTH_ARGS[@]}"     --get --data-urlencode "plugin=$plugin" --data-urlencode "title=$title" --data-urlencode "mode=fast"     "$BASE/api/v1/resolve_sources?encoded_url=$curl_url"     | "$PY" -c 'import json,sys; r=(json.load(sys.stdin).get("result") or {}); s=r.get("sources") or []; print(len(s), (s[0].get("language",{}).get("label") if s else "-"), len(r.get("diagnostics") or []))' 2>/dev/null || echo "0 - 0")"
+  count="$(printf '%s' "$resolved" | cut -d' ' -f1)"
+  label="$(printf '%s' "$resolved" | cut -d' ' -f2-)"
+  if [[ "$count" -gt 0 ]]; then ok "$plugin · $count kaynak · ilk sıra: $label"; else fail "$plugin · zincir kaynak vermedi"; fi
+fi
+
+# 7) Sözleşme testleri — çalışan container içinde, gerçek import grafiğiyle.
 step "Gateway sözleşme testleri"
 if docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests >/dev/null 2>&1; then
   ok "stream/tests: tümü geçti"

@@ -85,10 +85,7 @@ import com.evaitec.netmovies.tv.data.PlaybackLog
 import com.evaitec.netmovies.tv.data.languageLabel
 import com.evaitec.netmovies.tv.data.loggedOrNull
 import com.evaitec.netmovies.tv.data.StreamLink
-import com.evaitec.netmovies.tv.data.alternativePlugins
 import com.evaitec.netmovies.tv.data.guessSubtitleLang
-import com.evaitec.netmovies.tv.data.orderByLanguage
-import com.evaitec.netmovies.tv.data.searchableTitle
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.input.RemoteAction
 import com.evaitec.netmovies.tv.input.RemoteInputController
@@ -280,10 +277,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
     var currentEpIndex by remember { mutableIntStateOf(0) }
 
-    // Kaynak kuyruğunu doldur — AŞAMALI.
-    // Önce seçili sağlayıcı (ilk link gelir gelmez oynatma başlar), sonra arka
-    // planda diğer sağlayıcılar. Her adım PlaybackLog'a yazılır: bir içerik
-    // açılmazsa hangi sağlayıcının neden düştüğü Ayarlar → Kaynak raporu'nda görünür.
+    // Kaynak kuyruğu — zincir SUNUCUDA (/api/v1/resolve_sources).
+    // İstemci yalnız iki çağrı yapar: önce fast (seçili sağlayıcı, hemen oynasın),
+    // sonra full (alternatif sağlayıcılar, arka planda kuyruğa eklenir).
+    // Arama/eşleştirme/dil sıralaması burada TEKRARLANMAZ — TV, telefon ve web
+    // aynı listeyi aynı sırada görür.
     LaunchedEffect(item.url, currentEpIndex, retryKey) {
         error = null
         ready = false
@@ -293,87 +291,61 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         status = "Kaynak aranıyor…"
         PlaybackLog.startSession(item.title, item.plugin)
 
-        // Kuyruğa ekle: dil tercihine göre sırala (dublaj → Türkçe altyazı → diğer).
-        // Zaten oynayan link varsa sırası bozulmasın diye yalnız kuyruğun kalanı sıralanır.
-        fun enqueue(found: List<StreamLink>) {
-            if (found.isEmpty()) return
-            val played = links.take(currentLinkIndex + 1)
-            val pending = orderByLanguage(links.drop(currentLinkIndex + 1) + found)
-            links = played + pending
-            PlaybackLog.info(
-                "kuyruk",
-                "${found.size} link eklendi · sıra: " +
-                    links.joinToString(" > ") { "${languageLabel(it)}" },
-            )
-        }
-
-        suspend fun linksOf(plugin: String, contentUrl: String, label: String): List<StreamLink> {
-            var targetUrl = contentUrl
-            var found = loggedOrNull("link", "$plugin · load_links") {
-                Network.api.loadLinks(plugin, targetUrl).result
-            } ?: emptyList()
-
-            if (found.isEmpty()) {
-                // Dizi ana sayfası: bölüm listesini çek, seçili bölümü dene.
-                val info = loggedOrNull("bölüm", "$plugin · load_item") { Network.api.loadItem(plugin, contentUrl) }
-                val epList = info?.result?.episodes ?: emptyList()
-                if (epList.isNotEmpty()) {
-                    if (episodes.isEmpty()) episodes = epList
-                    targetUrl = (epList.getOrNull(currentEpIndex) ?: epList.first()).url
-                    PlaybackLog.info("bölüm", "$plugin · ${epList.size} bölüm bulundu")
-                    found = loggedOrNull("link", "$plugin · bölüm load_links") {
-                        Network.api.loadLinks(plugin, targetUrl).result
-                    } ?: emptyList()
+        fun absorb(result: com.evaitec.netmovies.tv.data.ResolveResult?, phase: String) {
+            if (result == null) return
+            // Sunucunun teşhis kaydı istemci günlüğüne karışır: rapor tek yerde okunur.
+            result.diagnostics.forEach { d ->
+                when (d.level) {
+                    "fail" -> PlaybackLog.fail("sunucu·${d.stage}", d.message)
+                    "warn" -> PlaybackLog.warn("sunucu·${d.stage}", d.message)
+                    else -> PlaybackLog.info("sunucu·${d.stage}", d.message)
                 }
             }
+            if (episodes.isEmpty() && result.episodes.isNotEmpty()) episodes = result.episodes
 
-            if (found.isEmpty()) PlaybackLog.warn("link", "$plugin · kaynak vermedi")
-            else PlaybackLog.info("link", "$plugin · ${found.size} link")
-
-            val epText = episodes.getOrNull(currentEpIndex)?.title?.let { " · $it" } ?: ""
-            return found.map { it.copy(name = "$label · ${it.name.ifBlank { "Oynatıcı" }}$epText") }
+            val known = links.map { it.url }.toSet()
+            val fresh = result.sources.filter { it.url.isNotBlank() && it.url !in known }
+            if (fresh.isEmpty()) {
+                PlaybackLog.info("kuyruk", "$phase · yeni kaynak yok")
+                return
+            }
+            // Oynayan link yerinde kalır; sunucu sırası kuyruğun kalanına uygulanır.
+            links = links.take(currentLinkIndex + 1) + links.drop(currentLinkIndex + 1) + fresh
+            PlaybackLog.info("kuyruk", "$phase · +${fresh.size} kaynak (toplam ${links.size})")
         }
 
-        // 1) Seçili sağlayıcı — en hızlı yol.
+        // 1) Hızlı yol — seçili sağlayıcı.
         status = "${item.plugin} deneniyor…"
-        enqueue(linksOf(item.plugin, item.url, item.plugin))
-        if (links.isNotEmpty()) status = null
-
-        // 2) Alternatif sağlayıcılar — arka planda, sırayla; her bulunan kuyruğa eklenir.
-        val query = searchableTitle(item.title)
-        if (query.isBlank()) {
-            PlaybackLog.warn("arama", "başlık boş — alternatif sağlayıcılar taranamadı")
-        } else {
-            val candidates = alternativePlugins(item.plugin)
-            candidates.forEachIndexed { index, plugin ->
-                if (links.isEmpty()) {
-                    status = "$plugin aranıyor… (${index + 1}/${candidates.size})"
-                }
-                val results = loggedOrNull("arama", "$plugin · \"$query\"") {
-                    Network.api.search(plugin, query).result
-                } ?: emptyList()
-
-                val match = results.firstOrNull { r ->
-                    r.title?.contains(query, ignoreCase = true) == true ||
-                        query.contains(r.title ?: "", ignoreCase = true)
-                } ?: results.firstOrNull()
-
-                if (match == null) {
-                    PlaybackLog.warn("arama", "$plugin · eşleşme yok")
-                } else {
-                    PlaybackLog.info("arama", "$plugin · eşleşti: ${match.title ?: "?"}")
-                    val before = links.size
-                    enqueue(linksOf(plugin, match.url, plugin))
-                    if (before == 0 && links.isNotEmpty()) status = null
-                }
-            }
+        val fast = loggedOrNull("çözümleme", "resolve_sources · fast") {
+            Network.api.resolveSources(
+                plugin = item.plugin,
+                encodedUrl = item.url,
+                title = item.title,
+                episode = currentEpIndex,
+                mode = "fast",
+            ).result
         }
+        absorb(fast, "fast")
+        if (links.isNotEmpty()) status = null else status = "Alternatif sağlayıcılar aranıyor…"
+
+        // 2) Tam zincir — alternatif sağlayıcılar (sunucu tarar).
+        val full = loggedOrNull("çözümleme", "resolve_sources · full") {
+            Network.api.resolveSources(
+                plugin = item.plugin,
+                encodedUrl = item.url,
+                title = item.title,
+                episode = currentEpIndex,
+                mode = "full",
+            ).result
+        }
+        absorb(full, "full")
 
         searching = false
         if (links.isEmpty()) {
-            PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir link vermedi")
+            PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir kaynak vermedi")
             status = "Bu içerik için çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
         } else {
+            if (status != null) status = null
             PlaybackLog.info("sonuç", "${links.size} kaynak hazır · oynatılan: ${languageLabel(links[currentLinkIndex])}")
         }
     }

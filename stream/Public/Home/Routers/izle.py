@@ -106,10 +106,19 @@ async def izle(
                 "proxy_fallback_url" : PROXY_FALLBACK_URL,
             }
 
-            load_links_data = await fuck_dmca("/load_links", params={
+            # Zincirin tamamı sunucuda: seçili sağlayıcı + alternatifler + dil sırası.
+            # Web de artık TV ile aynı kaynak havuzunu görüyor (eskiden yalnız
+            # seçili sağlayıcının linkleriyle yetiniyordu).
+            resolved = await fuck_dmca("/resolve_sources", params={
                 "plugin"      : eklenti_adi,
-                "encoded_url" : url
-            }, client_headers=get_client_headers(request))
+                "encoded_url" : url,
+                "title"       : baslik or "",
+                "mode"        : "full",
+            }, timeout=60.0, client_headers=get_client_headers(request))
+
+            load_links_data = (resolved or {}).get("sources") or []
+            for entry in (resolved or {}).get("diagnostics") or []:
+                konsol.log(f"[dim]· izle:[/] {entry.get('stage')} — {entry.get('message')}")
 
 
         links = []

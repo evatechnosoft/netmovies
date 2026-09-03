@@ -28,5 +28,6 @@ from . import (
     ytdlp_extract,
     plugin_health,
     aggregate_new,
-    quick_channels
+    quick_channels,
+    resolve_sources
 )

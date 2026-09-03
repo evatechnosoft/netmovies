@@ -15,6 +15,19 @@ interface NetMoviesApi {
     // kodlamasın (web akışı da bu değeri olduğu gibi query'de geçiriyor). Oynatma
     // uçtan uca test edilince bu varsayım doğrulanmalı — çift-kodlama sorunu çıkarsa
     // encoded=false'a çevir veya URLDecoder ile bir tur çöz.
+    // Oynatma kaynağı zinciri TEK uçta: seçili sağlayıcı → bölüm çözme →
+    // alternatif sağlayıcılar → dil sıralaması. İstemci yalnız tüketir.
+    // mode=fast: sadece seçili sağlayıcı (ilk oynatma beklemesin)
+    // mode=full: alternatifler dahil (oynarken arka planda çağrılır)
+    @GET("api/v1/resolve_sources")
+    suspend fun resolveSources(
+        @Query("plugin") plugin: String,
+        @Query("encoded_url", encoded = true) encodedUrl: String,
+        @Query("title") title: String? = null,
+        @Query("episode") episode: Int = 0,
+        @Query("mode") mode: String = "full",
+    ): ResolveResponse
+
     @GET("api/v1/load_links")
     suspend fun loadLinks(
         @Query("plugin") plugin: String,

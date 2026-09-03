@@ -40,6 +40,8 @@ data class StreamLink(
     val referer: String = "",
     @SerialName("user_agent") val userAgent: String = "",
     val subtitles: List<Subtitle> = emptyList(),
+    // Sunucu doldurur (resolve_sources): dil kuralı istemcide tekrarlanmaz.
+    val language: LanguageTag? = null,
 )
 
 // KekikStream Subtitle → { "name": "Türkçe", "url": ".../tr.vtt" }
@@ -93,4 +95,35 @@ data class EpisodeItem(
     val episode: Int? = null,
     val title: String? = null,
     val url: String = "",
+)
+
+// /api/v1/resolve_sources yanıtı — oynatma zincirinin sunucudaki tek çıktısı.
+@Serializable
+data class ResolveResponse(
+    val result: ResolveResult? = null,
+)
+
+@Serializable
+data class ResolveResult(
+    val mode: String = "",
+    val count: Int = 0,
+    val sources: List<StreamLink> = emptyList(),
+    val episodes: List<EpisodeItem> = emptyList(),
+    val diagnostics: List<Diagnostic> = emptyList(),
+)
+
+// Sunucunun teşhis kaydı: hangi sağlayıcı eşleşti, hangisi kaynak vermedi.
+// Kaynak raporu ekranı bunu istemci kayıtlarıyla birlikte gösterir.
+@Serializable
+data class Diagnostic(
+    val level: String = "info",
+    val stage: String = "",
+    val message: String = "",
+)
+
+// Kaynağın dili sunucuda belirlenir; istemci yalnız etiketi basar.
+@Serializable
+data class LanguageTag(
+    val rank: Int = 2,
+    val label: String = "dil bilinmiyor",
 )

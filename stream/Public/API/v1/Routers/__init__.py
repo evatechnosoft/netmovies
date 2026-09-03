@@ -27,6 +27,7 @@ from . import (
     load_links,
     aggregate_new,
     quick_channels,
+    resolve_sources,
     extract,
     ytdlp_extract,
     watch
