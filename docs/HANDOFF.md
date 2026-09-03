@@ -10,7 +10,63 @@
 
 ---
 
-## 🚀 3 Eylül 2026 — DiziBox/MolyStream + Gözat Yeniden Tasarım + TMDB (EN SON OTURUM)
+## 🧪 3 Eylül 2026 (2. oturum) — Faz 1: sözleşme testleri + Canlı TV rafı fix (EN SON OTURUM)
+
+**Commit'ler (dal: `fix/general-stability`)**
+
+| Commit | Ne |
+|---|---|
+| `45c2060` | api/v1 gateway sözleşme testleri + `scripts/smoke.sh` kapı kontrolü |
+| `3dce3c4` | Canlı TV rafı boş dönüyordu + `quick_channels` ucu istemcilere açıldı |
+
+### 0. Yığın yeniden ayağa kalktı
+Docker Desktop kapalıydı (`localhost:3310` bağlantı yok, tünel `530`).
+`docker compose --profile tunnel up -d --build` → engine + stream **healthy**,
+`/api/v1/health` 200, `https://w.evaitec.com` **200**.
+
+### 1. Sözleşme testleri (planın Faz 1 / madde 4 boşluğu)
+`stream/tests/test_api_contract.py` — 14 test. Upstream provider `httpx.MockTransport`
+ile taklit edilir, **gerçek kaynak sitelere çıkılmaz** (CI'da kırılgan olmaz).
+Sabitlenen sözleşme: `encoded_url` parametre adı (eski `url` regresyonu), katalog/arama/
+link parametreleri, cache kuralları (arama cache'lenir, **`load_links` asla**, boş
+`aggregate` cache'lenmez, hata cache'lenmez), `provider_error` zarfı, istemci kimlik
+header'larının upstream'e taşınması.
+**Kanıt:** container içinde `Ran 18 tests ... OK` (mevcut `test_provider_routing` dahil).
+Çalıştırma: `docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests`
+⚠ `tests/` image'a build ile girer; kod değiştirmeden test denemek için `docker cp stream/tests netmovies-stream:/usr/src/Stream/`.
+
+### 2. `scripts/smoke.sh` — tek komutluk kapı
+Container health → `/api/v1/health` → eklenti listesi → **beş aggregate tipi** →
+`quick_channels` → sözleşme testleri. `BASE=https://w.evaitec.com bash scripts/smoke.sh`
+ile tünel üzerinden de çalışır. Kırmızı adım varsa çıkış kodu 1.
+
+### 3. Canlı TV rafı boştu (smoke'un yakaladığı gerçek hata)
+- **Kök neden:** `aggregate_new` kategori **adında** Türkçe ipucu arıyor (`"canlı"`,
+  `"kanal"`); M3U grup adları listeden geliyor ve İngilizce (`Animation`, `News`) →
+  hiç eşleşme yok → `type=live` **her zaman 0 item**. TV home'un `OTHER_TYPES`'ında
+  `live` var, yani cihazda Canlı TV rafı boş görünüyordu.
+- **İkinci kusur:** `/api/v1/quick_channels` **stream gateway'inde yoktu**. Web bunu
+  server-side `fuck_dmca` ile çekiyor, native istemci ise canlı listeye hiç erişemiyordu.
+- **Fix:** engine'de toplayıcı `collect_live_channels()` olarak ayrıldı; `aggregate_new`
+  live tipinde bunu kullanıyor (url'ler diğer tiplerle aynı sözleşmede `quote_plus`'lı).
+  Gateway'e `quick_channels` router'ı + 10 dk cache eklendi.
+- **Kanıt:** `type=live` 0 → **173** item · `/api/v1/quick_channels` → 173 kanal ·
+  `Disney Jr.` → `load_links` → `saran-live.ercdn.net/.../index.m3u8` **HTTP 200**.
+
+### ⚠ Sözleşme tuzağı (bir daha düşme)
+Aggregate tip adı **`serie`**, `series` değil. Bilinmeyen tip hata vermez, **sessizce boş
+liste** döner — bu yüzden yanlış tip yazmak "kaynak öldü" gibi görünür.
+Geçerli tipler: `movie`, `serie`, `serie_local`, `serie_foreign`, `live`.
+
+### ⚠ Doğrulanmadı / açık (bu oturum)
+- Canlı rafın **TV cihazında** dolduğu görülmedi (sunucu ucu uçtan uca doğrulandı).
+- TV'de canlı kanal kategorileri İngilizce görünecek (`Animation;Kids`) — kozmetik, açık.
+- Önceki oturumun cihaz doğrulamaları (DiziBox oynatma, Gözat D-pad, TMDB fallback,
+  oynatıcı hata ekranı GERİ tuşu) hâlâ **denenmedi**.
+
+---
+
+## 🚀 3 Eylül 2026 — DiziBox/MolyStream + Gözat Yeniden Tasarım + TMDB
 
 **Commit'ler (dal: `fix/general-stability`)**
 
