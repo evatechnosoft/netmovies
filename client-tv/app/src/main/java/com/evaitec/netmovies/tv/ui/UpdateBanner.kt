@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,8 +25,13 @@ import com.evaitec.netmovies.tv.UpdateViewModel
 @Composable
 fun UpdateBanner(vm: UpdateViewModel = viewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // Ana ekrana her dönüşte bayat kontrolü tazele — ilk denemede ağ kapalıysa veya
+    // GitHub kotası dolmuşsa kullanıcı uygulamayı kapatmadan da güncellemeyi görsün.
+    LaunchedEffect(Unit) { vm.recheckIfStale() }
     when (val s = ui) {
         is UpdateUi.Available   -> Bar("Güncelleme mevcut: ${s.info.tag}", "İndir") { vm.download(s.info) }
+        is UpdateUi.NeedsPermission ->
+            Bar("Kurulum için izin gerekiyor (bilinmeyen kaynaklar)", "İzin ver") { vm.grantInstallPermission(s.info) }
         is UpdateUi.Downloading -> Bar("İndiriliyor (${s.tag})… kurulum ekranı birazdan açılır.", null, null)
         is UpdateUi.Opened      -> Bar("Kurulum başlatıldı (${s.tag}). İzin isterse onayla.", null, null)
         is UpdateUi.Failed      -> Bar("Güncelleme kontrol edilemedi: ${s.message}", "Tekrar") { vm.check(verbose = true) }

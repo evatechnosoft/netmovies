@@ -2,6 +2,8 @@ package com.evaitec.netmovies.tv.update
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.evaitec.netmovies.tv.data.PreferIpv4Dns
 import okhttp3.OkHttpClient
@@ -16,6 +18,28 @@ object Updater {
     // Bu yol tarayıcı gerektirmez.
 
     private val http = OkHttpClient.Builder().dns(PreferIpv4Dns).build()
+
+    /**
+     * Android 8+ her uygulamadan ayrı ayrı "bilinmeyen kaynak kurulumu" izni ister.
+     * İzin yokken kurulum intent'i sessizce reddediliyordu: APK iniyor, hiçbir şey
+     * olmuyordu — "güncelleme gelmiyor" şikâyetinin sessiz yarısı buydu.
+     */
+    fun canInstall(context: Context): Boolean =
+        context.packageManager.canRequestPackageInstalls()
+
+    /** Kullanıcıyı bu uygulamanın kurulum izni ekranına götürür. */
+    fun openInstallPermission(context: Context) {
+        val direct = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:${context.packageName}"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Bazı TV kutularında bu ekran yok — genel güvenlik ayarlarına düşülür.
+        val fallback = Intent(Settings.ACTION_SECURITY_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(direct) }
+            .recoverCatching { context.startActivity(fallback) }
+            .getOrThrow()
+    }
 
     /** APK'yı indirir ve dosyayı döndürür (ağ işi — IO dispatcher'da çağır). */
     fun downloadApk(context: Context, url: String): File {

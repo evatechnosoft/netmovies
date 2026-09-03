@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +54,7 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
 import com.evaitec.netmovies.tv.BuildConfig
+import com.evaitec.netmovies.tv.UpdateUi
 import com.evaitec.netmovies.tv.UpdateViewModel
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
@@ -179,7 +182,10 @@ private fun CategoryRows(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
-    BackHandler(enabled = true) {
+    // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
+    // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
+    val modalOpen = showSettingsMenu || menuItem != null
+    BackHandler(enabled = !modalOpen) {
         if (atTop) {
             onExit()
         } else {
@@ -201,7 +207,9 @@ private fun CategoryRows(
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            // Modal açıkken arkadaki raflar odak aramasından çıkarılır. Yoksa D-pad
+            // aşağı basınca odak menüden çıkıp posterlerde geziniyordu.
+            modifier = Modifier.fillMaxSize().focusProperties { canFocus = !modalOpen },
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
@@ -371,7 +379,7 @@ private fun PosterMenu(
     onToggleFavorite: () -> Unit,
     onClose: () -> Unit,
 ) {
-    ModalCard(title = item.title ?: "Seçenekler") {
+    ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
         MenuRow("▶  Oynat", onPlay)
         MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
         MenuRow("Kapat", onClose)
@@ -381,8 +389,23 @@ private fun PosterMenu(
 // Ortak modal kabuğu: scrim + panel + başlık. Menülerin görünümü tek yerden gelir.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ModalCard(title: String, content: @Composable () -> Unit) {
+private fun ModalCard(title: String, onClose: () -> Unit, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(NmDim.PanelRadius)
+
+    // Modal açılınca odak İÇERİ taşınır. Bu yoktu: odak arkadaki "Ayarlar" butonunda
+    // kalıyor, D-pad aşağı menüyü değil alttaki film raflarını geziyordu.
+    // İlk kare henüz yerleşmemiş olabilir → birkaç kare boyunca denenir.
+    val panelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(8) {
+            if (runCatching { panelFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            withFrameNanos { }
+        }
+    }
+
+    // GERİ modalı kapatır (arkadaki ana ekran handler'ı modal açıkken kapalıdır).
+    BackHandler(enabled = true) { onClose() }
+
     Box(
         Modifier.fillMaxSize().background(NmColor.Scrim),
         contentAlignment = Alignment.Center,
@@ -393,6 +416,7 @@ private fun ModalCard(title: String, content: @Composable () -> Unit) {
                 .clip(shape)
                 .background(NmColor.SurfaceDialog)
                 .nmFocusRing(false, shape)
+                .focusRequester(panelFocus)
                 .focusGroup()
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -423,7 +447,9 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
             .background(if (isFocused) NmColor.Primary else NmColor.Surface)
             .nmFocusRing(isFocused, shape)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            // `clickable` zaten odaklanabilir yapar; ayrıca `focusable()` eklemek
+            // satır başına İKİ odak hedefi üretiyor ve D-pad'de bir aşağı basış
+            // yutuluyordu. Tek hedef bırakıldı.
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 13.dp),
     ) {
@@ -502,10 +528,22 @@ private fun SettingsMenu(
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
-    ModalCard(title = "Ayarlar") {
+    val updateState by updateVm.ui.collectAsStateWithLifecycle()
+    ModalCard(title = "Ayarlar", onClose = onClose) {
         // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
         // ekrandaki numarayla cevaplanır.
         MenuRow("ℹ  Sürüm: ${BuildConfig.RELEASE_TAG}", onClick = {})
+        // Güncelleme şeridi ekranın en üstünde; oraya ulaşmak için D-pad ile iki kez
+        // yukarı çıkmak gerekiyordu. Aynı eylem burada da, doğrudan erişilebilir.
+        when (val u = updateState) {
+            is UpdateUi.Available ->
+                MenuRow("⬆  Güncelle: ${u.info.tag}", onClick = { onClose(); updateVm.download(u.info) })
+            is UpdateUi.NeedsPermission ->
+                MenuRow("🔓  Kurulum iznini aç", onClick = { onClose(); updateVm.grantInstallPermission(u.info) })
+            is UpdateUi.Failed ->
+                MenuRow("⚠  Güncelleme hatası: ${u.message}", onClick = { onClose(); updateVm.check(verbose = true) })
+            else -> Unit
+        }
         MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
         MenuRow("🖱  Sanal Fare Modu", onClick = { onClose(); onToggleMouseMode() })
