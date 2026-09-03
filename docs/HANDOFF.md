@@ -10,6 +10,57 @@
 
 ---
 
+## 🎬 3 Eylül 2026 (2. oturum, devam) — HDFilmCehennemi `.now`: site taşındı + tema değişti (EN SON)
+
+**Commit:** `6960e50`
+
+Dean ekrandan gördü: *"hdfilmcehennemi.now'da diziler de var, ekle; ama `setplay.shop/player/…`
+açılmıyor (`ERR_CONNECTION_REFUSED`)."*
+
+### Kök neden
+Site `hdfilmcehennemi.nl` → **`.now`** taşınmış **ve tema değişmiş** (WordPress `oldmovie`,
+DooPlay türevi). Eski parser'ın hiçbir seçicisi tutmuyordu:
+`.nl` **403** · `/search?q=` **404** · `/yabancidiziizle-2` **404** → eklenti sessizce boş dönüyordu.
+(TV'de görünen ekran uygulama değil, sitenin kendi sayfasıydı — client-tv'de WebView yok.)
+
+### Yeni oynatma zinciri (dördü de zorunlu)
+```
+1. içerik sayfası      → videoAjax.nonce + data-post-id + data-player-name
+2. wp-admin/admin-ajax → action=get_video_url        → setplay.shop/player/?t=…
+3. setplay             → SPG.cerceve(id, veri, key)  → XOR çöz → fastplay.mom/video/<id>
+4. fastplay            → window.FSP.stream (HLS)     + SPG_A koruma parametreleri
+```
+
+### Ölçümle bulunan iki tuzak
+1. **`X-Sp` tek kullanımlık.** Manifest, "oynatıcı kanıtı" başlığı olmadan 404 (sitenin kendi
+   yorumu: *"IDM ve curl ADRESİ tekrar oynatıyor, başlığı değil"*). Dahası **aynı imza ikinci
+   istekte yine 404, tazesi 200** (ölçüldü). Bu yüzden eklenti imzayı değil **malzemesini**
+   taşır (`X-Sp-Secret`/`X-Sp-Time`); proxy her istekte yeniden üretir →
+   `stream/Public/Proxy/Libs/player_proof.py`. İmza malzemesi istemciye **gönderilmez**.
+2. **Segmentler başka CDN host'unda ve Referer istiyor** (`srv.…cfd`, Referer'sız 403).
+   Normalde segmentler bant tasarrufu için doğrudan CDN'den çekiliyordu; ek başlık isteyen
+   kaynaklar artık `force_proxy` ile sunucudan geçiyor. Ayrıca **manifest'ten türeyen her
+   adrese kendi proxy token'ı** veriliyor (token host'a bağlı; eski hâlinde yalnız ilk host
+   kapsandığı için segment 403 alıyordu).
+
+### Ayrıca
+- `engine` `load_links`/`resolve_sources` artık `extra_headers`'ı yanıta taşıyor (düşüyordu).
+- `main_page`'e **Diziler** ve **Son Bölümler** eklendi; tür sayfaları yeni yollara güncellendi.
+
+**Kanıt:** stream **48/48** OK · smoke **kapı YEŞİL** · film **20 → 38** içerik ·
+uçtan uca istemci akışı: `master 200 4872B → varyant 200 486KB → segment 200 2.4MB` ·
+dizi tarafı: `Ted Lasso → 34 bölüm → oynatma 200 #EXTM3U`.
+
+### ⚠ Doğrulanmadı / açık
+- **Cihazda denenmedi.** TV APK'sı bu iş için yeniden yayınlanmadı (sunucu tarafı değişikliği
+  olduğu için mevcut APK da yararlanır; yine de cihazda oynatma görülmedi).
+- Proxy'den geçen akış **ev bağlantısının yükünü artırır** (segmentler artık sunucudan geçiyor).
+  Yalnız ek başlık isteyen kaynaklar için geçerli.
+- `X-Sp` şeması sitenin JS'inden türetildi; site şemayı değiştirirse bu kaynak yeniden kırılır
+  (teşhis: Kaynak raporu / `docker logs netmovies-engine`).
+
+---
+
 ## 🔗 3 Eylül 2026 (2. oturum, devam) — Zincir tek uca taşındı, istemci ayrımı kalktı (EN SON, v0.1.34-poc)
 
 **Commit:** `c8e4b4f` · **Release:** `v0.1.34-poc` (OTA'da en yeni — doğrulandı)
