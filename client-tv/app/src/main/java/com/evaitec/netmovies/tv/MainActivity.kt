@@ -45,6 +45,9 @@ class MainActivity : ComponentActivity() {
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var browseVaultMode by remember { mutableStateOf(false) }
+                        // BILEREK kalici degil: her acilista kapali baslar. Fare modunun
+                        // aksine bu bir kolaylik degil, gorunurluk karari — acik unutulup
+                        // sonraki acilista karsina cikmasin.
                         var showVault by remember { mutableStateOf(false) }
                         // Kalici tercih: uygulama kapanip acilinca fare modu oldugu gibi gelir.
                         var mouseMode by remember { mutableStateOf(MouseSettings.enabled) }

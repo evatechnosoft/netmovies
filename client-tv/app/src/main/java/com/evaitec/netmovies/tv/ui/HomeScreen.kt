@@ -608,7 +608,9 @@ private fun SettingsMenu(
         SliderRow("⬜  İmleç boyutu", MouseSettings.sizePct) { MouseSettings.setSize(it) }
         MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
         if (showVault) {
-            MenuRow("🔒  Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
+            // Kilit ikonu yoktu ki kilit olsun: PIN/parola YOK, Ayarlar'i acan herkes
+            // iki tusta giriyor. Guvenlik vaat etmeyen notr ikon kullanildi.
+            MenuRow("🗂  Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
         }
         MenuRow("✕  Kapat", onClose)
     }

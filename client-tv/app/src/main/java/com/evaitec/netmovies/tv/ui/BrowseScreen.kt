@@ -69,6 +69,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLDecoder
 
+// Ozel Koleksiyon'a dusen eklenti adlari (kucuk harf, "contains" ile eslesir).
+private val VAULT_KEYWORDS = listOf("porner", "porn", "spank", "hamster", "oxax", "maza")
+
 private fun decode(s: String): String =
     runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s)
 
@@ -109,10 +112,12 @@ fun BrowseScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Ozel Koleksiyon filtresi. Yeni bir kaynak eklendiginde anahtar kelimesi
+    // BURAYA eklenir; listede olmayan eklenti normal raflarda gorunur (sessiz
+    // sizinti). Tek nokta olsun diye ayri sabit.
     val isAdultPlugin = { name: String ->
         val n = name.lowercase()
-        n.contains("porner") || n.contains("porn") || n.contains("spank") ||
-        n.contains("hamster") || n.contains("oxax") || n.contains("maza")
+        VAULT_KEYWORDS.any { n.contains(it) }
     }
 
     val plugins = remember(rawPlugins, showVault, vaultMode) {
