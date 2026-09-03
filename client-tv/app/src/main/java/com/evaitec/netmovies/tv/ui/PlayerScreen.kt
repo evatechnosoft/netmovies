@@ -82,6 +82,10 @@ import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.StreamLink
+import com.evaitec.netmovies.tv.data.alternativePlugins
+import com.evaitec.netmovies.tv.data.guessSubtitleLang
+import com.evaitec.netmovies.tv.data.orderByLanguage
+import com.evaitec.netmovies.tv.data.searchableTitle
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.input.RemoteAction
 import com.evaitec.netmovies.tv.input.RemoteInputController
@@ -120,9 +124,14 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var ready by remember { mutableStateOf(false) }
     var retryKey by remember { mutableIntStateOf(0) }
 
-    // Çoklu kaynak.
+    // Çoklu kaynak. Kuyruk arama sürerken büyür: ilk çalışan link hemen oynar,
+    // kalan sağlayıcılar arka planda taranır (bkz. SourceResolver).
     var links by remember { mutableStateOf<List<StreamLink>>(emptyList()) }
     var currentLinkIndex by remember { mutableIntStateOf(0) }
+    // Ekranda gösterilen durum satırı — hata kutusu yerine. Kullanıcı ekranda
+    // bekler, çıkmak isterse GERİ tuşuna kendi basar.
+    var status by remember { mutableStateOf<String?>(null) }
+    var searching by remember { mutableStateOf(false) }
 
     // Oynatıcı UI durumu.
     var showSettings by remember { mutableStateOf(false) }
@@ -212,10 +221,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
 
     // Ayar menüsü açıksa Geri onu kapatsın; kontroller görünürse gizlesin; yoksa çık.
-    // Hata ekranındayken Geri her zaman doğrudan çıkışa gider (retry butonunda kilitlenmez).
+    // Kaynak aranırken/bulunamadığında da Geri doğrudan çıkar — ekranda tutan
+    // bir hata kutusu yok.
     BackHandler(enabled = true) {
         when {
-            error != null -> onBack()
             scrubMode -> scrubMode = false
             showSettings -> showSettings = false
             showControls -> showControls = false
@@ -234,11 +243,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
-                // Otomatik Alternatif Kaynak Geçişi (Auto Failover)
+                // Otomatik kaynak geçişi: çalmayan link kullanıcıyı ekrandan atmaz,
+                // sessizce sıradaki denenir. Kuyruk bittiyse arama sürüyorsa beklenir.
                 if (links.size > currentLinkIndex + 1) {
                     currentLinkIndex++
+                    status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size})…"
+                } else if (searching) {
+                    status = "Kaynak açılmadı, başka sağlayıcı aranıyor…"
                 } else {
-                    error = e.message ?: "Oynatma hatası (${e.errorCodeName})"
+                    status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
                 }
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
@@ -256,79 +269,88 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
     var currentEpIndex by remember { mutableIntStateOf(0) }
 
-    // Kaynak listesini çek: Seçili sağlayıcı + alternatif sağlayıcılardan topla
+    // Kaynak kuyruğunu doldur — AŞAMALI.
+    // Önce seçili sağlayıcı (ilk link gelir gelmez oynatma başlar), sonra arka
+    // planda diğer sağlayıcılar. Kullanıcı hepsinin taranmasını beklemez.
     LaunchedEffect(item.url, currentEpIndex, retryKey) {
         error = null
         ready = false
-        val allSources = mutableListOf<StreamLink>()
-
-        // 1. Seçili sağlayıcıdan çek
-        try {
-            var targetUrl = item.url
-            var resp = Network.api.loadLinks(item.plugin, targetUrl)
-            if (resp.result.isEmpty()) {
-                // Dizi ana sayfasıysa: load_item ile bölüm listesini çek
-                try {
-                    val info = Network.api.loadItem(item.plugin, item.url)
-                    val epList = info.result?.episodes ?: emptyList()
-                    if (epList.isNotEmpty()) {
-                        episodes = epList
-                        val chosenEp = epList.getOrNull(currentEpIndex) ?: epList.first()
-                        targetUrl = chosenEp.url
-                        resp = Network.api.loadLinks(item.plugin, targetUrl)
-                    }
-                } catch (_: Exception) {}
-            }
-            resp.result.forEach { l ->
-                val epText = episodes.getOrNull(currentEpIndex)?.title?.let { " · $it" } ?: ""
-                allSources.add(l.copy(name = "${item.plugin} · ${l.name.ifBlank { "Oynatıcı" }}$epText"))
-            }
-        } catch (_: Exception) {}
-
-        // 2. Akıllı Sağlayıcı & Alternatif Arama (Diğer tüm sağlayıcılarda aynı başlığı ara ve topla)
-        val cleanTitle = item.title
-            ?.replace(Regex("(?i)izle|1080p|hd|türkçe|dublaj|altyazı|dizisi"), "")
-            ?.trim() ?: ""
-        if (cleanTitle.isNotBlank()) {
-            val candidatePlugins = listOf("DiziYou", "DiziMom", "DiziBox", "Dizilla", "HDFilmCehennemi", "RecTV")
-                .filter { it != item.plugin }
-            for (p in candidatePlugins) {
-                try {
-                    val searchResp = Network.api.search(p, cleanTitle)
-                    val match = searchResp.result.firstOrNull {
-                        it.title?.contains(cleanTitle, ignoreCase = true) == true ||
-                        cleanTitle.contains(it.title ?: "", ignoreCase = true)
-                    } ?: searchResp.result.firstOrNull()
-                    if (match != null) {
-                        var pTargetUrl = match.url
-                        val pInfo = runCatching { Network.api.loadItem(p, match.url) }.getOrNull()
-                        val pEps = pInfo?.result?.episodes ?: emptyList()
-                        if (pEps.isNotEmpty()) {
-                            if (episodes.isEmpty()) episodes = pEps
-                            val pEp = pEps.getOrNull(currentEpIndex) ?: pEps.first()
-                            pTargetUrl = pEp.url
-                        }
-                        val pLinks = runCatching { Network.api.loadLinks(p, pTargetUrl) }.getOrNull()?.result ?: emptyList()
-                        pLinks.forEach { pl ->
-                            allSources.add(pl.copy(name = "$p · ${pl.name.ifBlank { "Alternatif" }}"))
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-        }
-
-        if (allSources.isEmpty()) {
-            error = "Oynatılacak kaynak bulunamadı"
-            return@LaunchedEffect
-        }
-        links = allSources
+        links = emptyList()
         currentLinkIndex = 0
+        searching = true
+        status = "Kaynak aranıyor…"
+
+        // Kuyruğa ekle: dil tercihine göre sırala (dublaj → Türkçe altyazı → diğer).
+        // Zaten oynayan link varsa sırası bozulmasın diye yalnız kuyruğun kalanı sıralanır.
+        fun enqueue(found: List<StreamLink>) {
+            if (found.isEmpty()) return
+            val played = links.take(currentLinkIndex + 1)
+            val pending = orderByLanguage(links.drop(currentLinkIndex + 1) + found)
+            links = played + pending
+        }
+
+        suspend fun linksOf(plugin: String, contentUrl: String, label: String): List<StreamLink> {
+            var targetUrl = contentUrl
+            var found = runCatching { Network.api.loadLinks(plugin, targetUrl).result }.getOrDefault(emptyList())
+
+            if (found.isEmpty()) {
+                // Dizi ana sayfası: bölüm listesini çek, seçili bölümü dene.
+                val info = runCatching { Network.api.loadItem(plugin, contentUrl) }.getOrNull()
+                val epList = info?.result?.episodes ?: emptyList()
+                if (epList.isNotEmpty()) {
+                    if (episodes.isEmpty()) episodes = epList
+                    targetUrl = (epList.getOrNull(currentEpIndex) ?: epList.first()).url
+                    found = runCatching { Network.api.loadLinks(plugin, targetUrl).result }.getOrDefault(emptyList())
+                }
+            }
+
+            val epText = episodes.getOrNull(currentEpIndex)?.title?.let { " · $it" } ?: ""
+            return found.map { it.copy(name = "$label · ${it.name.ifBlank { "Oynatıcı" }}$epText") }
+        }
+
+        // 1) Seçili sağlayıcı — en hızlı yol.
+        status = "${item.plugin} deneniyor…"
+        enqueue(linksOf(item.plugin, item.url, item.plugin))
+        if (links.isNotEmpty()) status = null
+
+        // 2) Alternatif sağlayıcılar — arka planda, sırayla; her bulunan kuyruğa eklenir.
+        val query = searchableTitle(item.title)
+        if (query.isNotBlank()) {
+            val candidates = alternativePlugins(item.plugin)
+            candidates.forEachIndexed { index, plugin ->
+                if (links.isEmpty()) {
+                    status = "$plugin aranıyor… (${index + 1}/${candidates.size})"
+                }
+                val match = runCatching {
+                    val results = Network.api.search(plugin, query).result
+                    results.firstOrNull { r ->
+                        r.title?.contains(query, ignoreCase = true) == true ||
+                            query.contains(r.title ?: "", ignoreCase = true)
+                    } ?: results.firstOrNull()
+                }.getOrNull()
+
+                if (match != null) {
+                    val before = links.size
+                    enqueue(linksOf(plugin, match.url, plugin))
+                    if (before == 0 && links.isNotEmpty()) status = null
+                }
+            }
+        }
+
+        searching = false
+        if (links.isEmpty()) {
+            status = "Bu içerik için çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+        }
     }
 
     // Seçili kaynağı hazırla.
     LaunchedEffect(links, currentLinkIndex) {
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
-        if (link.url.isBlank()) { error = "Geçersiz kaynak"; return@LaunchedEffect }
+        if (link.url.isBlank()) {
+            // Boş link kullanıcıya hata kutusu göstermez; sıradakine geçilir.
+            if (links.size > currentLinkIndex + 1) currentLinkIndex++
+            return@LaunchedEffect
+        }
         try {
             ready = false; error = null
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
@@ -347,7 +369,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     val cfg = ExoMediaItem.SubtitleConfiguration.Builder(Uri.parse(sub.url))
                         .setMimeType(guessSubtitleMime(sub.url))
                         .setLabel(sub.name.ifBlank { "Altyazı" })
-                        .setLanguage(guessLang(sub.name))
+                        .setLanguage(guessSubtitleLang(sub.name))
                         .setSelectionFlags(0)
                         .build()
                     SingleSampleMediaSource.Factory(dataSourceFactory).createMediaSource(cfg, C.TIME_UNSET)
@@ -369,8 +391,14 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 .setMaxVideoSize(426, 240)
                 .setForceLowestBitrate(true)
                 .build()
-        } catch (e: Exception) {
-            error = e.message ?: "Bağlantı hatası"
+        } catch (_: Exception) {
+            // Hazırlama hatası da sessiz geçiş: sıradaki kaynak denenir.
+            if (links.size > currentLinkIndex + 1) {
+                currentLinkIndex++
+                status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size})…"
+            } else if (!searching) {
+                status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+            }
         }
     }
 
@@ -515,15 +543,12 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             )
         }
 
+        // Hata kutusu yok: kullanıcı ekranda kalır, ne olduğunu okur, çıkmak
+        // isterse GERİ tuşuna kendisi basar. "Tekrar dene" düğmesi gerekmiyor —
+        // sıradaki kaynağa geçiş kendiliğinden yapılıyor.
         when {
-            error != null -> PlayerOverlay(
-                title = "Hata",
-                message = error!!,
-                actionLabel = "Tekrar dene",
-                onAction = { retryKey++ },
-                onBack = onBack,
-            )
-            !ready && !showSettings -> Overlay("Yükleniyor…")
+            !ready && !showSettings -> Overlay(status ?: "Yükleniyor…")
+            status != null && !showSettings -> StatusBanner(status!!)
         }
     }
 }
@@ -535,15 +560,6 @@ private fun guessSubtitleMime(url: String): String {
         u.endsWith(".srt") -> MimeTypes.APPLICATION_SUBRIP
         u.endsWith(".ass") || u.endsWith(".ssa") -> MimeTypes.TEXT_SSA
         else -> MimeTypes.TEXT_VTT
-    }
-}
-
-private fun guessLang(name: String): String {
-    val n = name.lowercase()
-    return when {
-        "türk" in n || "turk" in n || n.startsWith("tr") -> "tr"
-        "ing" in n || "eng" in n || n.startsWith("en") -> "en"
-        else -> "und"
     }
 }
 
@@ -902,6 +918,19 @@ private fun Overlay(message: String) {
                 .padding(horizontal = 26.dp, vertical = 14.dp),
         ) {
             Text(message, fontSize = NmType.Body, color = NmColor.OnSurface)
+        }
+    }
+}
+
+// Oynatma sürerken alt köşede görünen küçük durum satırı (kaynak geçişi vb.).
+@Composable
+private fun StatusBanner(message: String) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomStart) {
+        Box(
+            Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.ScrimSoft)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+        ) {
+            Text(message, fontSize = NmType.Label, color = NmColor.OnSurface)
         }
     }
 }
