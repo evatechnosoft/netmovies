@@ -63,3 +63,6 @@ engine/admin.json
 
 # yerel gizli env (sifreler)
 /.env
+
+# Yayin APK'lari GitHub Release'te durur, repoda degil (her biri ~20MB).
+NetMovies-TV-*.apk
