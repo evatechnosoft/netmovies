@@ -78,6 +78,25 @@ async def aggregate_new(request: Request):
     page        = istek.get("page", "1")
     page        = int(page) if str(page).isdigit() else 1
 
+    # Canlı TV: M3U listelerinin grup adları listeden gelir ("News", "Sports"…),
+    # bu yüzden _HINTS'teki Türkçe ipuçlarıyla bulunamaz ve raf boş kalıyordu.
+    # Canlı akışın tek kaynağı quick_channels toplayıcısıdır.
+    if media_type == "live":
+        from .quick_channels import collect_live_channels
+
+        live_items = [
+            {
+                "plugin":   channel["plugin"],
+                "title":    channel["title"],
+                # Diğer tiplerle aynı sözleşme: istemciler encoded url bekliyor.
+                "url":      quote_plus(channel["url"] or ""),
+                "poster":   channel["poster"],
+                "category": channel["category"],
+            }
+            for channel in await collect_live_channels()
+        ]
+        return {**api_v1_global_message, "result": {"type": media_type, "count": len(live_items), "items": live_items}}
+
     names = plugin_manager.get_plugin_names()
 
     # Ölü domainli kaynakları atla: aksi halde her biri timeout'a kadar (6s)

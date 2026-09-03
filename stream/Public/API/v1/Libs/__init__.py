@@ -56,6 +56,7 @@ _CACHE_TTL = {
     "/get_plugin"       : 3600,
     "/get_all_plugins"  : 3600,
     "/get_plugin_names" : 3600,
+    "/quick_channels"   : 600,   # 10 dk — M3U listesi seyrek değişir, home her açılışta çekiyor
     "/aggregate_new"    : 600,   # 10 dk — soğuk çağrı ~40s; cache'lenince anında (TV/telefon home)
 }
 _CACHE_MAX_ENTRIES = 512
