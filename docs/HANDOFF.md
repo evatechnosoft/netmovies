@@ -10,6 +10,39 @@
 
 ---
 
+## ▶️ 3 Eylül 2026 (2. oturum, devam) — Oynatma zinciri yeniden yazıldı + v0.1.32-poc OTA (EN SON)
+
+**Commit'ler:** `b6df088` (oynatıcı) · `bc5b11c` (APK) · **Release:** `v0.1.32-poc` (prerelease, OTA yayında)
+
+Dean'in şikâyeti: *"izletmiyor, 'bulunamadı / tekrar dene' diyor; aynı filmi bir sürü
+site veriyor, çalışandan çeksin; önce dublaj sonra Türkçe altyazı; ekrandan çıkarmasın,
+ekranda yazsın, geri tuşuna kendim basarım."*
+
+### Yeni davranış (`data/SourceResolver.kt` + `ui/PlayerScreen.kt`)
+- **Aşamalı kaynak toplama.** Eskiden oynatıcı açılırken altı sağlayıcı SIRAYLA taranıyor,
+  kullanıcı hepsi bitene kadar bekliyordu. Artık seçili sağlayıcı hemen denenir, **ilk link
+  gelir gelmez oynatma başlar**; diğerleri arka planda taranıp kuyruğa eklenir.
+- **Dil önceliği.** Kuyruk `orderByLanguage()` ile sıralanır: **Türkçe dublaj → Türkçe
+  altyazı → diğer**. Grup içi sıra korunur (stable sort). Zaten oynayan link yerinde kalır.
+- **Hata kutusu kaldırıldı.** Çalmayan link sessizce sıradakine geçer; ekranda yalnız durum
+  satırı: *"Kaynak açılmadı, sıradaki deneniyor (2/5)…"*. Hiçbiri çalışmazsa *"çıkmak için
+  GERİ tuşuna bas"* yazısı ekranda kalır. `PlayerOverlay`+"Tekrar dene" oynatma akışından
+  çıkarıldı — geçiş kendiliğinden oluyor.
+- Altyazı dil tahmini tek yerde: `guessSubtitleLang()`.
+
+**Kanıt:** `testDebugUnitTest` **8/8 OK** (7 yeni SourceResolver testi) ·
+`assembleDebug BUILD SUCCESSFUL` · GitHub API'de en yeni release `v0.1.32-poc`
+(prerelease, asset `NetMovies-TV-v0.1.32.apk`) → eski APK'lar güncelleme şeridini görür.
+
+### ⚠ Doğrulanmadı / açık
+- **Cihazda denenmedi**: zincirin gerçekten sıradaki kaynağa geçtiği, dublaj önceliğinin
+  doğru linki seçtiği, durum satırının okunabilirliği. Dean deneyecek.
+- Dil etiketleri kaynak adına bakıyor (`"dublaj"`, `"altyazı"`). Etiketsiz veren kaynakta
+  içerik dili anlaşılmaz → 2. gruba düşer. Gerekirse plugin'lerde dil alanı eklenmeli.
+- **Web oynatıcısı bu davranışı ALMADI** — aynı zincir web tarafında hâlâ eski hâlinde.
+
+---
+
 ## 🖼️ 3 Eylül 2026 (2. oturum, devam) — Faz 2: tek poster hattı (EN SON)
 
 **Commit:** `fb3f68c` — `feat(poster): tek poster hattı`
