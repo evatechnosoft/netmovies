@@ -4,9 +4,12 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 (masaüstü Claude Code, deploy agent, yeni web oturumu) buraya girdiğinde:
 
 ## Her oturumda ilk yap
-1. **Güncel kal:** `git fetch && git checkout claude/stream-app-architecture-86q0sg && git pull`
-   (Tüm iş bu daldadır; `master` ESKİDİR. PR: #3.)
-2. **Bağlamı al:** `docs/HANDOFF.md` oku — tam durum, dosya haritası, backlog burada.
+1. **Güncel kal:** `git fetch && git checkout fix/general-stability && git pull`
+   (Tüm iş bu daldadır; `master` ESKİDİR.)
+2. **Bağlamı al:** `docs/HANDOFF.md` oku — en üstteki "DEVİR" bloğu durumu ve sıradaki
+   işi verir; altındaki oturum günlükleri gerekçeyi taşır.
+3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
+   Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
 
 ## Çalıştırma (kullanıcının makinesinde — evde)
 ```bash
@@ -36,6 +39,16 @@ Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
 - `engine/` — KekikStream (Python 3.14) + `engine/Plugins/` (RecTV, HDFilmCehennemi, DiziYou, M3UPlaylist).
 - `stream/` — web UI + video proxy + auth + admin. `DEFAULT_PROVIDER_URL` ile engine'e bağlı.
 - `docker-compose.yml` — engine + stream + doh (DNS-over-HTTPS) + cloudflared (tünel, profile).
+
+## Doğrulama (iddia etmeden önce çalıştır)
+```bash
+bash scripts/smoke.sh                     # kapı: health + katalog + zincir + testler
+docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
+cd client-tv && ./gradlew testDebugUnitTest assembleDebug
+docker logs netmovies-engine | grep -E "aggregate:|resolve:"   # kaynak teşhisi
+```
+`tests/` imaja build ile girer; kod değiştirmeden test denemek için:
+`docker cp stream/tests netmovies-stream:/usr/src/Stream/`
 
 ## Kurallar
 - Eklenti eklerken `engine/Plugins/` altına `PluginBase` türevi koy; domain için

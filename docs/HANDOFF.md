@@ -1,12 +1,94 @@
 # NetMovies — Oturum Devri (HANDOFF)
 
 > Bu dosya, projeyi başka bir oturumda kaldığı yerden sürdürmek içindir.
+> **Üstteki DEVİR bloğu = şu an nerede olduğun ve sıradaki iş.**
+> Altındaki oturum günlükleri = kararların gerekçesi (neden böyle yapıldı).
 
-**Tarih:** 3 Eylül 2026  
-**Aktif Sürüm:** `v0.1.31-poc` (GitHub Release yayında, OTA erişilebilir)  
-**Canlı Web/Tünel:** [https://w.evaitec.com](https://w.evaitec.com) (HTTP 200 OK)  
-**Yerel API:** `http://192.168.1.185:3310`  
-**GitHub Repo:** `evatechnosoft/netmovies` · **Dal:** `fix/general-stability`
+---
+
+# 🧭 DEVİR — buradan devam et
+
+**Son güncelleme:** 3 Eylül 2026 (2. oturum sonu)
+**Dal:** `fix/general-stability` (master ESKİDİR) · **Repo:** `evatechnosoft/netmovies`
+**TV sürümü:** `v0.1.35-poc` (GitHub Release, OTA'da en yeni — doğrulandı)
+**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** `https://w.evaitec.com`
+
+## 1. İlk 3 komut (bağlamı kanıtla, tahmin etme)
+```bash
+git fetch && git checkout fix/general-stability && git pull
+docker compose --profile tunnel up -d --build     # yığın kapalıysa
+bash scripts/smoke.sh                             # kapı: yeşil olmalı
+```
+`smoke.sh` şunları tek tek doğrular: container health → `/api/v1/health` → eklenti
+listesi → **beş aggregate tipi** → canlı kanallar → **oynatma zinciri** → sözleşme
+testleri. Kırmızı adım varsa **önce onu çöz**; kod yazmadan önce neyin bozuk olduğunu bil.
+
+## 2. Sistem şu an ne durumda (bu oturumda kanıtlandı)
+| Alan | Durum | Kanıt |
+|---|---|---|
+| Yığın | engine + stream **healthy**, tünel 200 | `smoke.sh` |
+| Katalog | movie 38 · serie 64-82 · yerli 25 · yabancı 10 · canlı 173 | `smoke.sh` |
+| Oynatma zinciri | tek uçta (`/api/v1/resolve_sources`), TV+web aynı | `master/varyant/segment 200` |
+| HDFilmCehennemi | `.now` adresine uyarlandı, film+dizi, oynatma çalışıyor | segment `200 2.4MB` |
+| Testler | stream **48/48** · client-tv **5/5** | `unittest` + `gradlew` |
+| Teşhis | sunucu logları + TV "Kaynak raporu" | `docker logs`, Ayarlar→🩺 |
+
+## 3. SIRADAKİ İŞ (öncelik sırasıyla)
+1. **Cihaz doğrulaması (Dean'e bağlı, kod işi değil).** v0.1.35 kurulduktan sonra:
+   geri tuşu (aşağıdayken en üste dönüyor mu), güncelleme şeridi, HDFilmCehennemi
+   oynatma, Kaynak raporu okunabilirliği. Dean bir şikâyet getirirse **önce
+   Ayarlar → Kaynak raporu satırını iste** — kök nedene oradan gidilir.
+2. **`resolve_sources`'a sağlık süzmesi.** Ölü kaynaklar (ör. RecTV `ConnectError`)
+   her çözümlemede bir tur harcıyor. `aggregate_new`'deki `run_plugin_health`
+   süzmesinin aynısı buraya da uygulanmalı.
+3. **Uzak sağlayıcı (Watchbuddy) yolu tek uca alınmalı.** `provider_url` doluyken web
+   hâlâ tekil `load_links` kullanıyor; yalnız yerel motor yolu `resolve_sources`'tan geçiyor.
+4. **Faz 3 — oynatıcı dayanıklılığı** (`docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`):
+   provider başına timeout/backoff/circuit-breaker, Media3 1.4.1 → güncel sürüm.
+5. **Faz 5 — güvenlik/dağıtım:** tünel açıkken auth zorunluluğu, `monetag` meta kalıntısı,
+   Android cleartext'i yalnız yerel sunucuya sınırlama, bağımlılık kilitleme.
+
+## 4. Bu projede bir daha düşme (sert dersler)
+- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip hata vermez, **sessizce
+  boş** döner → "kaynak öldü" sanılır. Geçerli: `movie · serie · serie_local · serie_foreign · live`.
+- **Kaynak boş dönüyorsa önce domaini doğrula.** Site taşınır ve **temayı da değiştirir**
+  (HDFilmCehennemi `.nl` 403 → `.now` 200 + WordPress DooPlay). Upstream domain listesi
+  bayat olabilir; `.env`/kod override gerekir.
+- **`X-Sp` benzeri oynatıcı imzaları tek kullanımlıktır.** İmzayı istemciye verme;
+  **malzemesini** taşı, proxy her istekte üretsin (`Proxy/Libs/player_proof.py`).
+- **Segmentler manifestten farklı host'ta olabilir.** Proxy token host'a bağlı → manifest'ten
+  türeyen her adrese kendi token'ı verilmeli, yoksa segment 403.
+- **Sessiz `catch` = görünmez arıza.** Canlı TV rafı ve OTA "gelmiyor" şikâyetlerinin
+  ikisi de yutulan hatalardı. Yeni kodda hata ya loglanır ya kullanıcıya yazılır.
+- **`smoke.sh`'yi rebuild'in hemen ardından koşarken** ısınma adımı bekler; container
+  `healthy` olmadan yapılan çağrılar yanlış alarm üretiyordu.
+
+## 5. Kritik dosya haritası (bu oturumda dokunulanlar)
+```
+engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç)
+engine/Public/API/v1/Routers/aggregate_new.py     ← katalog + canlı TV + teşhis logu
+engine/Plugins/HDFilmCehennemi.py                 ← .now + DooPlay + SetPlay/FastPlay zinciri
+stream/Public/API/v1/Libs/language.py             ← dil kuralı (dublaj→altyazı→bilinmiyor)
+stream/Public/API/v1/Libs/source_proxy.py         ← imzalı kaynakları proxy'ye bağlar
+stream/Public/Proxy/Libs/player_proof.py          ← tek kullanımlık X-Sp üreteci
+stream/Public/Proxy/Libs/helpers.py               ← manifest rewrite + token yenileme
+client-tv/.../data/PlaybackLog.kt                 ← cihazda okunan teşhis günlüğü
+client-tv/.../ui/PlayerScreen.kt                  ← kuyruk + durum satırı (hata kutusu YOK)
+client-tv/.../ui/HomeScreen.kt                    ← geri tuşu: önce en üste, sonra çık
+scripts/smoke.sh                                  ← kapı kontrolü
+```
+
+## 6. Yeni sürüm çıkarma (OTA)
+```bash
+# client-tv/app/build.gradle.kts → versionCode +1, versionName, RELEASE_TAG
+cd client-tv && ./gradlew testDebugUnitTest assembleDebug
+cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
+gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
+   --target fix/general-stability --title "..." --notes "..."
+curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"  # doğrula
+```
+⚠ GitHub API kimliksiz **saatte 60 istek/IP**; ev ağı ve testler aynı kotayı paylaşır.
+OTA gelmiyorsa ilk şüpheli budur (v0.1.35+ sebebi ekranda yazar).
 
 ---
 
