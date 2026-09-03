@@ -103,6 +103,12 @@ object MouseSettings {
         prefs?.edit()?.putInt(KEY_SIZE, sizePct)?.apply()
     }
 
+    // Imlec katmani zIndex 999 ile her seyin ustunde ve tuslari yutuyor: Ayarlar
+    // acikken slider'da SOL/SAG imlece gidiyor, satira ulasmiyordu. Modal acikken
+    // katman bastirilir; kapaninca kendiliginden geri gelir. Kullanici ayari degil,
+    // modal sahipligi — o yuzden kalici degil, oturum ici.
+    var suppressed by mutableStateOf(false)
+
     fun setEnabled(on: Boolean) {
         enabledState = on
         prefs?.edit()?.putBoolean(KEY_ENABLED, on)?.apply()
@@ -115,7 +121,7 @@ fun VirtualMouseOverlay(
     active: Boolean,
     onToggle: () -> Unit,
 ) {
-    if (!active) return
+    if (!active || MouseSettings.suppressed) return
 
     val context = LocalContext.current
     val activity = context as? Activity

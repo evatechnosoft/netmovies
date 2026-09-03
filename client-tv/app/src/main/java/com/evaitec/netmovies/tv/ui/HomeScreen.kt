@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -576,6 +577,11 @@ private fun SettingsMenu(
     val updateState by updateVm.ui.collectAsStateWithLifecycle()
     // Fare modu hic acilmamis olabilir; ayarlar burada da okunabilsin diye.
     MouseSettings.attach(androidx.compose.ui.platform.LocalContext.current)
+    // Ayarlar acikken imlec katmani bastirilir, yoksa slider'lar tuslari hic gormez.
+    DisposableEffect(Unit) {
+        MouseSettings.suppressed = true
+        onDispose { MouseSettings.suppressed = false }
+    }
     ModalCard(title = "Ayarlar", onClose = onClose) {
         // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
         // ekrandaki numarayla cevaplanır.
