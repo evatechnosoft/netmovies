@@ -41,6 +41,7 @@ import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import com.evaitec.netmovies.tv.ui.theme.nmFocusScale
 import com.evaitec.netmovies.tv.ui.theme.nmScale
+import com.evaitec.netmovies.tv.data.ServerResolver
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.input.PressType
 import com.evaitec.netmovies.tv.input.RemoteAction
@@ -80,6 +81,14 @@ fun KeyMapScreen(bindings: KeyBindings, onBack: () -> Unit) {
             )
             Text(
                 text = "Oynatıcıda geçerli. D-pad ile satır seçip OK ile aksiyon değiştirin.",
+                color = NmColor.OnSurfaceMuted,
+                fontSize = NmType.Caption,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            // Hangi sunucuya bağlı olduğumuz görünmüyordu; "yerel ağ çalışıyor mu"
+            // sorusu ancak log'a bakarak cevaplanabiliyordu. Artık ekranda yazıyor.
+            Text(
+                text = serverStatusLine(),
                 color = NmColor.OnSurfaceMuted,
                 fontSize = NmType.Caption,
                 modifier = Modifier.padding(bottom = 16.dp),
@@ -232,4 +241,12 @@ private fun ActionPicker(
             }
         }
     }
+}
+
+/** "Sunucu: 192.168.1.185:3310 · yerel ağ" — hangi yolun seçildiği ayarlarda görünsün.
+ *  cachedBase() kullanılır: UI thread'inde ağ yoklaması yapılmaz. */
+internal fun serverStatusLine(): String {
+    val base = ServerResolver.cachedBase() ?: return "Sunucu: seçiliyor…"
+    val yol  = if (ServerResolver.isLocal(base)) "yerel ağ" else "uzak tünel"
+    return "Sunucu: ${base.host}:${base.port}  ·  $yol"
 }

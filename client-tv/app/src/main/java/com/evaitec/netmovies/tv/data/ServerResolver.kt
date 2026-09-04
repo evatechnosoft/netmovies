@@ -58,6 +58,14 @@ object ServerResolver {
 
     fun activeBaseString(): String = activeBase().toString().trimEnd('/')
 
+    /** Seçilmiş adres — HİÇ ağ yoklamaz. UI'dan (main thread) güvenle çağrılır;
+     *  henüz seçim yapılmadıysa null. */
+    fun cachedBase(): HttpUrl? = active
+
+    /** Adres yerel adaylardan biri mi? (ekranda "yerel ağ / uzak tünel" göstermek için) */
+    fun isLocal(base: HttpUrl): Boolean =
+        localCandidates(BuildConfig.LOCAL_URL).any { it.host == base.host }
+
     /** Ağ değişimi / "Tekrar dene" → yeniden yokla. */
     fun reset() { active = null }
 
