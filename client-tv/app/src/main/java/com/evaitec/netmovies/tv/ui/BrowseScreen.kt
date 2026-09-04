@@ -69,8 +69,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLDecoder
 
-// Ozel Koleksiyon'a dusen eklenti adlari (kucuk harf, "contains" ile eslesir).
-private val VAULT_KEYWORDS = listOf("porner", "porn", "spank", "hamster", "oxax", "maza")
+// Özel Koleksiyon'a düşen eklenti adları — sunucu ulaşılamazsa kullanılan YEDEK.
+// Asıl liste /api/admin/config'ten gelir (web /admin ile aynı kaynak); burada sabit
+// tutulsaydı web'de yapılan değişiklik TV'ye hiç yansımazdı.
+private val VAULT_FALLBACK = listOf("porner", "porn", "spank", "hamster", "oxax", "maza")
 
 private fun decode(s: String): String =
     runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s)
@@ -115,12 +117,21 @@ fun BrowseScreen(
     // Ozel Koleksiyon filtresi. Yeni bir kaynak eklendiginde anahtar kelimesi
     // BURAYA eklenir; listede olmayan eklenti normal raflarda gorunur (sessiz
     // sizinti). Tek nokta olsun diye ayri sabit.
+    // Sunucudaki liste tam eklenti adı verir; yedek liste parça eşleşmesiyle çalışır.
+    var adultFromServer by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        runCatching { Network.api.adminConfig().adultProviders }
+            .onSuccess { if (it.isNotEmpty()) adultFromServer = it.map(String::lowercase) }
+    }
+    // İkisi BİRDEN: sunucu tam adla eşleşir, yedek liste parça eşleşmesiyle yakalar.
+    // Yalnız sunucuya güvenilseydi listede olmayan yeni bir kaynak sessizce sızardı;
+    // yalnız yedeğe güvenilseydi web'deki ayar TV'ye hiç ulaşmazdı.
     val isAdultPlugin = { name: String ->
         val n = name.lowercase()
-        VAULT_KEYWORDS.any { n.contains(it) }
+        n in adultFromServer || VAULT_FALLBACK.any { n.contains(it) }
     }
 
-    val plugins = remember(rawPlugins, showVault, vaultMode) {
+    val plugins = remember(rawPlugins, showVault, vaultMode, adultFromServer) {
         if (vaultMode) {
             rawPlugins.filter { isAdultPlugin(it.name) }
         } else if (showVault) {

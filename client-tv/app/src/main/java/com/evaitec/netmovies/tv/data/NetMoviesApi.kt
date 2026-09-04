@@ -104,6 +104,11 @@ interface NetMoviesApi {
         @Query("content_url") contentUrl: String = "",
     ): OkResponse
 
+    // Merkezi ayarlar — gizli/yetişkin kaynak listesi tek yerden (web /admin).
+    // İstemcide sabit liste tutulursa web'deki ayarla sessizce sapar.
+    @GET("api/admin/config")
+    suspend fun adminConfig(): AdminConfig
+
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")
     suspend fun loadItem(
