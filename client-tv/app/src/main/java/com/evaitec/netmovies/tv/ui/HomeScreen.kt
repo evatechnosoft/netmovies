@@ -205,17 +205,16 @@ private fun CategoryRows(
                 item {
                     Text(
                         text = title,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                         fontSize = NmType.RowTitle,
-                        color = NmColor.OnSurface,
-                        modifier = Modifier.padding(start = NmDim.SafeH, bottom = 2.dp),
+                        color = NmColor.OnSurfaceMuted,
+                        modifier = Modifier.padding(start = NmDim.SafeH),
                     )
                 }
                 item {
                     LazyRow(
                         modifier = Modifier.focusGroup(),
-                        // Odak büyüteci kartı taşırdığı için dikey nefes payı bırakılır.
-                        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
                         horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                     ) {
                         itemsIndexed(list) { index, item ->

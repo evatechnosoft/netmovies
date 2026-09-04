@@ -848,7 +848,9 @@ private fun SettingsPanel(
     modifier: Modifier = Modifier,
 ) {
     val videoGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 } ?: emptyList()
-    // Tek çözünürlüklü akışta seçenek yok — bölüm hiç çizilmez.
+    // Bölüm tek varyantlı akışta da çizilir: gizlendiğinde "kalite ayarı yok" sanılıyordu.
+    // Kaynakların çoğu tek çözünürlük veriyor (fastplay master.txt'te tek EXT-X-STREAM-INF);
+    // o zaman liste tek satır olur ama hangi kalitede oynadığı görünür.
     val videoTrackCount = videoGroups.sumOf { it.length }
     val audioGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_AUDIO && it.length > 0 } ?: emptyList()
     val textGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT && it.length > 0 } ?: emptyList()
@@ -897,7 +899,7 @@ private fun SettingsPanel(
                 }
             }
 
-            if (videoTrackCount > 1) {
+            if (videoTrackCount > 0) {
                 SectionTitle("🎚 Kalite")
                 SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
                 videoGroups.forEach { group ->

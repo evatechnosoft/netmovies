@@ -483,18 +483,17 @@ private fun ShelfRow(
     Column(Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus) onFocused() }) {
         Text(
             text = shelf.title,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             fontSize = NmType.RowTitle,
-            color = NmColor.OnSurface,
-            modifier = Modifier.padding(start = NmDim.SafeH, bottom = 2.dp),
+            color = NmColor.OnSurfaceMuted,
+            modifier = Modifier.padding(start = NmDim.SafeH),
         )
         if (items == null) {
             ShelfSkeleton()
         } else {
             LazyRow(
                 modifier = Modifier.focusGroup(),
-                // Odak büyüteci kartı taşırdığı için dikey nefes payı bırakılır.
-                contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
                 itemsIndexed(items) { i, item ->
@@ -529,7 +528,7 @@ private fun ShelfRow(
 @Composable
 private fun ShelfSkeleton() {
     Row(
-        modifier = Modifier.padding(horizontal = NmDim.SafeH, vertical = 12.dp),
+        modifier = Modifier.padding(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
         horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
     ) {
         repeat(4) {

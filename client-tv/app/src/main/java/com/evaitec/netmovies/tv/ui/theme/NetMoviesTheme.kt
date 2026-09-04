@@ -1,7 +1,11 @@
 package com.evaitec.netmovies.tv.ui.theme
 
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
@@ -44,12 +48,14 @@ object NmColor {
 
 object NmDim {
     // TV overscan güvenli alanı — 1080p/320dpi'de ekran ~640x360dp, %5-6 kenar payı.
-    val SafeH = 36.dp
-    val SafeV = 20.dp
+    val SafeH = 30.dp
+    val SafeV = 12.dp
     val SafeArea = PaddingValues(horizontal = SafeH, vertical = SafeV)
 
-    val RowGap  = 22.dp   // raflar arası
-    val CardGap = 18.dp   // raf içi kartlar arası
+    // Dean: "çok boşluğa ve büyük başlıklara gerek yok" — ekrana daha çok raf sığsın.
+    val RowGap  = 12.dp   // raflar arası
+    val CardGap = 12.dp   // raf içi kartlar arası
+    val RowPadV = 6.dp    // raf içi dikey nefes payı (poster odakta KÜÇÜLDÜĞÜ için az yeter)
     val ItemGap = 10.dp   // liste satırları arası
 
     val PosterWidth   = 130.dp
@@ -75,7 +81,7 @@ object NmDim {
 object NmType {
     val Wordmark    = 26.sp
     val ScreenTitle = 22.sp
-    val RowTitle    = 19.sp
+    val RowTitle    = 15.sp
     val Body        = 16.sp
     val Label       = 15.sp
     val Caption     = 13.sp
@@ -111,6 +117,28 @@ fun nmFocusScale(focused: Boolean, focusedScale: Float = NmDim.FocusScalePill, l
     return scale
 }
 
+/**
+ * Odak kaydırması. Varsayılan davranış kartı görünür alana sokacak EN AZ mesafeyi
+ * kaydırıyor: kart hep kenara dayanıyor ve her adımda "zıplıyor" (Dean: "atlar gibi
+ * geziyor"). Burada kenarda bir tampon bırakılır — kart tampona girdiğinde liste
+ * yumuşakça akar, sonraki kart zaten görünür olur.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+val NmBringIntoView = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> =
+        tween(durationMillis = 300, easing = FastOutSlowInEasing)
+
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val edge = containerSize * 0.22f
+        val end = offset + size
+        return when {
+            offset < edge -> offset - edge
+            end > containerSize - edge -> end - (containerSize - edge)
+            else -> 0f
+        }
+    }
+}
+
 /** Poster altındaki başlık için okunabilirlik degradesi. */
 val nmBottomScrim: Brush = Brush.verticalGradient(
     0f to Color.Transparent,
@@ -124,7 +152,7 @@ val nmPlayerScrim: Brush = Brush.verticalGradient(
     1f to Color(0xE6000000),
 )
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NetMoviesTheme(content: @Composable () -> Unit) {
     MaterialTheme(
@@ -141,6 +169,10 @@ fun NetMoviesTheme(content: @Composable () -> Unit) {
         // tv-material3 Text rengini LocalContentColor'dan okur; içerik bir Surface
         // içinde olmadığından varsayılan Color.Black kalıyordu → koyu zeminde yazı
         // görünmüyordu. Tema onSurface rengini tüm içeriğe zorla.
-        CompositionLocalProvider(LocalContentColor provides NmColor.OnSurface, content = content)
+        CompositionLocalProvider(
+            LocalContentColor provides NmColor.OnSurface,
+            androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides NmBringIntoView,
+            content = content,
+        )
     }
 }
