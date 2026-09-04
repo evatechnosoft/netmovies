@@ -8,79 +8,96 @@
 
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 3 Eylül 2026 (2. oturum sonu)
-**Dal:** `fix/general-stability` (master ESKİDİR) · **Repo:** `evatechnosoft/netmovies`
-**TV sürümü:** `v0.1.35-poc` (GitHub Release, OTA'da en yeni — doğrulandı)
+**Son güncelleme:** 4 Eylül 2026 (akşam oturumu sonu)
+**Dal:** `fix/general-stability` @ `86fea9e` (master ESKİDİR) · çalışma ağacı temiz, push'lı
+**TV sürümü:** `v0.1.44-poc` — GitHub Release'te en üstte, APK yüklü (API ile doğrulandı)
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** `https://w.evaitec.com`
 
-## 1. İlk 3 komut (bağlamı kanıtla, tahmin etme)
+## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-docker compose --profile tunnel up -d --build     # yığın kapalıysa
+git rev-parse --short HEAD                        # beklenen: 86fea9e (değilse: git log 86fea9e..HEAD)
+docker compose up -d --build                      # yığın kapalıysa (WARP varsayılan açık)
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
+cd client-tv && ./gradlew testDebugUnitTest       # beklenen: 18 test, 0 fail
 ```
-`smoke.sh` şunları tek tek doğrular: container health → `/api/v1/health` → eklenti
-listesi → **beş aggregate tipi** → canlı kanallar → **oynatma zinciri** → sözleşme
-testleri. Kırmızı adım varsa **önce onu çöz**; kod yazmadan önce neyin bozuk olduğunu bil.
+Docker Desktop kapalıysa `smoke.sh` sessizce takılır — önce daemon'u başlat.
+`docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec -w //usr/src/Stream ...`
 
 ## 2. Sistem şu an ne durumda (bu oturumda kanıtlandı)
 | Alan | Durum | Kanıt |
 |---|---|---|
-| Yığın | engine + stream **healthy**, tünel 200 | `smoke.sh` |
-| Katalog | movie 38 · serie 64-82 · yerli 25 · yabancı 10 · canlı 173 | `smoke.sh` |
-| Oynatma zinciri | tek uçta (`/api/v1/resolve_sources`), TV+web aynı | `master/varyant/segment 200` |
-| HDFilmCehennemi | `.now` adresine uyarlandı, film+dizi, oynatma çalışıyor | segment `200 2.4MB` |
-| Testler | stream **48/48** · client-tv **5/5** | `unittest` + `gradlew` |
-| Teşhis | sunucu logları + TV "Kaynak raporu" | `docker logs`, Ayarlar→🩺 |
+| Yığın | doh/engine/stream/cloudflared/warp ayakta, engine+stream healthy | `docker compose ps` |
+| Katalog | movie 38 · serie 78 · yerli 25 · yabancı 10 · canlı 173 | `smoke.sh` |
+| Eklentiler | 8: DiziBox · DiziMom · DiziYou · Dizilla · HDFilmCehennemi · HQPorner · M3U Listelerim · RecTV | `get_all_plugins` |
+| Testler | stream **58/58** · client-tv **18/18** | `unittest` + `gradlew` |
+| İzleme senkronu | `/progress`, `/continue_watching`, `/favorites` canlı yanıt veriyor | curl + `WatchSyncApiTest` |
+| Sayfalama | DiziBox/DiziYou/Dizilla page=2 döndürüyor; HDFilmCehennemi ana kategoride 500 | `get_main_page` ölçümü |
 
-## 3. SIRADAKİ İŞ (öncelik sırasıyla)
-1. **Cihaz doğrulaması (Dean'e bağlı, kod işi değil).** v0.1.35 kurulduktan sonra:
-   geri tuşu (aşağıdayken en üste dönüyor mu), güncelleme şeridi, HDFilmCehennemi
-   oynatma, Kaynak raporu okunabilirliği. Dean bir şikâyet getirirse **önce
-   Ayarlar → Kaynak raporu satırını iste** — kök nedene oradan gidilir.
-2. **`resolve_sources`'a sağlık süzmesi.** Ölü kaynaklar (ör. RecTV `ConnectError`)
-   her çözümlemede bir tur harcıyor. `aggregate_new`'deki `run_plugin_health`
-   süzmesinin aynısı buraya da uygulanmalı.
-3. **Uzak sağlayıcı (Watchbuddy) yolu tek uca alınmalı.** `provider_url` doluyken web
-   hâlâ tekil `load_links` kullanıyor; yalnız yerel motor yolu `resolve_sources`'tan geçiyor.
-4. **Faz 3 — oynatıcı dayanıklılığı** (`docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`):
-   provider başına timeout/backoff/circuit-breaker, Media3 1.4.1 → güncel sürüm.
-5. **Faz 5 — güvenlik/dağıtım:** tünel açıkken auth zorunluluğu, `monetag` meta kalıntısı,
-   Android cleartext'i yalnız yerel sunucuya sınırlama, bağımlılık kilitleme.
+## 3. SIRADAKİ İŞ
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.44 kurulduktan sonra sırayla:
+   Ayarlar açılıyor mu (v0.1.43'te açılmıyordu) · Ayarlar → Sürüm satırı **v0.1.44-poc**
+   yazıyor mu (yazmıyorsa OTA inmemiş, kod değil dağıtım sorunu) · 🗂 Özel Koleksiyon
+   dolu geliyor mu (HQPorner, 5 kategori, ilk kategoride 46 içerik) · Devam Et rafı ve
+   poster altındaki ilerleme çubuğu · oynatıcıda 🎚 Kalite bölümü.
+   **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
+2. **Canlı TV kanal ekranı.** `/api/v1/quick_channels` çalışıyor (173 kanal) ama TV client
+   çağırmıyor; canlı yayın `aggregate_new?type=live` rafında düz poster olarak duruyor.
+   Başlangıç: `client-tv/.../data/NetMoviesApi.kt` (uç ekle), `ui/BrowseScreen.kt` ShelfList
+   desenini kanal listesi olarak kopyala.
+3. **İçerik detay ekranı.** Web'de `content.html.j2` (özet, tür, benzerler) var; TV'de poster
+   → doğrudan oynatma. Dizi bölümleri yalnız oynatıcı içi menüde.
+4. **Resmi kaynaklar bölümü.** `stream/Public/Home/Libs/official_sources.py` + `/resmi-kaynak`
+   TV'de yok.
+5. **`resolve_sources`'a sağlık süzmesi.** Ölü kaynak (RecTV `ConnectError`) her çözümlemede
+   tur harcıyor; `aggregate_new`'deki `run_plugin_health` süzmesi buraya da uygulanmalı.
+6. **Faz 3/5** — `docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`: oynatıcı dayanıklılığı
+   (timeout/backoff/circuit-breaker, Media3 güncelleme), tünel açıkken auth zorunluluğu.
 
-## 4. Bu projede bir daha düşme (sert dersler)
-- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip hata vermez, **sessizce
-  boş** döner → "kaynak öldü" sanılır. Geçerli: `movie · serie · serie_local · serie_foreign · live`.
-- **Kaynak boş dönüyorsa önce domaini doğrula.** Site taşınır ve **temayı da değiştirir**
-  (HDFilmCehennemi `.nl` 403 → `.now` 200 + WordPress DooPlay). Upstream domain listesi
-  bayat olabilir; `.env`/kod override gerekir.
-- **`X-Sp` benzeri oynatıcı imzaları tek kullanımlıktır.** İmzayı istemciye verme;
-  **malzemesini** taşı, proxy her istekte üretsin (`Proxy/Libs/player_proof.py`).
-- **Segmentler manifestten farklı host'ta olabilir.** Proxy token host'a bağlı → manifest'ten
-  türeyen her adrese kendi token'ı verilmeli, yoksa segment 403.
-- **Sessiz `catch` = görünmez arıza.** Canlı TV rafı ve OTA "gelmiyor" şikâyetlerinin
-  ikisi de yutulan hatalardı. Yeni kodda hata ya loglanır ya kullanıcıya yazılır.
-- **`smoke.sh`'yi rebuild'in hemen ardından koşarken** ısınma adımı bekler; container
-  `healthy` olmadan yapılan çağrılar yanlış alarm üretiyordu.
+## 4. Yapma / tekrar deneme (bu oturumda kapandı)
+- **Sanal fare geri gelmesin.** `onKeyEvent` odak istiyordu, ana ekranın odak istekleri onu
+  geri çalıyordu; imleç kıpırdamıyor, mod kapanmıyordu. Kaldırıldı (`2312937`). Geri istenirse
+  tuşlar Activity `dispatchKeyEvent`'ine taşınmalı — odak yarışıyla çözülmez.
+- **Vault PIN yapılmadı** — Dean "PIN'i boşver" dedi. `admin_config.vault_pin` sunucuda duruyor,
+  istemci kullanmıyor.
+- **Özel Koleksiyon'da göster/gizle bayrağı yok.** İki adımlı akıştı, ikinci adım bulunamıyordu.
+  Tek satır → doğrudan açılır; yetişkin kaynak normal Gözat'ta hiç görünmez.
 
-## 5. Kritik dosya haritası (bu oturumda dokunulanlar)
+## 5. Bu projede bir daha düşme (sert dersler)
+- **`clickable`/`combinedClickable` + ayrı `focusable()` = İKİ odak hedefi.** Tıklama birincide,
+  `onFocusChanged` ikinciyi gözler (kendisinden SONRAKİ hedefi görür) → OK basışı hiçbir yere
+  gitmez. Doğru düzen: `onFocusChanged` → tıklama modifier'ı, ayrı `focusable()` YOK.
+  "Ayarlar açılmıyor" bu yüzdendi; altı yerde vardı (`86fea9e`).
+- **`stream/` ve `engine/` kaynağı imajın içinde, mount YOK.** Python değişikliği sonrası
+  `docker compose restart` ESKİ kodu çalıştırır → `up -d --build <servis>` şart.
+- **Sunucu `content_url`'ü HAM tutar, `MediaItem.url` quote_plus KODLU.** Dönüşüm tek yerde:
+  `client-tv/.../data/Library.kt` `rawUrl()` / `encodedUrl()`. Karıştırılırsa TV'nin kaydettiğini
+  web açamaz.
+- **Gövdesiz `@POST` + `@Query` çalışıyor** (stream middleware önce query params'a bakar);
+  imza testi bunu kanıtlamaz, `WatchSyncApiTest` gerçek istek üretir.
+- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip hata vermez, sessizce boş döner.
+- **Kaynak boş dönüyorsa önce domaini doğrula.** Site taşınır ve temayı da değiştirir.
+- **`X-Sp` benzeri oynatıcı imzaları tek kullanımlıktır** — istemciye imza değil malzeme taşı.
+- **Sessiz `catch` = görünmez arıza.** Hata ya loglanır ya kullanıcıya yazılır.
+
+## 6. Kritik dosya haritası
 ```
+stream/Public/API/v1/Routers/watch.py             ← izleme/favori uçları (10 uç)
+stream/Public/Home/Libs/watch_store.py            ← SQLite; content_key SİTE-AGNOSTİK
+stream/Public/Home/Libs/admin_config.py           ← gizli kaynak/kategori, vault, provider_url
 engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç)
-engine/Public/API/v1/Routers/aggregate_new.py     ← katalog + canlı TV + teşhis logu
-engine/Plugins/HDFilmCehennemi.py                 ← .now + DooPlay + SetPlay/FastPlay zinciri
-stream/Public/API/v1/Libs/language.py             ← dil kuralı (dublaj→altyazı→bilinmiyor)
-stream/Public/API/v1/Libs/source_proxy.py         ← imzalı kaynakları proxy'ye bağlar
-stream/Public/Proxy/Libs/player_proof.py          ← tek kullanımlık X-Sp üreteci
-stream/Public/Proxy/Libs/helpers.py               ← manifest rewrite + token yenileme
-client-tv/.../data/PlaybackLog.kt                 ← cihazda okunan teşhis günlüğü
-client-tv/.../ui/PlayerScreen.kt                  ← kuyruk + durum satırı (hata kutusu YOK)
-client-tv/.../ui/HomeScreen.kt                    ← geri tuşu: önce en üste, sonra çık
+engine/Plugins/HDFilmCehennemi.py                 ← .now + DooPlay zinciri
+client-tv/.../data/Library.kt                     ← favori/devam senkronu + URL biçim köprüsü
+client-tv/.../data/NetMoviesApi.kt                ← istemci sözleşmesi
+client-tv/.../ui/HomeScreen.kt                    ← Devam Et rafı, Ayarlar menüsü
+client-tv/.../ui/BrowseScreen.kt                  ← kaynak çipleri, sayfalama, vault modu
+client-tv/.../ui/PlayerScreen.kt                  ← kalite/altyazı/bölüm + ilerleme kaydı
 scripts/smoke.sh                                  ← kapı kontrolü
 ```
 
-## 6. Yeni sürüm çıkarma (OTA)
+## 7. Yeni sürüm çıkarma (OTA)
 ```bash
-# client-tv/app/build.gradle.kts → versionCode +1, versionName, RELEASE_TAG
+# client-tv/app/build.gradle.kts → versionCode +1, versionName, RELEASE_TAG (üçü birden)
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
 gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
@@ -88,11 +105,51 @@ gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
 curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"  # doğrula
 ```
 ⚠ GitHub API kimliksiz **saatte 60 istek/IP**; ev ağı ve testler aynı kotayı paylaşır.
-OTA gelmiyorsa ilk şüpheli budur (v0.1.35+ sebebi ekranda yazar).
+OTA gelmiyorsa ilk şüpheli budur. Uygulama `/releases` listesini okur (`/releases/latest`
+prerelease'i atlar) → prerelease yayınlamak yeterli.
 
 ---
 
-## 🎛️ 3 Eylül 2026 (2. oturum, devam) — GERİ tuşu + OTA teşhisi (EN SON, v0.1.35-poc)
+## 🖥️ 4 Eylül 2026 (akşam) — TV UI onarımı + izleme senkronu (EN SON, v0.1.40→v0.1.44)
+
+**Commit'ler:** `95be460` · `2312937` · `b5b2a06` · `7133e45` · `86fea9e`
+
+Dean sırayla: *"çok fazla aşağı liste var, geri dönmek zor · kanallar iç içe ·
+biraz aydınlansın · poster odakta küçülsün"* → *"mouse kaldıralım ya da düzeltelim"* →
+*"OTA patch"* → *"watchbuddy yapısına bakıp eksikleri listele"* → *"docker çalıştır,
+kanıtla, bitir"* → *"özel koleksiyon açılmıyor, ayarlar açılmıyor"*.
+
+### Ne yapıldı
+- **Gözat kaynak çipleri** (`95be460`): tüm eklentilerin kategorileri alt alta 40+ raf
+  oluşturuyordu. `Tümü + eklenti` çipleri; GERİ zinciri arama → sonuç → en üste → Tümü → çık.
+- **Odak büyüteci küçültmeye çevrildi**: `FocusScaleCard 1.14f → 0.97f` (komşu kartları eziyordu).
+  Zeminler bir kademe açıldı.
+- **Sanal fare kaldırıldı** (`2312937`) — gerekçe §4.
+- **İzleme senkronu** (`b5b2a06`): sunucudaki 10 uç web tarafından kullanılıyordu, TV hiçbirine
+  dokunmuyordu. Library artık `/favorites` + `/continue_watching` okuyor; SharedPreferences
+  yalnız önbellek; yereldeki favoriler ilk açılışta bir kez `addFavorite` (idempotent) ile
+  taşınıyor. Oynatıcı 15 sn'de bir + çıkışta `POST /progress`, açılışta 30sn–%92 aralığında
+  otomatik seek. "İzlenenler" → **Devam Et** + ilerleme çubuğu.
+  Sunucuda `favorites` tablosunda `content_url` YOKTU (favori açılamıyordu) → idempotent
+  `ALTER` + parametre; boş URL kayıtlıyı ezmiyor. `docs/VENDOR.md` madde 6.
+- **Kalite seçimi** + **raf sayfalaması** aynı commit'te.
+- **Gizli kaynak listesi sunucudan** (`7133e45`): `/api/admin/config`. Filtre İKİSİ BİRDEN —
+  sunucu tam ad, yerleşik yedek parça eşleşmesi; yalnız sunucuya güvenilse listede olmayan
+  yeni kaynak sızardı.
+- **Ayarlar + Özel Koleksiyon onarımı** (`86fea9e`): kök nedenler §5 ve §4'te.
+
+### Ölçümler
+`POST /progress` → `{"ok":true,"content_key":"inception|2010|movie"}` · favori `content_url`
+ile dönüyor · HQPorner 5 kategori / 46 içerik · sayfalama 3/4 kaynakta çalışıyor ·
+`smoke.sh` yeşil · stream 58 test · TV 18 test.
+
+### Açık kalan
+TV cihazında hiçbiri çalıştırılmadı — kanıt sunucu yanıtları, birim testleri ve derleme.
+Ayarlar'ın gerçekten açıldığı Dean'in cihazında görülmeli (§3 madde 1).
+
+---
+
+## 🎛️ 3 Eylül 2026 (2. oturum, devam) — GERİ tuşu + OTA teşhisi (v0.1.35-poc)
 
 **Commit:** `5edae3e` · **Release:** `v0.1.35-poc`
 
@@ -133,7 +190,7 @@ eski yol `load_links → proxied: True` · GitHub API en yeni `v0.1.35-poc`.
 
 ---
 
-## 🎬 3 Eylül 2026 (2. oturum, devam) — HDFilmCehennemi `.now`: site taşındı + tema değişti (EN SON)
+## 🎬 3 Eylül 2026 (2. oturum, devam) — HDFilmCehennemi `.now`: site taşındı + tema değişti
 
 **Commit:** `6960e50`
 
@@ -184,7 +241,7 @@ dizi tarafı: `Ted Lasso → 34 bölüm → oynatma 200 #EXTM3U`.
 
 ---
 
-## 🔗 3 Eylül 2026 (2. oturum, devam) — Zincir tek uca taşındı, istemci ayrımı kalktı (EN SON, v0.1.34-poc)
+## 🔗 3 Eylül 2026 (2. oturum, devam) — Zincir tek uca taşındı, istemci ayrımı kalktı (v0.1.34-poc)
 
 **Commit:** `c8e4b4f` · **Release:** `v0.1.34-poc` (OTA'da en yeni — doğrulandı)
 
@@ -234,7 +291,7 @@ GitHub API en yeni release `v0.1.34-poc`.
 
 ---
 
-## 🩺 3 Eylül 2026 (2. oturum, devam) — Teşhis günlüğü + dil kuralı tek yerde (EN SON, v0.1.33-poc)
+## 🩺 3 Eylül 2026 (2. oturum, devam) — Teşhis günlüğü + dil kuralı tek yerde (v0.1.33-poc)
 
 **Commit:** `0ad3d36` · **Release:** `v0.1.33-poc` (OTA'da en yeni)
 
@@ -278,7 +335,7 @@ smoke **kapı YEŞİL** · `docker logs netmovies-engine` → `∑ aggregate: ty
 
 ---
 
-## ▶️ 3 Eylül 2026 (2. oturum, devam) — Oynatma zinciri yeniden yazıldı + v0.1.32-poc OTA (EN SON)
+## ▶️ 3 Eylül 2026 (2. oturum, devam) — Oynatma zinciri yeniden yazıldı + v0.1.32-poc OTA
 
 **Commit'ler:** `b6df088` (oynatıcı) · `bc5b11c` (APK) · **Release:** `v0.1.32-poc` (prerelease, OTA yayında)
 
@@ -311,7 +368,7 @@ ekranda yazsın, geri tuşuna kendim basarım."*
 
 ---
 
-## 🖼️ 3 Eylül 2026 (2. oturum, devam) — Faz 2: tek poster hattı (EN SON)
+## 🖼️ 3 Eylül 2026 (2. oturum, devam) — Faz 2: tek poster hattı
 
 **Commit:** `fb3f68c` — `feat(poster): tek poster hattı`
 
