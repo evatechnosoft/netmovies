@@ -88,11 +88,11 @@ private data class Shelf(
     val title: String get() = "${plugin.name} · ${decode(encCat)}"
 }
 
-/** Rafın içeriğini çeker; hata/zaman aşımı boş liste (raf gizlenir). */
-private suspend fun fetchShelf(shelf: Shelf): List<MediaItem> =
+/** Rafın bir sayfasını çeker; hata/zaman aşımı boş liste (raf gizlenir). */
+private suspend fun fetchShelf(shelf: Shelf, page: Int = 1): List<MediaItem> =
     withTimeoutOrNull(20_000) {
         runCatching {
-            Network.api.getMainPage(shelf.plugin.name, 1, shelf.encUrl, shelf.encCat).result
+            Network.api.getMainPage(shelf.plugin.name, page, shelf.encUrl, shelf.encCat).result
                 .map { it.copy(plugin = shelf.plugin.name, category = decode(shelf.encCat)) }
         }.getOrDefault(emptyList())
     } ?: emptyList()
@@ -450,6 +450,12 @@ private fun ShelfRow(
     // Boş dönen kategori (ölü/değişmiş kaynak) hiç yer kaplamasın.
     if (items != null && items.isEmpty()) return
 
+    // Sayfalama: raf sonuna gelince sonraki sayfa eklenir. Kaynak boş sayfa
+    // döndürdüğünde durur (sonsuz istek yok).
+    var page by remember(shelf.key) { androidx.compose.runtime.mutableIntStateOf(1) }
+    var exhausted by remember(shelf.key) { mutableStateOf(false) }
+    var loadingMore by remember(shelf.key) { mutableStateOf(false) }
+
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(autoFocus, items) {
         if (autoFocus && !items.isNullOrEmpty()) {
@@ -475,6 +481,23 @@ private fun ShelfRow(
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
                 itemsIndexed(items) { i, item ->
+                    // Yalnız SON kartta tetiklenir: birkaç karta koyulsaydı aynı sayfa
+                    // paralel çekilirdi.
+                    if (i == items.lastIndex && !exhausted) {
+                        LaunchedEffect(shelf.key, items.size) {
+                            if (loadingMore) return@LaunchedEffect
+                            loadingMore = true
+                            val next = fetchShelf(shelf, page + 1)
+                            val known = items.map { it.url }.toSet()
+                            val fresh = next.filter { it.url !in known }
+                            if (fresh.isEmpty()) exhausted = true
+                            else {
+                                page += 1
+                                cache[shelf.key] = items + fresh
+                            }
+                            loadingMore = false
+                        }
+                    }
                     val mod = Modifier
                         .width(NmDim.PosterWidth)
                         .then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)

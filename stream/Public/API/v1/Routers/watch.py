@@ -137,10 +137,11 @@ async def post_favorite(request: Request):
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}
     watch_store.add_favorite(
         ck,
-        plugin     = str(veri.get("plugin") or ""),
-        title      = str(veri.get("title") or ""),
-        poster     = str(veri.get("poster") or ""),
-        media_type = str(veri.get("media_type") or ""),
+        plugin      = str(veri.get("plugin") or ""),
+        title       = str(veri.get("title") or ""),
+        poster      = str(veri.get("poster") or ""),
+        media_type  = str(veri.get("media_type") or ""),
+        content_url = str(veri.get("content_url") or ""),
     )
     return {**api_v1_global_message, "result": {"ok": True, "content_key": ck, "is_favorite": True}}
 
@@ -154,10 +155,11 @@ async def toggle_favorite(request: Request):
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}
     new_state = watch_store.toggle_favorite(
         ck,
-        plugin     = str(veri.get("plugin") or ""),
-        title      = str(veri.get("title") or ""),
-        poster     = str(veri.get("poster") or ""),
-        media_type = str(veri.get("media_type") or ""),
+        plugin      = str(veri.get("plugin") or ""),
+        title       = str(veri.get("title") or ""),
+        poster      = str(veri.get("poster") or ""),
+        media_type  = str(veri.get("media_type") or ""),
+        content_url = str(veri.get("content_url") or ""),
     )
     return {**api_v1_global_message, "result": {"ok": True, "content_key": ck, "is_favorite": new_state}}
 

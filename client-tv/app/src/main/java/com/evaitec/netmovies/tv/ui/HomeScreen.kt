@@ -154,7 +154,7 @@ private fun CategoryRows(
     }
     // Kitaplık satırları en üstte (İzlenenler + Favoriler), sonra agregasyon kategorileri.
     val sections = buildList {
-        if (library.watched.isNotEmpty()) add("İzlenenler" to library.watched.toList())
+        if (library.watched.isNotEmpty()) add("Devam Et" to library.watched.toList())
         if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
         groups.forEach { add(it.key to it.value) }
     }
@@ -227,6 +227,7 @@ private fun CategoryRows(
                             PosterCard(
                                 item = item,
                                 isFavorite = library.isFavorite(item),
+                                progress = library.progress[item.url] ?: 0f,
                                 onClick = { onSelect(item) },
                                 onLongPress = { menuItem = item },
                                 modifier = cardModifier,
@@ -296,6 +297,7 @@ private fun TopBar(
 private fun PosterCard(
     item: MediaItem,
     isFavorite: Boolean,
+    progress: Float = 0f,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -326,6 +328,23 @@ private fun PosterCard(
                 .height(54.dp)
                 .background(nmBottomScrim),
         )
+        // İzlenen oran — Devam Et rafında nerede kaldığın tek bakışta görünsün.
+        if (progress > 0f) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(NmColor.TrackIdle),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .height(3.dp)
+                        .background(NmColor.Primary),
+                )
+            }
+        }
         if (isFavorite) {
             Text(
                 text = "★",

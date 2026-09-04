@@ -1,6 +1,7 @@
 package com.evaitec.netmovies.tv.data
 
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface NetMoviesApi {
@@ -54,6 +55,54 @@ interface NetMoviesApi {
         @Query("plugin") plugin: String,
         @Query("query") query: String,
     ): MainPageResponse
+
+    // ------------------------------------------------------------ İzleme senkronu
+    // Sunucu SQLite'ta tutar → TV, telefon ve web aynı listeyi görür.
+    // POST'lar gövdesiz: stream middleware (Core/Modules/_istek.py) ÖNCE query
+    // params'a bakar, JSON/form'a sonra düşer.
+    @GET("api/v1/continue_watching")
+    suspend fun continueWatching(@Query("limit") limit: Int = 20): ProgressListResponse
+
+    @GET("api/v1/progress")
+    suspend fun getProgress(
+        @Query("title") title: String,
+        @Query("media_type") mediaType: String = "",
+    ): ProgressResponse
+
+    @POST("api/v1/progress")
+    suspend fun saveProgress(
+        @Query("title") title: String,
+        @Query("plugin") plugin: String,
+        @Query("poster") poster: String = "",
+        @Query("media_type") mediaType: String = "",
+        @Query("content_url") contentUrl: String = "",
+        @Query("episode") episode: String = "",
+        @Query("position_seconds") positionSeconds: Double = 0.0,
+        @Query("duration_seconds") durationSeconds: Double = 0.0,
+    ): OkResponse
+
+    @GET("api/v1/favorites")
+    suspend fun favorites(): ProgressListResponse
+
+    // İdempotent ekleme — yerelde birikmiş favorileri sunucuya taşırken kullanılır
+    // (toggle kullanılsa zaten kayıtlı olanı SİLERDİ).
+    @POST("api/v1/favorites")
+    suspend fun addFavorite(
+        @Query("title") title: String,
+        @Query("plugin") plugin: String,
+        @Query("poster") poster: String = "",
+        @Query("media_type") mediaType: String = "",
+        @Query("content_url") contentUrl: String = "",
+    ): OkResponse
+
+    @POST("api/v1/favorites/toggle")
+    suspend fun toggleFavorite(
+        @Query("title") title: String,
+        @Query("plugin") plugin: String,
+        @Query("poster") poster: String = "",
+        @Query("media_type") mediaType: String = "",
+        @Query("content_url") contentUrl: String = "",
+    ): OkResponse
 
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")

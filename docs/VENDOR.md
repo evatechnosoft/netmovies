@@ -13,6 +13,11 @@ Upstream güncellemesi çekmek için: upstream'i klonla, aşağıdaki SHA ile `g
   3. `Public/Home/Templates/components/header.html.j2` — WatchBuddy App Store/Play Store linkleri kaldırıldı.
   4. `AYAR.yml` — `PROJE: NetMovies`.
   5. `.env.example` — NetMovies kurulumuna göre yeniden yazıldı.
+  6. `Public/Home/Libs/watch_store.py` + `Public/API/v1/Routers/watch.py` — `favorites`
+     tablosuna `content_url` (idempotent ALTER, `watch_history` ile aynı desen) ve
+     `add_favorite`/`toggle_favorite`/router'a `content_url` parametresi. Favoride URL
+     tutulmadığı için kayıt AÇILAMIYORDU (istemci içeriğe gidemiyordu); web URL
+     göndermediğinden boş değer kayıtlıyı ezmez (`CASE WHEN excluded... <> ''`).
 
 ## `engine/` ← keyiflerolsun/KekikStreamAPI
 - **Upstream:** https://github.com/keyiflerolsun/KekikStreamAPI

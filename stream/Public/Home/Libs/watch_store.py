@@ -78,9 +78,12 @@ def _connect() -> sqlite3.Connection:
         conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.executescript(_SCHEMA)
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(watch_history)")}
-        if "content_url" not in columns:
-            conn.execute("ALTER TABLE watch_history ADD COLUMN content_url TEXT")
+        # content_url sonradan eklendi; iki tabloda da idempotent ALTER ile gelir.
+        # Favoride URL olmadan kayit ACILAMIYORDU (istemci icerige gidemiyordu).
+        for table in ("watch_history", "favorites"):
+            columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if "content_url" not in columns:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN content_url TEXT")
         conn.commit()
         _CONN = conn
     return _CONN
@@ -233,6 +236,7 @@ def add_favorite(
     title: str = "",
     poster: str = "",
     media_type: str = "",
+    content_url: str = "",
     now: int | None = None,
 ) -> None:
     """Favori ekler/günceller (idempotent)."""
@@ -241,15 +245,18 @@ def add_favorite(
         conn = _connect()
         conn.execute(
             """
-            INSERT INTO favorites (content_key, plugin, title, poster, media_type, added_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO favorites (content_key, plugin, title, poster, media_type, content_url, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(content_key) DO UPDATE SET
-                plugin     = excluded.plugin,
-                title      = excluded.title,
-                poster     = excluded.poster,
-                media_type = excluded.media_type
+                plugin      = excluded.plugin,
+                title       = excluded.title,
+                poster      = excluded.poster,
+                media_type  = excluded.media_type,
+                -- Bos gelen URL kayitli olani EZMESIN (web url gondermiyor).
+                content_url = CASE WHEN excluded.content_url <> '' THEN excluded.content_url
+                                   ELSE favorites.content_url END
             """,
-            (content_key, plugin, title, poster, media_type, ts),
+            (content_key, plugin, title, poster, media_type, content_url, ts),
         )
         conn.commit()
 
@@ -279,6 +286,7 @@ def toggle_favorite(
     title: str = "",
     poster: str = "",
     media_type: str = "",
+    content_url: str = "",
     now: int | None = None,
 ) -> bool:
     """Favori durumunu değiştirir. Dönüş: yeni durum (True=favoride)."""
@@ -286,7 +294,7 @@ def toggle_favorite(
         remove_favorite(content_key)
         return False
     add_favorite(content_key, plugin=plugin, title=title, poster=poster,
-                 media_type=media_type, now=now)
+                 media_type=media_type, content_url=content_url, now=now)
     return True
 
 

@@ -127,3 +127,38 @@ data class LanguageTag(
     val rank: Int = 2,
     val label: String = "dil bilinmiyor",
 )
+
+// --------------------------------------------------------------- İzleme senkronu
+// Sunucu tarafı SQLite (stream/Public/Home/Libs/watch_store.py). Anahtar
+// SİTE-AGNOSTİK: `content_key` başlıktan türer, plugin içermez → aynı film başka
+// kaynakta bulunsa da kayıt tutar. İstemci key hesaplamaz, başlığı gönderir.
+//
+// DİKKAT: `content_url` sunucuda HAM tutulur (web böyle yazıyor), oysa MediaItem.url
+// quote_plus KODLU. Dönüşüm tek yerde: rawUrl() / encodedUrl().
+@Serializable
+data class ProgressRow(
+    @SerialName("content_key") val contentKey: String = "",
+    val plugin: String = "",
+    val title: String = "",
+    val poster: String = "",
+    @SerialName("media_type") val mediaType: String = "",
+    @SerialName("content_url") val contentUrl: String = "",
+    val episode: String = "",
+    @SerialName("position_seconds") val positionSeconds: Double = 0.0,
+    @SerialName("duration_seconds") val durationSeconds: Double = 0.0,
+)
+
+@Serializable
+data class ProgressResponse(val result: ProgressRow? = null)
+
+@Serializable
+data class ProgressListResponse(val result: List<ProgressRow> = emptyList())
+
+@Serializable
+data class OkResult(
+    val ok: Boolean = false,
+    @SerialName("is_favorite") val isFavorite: Boolean = false,
+)
+
+@Serializable
+data class OkResponse(val result: OkResult = OkResult())

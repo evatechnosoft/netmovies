@@ -139,6 +139,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var showReport by remember { mutableStateOf(false) }
     var tracks by remember { mutableStateOf<Tracks?>(null) }
     var speed by remember { mutableFloatStateOf(1.0f) }
+    // Kalite: true = otomatik (ExoPlayer bant genişliğine göre seçer).
+    var qualityAuto by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(false) }
     var controlsTick by remember { mutableIntStateOf(0) }
@@ -146,6 +148,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var duration by remember { mutableLongStateOf(0L) }
     var seekHint by remember { mutableStateOf<String?>(null) }
     var hintTick by remember { mutableIntStateOf(0) }
+
+    // Bölüm durumu: onDispose içindeki ilerleme kaydı da okuduğu için oynatıcı
+    // kurulumundan ÖNCE tanımlı olmalı.
+    var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
+    var currentEpIndex by remember { mutableIntStateOf(0) }
 
     // Scrub / önizleme modu.
     var scrubMode by remember { mutableStateOf(false) }
@@ -265,6 +272,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         }
         exo.addListener(listener)
         onDispose {
+            // Konumu release'den ÖNCE al: sonrasında currentPosition sıfırlanır.
+            library.saveProgress(
+                item,
+                exo.currentPosition / 1000.0,
+                exo.duration.coerceAtLeast(0) / 1000.0,
+                currentEpIndex,
+            )
             exo.removeListener(listener)
             exo.release()
         }
@@ -272,9 +286,6 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
     // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
     LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
-
-    var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
-    var currentEpIndex by remember { mutableIntStateOf(0) }
 
     // Kaynak kuyruğu — zincir SUNUCUDA (/api/v1/resolve_sources).
     // İstemci yalnız iki çağrı yapar: önce fast (seçili sağlayıcı, hemen oynasın),
@@ -359,6 +370,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             return@LaunchedEffect
         }
         PlaybackLog.info("oynatma", "deneniyor: ${languageLabel(link)}")
+        qualityAuto = true   // önceki akışın track override'ı yeni akışta geçersiz
         try {
             ready = false; error = null
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
@@ -426,6 +438,38 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             position = exo.currentPosition
             duration = exo.duration.coerceAtLeast(0)
             delay(500)
+        }
+    }
+
+    // Kaldığın yerden devam — kayıt SUNUCUDA (telefonda bıraktığın yer TV'de açılır).
+    // Yalnız ilk hazır oluşta ve 30sn–%92 aralığında uygulanır: başlangıçtaki birkaç
+    // saniye ve neredeyse biten içerik atlanır.
+    var resumeApplied by remember(item.url) { mutableStateOf(false) }
+    LaunchedEffect(ready, item.url) {
+        if (!ready || resumeApplied) return@LaunchedEffect
+        resumeApplied = true
+        val row = library.loadProgress(item.title.orEmpty()) ?: return@LaunchedEffect
+        val savedMs = (row.positionSeconds * 1000).toLong()
+        val dur = exo.duration
+        if (savedMs > 30_000 && (dur <= 0 || savedMs < dur * 0.92)) {
+            exo.seekTo(savedMs)
+            position = savedMs
+            seekHint = "▶ ${fmtTime(savedMs)} konumundan devam"
+            hintTick++
+        }
+    }
+
+    // Periyodik kayıt: 15 sn. Sunucu upsert yapıyor, tek satır güncellenir.
+    LaunchedEffect(ready) {
+        if (!ready) return@LaunchedEffect
+        while (true) {
+            delay(15_000)
+            library.saveProgress(
+                item,
+                exo.currentPosition / 1000.0,
+                exo.duration.coerceAtLeast(0) / 1000.0,
+                currentEpIndex,
+            )
         }
     }
 
@@ -544,6 +588,19 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                         exo.trackSelectionParameters.buildUpon()
                             .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
                             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+                    }
+                },
+                qualityAuto = qualityAuto,
+                onSelectQuality = { group, trackIndex ->
+                    qualityAuto = group == null
+                    exo.trackSelectionParameters = if (group == null) {
+                        // Otomatik: override kalkar, ExoPlayer bant genişliğine göre seçer.
+                        exo.trackSelectionParameters.buildUpon()
+                            .clearOverridesOfType(C.TRACK_TYPE_VIDEO).build()
+                    } else {
+                        exo.trackSelectionParameters.buildUpon()
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
+                            .build()
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
@@ -782,12 +839,17 @@ private fun SettingsPanel(
     onSelectEpisode: (Int) -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
+    qualityAuto: Boolean,
+    onSelectQuality: (Tracks.Group?, Int) -> Unit,
     onSelectSpeed: (Float) -> Unit,
     showReport: Boolean,
     onToggleReport: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val videoGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 } ?: emptyList()
+    // Tek çözünürlüklü akışta seçenek yok — bölüm hiç çizilmez.
+    val videoTrackCount = videoGroups.sumOf { it.length }
     val audioGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_AUDIO && it.length > 0 } ?: emptyList()
     val textGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT && it.length > 0 } ?: emptyList()
     val textDisabled = textGroups.none { g -> (0 until g.length).any { g.isTrackSelected(it) } }
@@ -831,6 +893,24 @@ private fun SettingsPanel(
                 episodes.forEachIndexed { idx, ep ->
                     SettingRow(ep.title ?: "Bölüm ${idx + 1}", idx == currentEpIndex) {
                         onSelectEpisode(idx)
+                    }
+                }
+            }
+
+            if (videoTrackCount > 1) {
+                SectionTitle("🎚 Kalite")
+                SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
+                videoGroups.forEach { group ->
+                    for (i in 0 until group.length) {
+                        val fmt = group.getTrackFormat(i)
+                        val label = when {
+                            fmt.height > 0 -> "${fmt.height}p"
+                            fmt.bitrate > 0 -> "${fmt.bitrate / 1000} kbps"
+                            else -> "Kalite ${i + 1}"
+                        }
+                        SettingRow(label, !qualityAuto && group.isTrackSelected(i)) {
+                            onSelectQuality(group, i)
+                        }
                     }
                 }
             }
