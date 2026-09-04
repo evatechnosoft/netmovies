@@ -9,14 +9,15 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 4 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` (master ESKİDİR) · **TV sürümü:** `v0.1.47-poc`
+**Dal:** `fix/general-stability` @ `c8cf6eb` (master ESKİDİR) · çalışma ağacı temiz, push'lı
+**TV sürümü:** `v0.1.48-poc` — GitHub Release'te en üstte, APK yüklü
 **Cihaz doğrulaması bekliyor** — §3.1 listesi Dean'in televizyonunda koşulmadı.
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** `https://w.evaitec.com`
 
 ## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-git log --oneline -3                              # en üstte v0.1.47-poc sürümü olmalı
+git log --oneline -3                              # en üstte c8cf6eb / v0.1.48-poc olmalı
 docker compose up -d --build                      # yığın kapalıysa (WARP varsayılan açık)
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
 cd client-tv && ./gradlew testDebugUnitTest       # beklenen: 18 test, 0 fail
@@ -35,18 +36,20 @@ Docker Desktop kapalıysa `smoke.sh` sessizce takılır — önce daemon'u başl
 | Sayfalama | DiziBox/DiziYou/Dizilla page=2 döndürüyor; HDFilmCehennemi ana kategoride 500 | `get_main_page` ölçümü |
 
 ## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.47 kurulduktan sonra:
-   film ortasında kopuyor mu (jeton 15 dk → 6 saat) · devam etme baştan başlatıyor mu
-   (kaynak kuyruğu artık akışı yeniden hazırlamıyor) · oynatıcıda tuşlar TEK basışta
-   çalışıyor mu · güncelleme kurulum ekranı geliyor mu (PackageInstaller) · web'de içerik
-   sayfasındaki **"TV'de oynat"** düğmesi televizyonu açıyor mu · mor çerçeve kalktı mı.
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.48 kurulduktan sonra:
+   film ortasında kopuyor mu (jeton 15 dk → 6 saat) · devam etme baştan başlatıyor mu ·
+   oynatıcıda tuşlar TEK basışta çalışıyor mu · güncelleme kurulum ekranı geliyor mu
+   (PackageInstaller) · Ayarlar → **📋 Listem** takvimi dolu geliyor mu · oynatıcı
+   Ayarlar → **🧭 Gezinme** (dakikaya git / bölüm) · APK'yı TELEFONA kurup arama →
+   seçim televizyonu açıyor mu · mor çerçeve kalktı mı.
    **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
 2. **Canlı TV kanal ekranı.** `/api/v1/quick_channels` çalışıyor (173 kanal) ama TV client
    çağırmıyor; canlı yayın `aggregate_new?type=live` rafında düz poster olarak duruyor.
    Başlangıç: `client-tv/.../data/NetMoviesApi.kt` (uç ekle), `ui/BrowseScreen.kt` ShelfList
    desenini kanal listesi olarak kopyala.
 3. **İçerik detay ekranı.** Web'de `content.html.j2` (özet, tür, benzerler) var; TV'de poster
-   → doğrudan oynatma. Dizi bölümleri yalnız oynatıcı içi menüde.
+   → doğrudan oynatma. Bölüm listesi artık 🧭 Gezinme ekranında, ama özet/oyuncu bilgisi yok.
+   TMDB anahtarı `.env`'de mevcut (`TMDB_API_KEY`), `Routers/following.py` deseni kopyalanabilir.
 4. **Resmi kaynaklar bölümü.** `stream/Public/Home/Libs/official_sources.py` + `/resmi-kaynak`
    TV'de yok.
 5. **`resolve_sources`'a sağlık süzmesi.** Ölü kaynak (RecTV `ConnectError`) her çözümlemede
@@ -122,7 +125,47 @@ prerelease'i atlar) → prerelease yayınlamak yeterli.
 
 ---
 
-## 📱 4 Eylül 2026 (gece) — Oynatıcı onarımı + telefondan TV'de oynat (EN SON, v0.1.45→v0.1.47)
+## 📋 4 Eylül 2026 (gece, devam) — Listem/takip takvimi + gezinme ekranı (EN SON, v0.1.48)
+
+**Commit:** `c8cf6eb`
+
+Dean: *"ileri geri sarma, süre girme, bölüm seçme, kalanları daha net gösterme — ayrı
+ekranda o · listem olabilir, takip ettiklerim, yeni yayınlanacak tarihleri, sonraki
+bölüm günü bilgi olarak liste olsun, Türkçe ve yabancı · uygulamaya göm, aynı uygulama
+içinde komut veririm ararım"*.
+
+### Listem — Takip Ettiklerim
+`GET /api/v1/following` (`Routers/following.py`): `watch_store` "takip" listesindeki her
+başlık TMDB'de eşleştirilip `next_episode_to_air` ile döner. **Türkçe/yabancı ayrımı TMDB
+`origin_country`'den** — kaynak sitenin kategorisinden DEĞİL (aynı dizi farklı sitede
+farklı kategoride). Takvim 6 saat bellekte; `TMDB_API_KEY` yoksa liste yine döner, yalnız
+tarihler boşalır. TV: `ui/FollowingScreen.kt`, satır biçimi
+"18 Eylül Cuma · 3 gün sonra · S5B1 · 139. Bölüm"; tarih yoksa dizinin durumu yazılır
+(boş satır "eksik mi, bölüm mü yok" ayrımını gizliyordu). Takip etme: poster uzun-bas.
+
+`user_lists` tablosunda da `content_url` YOKTU (favorilerdeki aynı eksik) → idempotent
+ALTER + `toggle_user_list`/router parametresi. Bu üçüncü tabloydu; şema eklerken üçünü
+birlikte düşün.
+
+### Gezinme ekranı
+`ui/SeekScreen.kt`, oynatıcı Ayarlar → 🧭 Gezinme: geçen/**kalan**/toplam, ±10sn ±1dk
+±5dk, rakam tuşlarıyla "dakikaya git", bölüm listesi. Kontrol şeridine de kalan süre
+eklendi. Kalan süre hiç yazmıyordu ve belirli dakikaya gitmenin yolu yoktu.
+
+### Telefon kumanda modu
+Manifest zaten telefonu destekliyordu (leanback `required=false`), ayrı uygulama
+gerekmedi: `MainActivity`'de tek `pick` fonksiyonu — cihaz TV değilse seçim
+`remote/play`'e gider, Toast ile bildirilir. **Yoklama yalnız televizyonda** (`isTv`
+kontrolü `HomeScreen`'de): telefon da yoklasaydı kendi komutunu yakalayıp kendinde açardı.
+
+### Ölçümler
+`/following` → Kızılcık Şerbeti 2026-09-18 S5B1 (turkish), The Last of Us (foreign) ·
+`user_lists` content_url sütunu doğrulandı, test kayıtları silindi · stream 58 test ·
+TV 18 test · derleme yeşil.
+
+---
+
+## 📱 4 Eylül 2026 (gece) — Oynatıcı onarımı + telefondan TV'de oynat (v0.1.45→v0.1.47)
 
 **Commit'ler:** `3cbb526` · `f757077` · v0.1.47 commit'i
 
