@@ -1,12 +1,12 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
-import asyncio, ipaddress, os, time
+import os, time
 from collections   import OrderedDict
 from urllib.parse  import quote, urlsplit
 from fastapi       import Request, Response
 from fastapi.responses import RedirectResponse
 from .             import proxy_router
-from ..Libs.helpers import prepare_request_headers, shared_client, DEFAULT_REFERER
+from ..Libs.helpers import prepare_request_headers, shared_client, DEFAULT_REFERER, host_is_public
 
 # Poster/afiş görselleri için proxy. Kaynak CDN'leri sık sık hotlink koruması
 # (Referer kontrolü) uyguluyor → tarayıcının doğrudan <img> isteği düşüyor.
@@ -88,28 +88,6 @@ def _fallback(title: str | None, cache_state: str) -> Response:
     return Response(status_code=502, content="Görsel alınamadı", headers={"X-Cache": cache_state})
 
 
-async def _host_is_public(host: str) -> bool:
-    """SSRF koruması: host'un çözümlenen tüm IP'leri global (public) olmalı.
-    localhost/özel/link-local/loopback adreslerine istek engellenir."""
-    if not host:
-        return False
-    try:
-        loop  = asyncio.get_running_loop()
-        infos = await loop.getaddrinfo(host, None)
-    except Exception:
-        return False
-
-    for info in infos:
-        sockaddr = info[4]
-        try:
-            ip = ipaddress.ip_address(sockaddr[0])
-        except ValueError:
-            return False
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            return False
-    return bool(infos)
-
-
 @proxy_router.get("/image")
 async def image_proxy(request: Request, url: str = "", referer: str = None, user_agent: str = None, title: str = ""):
     """Poster zinciri: kaynak → proxy cache → TMDB (başlıkla) → placeholder.
@@ -141,7 +119,7 @@ async def image_proxy(request: Request, url: str = "", referer: str = None, user
         # Şema/host hataları kalıcıdır: fallback'e düş ama negatif cache'e yazma
         # (girdi zaten sabit, yeniden denemenin maliyeti yok).
         return _fallback(title, "BAD_SCHEME")
-    if not await _host_is_public(parts.hostname or ""):
+    if not await host_is_public(parts.hostname or ""):
         return _fallback(title, "BLOCKED_HOST")
 
     # Referer verilmezse kaynağın kendi origin'ini kullan (çoğu hotlink kontrolü

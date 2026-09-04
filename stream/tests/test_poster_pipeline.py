@@ -72,12 +72,12 @@ class PosterProxyTest(unittest.TestCase):
 
         # Testler DNS'e bağlı olmasın: sahte CDN host'u "public" sayılır.
         # SSRF davranışı gerçek fonksiyonla ayrıca test edilir (aşağıda).
-        self._real_host_check = image_proxy._host_is_public
+        self._real_host_check = image_proxy.host_is_public
 
         async def _always_public(host: str) -> bool:
             return bool(host)
 
-        image_proxy._host_is_public = _always_public
+        image_proxy.host_is_public = _always_public
 
         # Süreç-içi cache'ler global: testler birbirini kirletmesin.
         image_proxy._img_cache.clear()
@@ -88,7 +88,7 @@ class PosterProxyTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         image_proxy.shared_client = self._real_client
-        image_proxy._host_is_public = self._real_host_check
+        image_proxy.host_is_public = self._real_host_check
         image_proxy._img_cache.clear()
         image_proxy._neg_cache.clear()
 
@@ -144,7 +144,7 @@ class PosterProxyTest(unittest.TestCase):
 
     def test_private_host_is_blocked(self) -> None:
         """SSRF: proxy iç ağa istek atmamalı (gerçek host kontrolüyle)."""
-        image_proxy._host_is_public = self._real_host_check
+        image_proxy.host_is_public = self._real_host_check
         res = self._get(url="http://127.0.0.1:3310/admin", title="Dark")
 
         self.assertEqual([], self.requests)

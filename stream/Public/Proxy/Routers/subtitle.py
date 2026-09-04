@@ -2,7 +2,7 @@
 
 from fastapi        import Request, Response
 from .              import proxy_router
-from ..Libs.helpers import prepare_request_headers, process_subtitle_content, CORS_HEADERS, shared_client
+from ..Libs.helpers import prepare_request_headers, process_subtitle_content, CORS_HEADERS, shared_client, url_is_public
 from ..Libs.proxy_token import validate_proxy_token
 
 @proxy_router.get("/subtitle")
@@ -10,6 +10,8 @@ async def subtitle_proxy(request: Request, url: str, proxy_token: str = None, re
     """Altyazı proxy endpoint'i"""
     if not proxy_token or not validate_proxy_token(proxy_token, url):
         return Response(status_code=403, content="Geçersiz veya süresi dolmuş proxy token")
+    if not await url_is_public(url):
+        return Response(status_code=403, content="Hedef adres proxy'lenemez")
     try:
         decoded_url     = url
         request_headers = prepare_request_headers(request, decoded_url, referer, user_agent)
@@ -35,8 +37,5 @@ async def subtitle_proxy(request: Request, url: str, proxy_token: str = None, re
             media_type  = "text/vtt"
         )
 
-    except Exception as e:
-        return Response(
-            content     = f"Proxy hatası: {str(e)}",
-            status_code = 500
-        )
+    except Exception:
+        return Response(content="Altyazı alınamadı", status_code=502)

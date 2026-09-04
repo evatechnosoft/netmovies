@@ -4,6 +4,7 @@ from CLI          import konsol
 from fastapi      import Request
 from urllib.parse import urljoin, quote
 from Settings     import PROXIES
+import asyncio, ipaddress, time
 import httpx, traceback, re, json
 
 _proxy_url = PROXIES.get("https") or PROXIES.get("http") if PROXIES else None
@@ -30,6 +31,52 @@ shared_client = httpx.AsyncClient(
     verify           = False,
     proxy            = _proxy_url,
 )
+
+
+# SSRF kapısı — TÜM proxy uçları (video/subtitle/image) buradan geçer.
+# Proxy auth'tan muaf ve tünelden dışa açık; hedef URL üçüncü taraf kaynaktan
+# (manifest, extractor) geliyor. Ele geçmiş bir kaynak `http://192.168.1.1/`
+# yazarsa ev ağı proxy üzerinden okunabilir hale gelirdi.
+_HOST_CACHE_TTL = 300
+_host_cache: dict[str, tuple[float, bool]] = {}
+
+
+async def host_is_public(host: str) -> bool:
+    """Host'un çözümlenen TÜM IP'leri global mi? (loopback/özel/link-local → False)"""
+    if not host:
+        return False
+
+    cached = _host_cache.get(host)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+    except Exception:
+        return False
+
+    ok = bool(infos)
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            ok = False
+            break
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            ok = False
+            break
+
+    # ponytail: sınırsız dict; host sayısı onlarla ölçülüyor, LRU gerekirse eklenir
+    _host_cache[host] = (time.monotonic() + _HOST_CACHE_TTL, ok)
+    return ok
+
+
+async def url_is_public(url: str) -> bool:
+    """URL'nin şeması http(s) ve host'u public mi?"""
+    parts = httpx.URL(url)
+    if parts.scheme not in ("http", "https"):
+        return False
+    return await host_is_public((parts.host or "").lower().rstrip("."))
 
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)"
