@@ -231,13 +231,14 @@ fun BrowseScreen(
 
     Column(Modifier.fillMaxSize()) {
         BrowseTopBar(
+            title = if (vaultMode) "🗂 Özel Koleksiyon" else "Gözat",
             open = searchOpen,
             query = query,
             onQueryChange = { query = it },
             onOpen = { searchOpen = true },
             onSearch = { doSearch(query) },
         )
-        if (results == null && plugins.isNotEmpty()) {
+        if (results == null && !vaultMode && plugins.size > 1) {
             SourceChips(
                 names = plugins.map { it.name },
                 selected = selectedPlugin,
@@ -258,6 +259,10 @@ fun BrowseScreen(
                 )
                 loading      -> Center("Eklentiler yükleniyor…")
                 error != null -> Center(error!!)
+                shelves.isEmpty() -> Center(
+                    if (vaultMode) "Bu koleksiyonda kaynak yok"
+                    else "Kaynak bulunamadı",
+                )
                 else -> ShelfList(
                     shelves = shelves,
                     cache = shelfCache,
@@ -277,6 +282,7 @@ fun BrowseScreen(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun BrowseTopBar(
+    title: String,
     open: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -293,7 +299,7 @@ private fun BrowseTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Gözat",
+            text = title,
             fontWeight = FontWeight.Bold,
             fontSize = NmType.ScreenTitle,
             color = NmColor.OnSurface,

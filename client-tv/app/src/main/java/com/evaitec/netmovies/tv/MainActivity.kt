@@ -42,10 +42,6 @@ class MainActivity : ComponentActivity() {
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var browseVaultMode by remember { mutableStateOf(false) }
-                        // BILEREK kalici degil: her acilista kapali baslar. Fare modunun
-                        // aksine bu bir kolaylik degil, gorunurluk karari — acik unutulup
-                        // sonraki acilista karsina cikmasin.
-                        var showVault by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
@@ -56,7 +52,9 @@ class MainActivity : ComponentActivity() {
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showBrowse ->
                                 BrowseScreen(
-                                    showVault = showVault,
+                                    // Yetiskin kaynaklar NORMAL Gozat'ta hic gorunmez;
+                                    // yalnizca Ozel Koleksiyon ekraninda listelenir.
+                                    showVault = false,
                                     vaultMode = browseVaultMode,
                                     onSelect = { selected = it },
                                     onBack = { showBrowse = false; browseVaultMode = false }
@@ -72,8 +70,6 @@ class MainActivity : ComponentActivity() {
                                         onOpenBrowse = { browseVaultMode = false; showBrowse = true },
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
-                                        showVault = showVault,
-                                        onToggleVault = { showVault = !showVault },
                                         library = library,
                                     )
                                 }

@@ -52,12 +52,11 @@ fun TouchButton(
                 }
             )
             .nmFocusRing(isFocused, shape)
+            .onFocusChanged { isFocused = it.isFocused }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .padding(horizontal = 22.dp, vertical = 12.dp),
     ) {
         Text(

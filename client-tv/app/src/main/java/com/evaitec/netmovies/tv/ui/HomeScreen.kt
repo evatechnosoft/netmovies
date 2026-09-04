@@ -83,12 +83,14 @@ fun TvTopBarButton(
             .clip(shape)
             .background(if (isFocused) NmColor.Primary else NmColor.SurfaceHigh)
             .nmFocusRing(isFocused, shape)
+            // `combinedClickable` zaten odaklanabilir yapar; ayrıca `focusable()`
+            // eklemek buton başına İKİ odak hedefi üretiyordu — odak boş hedefe
+            // düşünce OK basışı hiçbir yere gitmiyordu (Ayarlar açılmıyordu).
+            .onFocusChanged { isFocused = it.isFocused }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .padding(horizontal = 20.dp, vertical = 11.dp),
     ) {
         Text(
@@ -108,8 +110,6 @@ fun HomeScreen(
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
-    showVault: Boolean,
-    onToggleVault: () -> Unit,
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -122,14 +122,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault)
             }
         }
     }
@@ -145,8 +145,6 @@ private fun CategoryRows(
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
-    showVault: Boolean,
-    onToggleVault: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -201,7 +199,7 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse, onToggleVault) { showSettingsMenu = true } }
+            item { TopBar(onOpenBrowse) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 item {
@@ -250,10 +248,8 @@ private fun CategoryRows(
 
         if (showSettingsMenu) {
             SettingsMenu(
-                showVault = showVault,
                 onOpenKeyMap = onOpenKeyMap,
                 onOpenVault = onOpenVault,
-                onToggleVault = onToggleVault,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -265,7 +261,6 @@ private fun CategoryRows(
 @Composable
 private fun TopBar(
     onOpenBrowse: () -> Unit,
-    onToggleVault: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
@@ -286,7 +281,6 @@ private fun TopBar(
         HomeSearchBarButton(
             modifier = Modifier.weight(1f),
             onClick = onOpenBrowse,
-            onLongClick = onToggleVault,
         )
         TvTopBarButton("⚙  Ayarlar", onClick = onOpenSettings)
     }
@@ -487,7 +481,6 @@ private fun Center(text: String) {
 fun HomeSearchBarButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale = nmFocusScale(isFocused, NmDim.FocusScaleRow, label = "searchScale")
@@ -499,12 +492,8 @@ fun HomeSearchBarButton(
             .clip(shape)
             .background(if (isFocused) NmColor.SurfaceHigh else NmColor.Surface)
             .nmFocusRing(isFocused, shape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .clickable { onClick() }
             .padding(horizontal = 20.dp, vertical = 11.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -520,10 +509,8 @@ fun HomeSearchBarButton(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SettingsMenu(
-    showVault: Boolean,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
-    onToggleVault: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -545,12 +532,10 @@ private fun SettingsMenu(
         }
         MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
-        MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
-        if (showVault) {
-            // Kilit ikonu yoktu ki kilit olsun: PIN/parola YOK, Ayarlar'i acan herkes
-            // iki tusta giriyor. Guvenlik vaat etmeyen notr ikon kullanildi.
-            MenuRow("🗂  Özel Koleksiyon'a Gir", onClick = { onClose(); onOpenVault() })
-        }
+        // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
+        // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
+        // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
+        MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         MenuRow("✕  Kapat", onClose)
     }
 }

@@ -998,9 +998,8 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
                 }
             )
             .nmFocusRing(isFocused, shape)
-            .clickable { onClick() }
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Text(

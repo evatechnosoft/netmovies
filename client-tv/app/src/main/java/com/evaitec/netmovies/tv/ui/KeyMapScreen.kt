@@ -143,9 +143,8 @@ private fun BindingRow(title: String, actionLabel: String, onClick: () -> Unit) 
             .clip(shape)
             .background(if (isFocused) NmColor.Primary else NmColor.Surface)
             .nmFocusRing(isFocused, shape)
-            .clickable { onClick() }
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .clickable { onClick() }
             .padding(horizontal = 18.dp, vertical = 13.dp),
     ) {
         Row(
@@ -225,9 +224,8 @@ private fun ActionPicker(
                                 }
                             )
                             .nmFocusRing(isFocused, rowShape)
-                            .clickable { onPick(action) }
                             .onFocusChanged { isFocused = it.isFocused }
-                            .focusable()
+                            .clickable { onPick(action) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
                         Text(
