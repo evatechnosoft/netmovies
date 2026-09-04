@@ -116,6 +116,29 @@ interface NetMoviesApi {
     @GET("api/v1/remote/poll")
     suspend fun remotePoll(): RemoteCommandResponse
 
+    // Telefon/tablet bu uygulamadan gönderir; televizyon yoklayıp açar.
+    @POST("api/v1/remote/play")
+    suspend fun remotePlay(
+        @Query("plugin") plugin: String,
+        @Query("url") url: String,
+        @Query("title") title: String = "",
+        @Query("poster") poster: String = "",
+    ): OkResponse
+
+    // Takip listesi + yayın takvimi (sonraki bölüm günü sunucuda TMDB'den gelir).
+    @GET("api/v1/following")
+    suspend fun following(): FollowingResponse
+
+    @POST("api/v1/lists/toggle")
+    suspend fun toggleList(
+        @Query("list_name") listName: String,
+        @Query("title") title: String,
+        @Query("plugin") plugin: String,
+        @Query("poster") poster: String = "",
+        @Query("media_type") mediaType: String = "serie",
+        @Query("content_url") contentUrl: String = "",
+    ): OkResponse
+
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")
     suspend fun loadItem(

@@ -138,6 +138,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var showSettings by remember { mutableStateOf(false) }
     // Ayarlar → Kaynak raporu: son denemelerin cihazda okunabilir dökümü.
     var showReport by remember { mutableStateOf(false) }
+    // Gezinme ekranı: sarma / dakikaya git / bölüm — tam ekran, okunur.
+    var showSeek by remember { mutableStateOf(false) }
     var tracks by remember { mutableStateOf<Tracks?>(null) }
     var speed by remember { mutableFloatStateOf(1.0f) }
     // Kalite: true = otomatik (ExoPlayer bant genişliğine göre seçer).
@@ -498,7 +500,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // ilk basış odağı taşımakla harcanıyor, kullanıcı "iki kere basınca giriyor" diyordu.
     // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
     // oluyordu (ModalCard'da aynı sorun kare kare denemeyle çözülmüştü).
-    LaunchedEffect(showSettings, scrubMode, ready) {
+    LaunchedEffect(showSettings, showSeek, scrubMode, ready) {
+        if (showSeek) return@LaunchedEffect   // gezinme ekranı odağı kendi alır
         repeat(10) {
             val target = if (showSettings) panelFocus else rootFocus
             if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
@@ -519,7 +522,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     // arası d-pad navigasyonu ve BACK, Compose'a serbest kalsın.
                     error != null -> false
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
-                    showSettings -> false
+                    showSettings || showSeek -> false
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
@@ -583,6 +586,19 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             ScrubOverlay(previewExo = previewExo, scrubPos = scrubPos, duration = duration)
         }
 
+        if (showSeek) {
+            SeekScreen(
+                position = position,
+                duration = duration,
+                episodes = episodes,
+                currentEpIndex = currentEpIndex,
+                onSeekBy = { delta -> seekBy(delta) },
+                onSeekTo = { target -> exo.seekTo(target); position = target },
+                onSelectEpisode = { idx -> currentEpIndex = idx },
+                onClose = { showSeek = false },
+            )
+        }
+
         if (showSettings) {
             SettingsPanel(
                 links = links,
@@ -612,6 +628,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
                     }
                 },
+                onOpenSeek = { showSettings = false; showSeek = true },
                 qualityAuto = qualityAuto,
                 onSelectQuality = { group, trackIndex ->
                     qualityAuto = group == null
@@ -725,7 +742,11 @@ private fun ControlsOverlay(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(fmtTime(position), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
+                Text(
+                    text = fmtTime(position) + "  ·  −" + fmtTime((duration - position).coerceAtLeast(0)),
+                    color = NmColor.OnSurfaceMuted,
+                    fontSize = NmType.Caption,
+                )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -862,6 +883,7 @@ private fun SettingsPanel(
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
     qualityAuto: Boolean,
+    onOpenSeek: () -> Unit,
     onSelectQuality: (Tracks.Group?, Int) -> Unit,
     onSelectSpeed: (Float) -> Unit,
     showReport: Boolean,
@@ -903,6 +925,9 @@ private fun SettingsPanel(
             links.forEachIndexed { idx, link ->
                 SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
             }
+
+            SectionTitle("🧭 Gezinme")
+            SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
 
             SectionTitle("🩺 Kaynak raporu")
             SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)

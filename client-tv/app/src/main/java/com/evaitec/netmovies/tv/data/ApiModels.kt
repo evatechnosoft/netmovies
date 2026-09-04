@@ -185,3 +185,27 @@ data class RemoteCommand(
 
 @Serializable
 data class RemoteCommandResponse(val result: RemoteCommand? = null)
+
+// /api/v1/following — takip edilen diziler + TMDB yayın takvimi, Türkçe/yabancı ayrık.
+@Serializable
+data class FollowedShow(
+    @SerialName("content_key") val contentKey: String = "",
+    val plugin: String = "",
+    val title: String = "",
+    val poster: String = "",
+    @SerialName("content_url") val contentUrl: String = "",
+    val status: String = "",
+    @SerialName("next_date") val nextDate: String = "",
+    @SerialName("next_season") val nextSeason: Int = 0,
+    @SerialName("next_episode") val nextEpisode: Int = 0,
+    @SerialName("next_name") val nextName: String = "",
+)
+
+@Serializable
+data class FollowingGroups(
+    val turkish: List<FollowedShow> = emptyList(),
+    val foreign: List<FollowedShow> = emptyList(),
+)
+
+@Serializable
+data class FollowingResponse(val result: FollowingGroups = FollowingGroups())

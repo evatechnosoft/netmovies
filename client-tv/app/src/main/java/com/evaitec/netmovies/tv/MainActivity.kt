@@ -18,6 +18,7 @@ import com.evaitec.netmovies.tv.ui.theme.NetMoviesTheme
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
+import kotlinx.coroutines.launch
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.BrowseScreen
 import com.evaitec.netmovies.tv.ui.HomeScreen
@@ -42,6 +43,42 @@ class MainActivity : ComponentActivity() {
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
+                        var showFollowing by remember { mutableStateOf(false) }
+
+                        // Aynı APK telefona da kuruluyor (leanback zorunlu değil).
+                        // TELEFONDA seçilen içerik cihazda açılmaz, TELEVİZYONA gönderilir:
+                        // Dean'in istediği akış "telefondan arat, seç, TV'de başlasın".
+                        // Yansıtma değil — komut gider, akışı TV çözer.
+                        // Telefon burada KUMANDADIR: cihazda oynatma yolu yok (uzun-bas
+                        // menüsündeki Oynat da aynı komutu TV'ye gönderir).
+                        val isTv = remember {
+                            val mode = getSystemService(android.content.Context.UI_MODE_SERVICE)
+                                as android.app.UiModeManager
+                            mode.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+                        }
+                        val scope = androidx.compose.runtime.rememberCoroutineScope()
+                        val pick: (MediaItem) -> Unit = { item ->
+                            if (isTv) {
+                                selected = item
+                            } else {
+                                scope.launch {
+                                    val ok = runCatching {
+                                        com.evaitec.netmovies.tv.data.Network.api.remotePlay(
+                                            plugin = item.plugin,
+                                            url = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                                            title = item.title.orEmpty(),
+                                            poster = item.poster.orEmpty(),
+                                        ).result.ok
+                                    }.getOrDefault(false)
+                                    android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        if (ok) "📺 TV'ye gönderildi: ${item.title.orEmpty()}"
+                                        else "TV'ye gönderilemedi — sunucuya ulaşılamadı",
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        }
                         var browseVaultMode by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
@@ -53,20 +90,25 @@ class MainActivity : ComponentActivity() {
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showAdmin ->
                                 com.evaitec.netmovies.tv.ui.AdminScreen(onBack = { showAdmin = false })
+                            showFollowing ->
+                                com.evaitec.netmovies.tv.ui.FollowingScreen(
+                                    onSelect = pick,
+                                    onBack = { showFollowing = false },
+                                )
                             showBrowse ->
                                 BrowseScreen(
                                     // Yetiskin kaynaklar NORMAL Gozat'ta hic gorunmez;
                                     // yalnizca Ozel Koleksiyon ekraninda listelenir.
                                     showVault = false,
                                     vaultMode = browseVaultMode,
-                                    onSelect = { selected = it },
+                                    onSelect = pick,
                                     onBack = { showBrowse = false; browseVaultMode = false }
                                 )
                             else ->
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                                     UpdateBanner()   // güncelleme varsa üstte şerit
                                     HomeScreen(
-                                        onSelect = { selected = it },
+                                        onSelect = pick,
                                         // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).
                                         onExit = { finish() },
@@ -74,6 +116,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
+                                        onOpenFollowing = { showFollowing = true },
                                         library = library,
                                     )
                                 }

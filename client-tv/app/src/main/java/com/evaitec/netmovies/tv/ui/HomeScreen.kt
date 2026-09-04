@@ -113,6 +113,7 @@ fun HomeScreen(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenFollowing: () -> Unit,
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -125,14 +126,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing)
             }
         }
     }
@@ -149,6 +150,7 @@ private fun CategoryRows(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenFollowing: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -163,7 +165,16 @@ private fun CategoryRows(
 
     // Telefondan gelen "TV'de oynat" komutu. Ana ekran açıkken yoklanır; oynatıcı
     // açıkken YOKLANMAZ (izlenen film telefondaki bir tıklamayla değişmesin).
-    LaunchedEffect(Unit) {
+    // YALNIZ TELEVİZYONDA: aynı APK telefona da kuruluyor; telefon da yoklasaydı
+    // kendi gönderdiği komutu yakalayıp içeriği kendinde açardı.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isTv = remember {
+        val mode = context.getSystemService(android.content.Context.UI_MODE_SERVICE)
+            as android.app.UiModeManager
+        mode.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    }
+    LaunchedEffect(isTv) {
+        if (!isTv) return@LaunchedEffect
         while (true) {
             kotlinx.coroutines.delay(4000)
             val cmd = runCatching { Network.api.remotePoll().result }.getOrNull()
@@ -273,6 +284,7 @@ private fun CategoryRows(
                 onOpenKeyMap = onOpenKeyMap,
                 onOpenVault = onOpenVault,
                 onOpenAdmin = onOpenAdmin,
+                onOpenFollowing = onOpenFollowing,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -396,9 +408,26 @@ private fun PosterMenu(
     onToggleFavorite: () -> Unit,
     onClose: () -> Unit,
 ) {
+    // Takip: sunucudaki "takip" listesi (Listem ekranı bunu takvimle birleştirir).
+    // Durum sorgulanmaz, uç zaten toggle — istek gidince satır kapanır.
+    val scope = rememberCoroutineScope()
     ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
         MenuRow("▶  Oynat", onPlay)
         MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
+        MenuRow("📋  Takip et / bırak", onClick = {
+            scope.launch {
+                runCatching {
+                    Network.api.toggleList(
+                        listName = "takip",
+                        title = item.title.orEmpty(),
+                        plugin = item.plugin,
+                        poster = item.poster.orEmpty(),
+                        contentUrl = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                    )
+                }
+            }
+            onClose()
+        })
         MenuRow("Kapat", onClose)
     }
 }
@@ -535,6 +564,7 @@ private fun SettingsMenu(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenFollowing: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -567,6 +597,7 @@ private fun SettingsMenu(
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
+        MenuRow("📋  Listem — Takip Ettiklerim", onClick = { onClose(); onOpenFollowing() })
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })

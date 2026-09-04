@@ -116,6 +116,7 @@ async def toggle_user_list(request: Request):
         title=str(veri.get("title") or ""),
         poster=str(veri.get("poster") or ""),
         media_type=str(veri.get("media_type") or ""),
+        content_url=str(veri.get("content_url") or ""),
     )
     return {**api_v1_global_message, "result": {"ok": True, "list_name": list_name, "saved": state}}
 

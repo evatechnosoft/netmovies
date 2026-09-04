@@ -80,7 +80,7 @@ def _connect() -> sqlite3.Connection:
         conn.executescript(_SCHEMA)
         # content_url sonradan eklendi; iki tabloda da idempotent ALTER ile gelir.
         # Favoride URL olmadan kayit ACILAMIYORDU (istemci icerige gidemiyordu).
-        for table in ("watch_history", "favorites"):
+        for table in ("watch_history", "favorites", "user_lists"):
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if "content_url" not in columns:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN content_url TEXT")
@@ -320,6 +320,7 @@ def toggle_user_list(
     title: str = "",
     poster: str = "",
     media_type: str = "",
+    content_url: str = "",
     now: int | None = None,
 ) -> bool:
     """İçeriği kullanıcı listesine ekler/çıkarır; dönüş yeni durumdur."""
@@ -341,10 +342,10 @@ def toggle_user_list(
             conn.execute(
                 """
                 INSERT INTO user_lists
-                    (content_key, list_name, plugin, title, poster, media_type, added_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (content_key, list_name, plugin, title, poster, media_type, content_url, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (content_key, list_name, plugin, title, poster, media_type, ts),
+                (content_key, list_name, plugin, title, poster, media_type, content_url, ts),
             )
         conn.commit()
     return not exists

@@ -33,4 +33,5 @@ from . import (
     watch,
     client_config,
     remote,
+    following,
 )
