@@ -6,6 +6,8 @@ Reklamsız, kişisel, "tıkla‑izle" odaklı **film / dizi / canlı TV** uygula
 - **`engine/`** — KekikStream tabanlı sağlayıcı API (Python 3.14). Kendi eklentilerimiz `engine/Plugins/` altında (HDFilmCehennemi, DiziYou, RecTV, M3UPlaylist).
 - **`stream/`** — Web arayüzü (PWA) + header‑enjekteli video/altyazı proxy + API gateway.
 - **`doh`** — DNS‑over‑HTTPS resolver (ISP DNS engelini aşar).
+- **`warp`** — Cloudflare WARP çıkış proxy'si (TR SNI/DPI engelini aşar). Engine
+  yalnız bloklu kaynaklar için seçici kullanır; ayakta değilse WARP'sız devam eder.
 - **`cloudflared`** — `w.evaitec.com` → eve tünel (opsiyonel, `--profile tunnel`).
 
 ## Çalıştırma
@@ -13,11 +15,8 @@ Reklamsız, kişisel, "tıkla‑izle" odaklı **film / dizi / canlı TV** uygula
 ```bash
 cp .env.example .env        # AUTH_USER / AUTH_PASS düzenle
 
-# Çekirdek uygulama (stream + engine + doh)
+# Uygulama (stream + engine + doh + warp)
 docker compose up -d --build
-
-# Gerekirse WARP proxy eklemek için (opt-in):
-docker compose --profile warp up -d
 
 # Gerekirse Cloudflare Tüneli eklemek için (opt-in):
 docker compose --profile tunnel up -d

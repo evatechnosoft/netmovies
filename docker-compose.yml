@@ -17,13 +17,16 @@ volumes:
 services:
   # Cloudflare WARP çıkış proxy'si: engine'in GİDEN HTTP(S) trafiğini WARP tüneli
   # üzerinden geçirir → TR ISP'nin SNI/DPI engelini aşar (dizilla, dizipal vb.).
-  # OPT-IN: `docker compose --profile warp up -d` ile açılır. WARP açılmazsa engine çökmek yerine WARP'sız devam eder.
+  #
+  # VARSAYILAN AÇIK. Eskiden `--profile warp` ile opt-in'di; ReadMe'deki normal
+  # `docker compose up -d` WARP'ı başlatmıyor, SNI-bloklu kaynaklar sessizce
+  # düşüyordu. Engine WARP'ı zaten SEÇİCİ kullanıyor (yalnız bloklu plugin'ler,
+  # global HTTPS_PROXY yok) ve WARP ayakta değilse WARP'sız devam ediyor —
+  # yani açık bırakmanın maliyeti yok, kapalı bırakmanın var.
   warp:
     image          : caomingjun/warp:latest
     container_name : netmovies-warp
     restart        : unless-stopped
-    profiles:
-      - warp
     cap_add:
       - NET_ADMIN
       - MKNOD
