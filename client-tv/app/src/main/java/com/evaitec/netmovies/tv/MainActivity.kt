@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
+                        var showAdmin by remember { mutableStateOf(false) }
                         var browseVaultMode by remember { mutableStateOf(false) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
@@ -50,6 +51,8 @@ class MainActivity : ComponentActivity() {
                                 PlayerScreen(item = current, bindings = bindings, library = library, onBack = { selected = null })
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
+                            showAdmin ->
+                                com.evaitec.netmovies.tv.ui.AdminScreen(onBack = { showAdmin = false })
                             showBrowse ->
                                 BrowseScreen(
                                     // Yetiskin kaynaklar NORMAL Gozat'ta hic gorunmez;
@@ -70,6 +73,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenBrowse = { browseVaultMode = false; showBrowse = true },
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
+                                        onOpenAdmin = { showAdmin = true },
                                         library = library,
                                     )
                                 }

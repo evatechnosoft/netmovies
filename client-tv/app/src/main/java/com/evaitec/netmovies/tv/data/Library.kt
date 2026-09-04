@@ -124,14 +124,22 @@ class Library(context: Context) {
      * Library'nin kendi scope'unda koşar: ekran kapansa da istek tamamlanır.
      * 5 sn altı kaydedilmez — yanlışlıkla açılıp kapatılan içerik listeyi kirletmesin.
      */
-    fun saveProgress(item: MediaItem, positionSeconds: Double, durationSeconds: Double, episode: Int = 0) {
+    fun saveProgress(
+        item: MediaItem,
+        positionSeconds: Double,
+        durationSeconds: Double,
+        episode: Int = 0,
+        isSerie: Boolean = false,
+    ) {
         if (positionSeconds < 5.0) return
+        val type = mediaType(isSerie)
         scope.launch {
             runCatching {
                 Network.api.saveProgress(
                     title = item.title.orEmpty(),
                     plugin = item.plugin,
                     poster = item.poster.orEmpty(),
+                    mediaType = type,
                     contentUrl = rawUrl(item.url),
                     episode = if (episode > 0) episode.toString() else "",
                     positionSeconds = positionSeconds,
@@ -142,8 +150,8 @@ class Library(context: Context) {
     }
 
     /** Kayıtlı konumu okur (kaldığın yerden devam). Kayıt/ağ yoksa null. */
-    suspend fun loadProgress(title: String): ProgressRow? =
-        runCatching { Network.api.getProgress(title).result }.getOrNull()
+    suspend fun loadProgress(title: String, isSerie: Boolean = false): ProgressRow? =
+        runCatching { Network.api.getProgress(title, mediaType(isSerie)).result }.getOrNull()
 
     /** Oynatınca çağrılır: Devam Et rafında hemen görünsün (sunucu kaydı oynatıcıda). */
     fun addWatched(item: MediaItem) {
@@ -160,6 +168,11 @@ class Library(context: Context) {
         const val MAX_WATCHED = 30
     }
 }
+
+// `content_key` sunucuda başlık + media_type'tan türer; web `serie`/`movie` yazıyor
+// (central-progress.js). TV boş gönderirse AYNI film iki ayrı kayda düşer
+// ("gorge" vs "gorge|movie") ve cihazlar arası devam etme kopar.
+private fun mediaType(isSerie: Boolean) = if (isSerie) "serie" else "movie"
 
 // MediaItem.url quote_plus KODLU gelir; sunucu `content_url`'ü HAM tutar (web böyle
 // yazıyor). Dönüşüm tek yerde olsun diye burada — iki tarafta da kayıt aynı içeriğe

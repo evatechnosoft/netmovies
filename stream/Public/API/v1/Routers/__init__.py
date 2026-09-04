@@ -30,5 +30,6 @@ from . import (
     resolve_sources,
     extract,
     ytdlp_extract,
-    watch
+    watch,
+    client_config,
 )

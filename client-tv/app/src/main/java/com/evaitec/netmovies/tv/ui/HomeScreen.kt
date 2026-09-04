@@ -110,6 +110,7 @@ fun HomeScreen(
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
+    onOpenAdmin: () -> Unit,
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -122,14 +123,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin)
             }
         }
     }
@@ -145,6 +146,7 @@ private fun CategoryRows(
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
+    onOpenAdmin: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -249,6 +251,7 @@ private fun CategoryRows(
             SettingsMenu(
                 onOpenKeyMap = onOpenKeyMap,
                 onOpenVault = onOpenVault,
+                onOpenAdmin = onOpenAdmin,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -510,6 +513,7 @@ fun HomeSearchBarButton(
 private fun SettingsMenu(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
+    onOpenAdmin: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -520,21 +524,31 @@ private fun SettingsMenu(
         MenuRow("ℹ  Sürüm: ${BuildConfig.RELEASE_TAG}", onClick = {})
         // Güncelleme şeridi ekranın en üstünde; oraya ulaşmak için D-pad ile iki kez
         // yukarı çıkmak gerekiyordu. Aynı eylem burada da, doğrudan erişilebilir.
+        // Durum satırı menüde KALIR: eskiden kontrol menüyü kapatıyor, sonuç ana
+        // ekranın şeridinde beliriyordu — kullanıcı hiçbir şey olmadı sanıyordu.
         when (val u = updateState) {
             is UpdateUi.Available ->
                 MenuRow("⬆  Güncelle: ${u.info.tag}", onClick = { onClose(); updateVm.download(u.info) })
             is UpdateUi.NeedsPermission ->
                 MenuRow("🔓  Kurulum iznini aç", onClick = { onClose(); updateVm.grantInstallPermission(u.info) })
+            is UpdateUi.Downloading ->
+                MenuRow("⏬  İndiriliyor: ${u.tag}", onClick = {})
+            is UpdateUi.Opened ->
+                MenuRow("📦  Kurulum açıldı: ${u.tag}", onClick = {})
+            is UpdateUi.UpToDate ->
+                MenuRow("✔  Güncel (${u.tag}) — tekrar kontrol et", onClick = { updateVm.check(verbose = true) })
             is UpdateUi.Failed ->
-                MenuRow("⚠  Güncelleme hatası: ${u.message}", onClick = { onClose(); updateVm.check(verbose = true) })
-            else -> Unit
+                MenuRow("⚠  ${u.message} — tekrar dene", onClick = { updateVm.check(verbose = true) })
+            UpdateUi.Idle ->
+                MenuRow("⬆  Güncellemeyi kontrol et", onClick = { updateVm.check(verbose = true) })
         }
-        MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
+        // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
+        MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })
         MenuRow("✕  Kapat", onClose)
     }
 }

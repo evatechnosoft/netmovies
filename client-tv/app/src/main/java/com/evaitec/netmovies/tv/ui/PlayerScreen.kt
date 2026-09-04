@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -278,7 +279,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 exo.currentPosition / 1000.0,
                 exo.duration.coerceAtLeast(0) / 1000.0,
                 currentEpIndex,
+                isSerie = episodes.isNotEmpty(),
             )
+            // Devam Et rafı ve ilerleme çubuğu ancak sunucudan tazelenince güncellenir;
+            // yoksa ana ekran izlemeden önceki hâlini gösteriyordu.
+            library.sync()
             exo.removeListener(listener)
             exo.release()
         }
@@ -361,7 +366,12 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
 
     // Seçili kaynağı hazırla.
-    LaunchedEffect(links, currentLinkIndex) {
+    // Anahtar OYNAYAN linkin URL'i — `links` listesi değil. Liste `absorb()` ile
+    // büyüdüğünde (full taraması alternatifleri kuyruğa ekler) aynı kaynak yeniden
+    // `prepare()` ediliyor ve video BAŞA dönüyordu; kaldığın yerden devam da öyle
+    // uygulanıp hemen sıfırlanıyordu.
+    val currentLinkUrl = links.getOrNull(currentLinkIndex)?.url
+    LaunchedEffect(currentLinkUrl, retryKey) {
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
         if (link.url.isBlank()) {
             // Boş link kullanıcıya hata kutusu göstermez; sıradakine geçilir.
@@ -448,7 +458,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     LaunchedEffect(ready, item.url) {
         if (!ready || resumeApplied) return@LaunchedEffect
         resumeApplied = true
-        val row = library.loadProgress(item.title.orEmpty()) ?: return@LaunchedEffect
+        val row = library.loadProgress(item.title.orEmpty(), episodes.isNotEmpty())
+            ?: return@LaunchedEffect
         val savedMs = (row.positionSeconds * 1000).toLong()
         val dur = exo.duration
         if (savedMs > 30_000 && (dur <= 0 || savedMs < dur * 0.92)) {
@@ -469,6 +480,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 exo.currentPosition / 1000.0,
                 exo.duration.coerceAtLeast(0) / 1000.0,
                 currentEpIndex,
+                isSerie = episodes.isNotEmpty(),
             )
         }
     }
@@ -482,9 +494,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         if (seekHint != null) { delay(900); seekHint = null }
     }
 
-    // Immersive'e girince kök odaklanır (tüm D-pad tuşları controller'a gelir).
-    LaunchedEffect(showSettings) {
-        runCatching { if (showSettings) panelFocus.requestFocus() else rootFocus.requestFocus() }
+    // Odak sahipliği: kök kutu odaklı değilse D-pad tuşları controller'a HİÇ gelmez —
+    // ilk basış odağı taşımakla harcanıyor, kullanıcı "iki kere basınca giriyor" diyordu.
+    // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
+    // oluyordu (ModalCard'da aynı sorun kare kare denemeyle çözülmüştü).
+    LaunchedEffect(showSettings, scrubMode, ready) {
+        repeat(10) {
+            val target = if (showSettings) panelFocus else rootFocus
+            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
+            withFrameNanos { }
+        }
     }
 
     Box(

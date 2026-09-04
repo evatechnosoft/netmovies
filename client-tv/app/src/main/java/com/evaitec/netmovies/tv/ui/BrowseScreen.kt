@@ -120,7 +120,7 @@ fun BrowseScreen(
     // Sunucudaki liste tam eklenti adı verir; yedek liste parça eşleşmesiyle çalışır.
     var adultFromServer by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
-        runCatching { Network.api.adminConfig().adultProviders }
+        runCatching { Network.api.clientConfig().result.adultProviders }
             .onSuccess { if (it.isNotEmpty()) adultFromServer = it.map(String::lowercase) }
     }
     // İkisi BİRDEN: sunucu tam adla eşleşir, yedek liste parça eşleşmesiyle yakalar.

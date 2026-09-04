@@ -163,11 +163,13 @@ data class OkResult(
 @Serializable
 data class OkResponse(val result: OkResult = OkResult())
 
-// /api/admin/config — merkezi yönetim ayarları (düz JSON, `result` sarmalı YOK).
-// TV yalnız okur: hangi kaynak "Özel Koleksiyon"a düşer, hangileri gizli.
+// /api/v1/client_config — istemciye açık yönetim ayarları (salt okunur).
 @Serializable
-data class AdminConfig(
+data class ClientConfig(
     @SerialName("adult_providers") val adultProviders: List<String> = emptyList(),
     @SerialName("hidden_providers") val hiddenProviders: List<String> = emptyList(),
     @SerialName("vault_alias") val vaultAlias: String = "Özel Koleksiyon",
 )
+
+@Serializable
+data class ClientConfigResponse(val result: ClientConfig = ClientConfig())

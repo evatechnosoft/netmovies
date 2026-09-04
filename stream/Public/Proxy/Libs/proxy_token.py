@@ -9,7 +9,10 @@ import secrets
 import time
 from urllib.parse import urlparse
 
-_TOKEN_TTL_SECONDS = 15 * 60
+# Token, manifest yazilirken bir kez basiliyor ve VOD manifesti tekrar indirilmiyor:
+# omru FILM SURESINDEN uzun olmali. 15 dk iken uzun icerik ortasinda segmentler 403
+# aliyor, oynatici siradaki kaynaga dusuyor ve "calisan kaynak bulunamadi" yaziyordu.
+_TOKEN_TTL_SECONDS = int(os.getenv("PROXY_TOKEN_TTL", str(6 * 60 * 60)))
 _RUNTIME_SECRET = secrets.token_urlsafe(32)
 
 

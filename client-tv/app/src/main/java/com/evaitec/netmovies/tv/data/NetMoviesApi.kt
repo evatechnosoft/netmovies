@@ -105,9 +105,11 @@ interface NetMoviesApi {
     ): OkResponse
 
     // Merkezi ayarlar — gizli/yetişkin kaynak listesi tek yerden (web /admin).
-    // İstemcide sabit liste tutulursa web'deki ayarla sessizce sapar.
-    @GET("api/admin/config")
-    suspend fun adminConfig(): AdminConfig
+    // `/api/admin/config` DEĞİL: orası ADMIN_PASS ile korunuyor, istemci parolayı
+    // taşımadığı için 401 alıp sessizce yerleşik listeye düşüyordu. Bu uç salt-okunur
+    // ve yalnız istemcinin ihtiyacı olan alanları verir.
+    @GET("api/v1/client_config")
+    suspend fun clientConfig(): ClientConfigResponse
 
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")
