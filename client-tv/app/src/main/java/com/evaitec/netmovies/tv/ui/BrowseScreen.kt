@@ -130,10 +130,16 @@ fun BrowseScreen(
         }
     }
 
-    val shelves = remember(plugins) {
-        plugins.flatMap { plugin ->
-            plugin.mainPage.entries.map { Shelf(plugin, it.key, it.value) }
-        }
+    // Tek kaynak seçilebilir: tüm eklentilerin kategorileri alt alta dizilince
+    // ekranda 40+ raf oluyordu ve aşağıdan yukarı dönmek işkenceydi.
+    // null = "Tümü" (eski davranış).
+    var selectedPlugin by remember { mutableStateOf<String?>(null) }
+
+    val shelves = remember(plugins, selectedPlugin) {
+        plugins.filter { selectedPlugin == null || it.name == selectedPlugin }
+            .flatMap { plugin ->
+                plugin.mainPage.entries.map { Shelf(plugin, it.key, it.value) }
+            }
     }
 
     // Raf içerikleri: ekran boyunca yaşar → yukarı/aşağı gezinirken tekrar çekilmez.
@@ -182,6 +188,7 @@ fun BrowseScreen(
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
             !atTop          -> browseScope.launch { listState.animateScrollToItem(0) }
+            selectedPlugin != null -> selectedPlugin = null
             else            -> onBack()
         }
     }
@@ -219,6 +226,17 @@ fun BrowseScreen(
             onOpen = { searchOpen = true },
             onSearch = { doSearch(query) },
         )
+        if (results == null && plugins.isNotEmpty()) {
+            SourceChips(
+                names = plugins.map { it.name },
+                selected = selectedPlugin,
+                onSelect = { name ->
+                    selectedPlugin = name
+                    focusedShelf = 0
+                    browseScope.launch { listState.scrollToItem(0) }
+                },
+            )
+        }
         Box(Modifier.fillMaxSize()) {
             when {
                 results != null -> ItemGrid(
@@ -327,6 +345,52 @@ private fun IconPill(glyph: String, onClick: () -> Unit) {
     }
 }
 
+// ------------------------------------------------------------------ Kaynaklar
+// Eklenti (kanal) seçici. Seçilen kaynağın kategorileri gösterilir; bir kaynağın
+// rafları başka kaynağınkilerle iç içe geçmez.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SourceChips(names: List<String>, selected: String?, onSelect: (String?) -> Unit) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().focusGroup(),
+        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item { SourceChip("Tümü", selected == null) { onSelect(null) } }
+        items(names.size) { i -> SourceChip(names[i], selected == names[i]) { onSelect(names[i]) } }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SourceChip(label: String, active: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.PillRadius)
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .background(
+                when {
+                    focused -> NmColor.Primary
+                    active  -> NmColor.PrimarySelected
+                    else    -> NmColor.Surface
+                }
+            )
+            .nmFocusRing(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = NmType.Label,
+            maxLines = 1,
+            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+            fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Normal,
+        )
+    }
+}
+
 // --------------------------------------------------------------------- Raflar
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -341,7 +405,7 @@ private fun ShelfList(
 ) {
     // Bu liste her ekrana dönüşte yeniden oluşur; odağı SON kalınan rafa geri ver
     // (yeniden en üste atlamasın). Kullanıcı gezinmeye başlayınca bir daha çalmaz.
-    var pendingFocus by remember { mutableStateOf(true) }
+    var pendingFocus by remember(shelves.firstOrNull()?.key) { mutableStateOf(true) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

@@ -23,10 +23,10 @@ import androidx.tv.material3.darkColorScheme
 // Ekranlar hardcoded dp-Color yerine buradaki token'ları kullanır.
 
 object NmColor {
-    val Background      = Color(0xFF0B0A10)
-    val Surface         = Color(0xFF16131F)   // satır/kart zemini
-    val SurfaceHigh     = Color(0xFF241F33)   // poster placeholder, pasif buton
-    val SurfaceDialog   = Color(0xF2100E18)   // modal panel
+    val Background      = Color(0xFF15131E)
+    val Surface         = Color(0xFF231F31)   // satır/kart zemini
+    val SurfaceHigh     = Color(0xFF332C48)   // poster placeholder, pasif buton
+    val SurfaceDialog   = Color(0xF21C1929)   // modal panel
     val Primary         = Color(0xFF8B5CF6)
     val PrimarySelected = Color(0x338B5CF6)   // seçili ama odaklı değil
     val PrimaryHairline = Color(0x2E8B5CF6)   // pasif kenarlık
@@ -63,7 +63,8 @@ object NmDim {
     val PillRadius  = 24.dp
     val PanelRadius = 16.dp
 
-    val FocusScaleCard = 1.14f
+    // Poster odakta büyümez, hafifçe küçülür (~4dp): büyüteç komşu kartları eziyordu.
+    val FocusScaleCard = 0.97f
     val FocusScalePill = 1.06f
     val FocusScaleRow  = 1.02f
 
