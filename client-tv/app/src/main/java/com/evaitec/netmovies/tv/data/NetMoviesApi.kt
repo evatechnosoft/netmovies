@@ -125,6 +125,10 @@ interface NetMoviesApi {
         @Query("poster") poster: String = "",
     ): OkResponse
 
+    // Canlı kanallar — tek uç, 170+ kanal (M3U listeleri).
+    @GET("api/v1/quick_channels")
+    suspend fun quickChannels(): ChannelsResponse
+
     // Takip listesi + yayın takvimi (sonraki bölüm günü sunucuda TMDB'den gelir).
     @GET("api/v1/following")
     suspend fun following(): FollowingResponse

@@ -209,3 +209,8 @@ data class FollowingGroups(
 
 @Serializable
 data class FollowingResponse(val result: FollowingGroups = FollowingGroups())
+
+// /api/v1/quick_channels — canlı kanal listesi (M3U). `url` HAM gelir; MediaItem'a
+// çevirirken encodedUrl() ile kodlanır, oynatma zinciri kodlu bekliyor.
+@Serializable
+data class ChannelsResponse(val result: List<MediaItem> = emptyList())

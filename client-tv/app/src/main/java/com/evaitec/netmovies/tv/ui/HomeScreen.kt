@@ -114,6 +114,7 @@ fun HomeScreen(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenChannels: () -> Unit,
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -126,14 +127,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels)
             }
         }
     }
@@ -151,6 +152,7 @@ private fun CategoryRows(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenChannels: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -285,6 +287,7 @@ private fun CategoryRows(
                 onOpenVault = onOpenVault,
                 onOpenAdmin = onOpenAdmin,
                 onOpenFollowing = onOpenFollowing,
+                onOpenChannels = onOpenChannels,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -565,6 +568,7 @@ private fun SettingsMenu(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenChannels: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -597,6 +601,7 @@ private fun SettingsMenu(
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
+        MenuRow("📡  Canlı TV", onClick = { onClose(); onOpenChannels() })
         MenuRow("📋  Listem — Takip Ettiklerim", onClick = { onClose(); onOpenFollowing() })
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.

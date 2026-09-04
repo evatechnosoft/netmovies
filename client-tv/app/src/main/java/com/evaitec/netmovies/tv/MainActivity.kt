@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
                         var showFollowing by remember { mutableStateOf(false) }
+                        var showChannels by remember { mutableStateOf(false) }
 
                         // Aynı APK telefona da kuruluyor (leanback zorunlu değil).
                         // TELEFONDA seçilen içerik cihazda açılmaz, TELEVİZYONA gönderilir:
@@ -90,6 +91,11 @@ class MainActivity : ComponentActivity() {
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showAdmin ->
                                 com.evaitec.netmovies.tv.ui.AdminScreen(onBack = { showAdmin = false })
+                            showChannels ->
+                                com.evaitec.netmovies.tv.ui.ChannelsScreen(
+                                    onSelect = pick,
+                                    onBack = { showChannels = false },
+                                )
                             showFollowing ->
                                 com.evaitec.netmovies.tv.ui.FollowingScreen(
                                     onSelect = pick,
@@ -117,6 +123,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
                                         onOpenFollowing = { showFollowing = true },
+                                        onOpenChannels = { showChannels = true },
                                         library = library,
                                     )
                                 }
