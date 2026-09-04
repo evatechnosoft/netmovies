@@ -13,20 +13,23 @@ android {
         applicationId = "com.evaitec.netmovies.tv"
         minSdk        = 26        // Android TV / Mi Box
         targetSdk     = 34
-        versionCode   = 36
-        versionName   = "0.1.37"
+        versionCode   = 37
+        versionName   = "0.1.38"
 
         // Stream taban URL — gradle.properties'ten okunur, yoksa public tunnel kullanılır.
         val baseUrl = (project.findProperty("NETMOVIES_BASE_URL") as String?)
             ?.takeIf { it.isNotBlank() } ?: "https://w.evaitec.com"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
-        // Yerel (ev ağı) sunucu — önce bu denenir, ulaşılamazsa BASE_URL'e düşülür.
+        // Yerel (ev ağı) sunucu adayları — virgülle ayrık, sırayla değil PARALEL
+        // yoklanır; ilk cevap veren kazanır, hiçbiri yoksa BASE_URL'e düşülür.
+        // Ev iki ağ kullanıyor (192.168.1.x ve 192.168.0.x); tek sabit IP diğer
+        // ağda uygulamayı tünele mahkûm ediyordu.
         val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
-            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310"
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
-        buildConfigField("String", "RELEASE_TAG", "\"v0.1.37-poc\"")
+        buildConfigField("String", "RELEASE_TAG", "\"v0.1.38-poc\"")
     }
 
     buildFeatures {

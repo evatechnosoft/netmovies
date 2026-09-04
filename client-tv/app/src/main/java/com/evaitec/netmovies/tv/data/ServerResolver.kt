@@ -8,12 +8,15 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 // "Önce local, olmazsa uzak":
 // TV/Mibox sunucuyla aynı ev ağındaysa yerel IP'ye (Cloudflare'siz, hızlı) bağlan;
 // ulaşılamıyorsa w.evaitec.com'a (Cloudflare tunnel) düş. Cloudflare TR'de bazı IP
 // aralıklarını (188.114.x) bloklu döndürdüğü için uzak yol tek başına dengesiz.
+// Ev birden çok ağ kullanabildiği için yerel adres TEK değil, aday listesidir.
 object ServerResolver {
     private val probe = OkHttpClient.Builder()
         .dns(PreferIpv4Dns)
@@ -23,17 +26,33 @@ object ServerResolver {
 
     @Volatile private var active: HttpUrl? = null
 
-    /** Aktif sunucu adresi (cache'li). İlk çağrıda yereli yoklar. */
+    /** Yoklanacak yerel adaylar — LOCAL_URL virgülle ayrık liste olabilir. */
+    internal fun localCandidates(raw: String): List<HttpUrl> =
+        raw.split(',').mapNotNull { it.trim().takeIf(String::isNotEmpty)?.toHttpUrlOrNull() }
+
+    /** Aktif sunucu adresi (cache'li). İlk çağrıda yerel adayları yoklar. */
     fun activeBase(): HttpUrl {
         active?.let { return it }
         return synchronized(this) {
             active ?: run {
                 val remote = BuildConfig.BASE_URL.toHttpUrl()
-                val local  = BuildConfig.LOCAL_URL.toHttpUrlOrNull()
-                val chosen = if (local != null && isAlive(local)) local else remote
+                val chosen = firstAlive(localCandidates(BuildConfig.LOCAL_URL)) ?: remote
                 active = chosen
                 chosen
             }
+        }
+    }
+
+    /** Adayları paralel yoklar; ilk cevap veren kazanır (sıralı olsaydı her ölü
+     *  aday açılışa 1,5 sn eklerdi). */
+    private fun firstAlive(candidates: List<HttpUrl>): HttpUrl? {
+        if (candidates.size <= 1) return candidates.firstOrNull()?.takeIf(::isAlive)
+        val pool    = Executors.newFixedThreadPool(candidates.size)
+        return try {
+            pool.invokeAll(candidates.map { base -> Callable { if (isAlive(base)) base else null } })
+                .firstNotNullOfOrNull { runCatching { it.get() }.getOrNull() }
+        } finally {
+            pool.shutdownNow()
         }
     }
 
