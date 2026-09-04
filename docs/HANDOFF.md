@@ -8,15 +8,15 @@
 
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 4 Eylül 2026 (akşam oturumu sonu)
-**Dal:** `fix/general-stability` @ `86fea9e` (master ESKİDİR) · çalışma ağacı temiz, push'lı
-**TV sürümü:** `v0.1.44-poc` — GitHub Release'te en üstte, APK yüklü (API ile doğrulandı)
+**Son güncelleme:** 4 Eylül 2026 (gece)
+**Dal:** `fix/general-stability` (master ESKİDİR) · **TV sürümü:** `v0.1.47-poc`
+**Cihaz doğrulaması bekliyor** — §3.1 listesi Dean'in televizyonunda koşulmadı.
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** `https://w.evaitec.com`
 
 ## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-git rev-parse --short HEAD                        # beklenen: 86fea9e (değilse: git log 86fea9e..HEAD)
+git log --oneline -3                              # en üstte v0.1.47-poc sürümü olmalı
 docker compose up -d --build                      # yığın kapalıysa (WARP varsayılan açık)
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
 cd client-tv && ./gradlew testDebugUnitTest       # beklenen: 18 test, 0 fail
@@ -35,11 +35,11 @@ Docker Desktop kapalıysa `smoke.sh` sessizce takılır — önce daemon'u başl
 | Sayfalama | DiziBox/DiziYou/Dizilla page=2 döndürüyor; HDFilmCehennemi ana kategoride 500 | `get_main_page` ölçümü |
 
 ## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.44 kurulduktan sonra sırayla:
-   Ayarlar açılıyor mu (v0.1.43'te açılmıyordu) · Ayarlar → Sürüm satırı **v0.1.44-poc**
-   yazıyor mu (yazmıyorsa OTA inmemiş, kod değil dağıtım sorunu) · 🗂 Özel Koleksiyon
-   dolu geliyor mu (HQPorner, 5 kategori, ilk kategoride 46 içerik) · Devam Et rafı ve
-   poster altındaki ilerleme çubuğu · oynatıcıda 🎚 Kalite bölümü.
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.47 kurulduktan sonra:
+   film ortasında kopuyor mu (jeton 15 dk → 6 saat) · devam etme baştan başlatıyor mu
+   (kaynak kuyruğu artık akışı yeniden hazırlamıyor) · oynatıcıda tuşlar TEK basışta
+   çalışıyor mu · güncelleme kurulum ekranı geliyor mu (PackageInstaller) · web'de içerik
+   sayfasındaki **"TV'de oynat"** düğmesi televizyonu açıyor mu · mor çerçeve kalktı mı.
    **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
 2. **Canlı TV kanal ekranı.** `/api/v1/quick_channels` çalışıyor (173 kanal) ama TV client
    çağırmıyor; canlı yayın `aggregate_new?type=live` rafında düz poster olarak duruyor.
@@ -64,6 +64,18 @@ Docker Desktop kapalıysa `smoke.sh` sessizce takılır — önce daemon'u başl
   Tek satır → doğrudan açılır; yetişkin kaynak normal Gözat'ta hiç görünmez.
 
 ## 5. Bu projede bir daha düşme (sert dersler)
+- **`ACTION_VIEW` ile APK kurulumu Android TV'de SESSİZCE yutulur** (intent'i karşılayan
+  activity yok, istisna da fırlamaz → "kurulum açıldı" der, ekran gelmez). `PackageInstaller`
+  oturumu + `STATUS_PENDING_USER_ACTION` alıcısı gerekir (`update/InstallReceiver.kt`).
+- **Tek `requestFocus()` ilk karede sessizce düşer.** Kök kutu odaksız kalınca D-pad
+  tuşları `onKeyEvent`'e HİÇ gelmez; ilk basış odağı taşımakla harcanır. `repeat(n) +
+  withFrameNanos` ile iste.
+- **Compose efekt anahtarı listeye bağlanırsa liste büyüdüğünde iş yeniden koşar.**
+  Oynatıcıda `LaunchedEffect(links, …)` kuyruğa kaynak eklendiğinde `prepare()`'ı yeniden
+  çağırıp videoyu BAŞA alıyordu; anahtar oynayan öğenin kimliği olmalı.
+- **Proxy jetonu manifeste BİR KEZ basılır.** Ömrü film süresinden kısaysa izleme ortada
+  kopar ve "kaynak öldü" sanılır (`PROXY_TOKEN_TTL`, varsayılan 6 saat). `PROXY_TOKEN_SECRET`
+  boşsa anahtar her açılışta değişir → `stream` restart'ı izlemeyi keser.
 - **`clickable`/`combinedClickable` + ayrı `focusable()` = İKİ odak hedefi.** Tıklama birincide,
   `onFocusChanged` ikinciyi gözler (kendisinden SONRAKİ hedefi görür) → OK basışı hiçbir yere
   gitmez. Doğru düzen: `onFocusChanged` → tıklama modifier'ı, ayrı `focusable()` YOK.
@@ -110,7 +122,52 @@ prerelease'i atlar) → prerelease yayınlamak yeterli.
 
 ---
 
-## 🖥️ 4 Eylül 2026 (akşam) — TV UI onarımı + izleme senkronu (EN SON, v0.1.40→v0.1.44)
+## 📱 4 Eylül 2026 (gece) — Oynatıcı onarımı + telefondan TV'de oynat (EN SON, v0.1.45→v0.1.47)
+
+**Commit'ler:** `3cbb526` · `f757077` · v0.1.47 commit'i
+
+Dean cihazda denedi: *"atlar gibi geziyor · kalite butonu gelmedi · admin panel yok ·
+devam et başlıyor sonra başa alıyor · playerda tuşa basınca ayarlara girmiyor, 2 kere
+basınca giriyor · kurulum başladı diyor ama ekrana düşmedi · mor oynatıcı çerçevesi ·
+telefondan seçip TV'de oynatalım, yansıtma değil kontrol olsun"*.
+
+### Kök nedenler (hepsi sessiz arıza)
+- **Başa alma:** `LaunchedEffect(links, currentLinkIndex)` — `absorb()` alternatif
+  kaynakları kuyruğa ekleyince liste değişiyor, oynayan kaynak aynı olmasına rağmen
+  `setMediaSource + prepare` yeniden koşuyordu. Anahtar artık oynayan linkin URL'i.
+- **İki kere basma:** kök kutu odağı tek `requestFocus()` ile isteniyordu, ilk karede
+  düşüyordu. Kare kare denenir; `showSettings/scrubMode/ready` değişiminde geri alınır.
+- **Film ortasında kopma:** proxy jetonu 15 dk ömürlüydü → segment 403 → "çalışan kaynak
+  bulunamadı". 6 saat, `PROXY_TOKEN_TTL` ile ayarlanır.
+- **Kurulum ekranı gelmiyor:** `ACTION_VIEW` TV'de yutuluyordu → `PackageInstaller`.
+- **Admin okuması hiç çalışmıyormuş:** `/api/admin/config` ADMIN_PASS korumalı, istemci
+  401 alıp sessizce yerleşik listeye düşüyordu → yeni auth'suz `/api/v1/client_config`.
+- **media_type uyuşmazlığı:** TV boş gönderiyordu, web `movie`/`serie` → aynı film iki
+  ayrı `content_key`. TV artık web'in kuralını kullanıyor.
+
+### Yeni: telefondan TV'de oynat
+`POST /api/v1/remote/play` + `GET /api/v1/remote/poll` (`Routers/remote.py`), tek slotluk
+BELLEK kuyruğu, 120 sn TTL. Web `content.html.j2`'de "TV'de oynat" düğmesi; TV yalnız ANA
+EKRANDA yoklar (oynatıcı açıkken izlenen film telefondan değişmesin). Yansıtma değil:
+akışı TV çözer. Gerekçe hafızada: `phone-to-tv-remote-play`.
+
+### Ayrıca
+Yumuşak odak kaydırması (`BringIntoViewSpec`, kenarda %22 tampon), sıkı yerleşim
+(RowGap 22→12, başlık 19sp→15sp), kalite bölümü tek varyantta da görünür, TV'de
+🛠 Yönetim Paneli (WebView + kumandayla parola), OTA durumu Ayarlar'da satır olarak,
+oynatıcı zemini saf siyah + mor çerçeveler nötrlendi.
+
+### Ölçümler
+`remote/play` → `poll` zinciri doğrulandı (komut okununca kuyruk boşalıyor) ·
+`client_config` auth'suz 200 · stream 58 test · TV 18 test · `smoke.sh` yeşil.
+
+### Açık kalan
+Cihazda hiçbiri çalıştırılmadı. Mor çerçeve için oynatıcı zemini siyaha çekildi ve
+Primary kenarlıklar nötrlendi; hangi çizginin kaldığı Dean'in ekranında görülmeli.
+
+---
+
+## 🖥️ 4 Eylül 2026 (akşam) — TV UI onarımı + izleme senkronu (v0.1.40→v0.1.44)
 
 **Commit'ler:** `95be460` · `2312937` · `b5b2a06` · `7133e45` · `86fea9e`
 

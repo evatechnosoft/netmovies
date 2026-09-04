@@ -32,4 +32,5 @@ from . import (
     ytdlp_extract,
     watch,
     client_config,
+    remote,
 )

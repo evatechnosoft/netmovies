@@ -173,3 +173,15 @@ data class ClientConfig(
 
 @Serializable
 data class ClientConfigResponse(val result: ClientConfig = ClientConfig())
+
+// /api/v1/remote/poll — telefondan gelen "TV'de oynat" komutu (yoksa result null).
+@Serializable
+data class RemoteCommand(
+    val plugin: String = "",
+    val url: String = "",
+    val title: String = "",
+    val poster: String = "",
+)
+
+@Serializable
+data class RemoteCommandResponse(val result: RemoteCommand? = null)

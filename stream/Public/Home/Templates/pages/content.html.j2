@@ -42,6 +42,11 @@
                 <a href="#episodes-section" class="button button-primary" id="scroll-to-episodes"><i class="fas fa-list"></i> <span data-i18n="browse_episodes">{{ tr('browse_episodes') }}</span></a>
                 {% else %}
                 <a href="/izle/{{ eklenti_adi }}?url={{ content.url }}&baslik={{ content.title | urlencode }}&content_url={{ content.url }}&poster_url={{ content.poster | default('', true) | urlencode }}&year={{ content.year | default('', true) }}&rating={{ content.rating | default('', true) }}{{ provider_query_amp }}" class="button button-primary"><i class="fas fa-play"></i> <span data-i18n="watch_now">{{ tr('watch_now') }}</span></a>
+                <button type="button" class="button button-secondary" id="cast-to-tv"
+                        data-plugin="{{ eklenti_adi }}" data-url="{{ content.url }}"
+                        data-title="{{ content.title }}" data-poster="{{ content.poster | default('', true) }}">
+                    <i class="fas fa-tv"></i> TV'de oynat
+                </button>
                 {% endif %}
                 <a href="{{ provider_url if provider_url else '' }}/api/v1/load_item?plugin={{ eklenti_adi }}&encoded_url={{ content.url }}" target="_blank" class="button button-secondary"><i class="fas fa-code"></i> <span data-i18n="api_button">{{ tr('api_button') }}</span></a>
                 <button class="button-icon" id="share-content-btn" title="{{ tr('share') }}" data-i18n="share" data-i18n-attr="title">
@@ -221,3 +226,33 @@
 {% block js %}
 <script type="module" src="{{ url_for('static_home', path='JS/components/content-page.min.js') }}" defer></script>
 {% endblock %}
+
+<script>
+// "TV'de oynat": sunucudaki tek slotluk kuyruğa yazar, televizyon onu yoklayıp açar.
+// Yansıtma yok — telefon yalnız komutu bırakır, akışı TV kendi çözer.
+(function () {
+  var btn = document.getElementById('cast-to-tv');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var q = new URLSearchParams({
+      plugin: btn.dataset.plugin || '',
+      url   : btn.dataset.url || '',
+      title : btn.dataset.title || '',
+      poster: btn.dataset.poster || ''
+    });
+    var old = btn.innerHTML;
+    btn.disabled = true;
+    fetch('/api/v1/remote/play?' + q.toString(), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.innerHTML = (d && d.result && d.result.ok)
+          ? '<i class="fas fa-tv"></i> TV'ye gönderildi'
+          : '<i class="fas fa-tv"></i> Gönderilemedi';
+      })
+      .catch(function () { btn.innerHTML = '<i class="fas fa-tv"></i> Gönderilemedi'; })
+      .finally(function () {
+        setTimeout(function () { btn.innerHTML = old; btn.disabled = false; }, 2500);
+      });
+  });
+})();
+</script>

@@ -509,6 +509,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     Box(
         Modifier
             .fillMaxSize()
+            // Video zemini SAF SİYAH: uygulamanın morumsu arka planı 21:9 içerikte
+            // kenarlarda şerit gibi görünüyordu (Dean: "mor oynatıcı çerçevesi").
+            .background(androidx.compose.ui.graphics.Color.Black)
             .focusRequester(rootFocus)
             .onKeyEvent { ke ->
                 when {
@@ -881,8 +884,8 @@ private fun SettingsPanel(
             .width(NmDim.PanelWidth)
             .background(NmColor.SurfaceDialog)
             .border(
-                width = 2.dp,
-                color = NmColor.Primary,
+                width = 1.dp,
+                color = NmColor.PrimaryHairline,
                 shape = RoundedCornerShape(topStart = NmDim.PanelRadius, bottomStart = NmDim.PanelRadius),
             )
             .focusRequester(panelFocus)
@@ -1078,7 +1081,6 @@ private fun PlayerOverlay(
             modifier = Modifier
                 .clip(shape)
                 .background(NmColor.SurfaceDialog)
-                .border(1.dp, NmColor.Primary, shape)
                 .padding(32.dp),
         ) {
             Text(title, fontWeight = FontWeight.Bold, fontSize = NmType.ScreenTitle, color = NmColor.Primary)

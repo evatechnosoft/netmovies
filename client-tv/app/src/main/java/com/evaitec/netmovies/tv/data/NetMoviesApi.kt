@@ -111,6 +111,11 @@ interface NetMoviesApi {
     @GET("api/v1/client_config")
     suspend fun clientConfig(): ClientConfigResponse
 
+    // "TV'de oynat": telefon komutu bırakır, TV yoklayıp açar. Yansıtma değil —
+    // akışı yine TV çözer (kalite/kaynak zinciri TV'de kalır).
+    @GET("api/v1/remote/poll")
+    suspend fun remotePoll(): RemoteCommandResponse
+
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")
     suspend fun loadItem(

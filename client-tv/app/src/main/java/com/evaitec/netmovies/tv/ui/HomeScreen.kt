@@ -56,6 +56,8 @@ import com.evaitec.netmovies.tv.UpdateUi
 import com.evaitec.netmovies.tv.UpdateViewModel
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
+import com.evaitec.netmovies.tv.data.Network
+import com.evaitec.netmovies.tv.data.encodedUrl
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -157,6 +159,25 @@ private fun CategoryRows(
         if (library.watched.isNotEmpty()) add("Devam Et" to library.watched.toList())
         if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
         groups.forEach { add(it.key to it.value) }
+    }
+
+    // Telefondan gelen "TV'de oynat" komutu. Ana ekran açıkken yoklanır; oynatıcı
+    // açıkken YOKLANMAZ (izlenen film telefondaki bir tıklamayla değişmesin).
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(4000)
+            val cmd = runCatching { Network.api.remotePoll().result }.getOrNull()
+            if (cmd != null && cmd.url.isNotBlank()) {
+                onSelect(
+                    MediaItem(
+                        plugin = cmd.plugin,
+                        title = cmd.title.ifBlank { null },
+                        url = encodedUrl(cmd.url),
+                        poster = cmd.poster.ifBlank { null },
+                    )
+                )
+            }
+        }
     }
 
     // Poster uzun-bas menüsü.
