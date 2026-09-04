@@ -134,6 +134,10 @@ services:
       # Boşsa koruma yok. Public tünelde MUTLAKA dolu olmalı.
       ADMIN_PASS           : ${ADMIN_PASS:-}
       PROXY_TOKEN_SECRET   : ${PROXY_TOKEN_SECRET:-}
+      # Proxy'nin ulaşmasına izin verilen iç ağ blokları (CIDR, virgülle ayrık).
+      # İnternet zaten serbest; bu liste yalnız özel/LAN adresleri açar. Varsayılan
+      # ev LAN'ı: 192.168.0.x ve 192.168.1.x. Boş bırakılırsa iç ağ tamamen kapalı.
+      PROXY_ALLOWED_NETS   : ${PROXY_ALLOWED_NETS:-192.168.0.0/16}
       # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
       TMDB_API_KEY         : ${TMDB_API_KEY:-}
     volumes:

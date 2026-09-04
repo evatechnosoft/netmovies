@@ -4,7 +4,7 @@ from CLI          import konsol
 from fastapi      import Request
 from urllib.parse import urljoin, quote
 from Settings     import PROXIES
-import asyncio, ipaddress, time
+import asyncio, ipaddress, os, time
 import httpx, traceback, re, json
 
 _proxy_url = PROXIES.get("https") or PROXIES.get("http") if PROXIES else None
@@ -35,14 +35,35 @@ shared_client = httpx.AsyncClient(
 
 # SSRF kapısı — TÜM proxy uçları (video/subtitle/image) buradan geçer.
 # Proxy auth'tan muaf ve tünelden dışa açık; hedef URL üçüncü taraf kaynaktan
-# (manifest, extractor) geliyor. Ele geçmiş bir kaynak `http://192.168.1.1/`
-# yazarsa ev ağı proxy üzerinden okunabilir hale gelirdi.
+# (manifest, extractor) geliyor. Kural: internet serbest, iç ağ yalnız açıkça
+# izin verilen bloklarda.
+#
+# NetMovies ev ağında koşuyor ve iç kaynaklar (NAS/ZimaOS M3U, LAN IPTV sunucusu,
+# yerel medya) proxy'den geçebilmeli. PROXY_ALLOWED_NETS bu blokları CIDR olarak
+# alır; varsayılan ev LAN'ı (192.168.0.0/16 — hem 192.168.0.x hem 192.168.1.x).
+# Boş bırakılırsa iç ağın tamamı kapanır (en sıkı mod).
+_ALLOWED_NETS = tuple(
+    ipaddress.ip_network(entry.strip(), strict=False)
+    for entry in os.getenv("PROXY_ALLOWED_NETS", "192.168.0.0/16").split(",")
+    if entry.strip()
+)
+
 _HOST_CACHE_TTL = 300
 _host_cache: dict[str, tuple[float, bool]] = {}
 
 
+def _ip_allowed(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Global IP serbest; özel/loopback IP yalnız PROXY_ALLOWED_NETS içindeyse."""
+    if any(ip in net for net in _ALLOWED_NETS):
+        return True
+    return not (
+        ip.is_private or ip.is_loopback or ip.is_link_local
+        or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+    )
+
+
 async def host_is_public(host: str) -> bool:
-    """Host'un çözümlenen TÜM IP'leri global mi? (loopback/özel/link-local → False)"""
+    """Host'un çözümlenen TÜM IP'leri proxy'lenebilir mi?"""
     if not host:
         return False
 
@@ -62,7 +83,7 @@ async def host_is_public(host: str) -> bool:
         except ValueError:
             ok = False
             break
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+        if not _ip_allowed(ip):
             ok = False
             break
 
@@ -72,7 +93,7 @@ async def host_is_public(host: str) -> bool:
 
 
 async def url_is_public(url: str) -> bool:
-    """URL'nin şeması http(s) ve host'u public mi?"""
+    """URL'nin şeması http(s) ve host'u proxy'lenebilir mi?"""
     parts = httpx.URL(url)
     if parts.scheme not in ("http", "https"):
         return False
