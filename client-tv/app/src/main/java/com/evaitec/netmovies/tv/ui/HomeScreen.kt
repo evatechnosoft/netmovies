@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -43,8 +41,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -114,7 +110,6 @@ fun HomeScreen(
     onOpenVault: () -> Unit,
     showVault: Boolean,
     onToggleVault: () -> Unit,
-    onToggleMouseMode: () -> Unit = {},
     library: Library,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -127,14 +122,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault, onToggleMouseMode)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, showVault, onToggleVault)
             }
         }
     }
@@ -152,7 +147,6 @@ private fun CategoryRows(
     onOpenVault: () -> Unit,
     showVault: Boolean,
     onToggleVault: () -> Unit,
-    onToggleMouseMode: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     val groups = remember(items) {
@@ -198,15 +192,7 @@ private fun CategoryRows(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = { onToggleMouseMode() }
-                )
-            }
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             // Modal açıkken arkadaki raflar odak aramasından çıkarılır. Yoksa D-pad
@@ -215,7 +201,7 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse, onToggleVault, onToggleMouseMode) { showSettingsMenu = true } }
+            item { TopBar(onOpenBrowse, onToggleVault) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 item {
@@ -267,7 +253,6 @@ private fun CategoryRows(
                 onOpenKeyMap = onOpenKeyMap,
                 onOpenVault = onOpenVault,
                 onToggleVault = onToggleVault,
-                onToggleMouseMode = onToggleMouseMode,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -280,7 +265,6 @@ private fun CategoryRows(
 private fun TopBar(
     onOpenBrowse: () -> Unit,
     onToggleVault: () -> Unit,
-    onToggleMouseMode: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
@@ -296,19 +280,14 @@ private fun TopBar(
             fontWeight = FontWeight.ExtraBold,
             fontSize = NmType.Wordmark,
             color = NmColor.Primary,
-            modifier = Modifier
-                .padding(end = 4.dp)
-                .combinedClickable(
-                    onClick = onToggleMouseMode,
-                    onLongClick = onToggleMouseMode,
-                ),
+            modifier = Modifier.padding(end = 4.dp),
         )
         HomeSearchBarButton(
             modifier = Modifier.weight(1f),
             onClick = onOpenBrowse,
             onLongClick = onToggleVault,
         )
-        TvTopBarButton("⚙  Ayarlar", onClick = onOpenSettings, onLongClick = onToggleMouseMode)
+        TvTopBarButton("⚙  Ayarlar", onClick = onOpenSettings)
     }
 }
 
@@ -466,50 +445,6 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SliderRow(label: String, value: Int, onChange: (Int) -> Unit) {
-    var isFocused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(NmDim.RowRadius)
-    val filled = (value / 10).coerceIn(0, 10)
-    val bar = "█".repeat(filled) + "░".repeat(10 - filled)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(if (isFocused) NmColor.Primary else NmColor.Surface)
-            .nmFocusRing(isFocused, shape)
-            .onFocusChanged { isFocused = it.isFocused }
-            // TV'de gercek slider yok: satir odakliyken SOL/SAG degeri 10'ar puan surer.
-            // Preview kullanilir ki ok tuslari odagi komsu satira kaydirmasin.
-            .onPreviewKeyEvent { keyEvent ->
-                val native = keyEvent.nativeKeyEvent
-                if (native.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
-                when (native.keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { onChange((value - 10).coerceIn(0, 100)); true }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { onChange((value + 10).coerceIn(0, 100)); true }
-                    else -> false
-                }
-            }
-            .focusable()
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                text = label,
-                fontSize = NmType.Body,
-                color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurface,
-                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
-            )
-            Text(
-                text = "$bar  %$value",
-                fontSize = NmType.Body,
-                color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
 private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -570,18 +505,10 @@ private fun SettingsMenu(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onToggleVault: () -> Unit,
-    onToggleMouseMode: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
     val updateState by updateVm.ui.collectAsStateWithLifecycle()
-    // Fare modu hic acilmamis olabilir; ayarlar burada da okunabilsin diye.
-    MouseSettings.attach(androidx.compose.ui.platform.LocalContext.current)
-    // Ayarlar acikken imlec katmani bastirilir, yoksa slider'lar tuslari hic gormez.
-    DisposableEffect(Unit) {
-        MouseSettings.suppressed = true
-        onDispose { MouseSettings.suppressed = false }
-    }
     ModalCard(title = "Ayarlar", onClose = onClose) {
         // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
         // ekrandaki numarayla cevaplanır.
@@ -599,13 +526,6 @@ private fun SettingsMenu(
         }
         MenuRow("⬆  Güncellemeyi kontrol et", onClick = { onClose(); updateVm.check(verbose = true) })
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
-        MenuRow(
-            if (MouseSettings.enabled) "🖱  Sanal Fare: Açık" else "🖱  Sanal Fare: Kapalı",
-            onClick = { onClose(); onToggleMouseMode() },
-        )
-        // Fare ayarlari: menuyu kapatmadan SOL/SAG ile surulur, imlec aninda uyar.
-        SliderRow("↔  Fare hızı", MouseSettings.speedPct) { MouseSettings.setSpeed(it) }
-        SliderRow("⬜  İmleç boyutu", MouseSettings.sizePct) { MouseSettings.setSize(it) }
         MenuRow(if (showVault) "👁  Özel Koleksiyonu Gizle" else "👁  Özel Koleksiyonu Göster", onClick = { onClose(); onToggleVault() })
         if (showVault) {
             // Kilit ikonu yoktu ki kilit olsun: PIN/parola YOK, Ayarlar'i acan herkes

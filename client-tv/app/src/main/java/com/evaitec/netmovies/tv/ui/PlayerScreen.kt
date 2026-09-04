@@ -197,7 +197,6 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             RemoteAction.OPEN_SETTINGS -> showSettings = true
             RemoteAction.SHOW_CONTROLS -> flashControls()
             RemoteAction.TOGGLE_SCRUB -> enterScrub()
-            RemoteAction.TOGGLE_MOUSE_MODE -> Unit
             RemoteAction.BACK -> onBack()
         }
     }

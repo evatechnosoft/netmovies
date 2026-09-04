@@ -24,7 +24,6 @@ import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.KeyMapScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
 import com.evaitec.netmovies.tv.ui.TouchButton
-import com.evaitec.netmovies.tv.ui.MouseSettings
 import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
@@ -32,8 +31,6 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Fare ayarlari setContent'ten ONCE baglanmali; mouseMode ilk degerini buradan okur.
-        MouseSettings.attach(applicationContext)
         setContent {
             NetMoviesTheme {
                 run {
@@ -49,8 +46,6 @@ class MainActivity : ComponentActivity() {
                         // aksine bu bir kolaylik degil, gorunurluk karari — acik unutulup
                         // sonraki acilista karsina cikmasin.
                         var showVault by remember { mutableStateOf(false) }
-                        // Kalici tercih: uygulama kapanip acilinca fare modu oldugu gibi gelir.
-                        var mouseMode by remember { mutableStateOf(MouseSettings.enabled) }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
@@ -79,17 +74,10 @@ class MainActivity : ComponentActivity() {
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         showVault = showVault,
                                         onToggleVault = { showVault = !showVault },
-                                        onToggleMouseMode = { mouseMode = !mouseMode; MouseSettings.setEnabled(mouseMode) },
                                         library = library,
                                     )
                                 }
                         }
-
-                        // Sanal Fare İmleci Katmanı (Mouse Mode)
-                        com.evaitec.netmovies.tv.ui.VirtualMouseOverlay(
-                            active = mouseMode,
-                            onToggle = { mouseMode = !mouseMode; MouseSettings.setEnabled(mouseMode) }
-                        )
                     }
                 }
             }
