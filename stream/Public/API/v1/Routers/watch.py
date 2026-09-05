@@ -16,7 +16,7 @@ def _key_from(veri: dict) -> str:
     content_key doğrudan geldiyse onu kullan; gelmediyse title/media_type/year'dan
     site-agnostik türet. Böylece istemci ister hazır key ister ham başlık gönderebilir.
     """
-    ck = str(veri.get("content_key") or "").strip()
+    ck = watch_store.canonical_key(veri.get("content_key") or "")
     if ck:
         return ck
     return watch_store.normalize_key(

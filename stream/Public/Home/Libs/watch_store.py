@@ -84,9 +84,48 @@ def _connect() -> sqlite3.Connection:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if "content_url" not in columns:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN content_url TEXT")
+        _migrate_type_suffix(conn)
         conn.commit()
         _CONN = conn
     return _CONN
+
+
+def _migrate_type_suffix(conn: sqlite3.Connection) -> None:
+    """Tür son ekli eski anahtarları sadeleştirir; çakışan çift kayıtları birleştirir.
+
+    Aynı içerik iki anahtarla kaydedilmişse (media_type gönderilen/gönderilmeyen
+    istemci) EN SON güncellenen kayıt kazanır — kullanıcının gerçekten kaldığı yer.
+    """
+    for table, order in (("watch_history", "updated_at"), ("favorites", "added_at"), ("user_lists", "added_at")):
+        rows = conn.execute(f"SELECT rowid, content_key FROM {table}").fetchall()
+        renames = [(r["rowid"], r["content_key"], _TYPE_SUFFIX.sub("", r["content_key"]))
+                   for r in rows if _TYPE_SUFFIX.search(r["content_key"] or "")]
+        if not renames:
+            continue
+        for rowid, old_key, new_key in renames:
+            if table == "user_lists":
+                # (content_key, list_name) bileşik anahtar — çakışan satır varsa eskisini at.
+                conn.execute(
+                    "DELETE FROM user_lists WHERE content_key = ? AND list_name IN "
+                    "(SELECT list_name FROM user_lists WHERE rowid = ?)",
+                    (new_key, rowid),
+                )
+                conn.execute("UPDATE user_lists SET content_key = ? WHERE rowid = ?", (new_key, rowid))
+                continue
+
+            rival = conn.execute(
+                f"SELECT rowid, {order} FROM {table} WHERE content_key = ?", (new_key,)
+            ).fetchone()
+            if rival is None:
+                conn.execute(f"UPDATE {table} SET content_key = ? WHERE rowid = ?", (new_key, rowid))
+                continue
+
+            mine = conn.execute(f"SELECT {order} FROM {table} WHERE rowid = ?", (rowid,)).fetchone()
+            if (mine[0] or 0) > (rival[order] or 0):
+                conn.execute(f"DELETE FROM {table} WHERE rowid = ?", (rival["rowid"],))
+                conn.execute(f"UPDATE {table} SET content_key = ? WHERE rowid = ?", (new_key, rowid))
+            else:
+                conn.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
 
 
 # --------------------------------------------------------------------- content_key
@@ -140,14 +179,23 @@ def normalize_key(title: str, media_type: str = "", year: str | int | None = Non
     tokens = [t for t in s.split() if t and t not in _NOISE]
     core = " ".join(tokens).strip()
 
+    # media_type BİLEREK anahtarın dışında: istemcilerin biri onu gönderip diğeri
+    # göndermeyince aynı film iki ayrı kayıt oluyordu ("gorge" ve "gorge|movie" →
+    # Devam Et rafında iki poster). Tür bilgisi tabloda sütun olarak zaten duruyor.
     parts = [core]
     if year:
         parts.append(str(year))
-    mt = re.sub(r"[^a-z0-9]+", "", str(media_type or "").lower())
-    if mt:
-        parts.append(mt)
 
     return "|".join(p for p in parts if p)
+
+
+# Eski anahtarlardaki tür son eki ("...|movie", "...|serie") kırpılır: istemci hazır
+# content_key gönderdiğinde de tek kayda denk gelsin.
+_TYPE_SUFFIX = re.compile(r"\|(movie|serie|series|tv|live)$")
+
+
+def canonical_key(content_key: str) -> str:
+    return _TYPE_SUFFIX.sub("", str(content_key or "").strip())
 
 
 def _now(now: int | None = None) -> int:
