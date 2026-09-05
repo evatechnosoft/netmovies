@@ -5,114 +5,103 @@
 > Altındaki oturum günlükleri = kararların gerekçesi (neden böyle yapıldı).
 
 ---
-
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 4 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `c8cf6eb` (master ESKİDİR) · çalışma ağacı temiz, push'lı
-**TV sürümü:** `v0.1.48-poc` — GitHub Release'te en üstte, APK yüklü
-**Cihaz doğrulaması bekliyor** — §3.1 listesi Dean'in televizyonunda koşulmadı.
-**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** `https://w.evaitec.com`
+**Son güncelleme:** 5 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `8d1f512` (master ESKİDİR) · çalışma ağacı temiz, push'lı
+**TV sürümü:** `v0.1.50-poc` — GitHub Release'te en üstte (APK 19.986.558 bayt)
+**Cihaz doğrulaması bekliyor** — §3.1 Dean'in televizyonunda koşulmadı.
+**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı (Dean: "tünel boşver, local çalışsın")
 
 ## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-git log --oneline -3                              # en üstte c8cf6eb / v0.1.48-poc olmalı
+git log --oneline -3                              # en üstte 8d1f512 olmalı
 docker compose up -d --build                      # yığın kapalıysa (WARP varsayılan açık)
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
 cd client-tv && ./gradlew testDebugUnitTest       # beklenen: 18 test, 0 fail
+gh run list --limit 1                             # CI kapısı (gate) yeşil mi
 ```
-Docker Desktop kapalıysa `smoke.sh` sessizce takılır — önce daemon'u başlat.
-`docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec -w //usr/src/Stream ...`
+PC yeni açıldıysa yığın kendiliğinden kalkar (`scripts/netmovies-autostart.cmd`, Startup'ta
+kısayolu var). Kalkmadıysa Docker Desktop'ı bekle — motor hazır olmadan compose sessizce takılır.
+`docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec ...`
 
-## 2. Sistem şu an ne durumda (bu oturumda kanıtlandı)
+## 2. Sistem şu an ne durumda (5 Eylül'de kanıtlandı)
 | Alan | Durum | Kanıt |
 |---|---|---|
-| Yığın | doh/engine/stream/cloudflared/warp ayakta, engine+stream healthy | `docker compose ps` |
+| Yığın | doh/engine/stream/warp ayakta, engine+stream healthy | `docker compose ps` |
+| Erişim | yerel 200 · LAN `192.168.1.185:3310` 200 | `curl /api/v1/health` |
 | Katalog | movie 38 · serie 78 · yerli 25 · yabancı 10 · canlı 173 | `smoke.sh` |
-| Eklentiler | 8: DiziBox · DiziMom · DiziYou · Dizilla · HDFilmCehennemi · HQPorner · M3U Listelerim · RecTV | `get_all_plugins` |
-| Testler | stream **58/58** · client-tv **18/18** | `unittest` + `gradlew` |
-| İzleme senkronu | `/progress`, `/continue_watching`, `/favorites` canlı yanıt veriyor | curl + `WatchSyncApiTest` |
-| Sayfalama | DiziBox/DiziYou/Dizilla page=2 döndürüyor; HDFilmCehennemi ana kategoride 500 | `get_main_page` ölçümü |
+| Eklenti sağlığı | 6/8 sağlıklı — **HQPorner + RecTV `unreachable`** | `/api/v1/plugin_health` |
+| Oynatma zinciri | full mod **11sn**, ölü kaynak atlanıyor | `resolve_sources` teşhisi |
+| Testler | stream (test_watch_key dahil) geçti · client-tv **18/18** | `unittest` + `gradlew` |
+| CI kapısı | run `33955264088` üç iş de `success` | `gh run list` |
+| İzleme kayıtları | 7 satır, mükerrer yok | canlı DB sorgusu |
 
 ## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.48 kurulduktan sonra:
-   film ortasında kopuyor mu (jeton 15 dk → 6 saat) · devam etme baştan başlatıyor mu ·
-   oynatıcıda tuşlar TEK basışta çalışıyor mu · güncelleme kurulum ekranı geliyor mu
-   (PackageInstaller) · Ayarlar → **📋 Listem** takvimi dolu geliyor mu · oynatıcı
-   Ayarlar → **🧭 Gezinme** (dakikaya git / bölüm) · APK'yı TELEFONA kurup arama →
-   seçim televizyonu açıyor mu · mor çerçeve kalktı mı.
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.50 düşünce:
+   film ortasında kaynak düşerse **aynı dakikadan** devam ediyor mu · Devam Et rafında
+   **tek poster** mı · devam etme baştan başlatıyor mu · güncelleme kurulum ekranı geliyor mu.
    **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
-2. **Canlı TV kanal ekranı.** `/api/v1/quick_channels` çalışıyor (173 kanal) ama TV client
-   çağırmıyor; canlı yayın `aggregate_new?type=live` rafında düz poster olarak duruyor.
-   Başlangıç: `client-tv/.../data/NetMoviesApi.kt` (uç ekle), `ui/BrowseScreen.kt` ShelfList
-   desenini kanal listesi olarak kopyala.
-3. **İçerik detay ekranı.** Web'de `content.html.j2` (özet, tür, benzerler) var; TV'de poster
-   → doğrudan oynatma. Bölüm listesi artık 🧭 Gezinme ekranında, ama özet/oyuncu bilgisi yok.
-   TMDB anahtarı `.env`'de mevcut (`TMDB_API_KEY`), `Routers/following.py` deseni kopyalanabilir.
-4. **Resmi kaynaklar bölümü.** `stream/Public/Home/Libs/official_sources.py` + `/resmi-kaynak`
+2. **İçerik detay ekranı.** Web'de `content.html.j2` (özet, tür, benzerler) var; TV'de poster
+   → doğrudan oynatma. TMDB anahtarı `.env`'de (`TMDB_API_KEY`), `Routers/following.py` deseni.
+3. **Resmi kaynaklar bölümü.** `stream/Public/Home/Libs/official_sources.py` + `/resmi-kaynak`
    TV'de yok.
-5. **`resolve_sources`'a sağlık süzmesi.** Ölü kaynak (RecTV `ConnectError`) her çözümlemede
-   tur harcıyor; `aggregate_new`'deki `run_plugin_health` süzmesi buraya da uygulanmalı.
-6. **Faz 3/5** — `docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`: oynatıcı dayanıklılığı
-   (timeout/backoff/circuit-breaker, Media3 güncelleme), tünel açıkken auth zorunluluğu.
+4. **Faz 3/5** — `docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`: oynatıcı dayanıklılığı
+   (timeout/backoff/circuit-breaker, Media3 güncelleme).
+5. **Ölü eklentiler.** RecTV domain ailesi NXDOMAIN; HQPorner erişilemiyor. Ya domain
+   sabitle (`.env` override) ya listeden düşür — her çözümlemede artık atlanıyor, acil değil.
 
-## 4. Yapma / tekrar deneme (bu oturumda kapandı)
-- **Sanal fare geri gelmesin.** `onKeyEvent` odak istiyordu, ana ekranın odak istekleri onu
-  geri çalıyordu; imleç kıpırdamıyor, mod kapanmıyordu. Kaldırıldı (`2312937`). Geri istenirse
-  tuşlar Activity `dispatchKeyEvent`'ine taşınmalı — odak yarışıyla çözülmez.
-- **Vault PIN yapılmadı** — Dean "PIN'i boşver" dedi. `admin_config.vault_pin` sunucuda duruyor,
-  istemci kullanmıyor.
-- **Özel Koleksiyon'da göster/gizle bayrağı yok.** İki adımlı akıştı, ikinci adım bulunamıyordu.
-  Tek satır → doğrudan açılır; yetişkin kaynak normal Gözat'ta hiç görünmez.
+## 4. Yapma / tekrar deneme
+- **Tünel mimarisine dokunma.** `cloudflared` `network_mode: service:stream` — stream
+  recreate = tünel ölür. Dean bilerek kapsam dışı bıraktı (5 Eylül).
+- **Sürüm alanlarını elle üç yerde güncelleme.** Artık `build.gradle.kts` içindeki
+  `val appVersion` TEK kaynak; versionCode ondan türer. Sadece onu değiştir.
+- **`docker compose up -d --build` arka planda bırakma** — yarım kalan build
+  "container name already in use" bırakır (`docker rm -f <id>` ile temizlenir).
+- **Sanal fare geri gelmesin** (`2312937`) · **Vault PIN yapılmadı** (Dean "boşver" dedi).
 
 ## 5. Bu projede bir daha düşme (sert dersler)
-- **`ACTION_VIEW` ile APK kurulumu Android TV'de SESSİZCE yutulur** (intent'i karşılayan
-  activity yok, istisna da fırlamaz → "kurulum açıldı" der, ekran gelmez). `PackageInstaller`
-  oturumu + `STATUS_PENDING_USER_ACTION` alıcısı gerekir (`update/InstallReceiver.kt`).
-- **Tek `requestFocus()` ilk karede sessizce düşer.** Kök kutu odaksız kalınca D-pad
-  tuşları `onKeyEvent`'e HİÇ gelmez; ilk basış odağı taşımakla harcanır. `repeat(n) +
-  withFrameNanos` ile iste.
-- **Compose efekt anahtarı listeye bağlanırsa liste büyüdüğünde iş yeniden koşar.**
-  Oynatıcıda `LaunchedEffect(links, …)` kuyruğa kaynak eklendiğinde `prepare()`'ı yeniden
-  çağırıp videoyu BAŞA alıyordu; anahtar oynayan öğenin kimliği olmalı.
-- **Proxy jetonu manifeste BİR KEZ basılır.** Ömrü film süresinden kısaysa izleme ortada
-  kopar ve "kaynak öldü" sanılır (`PROXY_TOKEN_TTL`, varsayılan 6 saat). `PROXY_TOKEN_SECRET`
-  boşsa anahtar her açılışta değişir → `stream` restart'ı izlemeyi keser.
-- **`clickable`/`combinedClickable` + ayrı `focusable()` = İKİ odak hedefi.** Tıklama birincide,
-  `onFocusChanged` ikinciyi gözler (kendisinden SONRAKİ hedefi görür) → OK basışı hiçbir yere
-  gitmez. Doğru düzen: `onFocusChanged` → tıklama modifier'ı, ayrı `focusable()` YOK.
-  "Ayarlar açılmıyor" bu yüzdendi; altı yerde vardı (`86fea9e`).
-- **`stream/` ve `engine/` kaynağı imajın içinde, mount YOK.** Python değişikliği sonrası
-  `docker compose restart` ESKİ kodu çalıştırır → `up -d --build <servis>` şart.
-- **Sunucu `content_url`'ü HAM tutar, `MediaItem.url` quote_plus KODLU.** Dönüşüm tek yerde:
-  `client-tv/.../data/Library.kt` `rawUrl()` / `encodedUrl()`. Karıştırılırsa TV'nin kaydettiğini
-  web açamaz.
-- **Gövdesiz `@POST` + `@Query` çalışıyor** (stream middleware önce query params'a bakar);
-  imza testi bunu kanıtlamaz, `WatchSyncApiTest` gerçek istek üretir.
-- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip hata vermez, sessizce boş döner.
-- **Kaynak boş dönüyorsa önce domaini doğrula.** Site taşınır ve temayı da değiştirir.
-- **`X-Sp` benzeri oynatıcı imzaları tek kullanımlıktır** — istemciye imza değil malzeme taşı.
-- **Sessiz `catch` = görünmez arıza.** Hata ya loglanır ya kullanıcıya yazılır.
+- **Kaynak geçişi konumu sıfırlar.** Yeni `prepare()` 0'dan başlar; devam-etme
+  `resumeApplied` ile tek seferlik uygulandığı için ikinci kaynakta seek HİÇ olmuyordu →
+  film başa dönüyordu. Konum geçişte elle taşınmalı (`carryOverMs`).
+- **`content_key`'e tür koyma.** `media_type` anahtardaydı; istemcilerin biri gönderip
+  diğeri göndermeyince aynı film iki kayıt oldu (`gorge` + `gorge|movie`) → Devam Et'te
+  iki poster. Anahtar site-agnostik OLDUĞU KADAR tür-agnostik olmalı.
+- **Docker Desktop `AutoStart` kapalıysa `restart: unless-stopped` hiçbir şey yapmaz.**
+  Motor açılmıyorsa container politikası anlamsız.
+- **`/api/v1/plugin_health` stream üzerinden 302 döner** (gateway proxy'lemiyor) — engine
+  container'ının içinden sor.
+- **Engine kaynağı container'da `/usr/src/KekikStreamAPI/`**, `/usr/src/KekikStream/` DEĞİL.
+- **`ACTION_VIEW` ile APK kurulumu Android TV'de SESSİZCE yutulur** → `PackageInstaller`.
+- **Tek `requestFocus()` ilk karede sessizce düşer** → `repeat(n) + withFrameNanos`.
+- **Compose efekt anahtarı listeye bağlanırsa** liste büyüdüğünde iş yeniden koşar.
+- **Proxy jetonu manifeste BİR KEZ basılır** (`PROXY_TOKEN_TTL`, varsayılan 6 saat).
+- **`clickable` + ayrı `focusable()` = İKİ odak hedefi** → OK basışı hiçbir yere gitmez.
+- **`stream/` ve `engine/` kaynağı imajın içinde, mount YOK** → `up -d --build <servis>` şart.
+- **Sunucu `content_url`'ü HAM tutar, `MediaItem.url` quote_plus KODLU** (`Library.kt`).
+- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip sessizce boş döner.
+- **Kaynak boş dönüyorsa önce domaini doğrula.**
+- **Sessiz `catch` = görünmez arıza.**
 
 ## 6. Kritik dosya haritası
 ```
-stream/Public/API/v1/Routers/watch.py             ← izleme/favori uçları (10 uç)
-stream/Public/Home/Libs/watch_store.py            ← SQLite; content_key SİTE-AGNOSTİK
+stream/Public/API/v1/Routers/watch.py             ← izleme/favori uçları · _key_from
+stream/Public/Home/Libs/watch_store.py            ← SQLite; content_key SİTE+TÜR-AGNOSTİK
 stream/Public/Home/Libs/admin_config.py           ← gizli kaynak/kategori, vault, provider_url
-engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç)
-engine/Plugins/HDFilmCehennemi.py                 ← .now + DooPlay zinciri
+engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç) · sağlık süzmesi
+engine/Public/API/v1/Routers/plugin_health.py     ← eklenti sağlık raporu (6 saat TTL)
+client-tv/.../ui/PlayerScreen.kt                  ← kaynak kuyruğu · carryOverMs · ilerleme
 client-tv/.../data/Library.kt                     ← favori/devam senkronu + URL biçim köprüsü
-client-tv/.../data/NetMoviesApi.kt                ← istemci sözleşmesi
-client-tv/.../ui/HomeScreen.kt                    ← Devam Et rafı, Ayarlar menüsü
-client-tv/.../ui/BrowseScreen.kt                  ← kaynak çipleri, sayfalama, vault modu
-client-tv/.../ui/PlayerScreen.kt                  ← kalite/altyazı/bölüm + ilerleme kaydı
-scripts/smoke.sh                                  ← kapı kontrolü
+client-tv/app/build.gradle.kts                    ← `val appVersion` = TEK sürüm kaynağı
+.github/workflows/gate.yml                        ← CI kapısı (client-tv · stream · engine)
+scripts/smoke.sh                                  ← yerel kapı kontrolü
+scripts/netmovies-autostart.cmd                   ← PC açılışında yığını kaldırır
 ```
 
 ## 7. Yeni sürüm çıkarma (OTA)
 ```bash
-# client-tv/app/build.gradle.kts → versionCode +1, versionName, RELEASE_TAG (üçü birden)
+# client-tv/app/build.gradle.kts → SADECE `val appVersion` değiştir
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
 gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
@@ -120,12 +109,45 @@ gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
 curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"  # doğrula
 ```
 ⚠ GitHub API kimliksiz **saatte 60 istek/IP**; ev ağı ve testler aynı kotayı paylaşır.
-OTA gelmiyorsa ilk şüpheli budur. Uygulama `/releases` listesini okur (`/releases/latest`
-prerelease'i atlar) → prerelease yayınlamak yeterli.
+Uygulama `/releases` listesini okur → prerelease yayınlamak yeterli.
 
 ---
 
-## 📋 4 Eylül 2026 (gece, devam) — Listem/takip takvimi + gezinme ekranı (EN SON, v0.1.48)
+## 📋 5 Eylül 2026 (öğle) — kalıcılaştırma turu (EN SON, v0.1.50)
+
+**Commit'ler:** `f52be9c` · `f6265a1` · `8d1f512`
+
+Dean: *"pm olarak kıdemli konuştur ve artık bozulmayacak şekilde yapalım, pi olarak
+sahiplen ve fable mode da kanıtlarla yap"* → dört kırılma ekseni (oynatma / kaynak
+sağlığı / erişim / regresyon) teşhis edildi, Dean "hepsini değerlendir" dedi; tünel
+sonradan kapsam dışına alındı.
+
+### Film başa dönmesi — kök neden
+Kaynak düşünce `currentLinkIndex++` yeni `prepare()` tetikliyor, o da konumu sıfırlıyordu;
+devam-etme `resumeApplied` ile yalnız ilk hazır oluşta uygulandığından ikinci kaynakta
+seek hiç çalışmıyordu. Geçişte `carryOverMs = exo.currentPosition`, prepare sonrası geri
+verilir. **Cihazda doğrulanmadı** — derleme ve testler yeşil, gerçek TV'de bakılacak.
+
+### Devam Et'te çift poster
+Dean: *"2 sağlayıcıdan olan filmler devam ederken 2 tane poster oluyor fakat aynı süre"*.
+Tahmin sağlayıcı çokluğuydu, gerçek neden `content_key`'in `media_type` içermesi: canlı
+veride `gorge|movie` (3763sn) ve `gorge` (2884sn) yan yanaydı. Tür anahtardan çıkarıldı,
+`canonical_key()` hazır anahtarın son ekini kırpar, `_migrate_type_suffix()` açılışta
+mükerrerleri birleştirir (en son güncellenen konum kazanır). DB **8 → 7** satır.
+
+### Ölü kaynak zinciri yormuyor
+`run_plugin_health` süzmesi `resolve_sources`'a da geldi + sağlayıcı başına 25sn bütçe.
+Sağlık bilinmiyorsa hepsi denenir. Teşhis: `atlanan sağlıksız kaynak: HQPorner, RecTV`.
+
+### Bir daha kırılmasın diye
+- `.github/workflows/gate.yml` — repoda hiç CI yoktu; her push'ta üç iş koşuyor.
+- `val appVersion` tek sürüm kaynağı — v0.1.49'da versionCode 48'de kalmıştı.
+- `scripts/netmovies-autostart.cmd` + Startup kısayolu — Docker Desktop `AutoStart: False`
+  olduğu için PC açılışında yığın hiç kalkmıyordu.
+
+---
+
+## 📋 4 Eylül 2026 (gece, devam) — Listem/takip takvimi + gezinme ekranı (v0.1.48)
 
 **Commit:** `c8cf6eb`
 
