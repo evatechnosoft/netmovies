@@ -15,6 +15,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
     """Video proxy endpoint'i"""
     target_url           = url
     if not proxy_token or not validate_proxy_token(proxy_token, target_url):
+        konsol.print("[red]⛔ Proxy token geçersiz/süresi dolmuş[/red]")
         return Response(status_code=403, content="Geçersiz veya süresi dolmuş proxy token")
     if not await url_is_public(target_url):
         return Response(status_code=403, content="Hedef adres proxy'lenemez")
@@ -47,6 +48,9 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
 
         if response.status_code >= 400:
             await response.aclose()
+            # Sessiz dönmüyoruz: izleme ortada koptuğunda "neden" sorusunun tek cevabı bu
+            # satır. Kaynak imzası bayatladıysa 403, dosya taşındıysa 404 görünür.
+            konsol.print(f"[red]⛔ Upstream {response.status_code}:[/red] {target_url[:110]}")
             return Response(status_code=response.status_code, content=f"Upstream Error: {response.status_code}")
 
         # 3. HLS Tespiti (URL + Header)
@@ -117,6 +121,6 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
         )
 
     except Exception as e:
-        konsol.print(f"[red]Proxy başlatma hatası: {str(e)}[/red]")
+        konsol.print(f"[red]⛔ Proxy hatası:[/red] {type(e).__name__}: {e} · {target_url[:90]}")
         # İstisna metni istemciye gitmez (iç adres/kütüphane detayı sızdırır); log'da duruyor.
         return Response(status_code=502, content="Kaynağa ulaşılamadı")
