@@ -7,6 +7,25 @@ from user_agents import parse
 from ._IP_Log    import ip_log
 import asyncio
 
+# Yol başına istek süre sınırı.
+#
+# AKIŞ uçları (video/altyazı proxy'si) sınıra TABİ DEĞİL: yanıt istemci izledikçe akar,
+# sabit üst sınır dolunca istek 504'e düşüyor ve oynatıcı segmenti alamayıp DONUYORDU
+# (logda "Timeout: /proxy/video - 30sn aşıldı" patlamaları). Kaynak tarafındaki koruma
+# httpx'te duruyor (connect=10sn, read=90sn), yani sınırsız bekleme değil.
+_AKIS_PATHS         = ("/proxy/video", "/proxy/subtitle")
+_UZUN_TIMEOUT_PATHS = ("/upload", "/download", "/export", "/import", "/backup")
+
+
+def istek_timeout(path: str) -> float | None:
+    """İstek için üst süre sınırı; akış uçlarında None (sınırsız)."""
+    if any(p in path for p in _AKIS_PATHS):
+        return None
+    if any(p in path for p in _UZUN_TIMEOUT_PATHS):
+        return 120
+    return 30
+
+
 @kekik_FastAPI.middleware("http")
 async def istekten_once_sonra(request: Request, call_next):
     baslangic_zamani = time()
@@ -48,9 +67,7 @@ async def istekten_once_sonra(request: Request, call_next):
         "host"   : request.url.hostname
     }
 
-    # Dosya işlemleri için daha uzun timeout
-    uzun_timeout_paths = ("/upload", "/download", "/export", "/import", "/backup")
-    timeout_suresi     = 120 if any(p in request.url.path for p in uzun_timeout_paths) else 30
+    timeout_suresi = istek_timeout(request.url.path)
 
     try:
         response = await asyncio.wait_for(call_next(request), timeout=timeout_suresi)
