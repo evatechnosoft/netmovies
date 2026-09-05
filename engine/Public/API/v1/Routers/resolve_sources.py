@@ -20,11 +20,16 @@ from CLI    import konsol
 from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
+from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
 
 # Alternatif tarama sırası — dublaj ağırlıklı kaynaklar önde.
 ALTERNATIVE_ORDER = ["HDFilmCehennemi", "DiziBox", "DiziYou", "DiziMom", "Dizilla", "RecTV"]
+
+# Bir alternatif sağlayıcıya ayrılan üst süre. Ölü site (DNS/connect timeout) eskiden
+# httpx'in kendi süresine kadar zinciri bekletiyordu; bütçe aşılırsa o sağlayıcı atlanır.
+ALTERNATIVE_TIMEOUT = 25
 
 # Arama başlığındaki site gürültüsü.
 _NOISE = (
@@ -132,6 +137,15 @@ async def _search_match(plugin_name: str, query: str, diag: Diagnostics) -> str 
     return getattr(chosen, "url", None)
 
 
+async def _with_budget(coro, plugin_name: str, stage: str, diag: Diagnostics):
+    """Süre bütçesini aşan sağlayıcıyı atlar; zincir tek ölü siteye takılmaz."""
+    try:
+        return await asyncio.wait_for(coro, timeout=ALTERNATIVE_TIMEOUT)
+    except asyncio.TimeoutError:
+        diag.add("warn", stage, f"{plugin_name} · {ALTERNATIVE_TIMEOUT}sn bütçesi aşıldı — atlandı")
+        return None
+
+
 @api_v1_router.get("/resolve_sources")
 async def resolve_sources(request: Request):
     istek        = request.state.veri or {}
@@ -159,15 +173,32 @@ async def resolve_sources(request: Request):
         if not query:
             diag.add("warn", "arama", "başlık boş — alternatif sağlayıcılar taranamadı")
         else:
-            candidates = [name for name in ALTERNATIVE_ORDER if name in plugin_names and name != selected]
+            # Sağlıksız kaynak taranmaz: aggregate_new'de zaten uygulanan süzme burada
+            # yoktu, ölü site (RecTV ConnectError) her çözümlemede tur harcıyordu.
+            # Sağlık bilinmiyorsa hepsi denenir — kart kaybetme.
+            try:
+                health = await run_plugin_health()
+                dead   = {p["plugin"] for p in health.get("plugins", []) if not p.get("ok")}
+            except Exception as hata:
+                dead = set()
+                diag.add("warn", "sağlık", f"sağlık raporu okunamadı ({type(hata).__name__}) — tümü denenecek")
+            if dead:
+                diag.add("info", "sağlık", f"atlanan sağlıksız kaynak: {', '.join(sorted(dead))}")
+
+            candidates = [
+                name for name in ALTERNATIVE_ORDER
+                if name in plugin_names and name != selected and name not in dead
+            ]
             matches    = await asyncio.gather(
-                *(_search_match(name, query, diag) for name in candidates),
+                *(_with_budget(_search_match(name, query, diag), name, "arama", diag) for name in candidates),
                 return_exceptions=True,
             )
             for name, match in zip(candidates, matches):
                 if isinstance(match, Exception) or not match:
                     continue
-                found, found_episodes = await _links_for(name, quote_plus(match), episode, diag)
+                found, found_episodes = await _with_budget(
+                    _links_for(name, quote_plus(match), episode, diag), name, "link", diag,
+                ) or ([], [])
                 sources.extend(found)
                 if not episodes and found_episodes:
                     episodes = found_episodes

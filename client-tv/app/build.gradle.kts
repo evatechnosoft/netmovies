@@ -1,3 +1,8 @@
+// TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
+// biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
+// sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
+val appVersion = "0.1.50"
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,8 +18,10 @@ android {
         applicationId = "com.evaitec.netmovies.tv"
         minSdk        = 26        // Android TV / Mi Box
         targetSdk     = 34
-        versionCode   = 48
-        versionName   = "0.1.49"
+        // major*10000 + minor*100 + patch → sürüm adıyla birlikte monoton artar.
+        versionCode   = appVersion.split(".").map(String::toInt)
+            .let { (major, minor, patch) -> major * 10_000 + minor * 100 + patch }
+        versionName   = appVersion
 
         // Stream taban URL — gradle.properties'ten okunur, yoksa public tunnel kullanılır.
         val baseUrl = (project.findProperty("NETMOVIES_BASE_URL") as String?)
@@ -28,8 +35,8 @@ android {
             ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
-        // bundan farklıysa "güncelleme mevcut" gösterilir. Yeni release'te BUNU güncelle.
-        buildConfigField("String", "RELEASE_TAG", "\"v0.1.49-poc\"")
+        // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.
+        buildConfigField("String", "RELEASE_TAG", "\"v$appVersion-poc\"")
     }
 
     buildFeatures {

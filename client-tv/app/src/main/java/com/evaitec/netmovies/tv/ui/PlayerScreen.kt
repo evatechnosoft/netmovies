@@ -129,6 +129,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // kalan sağlayıcılar arka planda taranır (bkz. SourceResolver).
     var links by remember { mutableStateOf<List<StreamLink>>(emptyList()) }
     var currentLinkIndex by remember { mutableIntStateOf(0) }
+    // Kaynak geçişinde konum taşıyıcısı: yeni kaynak `prepare()` ile 0'dan başlar ve
+    // devam-etme yalnız ilk hazır oluşta uygulanır (resumeApplied) — bu ikisi
+    // birleşince 40. dakikada kaynak düşünce film BAŞA dönüyordu. Geçişten önce
+    // konum buraya yazılır, yeni kaynak hazırlanırken geri verilir.
+    var carryOverMs by remember(item.url) { mutableLongStateOf(0L) }
     // Ekranda gösterilen durum satırı — hata kutusu yerine. Kullanıcı ekranda
     // bekler, çıkmak isterse GERİ tuşuna kendi basar.
     var status by remember { mutableStateOf<String?>(null) }
@@ -262,6 +267,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     "${failed?.let { languageLabel(it) } ?: "kaynak"} açılmadı · ${e.errorCodeName}: ${e.message ?: "-"}",
                 )
                 if (links.size > currentLinkIndex + 1) {
+                    // Kaldığın yer korunur: yeni kaynak aynı dakikadan devam eder.
+                    carryOverMs = exo.currentPosition.coerceAtLeast(0L)
                     currentLinkIndex++
                     val next = links[currentLinkIndex]
                     status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size}) · ${languageLabel(next)}"
@@ -410,6 +417,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             val source = if (subSources.isEmpty()) hls else MergingMediaSource(hls, *subSources.toTypedArray())
             exo.setMediaSource(source)
             exo.prepare()
+            if (carryOverMs > 0) {
+                exo.seekTo(carryOverMs)
+                position = carryOverMs
+                carryOverMs = 0L
+            }
             exo.playWhenReady = true
             exo.setPlaybackSpeed(speed)
 

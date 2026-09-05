@@ -1,0 +1,42 @@
+# Kapı: her push/PR'da kırılmayı YAYIN ÖNCESİ yakala.
+# Evdeki `scripts/smoke.sh` canlı yığını doğrular (kaynak siteleri gerektirir, CI'da
+# çalışmaz); buradaki kapı ağ gerektirmeyen kısmı doğrular — TV istemcisi derlenir +
+# test edilir, gateway sözleşme testleri imaj içinde koşar.
+name: gate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  client-tv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test + derle
+        working-directory: client-tv
+        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
+
+  stream:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gateway sözleşme testleri
+        run: |
+          docker build -t netmovies-stream:ci ./stream
+          docker run --rm -w /usr/src/Stream netmovies-stream:ci \
+            python -m unittest discover -s tests -v
+
+  engine-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine imajı derlensin (import grafiği kırık değil)
+        run: docker build -t netmovies-engine:ci ./engine
