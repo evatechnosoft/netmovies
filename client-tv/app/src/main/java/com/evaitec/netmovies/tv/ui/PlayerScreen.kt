@@ -134,6 +134,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // birleşince 40. dakikada kaynak düşünce film BAŞA dönüyordu. Geçişten önce
     // konum buraya yazılır, yeni kaynak hazırlanırken geri verilir.
     var carryOverMs by remember(item.url) { mutableLongStateOf(0L) }
+    // Kuyruk tükendiğinde otomatik tazeleme sayacı. Anahtarsız `remember`: hata
+    // dinleyicisi (DisposableEffect(exo)) aynı nesneye yazsın; içerik/bölüm değişiminde
+    // aşağıdaki ayrı efekt sıfırlar.
+    var autoRefresh by remember { mutableIntStateOf(0) }
     // Ekranda gösterilen durum satırı — hata kutusu yerine. Kullanıcı ekranda
     // bekler, çıkmak isterse GERİ tuşuna kendi basar.
     var status by remember { mutableStateOf<String?>(null) }
@@ -274,6 +278,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size}) · ${languageLabel(next)}"
                 } else if (searching) {
                     status = "Kaynak açılmadı, başka sağlayıcı aranıyor…"
+                } else if (autoRefresh < MAX_AUTO_REFRESH) {
+                    // Proxy jetonu bayatlayınca kuyruktaki TÜM linkler aynı anda ölür —
+                    // hepsi aynı jetonla üretilmiştir, sıradakini denemek de çare değil.
+                    // "Bulunamadı" ekranında durmak yerine bağlantıyı tazele: konum
+                    // korunur, kaynaklar sıfırdan çözümlenir (taze jeton gelir).
+                    carryOverMs = exo.currentPosition.coerceAtLeast(0L)
+                    autoRefresh++
+                    status = "Bağlantı tazeleniyor…"
+                    PlaybackLog.warn("kuyruk", "kaynak kalmadı · otomatik tazeleme $autoRefresh/$MAX_AUTO_REFRESH")
+                    retryKey++
                 } else {
                     status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
                 }
@@ -300,6 +314,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
     // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
     LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
+
+    // Tazeleme hakkı yalnız içerik/bölüm değişince yenilenir. retryKey'i anahtara
+    // KOYMA: tazeleme sayacı kendi tetiklediği efektte sıfırlanırsa döngü kapanmaz.
+    LaunchedEffect(item.url, currentEpIndex) { autoRefresh = 0 }
 
     // Kaynak kuyruğu — zincir SUNUCUDA (/api/v1/resolve_sources).
     // İstemci yalnız iki çağrı yapar: önce fast (seçili sağlayıcı, hemen oynasın),
@@ -806,6 +824,11 @@ private fun TextPill(label: String, onTap: () -> Unit) {
         Text(label, color = NmColor.OnSurface, fontSize = NmType.Caption, fontWeight = FontWeight.Medium)
     }
 }
+
+// Kuyruk tükendiğinde kaç kez otomatik yeniden çözümleme yapılır. Ölü kaynakta
+// sonsuz döngüye girmemek için sınırlı.
+private const val MAX_AUTO_REFRESH = 2
+
 
 // Scrub/önizleme overlay'i: küçük preview oynatıcı karesi (thumbnail) imleç konumunda +
 // ilerleme çubuğu. Süre imlecin altında.

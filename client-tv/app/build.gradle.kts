@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.1.50"
+val appVersion = "0.1.51"
 
 plugins {
     id("com.android.application")
