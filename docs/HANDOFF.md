@@ -7,36 +7,35 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 5 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `8d1f512` (master ESKİDİR) · çalışma ağacı temiz, push'lı
-**TV sürümü:** `v0.1.50-poc` — GitHub Release'te en üstte (APK 19.986.558 bayt)
-**Cihaz doğrulaması bekliyor** — §3.1 Dean'in televizyonunda koşulmadı.
-**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı (Dean: "tünel boşver, local çalışsın")
+**Son güncelleme:** 6 Eylül 2026
+**Dal:** `fix/general-stability` @ `a3e3732` (master ESKİDİR) · temiz, push'lı
+**TV sürümü:** `v0.1.52-poc` — GitHub Release'te en üstte (APK 20.002.942 bayt)
+**Cihaz doğrulaması bekliyor** — §3.1.
+**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı
 
 ## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-git log --oneline -3                              # en üstte 8d1f512 olmalı
-docker compose up -d --build                      # yığın kapalıysa (WARP varsayılan açık)
+docker compose up -d --build                      # yığın kapalıysa
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
-cd client-tv && ./gradlew testDebugUnitTest       # beklenen: 18 test, 0 fail
-gh run list --limit 1                             # CI kapısı (gate) yeşil mi
+python -m unittest discover -s engine/tests       # 4 test
+cd client-tv && ./gradlew testDebugUnitTest       # 0 fail
+gh run list --limit 1                             # CI kapısı
 ```
-PC yeni açıldıysa yığın kendiliğinden kalkar (`scripts/netmovies-autostart.cmd`, Startup'ta
-kısayolu var). Kalkmadıysa Docker Desktop'ı bekle — motor hazır olmadan compose sessizce takılır.
 `docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec ...`
+Stream 10 dk `aggregate_new` cache'ler: engine'i rebuild edince `docker restart
+netmovies-stream` yapmadan smoke ESKİ sayıları gösterir (recreate DEĞİL — tünel kopar).
 
-## 2. Sistem şu an ne durumda (5 Eylül'de kanıtlandı)
+## 2. Sistem şu an ne durumda (6 Eylül'de kanıtlandı)
 | Alan | Durum | Kanıt |
 |---|---|---|
 | Yığın | doh/engine/stream/warp ayakta, engine+stream healthy | `docker compose ps` |
-| Erişim | yerel 200 · LAN `192.168.1.185:3310` 200 | `curl /api/v1/health` |
-| Katalog | movie 38 · serie 78 · yerli 25 · yabancı 10 · canlı 173 | `smoke.sh` |
-| Eklenti sağlığı | 6/8 sağlıklı — **HQPorner + RecTV `unreachable`** | `/api/v1/plugin_health` |
-| Oynatma zinciri | full mod **11sn**, ölü kaynak atlanıyor | `resolve_sources` teşhisi |
-| Testler | stream (test_watch_key dahil) geçti · client-tv **18/18** | `unittest` + `gradlew` |
-| CI kapısı | run `33955264088` üç iş de `success` | `gh run list` |
-| İzleme kayıtları | 7 satır, mükerrer yok | canlı DB sorgusu |
+| Katalog | **movie 124 · serie 210** · yerli 25 · yabancı 10 · canlı 172 | `smoke.sh` |
+| Eklenti | **10 yüklü** — 9 sağlıklı, RecTV `unreachable` | `/api/v1/plugin_health` |
+| Özel Koleksiyon | HQPorner 46 içerik · PornHub 46 + 4 kalite · xHamster liste + 3 kalite | `get_main_page` + `load_links` |
+| Sızıntı | movie/serie/yerli/yabancı akışlarında yetişkin kaynak YOK | sağlayıcı sayımı |
+| Testler | engine 4/4 · stream geçti · client-tv 0 fail + assembleDebug | `unittest` + `gradlew` |
+| CI kapısı | run `34032681477` üç iş de `success` | `gh run view` |
 
 ## 3. SIRADAKİ İŞ
 1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.50 düşünce:
