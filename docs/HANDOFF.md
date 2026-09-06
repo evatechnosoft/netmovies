@@ -7,49 +7,55 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 6 Eylül 2026
-**Dal:** `fix/general-stability` @ `a3e3732` (master ESKİDİR) · temiz, push'lı
-**TV sürümü:** `v0.1.52-poc` — GitHub Release'te en üstte (APK 20.002.942 bayt)
-**Cihaz doğrulaması bekliyor** — §3.1.
+**Son güncelleme:** 6 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `ce64b67` (master ESKİDİR) · temiz, push'lı
+**TV sürümü:** `v0.1.53-poc` — GitHub Release'te en üstte (APK 20.338.318 bayt)
+**Cihaz doğrulaması bekliyor** — bu turun HİÇBİR düzeltmesi TV'de görülmedi.
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı
 
 ## 1. Doğrula (tahmin etme)
 ```bash
 git fetch && git checkout fix/general-stability && git pull
-docker compose up -d --build                      # yığın kapalıysa
+docker compose up -d --build                      # PC yeni açıldıysa autostart kaldırır
 bash scripts/smoke.sh                             # kapı: yeşil olmalı
 python -m unittest discover -s engine/tests       # 4 test
 cd client-tv && ./gradlew testDebugUnitTest       # 0 fail
 gh run list --limit 1                             # CI kapısı
 ```
 `docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec ...`
-Stream 10 dk `aggregate_new` cache'ler: engine'i rebuild edince `docker restart
-netmovies-stream` yapmadan smoke ESKİ sayıları gösterir (recreate DEĞİL — tünel kopar).
+**Stream 10 dk `aggregate_new` cache'ler:** engine'i rebuild edince
+`docker restart netmovies-stream` yapmadan smoke ESKİ sayıları gösterir
+(recreate DEĞİL — tünel kopar). Restart TMDB puan cache'ini de siler; puanlar
+ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
 
-## 2. Sistem şu an ne durumda (6 Eylül'de kanıtlandı)
+## 2. Sistem şu an ne durumda (6 Eylül akşam kanıtlandı)
 | Alan | Durum | Kanıt |
 |---|---|---|
 | Yığın | doh/engine/stream/warp ayakta, engine+stream healthy | `docker compose ps` |
-| Katalog | **movie 124 · serie 210** · yerli 25 · yabancı 10 · canlı 172 | `smoke.sh` |
+| Katalog | movie 124 · serie 210 · yerli 25 · yabancı 10 · canlı 142 | `smoke.sh` |
 | Eklenti | **10 yüklü** — 9 sağlıklı, RecTV `unreachable` | `/api/v1/plugin_health` |
-| Özel Koleksiyon | HQPorner 46 içerik · PornHub 46 + 4 kalite · xHamster liste + 3 kalite | `get_main_page` + `load_links` |
-| Sızıntı | movie/serie/yerli/yabancı akışlarında yetişkin kaynak YOK | sağlayıcı sayımı |
+| Özel Koleksiyon | HQPorner 46 · PornHub 46 + 4 kalite · xHamster + 3 kalite | `get_main_page` + `load_links` |
+| Canlı kanal | 172 → **144** (28 ölü sunucu elendi) | `∅ canlı:` log satırı |
+| TMDB puanı | ilk çağrı 0/124 → doldurma sonrası **102/124** | `aggregate_new` yanıtı |
+| Admin filtresi | kaynak gizleyince movie 147 → 23, geri alınca 147 | uçtan uca test |
 | Testler | engine 4/4 · stream geçti · client-tv 0 fail + assembleDebug | `unittest` + `gradlew` |
-| CI kapısı | run `34032681477` üç iş de `success` | `gh run view` |
 
 ## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.50 düşünce:
-   film ortasında kaynak düşerse **aynı dakikadan** devam ediyor mu · Devam Et rafında
-   **tek poster** mı · devam etme baştan başlatıyor mu · güncelleme kurulum ekranı geliyor mu.
-   **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
-2. **İçerik detay ekranı.** Web'de `content.html.j2` (özet, tür, benzerler) var; TV'de poster
-   → doğrudan oynatma. TMDB anahtarı `.env`'de (`TMDB_API_KEY`), `Routers/following.py` deseni.
-3. **Resmi kaynaklar bölümü.** `stream/Public/Home/Libs/official_sources.py` + `/resmi-kaynak`
-   TV'de yok.
-4. **Faz 3/5** — `docs/NETMOVIES-IMPROVEMENT-PLAN-2026-09-02.md`: oynatıcı dayanıklılığı
-   (timeout/backoff/circuit-breaker, Media3 güncelleme).
-5. **Ölü eklentiler.** RecTV domain ailesi NXDOMAIN; HQPorner erişilemiyor. Ya domain
-   sabitle (`.env` override) ya listeden düşür — her çözümlemede artık atlanıyor, acil değil.
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.53'te bakılacaklar:
+   posterlerde ★ puan görünüyor mu · ana sayfada EN ALT rafa (Gerilim vb.) D-pad
+   ile inilebiliyor mu · dizi açılınca bölüm seçimi geliyor mu · Ayarlar →
+   Yönetim açılıyor ve kaynak kapatınca listeden düşüyor mu · canlı TV kanalları
+   açılıyor mu. **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
+2. **"Liste altını göstermiyor" netleşmedi.** Poster başlığı kartın İÇİNDE alt
+   şeritte yazıyor; kartın altında ayrı satır yok. Dean'in poster altına
+   başlık+puan satırı mı istediği sorulmalı.
+3. **Puan yalnız ana sayfada.** Gözat (`get_main_page`) ve arama sonuçları puansız —
+   zenginleştirme sadece `stream/Public/API/v1/Routers/aggregate_new.py`'de.
+4. **İçerik detay ekranı.** TV'de poster → doğrudan oynatma; özet/oyuncu/benzerler yok.
+   Web'de `content.html.j2` var. TMDB anahtarı `.env`'de.
+5. **Ölü eklenti:** RecTV domain ailesi NXDOMAIN — ya `.env` override ya listeden düş.
+6. **Atlanan yetişkin kaynaklar:** FullPorner (embed adresi JS template literal ile
+   üretiliyor, JS motoru gerekir) · SpankBang (WARP'tan 403) · OxAx, UncutMaza (denenmedi).
 
 ## 4. Yapma / tekrar deneme
 - **Tünel mimarisine dokunma.** `cloudflared` `network_mode: service:stream` — stream
@@ -61,6 +67,34 @@ netmovies-stream` yapmadan smoke ESKİ sayıları gösterir (recreate DEĞİL �
 - **Sanal fare geri gelmesin** (`2312937`) · **Vault PIN yapılmadı** (Dean "boşver" dedi).
 
 ## 5. Bu projede bir daha düşme (sert dersler)
+- **WARP adresi env'den gelir, IP sabitlenmez.** HQPorner `WARP_PROXY_URL` +
+  `172.31.0.4` arıyordu; compose `WARP_PROXY` veriyor, gerçek IP `.2`. İstekler
+  sessizce tünelsiz gidip ISP engeline takılıyordu — kaynak ölü değildi, yolu yanlıştı.
+  Ortak yer: `engine/Plugins/__warp_client.py`.
+- **Sağlık kontrolü eklentinin gittiği yoldan gitmeli.** WARP'lı eklentiyi WARP'sız
+  yoklamak onu "unreachable" damgalayıp katalogdan düşürüyordu.
+- **httpx bazı sitelerde TLS parmak izinden 403 alır** (PornHub video sayfası curl'de
+  200). Kazımak yerine yt-dlp: `--ignore-no-formats-error` şart, yoksa xHamster'ın
+  "Untested" formatları format seçimini düşürüp TÜM çıktıyı iptal ediyor.
+- **Eklenti içi `from .x import` çalışmaz** — PluginLoader dosyayı paketsiz yükler:
+  `from Plugins.x import ...`.
+- **Bir eklentiden TEK kategori almak katalogu kurutur.** `_pick_categories` eşleşen
+  tüm kategorileri alır; jenerik tür rafları (Aksiyon, Komedi) eklentinin baskın
+  tipine yazılır — "Aksiyon" HDFilmCehennemi'nde film, DiziYou'da dizidir.
+- **M3U grup adını Türkçeleştirmek yeni sızıntı açtı:** "Film" grubu movie ipucuna
+  takılıp canlı kanalları film listesine soktu. Canlı kaynaklar `aggregate_new`'de
+  tip listesinden çıkarılır; live ayrı yoldan (`collect_live_channels`) gelir.
+- **Admin ayarları tek yerde uygulanmıyordu:** `filter_aggregate_items` sadece web
+  ana sayfasında çağrılıyordu, native istemciler ham liste alıyordu. Yeni bir
+  istemci ucu eklerken süzmeyi de bağla.
+- **Compose'da raf başlığı ile şerit AYRI LazyColumn öğesi olmamalı** — odak henüz
+  oluşturulmamış alttaki rafa geçemeyip liste ortada takılıyor.
+- **500+ öğelik `sections` remember'sız kurulursa** her recomposition'da yeniden
+  hesaplanır; aşağı inmek takılır.
+- **TMDB puanı istek anında çekilmez.** 300+ başlık = dakikalarca bekleme. Liste
+  cache'ten basar, eksikler arka planda dolar. TMDB oy almamışa 0 döner — 0 basma.
+- **iptv-org listesi bayatlar.** Ölü yayın sunucuları HOST başına elenir
+  (`quick_channels`), kanal başına değil: tek domain onlarca kanal taşıyor.
 - **Kaynak geçişi konumu sıfırlar.** Yeni `prepare()` 0'dan başlar; devam-etme
   `resumeApplied` ile tek seferlik uygulandığı için ikinci kaynakta seek HİÇ olmuyordu →
   film başa dönüyordu. Konum geçişte elle taşınmalı (`carryOverMs`).
