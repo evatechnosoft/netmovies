@@ -19,6 +19,10 @@ _TMDB_SEARCH = "https://api.themoviedb.org/3/search/multi"
 _cache: dict[str, str | None] = {}
 _CACHE_MAX = 5000
 
+# Aynı aramanın puanı da aynı yanıtta geliyor; ikinci bir istek gereksiz.
+# temiz-başlık(lower) -> vote_average | None
+_rating_cache: dict[str, float | None] = {}
+
 _client = httpx.AsyncClient(
     timeout = httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=5.0),
     limits  = httpx.Limits(max_connections=20, max_keepalive_connections=10),
@@ -49,6 +53,7 @@ async def _resolve_poster(clean_title: str) -> str | None:
         return _cache[key]
 
     poster_path: str | None = None
+    rating: float | None = None
     try:
         resp = await _client.get(_TMDB_SEARCH, params={
             "api_key"       : TMDB_API_KEY,
@@ -58,15 +63,44 @@ async def _resolve_poster(clean_title: str) -> str | None:
         })
         if resp.status_code == 200:
             for r in (resp.json().get("results") or []):
-                if r.get("media_type") in ("movie", "tv") and r.get("poster_path"):
+                if r.get("media_type") not in ("movie", "tv"):
+                    continue
+                if poster_path is None and r.get("poster_path"):
                     poster_path = r["poster_path"]
+                if rating is None:
+                    puan = r.get("vote_average")
+                    # TMDB oy almamış içeriğe 0 yazıyor; 0 puan göstermek yanlış olur.
+                    rating = round(float(puan), 1) if puan else None
+                if poster_path is not None:
                     break
     except Exception:
         poster_path = None
 
     if len(_cache) < _CACHE_MAX:
         _cache[key] = poster_path
+        _rating_cache[key] = rating
     return poster_path
+
+
+async def rating_for(title: str, fetch: bool = False) -> float | None:
+    """Başlığın TMDB puanı. `fetch=False` ise YALNIZ cache'e bakar.
+
+    Ana sayfa 300+ başlık taşıyor: hepsini istek anında aramak listeyi dakikalarca
+    bekletirdi. Liste cache'ten anında döner, eksik puanlar arka planda doldurulur
+    ve sonraki yenilemede görünür.
+    """
+    if not TMDB_API_KEY:
+        return None
+    clean = _clean_title(title)
+    if not clean:
+        return None
+    key = clean.lower()
+    if key in _rating_cache:
+        return _rating_cache[key]
+    if not fetch:
+        return None
+    await _resolve_poster(clean)
+    return _rating_cache.get(key)
 
 
 @home_router.get("/tmdb-poster")

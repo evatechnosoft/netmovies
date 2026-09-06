@@ -175,6 +175,11 @@ async def aggregate_new(request: Request):
 
     names = plugin_manager.get_plugin_names()
 
+    # Canlı kaynaklar (M3U) yalnız `live` tipine aittir ve o tip yukarıda ayrı
+    # yoldan dönüyor. Grup adları Türkçeleşince "Film"/"Dizi" grupları film ve dizi
+    # ipuçlarına takılıp canlı kanalları film listesine sokuyordu.
+    names = [n for n in names if getattr(plugin_manager.select_plugin(n), "main_url", "") != "m3u://local"]
+
     # Ölü domainli kaynakları atla: aksi halde her biri timeout'a kadar (6s)
     # bekletir ve ana sayfayı yavaşlatır. Sağlık bilinmiyorsa hepsini dene.
     try:

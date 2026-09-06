@@ -24,6 +24,8 @@ data class MediaItem(
     val url: String = "",          // quote_plus ile kodlanmış içerik URL'i (encoded_url olarak geri gönderilir)
     val poster: String? = null,
     val category: String? = null,
+    // TMDB puanı; sunucu cache'inde varsa gelir, yoksa null (yıldız çizilmez).
+    val rating: Double? = null,
 )
 
 // /api/v1/load_links yanıtı:

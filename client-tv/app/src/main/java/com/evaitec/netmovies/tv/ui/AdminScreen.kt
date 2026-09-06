@@ -1,188 +1,176 @@
 package com.evaitec.netmovies.tv.ui
 
-import android.content.Context
-import android.webkit.HttpAuthHandler
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import com.evaitec.netmovies.tv.data.ServerResolver
+import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
-// Yönetim paneli (/admin) TV'de. Panel web için yazıldı; burada WebView içinde açılır —
-// gizli kaynak/kategori, öne çıkanlar, puan eşiği gibi ayarlar PC açmadan değiştirilebilsin.
+// Yönetim paneli TV'de — kaynak gizleme ve puan eşiği kumandayla.
 //
-// Parola: sunucudaki ADMIN_PASS (.env). Kodda TUTULMAZ; kumandayla bir kez girilir ve
-// cihazda saklanır. Yanlışsa sunucu 401 döner, ekran parola sorusuna geri düşer.
+// Eskiden web panelini (/admin) WebView içinde açıyordu: panel fare için yazılmış,
+// D-pad ile gezilemiyordu ve WebView bileşeni her Android TV'de aynı davranmıyor.
+// Ayarlar sunucuda `/api/admin/config` ile duruyor; ekran onu doğrudan okur/yazar.
+// Web panelindeki geri kalan işler (öne çıkanlar, harici depolar) tarayıcıda kalır.
 
-private const val PREFS = "netmovies_admin"
-private const val KEY_PASS = "admin_pass"
+private val RATING_STEPS = listOf(0.0, 5.0, 6.0, 7.0, 8.0)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
-    var pass by remember { mutableStateOf(prefs.getString(KEY_PASS, "").orEmpty()) }
-    var authFailed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    var config by remember { mutableStateOf<JsonObject?>(null) }
+    var plugins by remember { mutableStateOf<List<String>>(emptyList()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
 
     BackHandler { onBack() }
 
-    if (pass.isBlank() || authFailed) {
-        PassEntry(
-            error = if (authFailed) "Parola kabul edilmedi — .env içindeki ADMIN_PASS" else null,
-            onSubmit = { entered ->
-                prefs.edit().putString(KEY_PASS, entered).apply()
-                pass = entered
-                authFailed = false
-            },
-            onCancel = onBack,
-        )
+    LaunchedEffect(Unit) {
+        runCatching {
+            plugins = Network.api.getAllPlugins().result.map { it.name }
+            config  = Network.api.adminConfig()
+        }.onFailure { error = it.message ?: "Ayarlar okunamadı" }
+    }
+
+    // Tam config geri yazılır; yalnız tek alan değiştirilir.
+    fun kaydet(alan: String, deger: kotlinx.serialization.json.JsonElement) {
+        val mevcut = config ?: return
+        saving = true
+        scope.launch {
+            runCatching { Network.api.saveAdminConfig(JsonObject(mevcut + (alan to deger))) }
+                .onSuccess { config = it; error = null }
+                .onFailure { error = it.message ?: "Kaydedilemedi" }
+            saving = false
+        }
+    }
+
+    val cfg = config
+    if (cfg == null) {
+        Box(
+            Modifier.fillMaxSize().background(NmColor.Background),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(error ?: "Ayarlar yükleniyor…", fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
+        }
         return
     }
 
-    val base = ServerResolver.activeBaseString()
-    AndroidView(
-        modifier = Modifier.fillMaxSize().background(NmColor.Background),
-        factory = { ctx ->
-            WebView(ctx).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                // Panel masaüstü genişliğine göre yazılmış; TV ekranına sığdır.
-                settings.useWideViewPort = true
-                settings.loadWithOverviewMode = true
-                isFocusableInTouchMode = true
-                webViewClient = object : WebViewClient() {
-                    override fun onReceivedHttpAuthRequest(
-                        view: WebView?,
-                        handler: HttpAuthHandler?,
-                        host: String?,
-                        realm: String?,
-                    ) {
-                        // Kullanıcı adı önemsiz, sunucu yalnız parolayı doğruluyor.
-                        handler?.proceed("admin", pass)
-                    }
+    val gizli = remember(cfg) {
+        (cfg["hidden_providers"] as? JsonArray).orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }.toSet()
+    }
+    val esik = remember(cfg) { cfg["min_rating"]?.jsonPrimitive?.doubleOrNull ?: 0.0 }
 
-                    override fun onReceivedHttpError(
-                        view: WebView?,
-                        request: WebResourceRequest?,
-                        errorResponse: WebResourceResponse?,
-                    ) {
-                        // Ana belge 401 ise parola yanlış; alt kaynak hataları yoksayılır.
-                        if (request?.isForMainFrame == true && errorResponse?.statusCode == 401) {
-                            authFailed = true
-                        }
-                    }
-                }
-                loadUrl("$base/admin")
-                requestFocus()
-            }
-        },
-    )
-}
-
-// Kumandayla parola girişi: rakam ızgarası. TV'de yazılım klavyesi her cihazda
-// açılmıyor, bu yüzden kendi girişimiz var (ADMIN_PASS sayısal tutulmalı).
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun PassEntry(error: String?, onSubmit: (String) -> Unit, onCancel: () -> Unit) {
-    var value by remember { mutableStateOf("") }
-    val firstKey = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { firstKey.requestFocus() } }
-
-    Box(Modifier.fillMaxSize().background(NmColor.Background), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.focusGroup(),
-        ) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(NmColor.Background).focusGroup(),
+        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
+        verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+    ) {
+        item {
             Text(
-                text = "Yönetim paneli parolası",
-                fontWeight = FontWeight.Bold,
+                text = if (saving) "⚙ Yönetim · kaydediliyor…" else "⚙ Yönetim",
                 fontSize = NmType.ScreenTitle,
+                fontWeight = FontWeight.Bold,
                 color = NmColor.Primary,
             )
-            Text(
-                text = if (value.isEmpty()) "— — — —" else "•".repeat(value.length),
-                fontSize = NmType.ScreenTitle,
-                color = NmColor.OnSurface,
-            )
-            error?.let { Text(it, fontSize = NmType.Caption, color = NmColor.Star) }
-
-            listOf("123", "456", "789").forEachIndexed { rowIndex, row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEachIndexed { i, ch ->
-                        KeyCap(
-                            label = ch.toString(),
-                            modifier = if (rowIndex == 0 && i == 0) Modifier.focusRequester(firstKey)
-                            else Modifier,
-                        ) { value += ch }
-                    }
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KeyCap("⌫") { value = value.dropLast(1) }
-                KeyCap("0") { value += "0" }
-                KeyCap("✓") { if (value.isNotBlank()) onSubmit(value) }
-            }
-            TouchButton("Vazgeç", onCancel)
         }
+        error?.let { mesaj -> item { Text(mesaj, fontSize = NmType.Caption, color = NmColor.Star) } }
+
+        item { AdminSectionTitle("Kaynaklar — kapalı olan hiçbir listede görünmez") }
+        items(plugins, key = { it }) { ad ->
+            val kapali = ad in gizli
+            AdminRow(if (kapali) "✕  $ad" else "✓  $ad", selected = !kapali) {
+                val yeni = if (kapali) gizli - ad else gizli + ad
+                kaydet("hidden_providers", JsonArray(yeni.map { JsonPrimitive(it) }))
+            }
+        }
+
+        item { AdminSectionTitle("Puan eşiği — altında kalan içerik gizlenir (puansız içerik kalır)") }
+        items(RATING_STEPS, key = { it }) { adim ->
+            AdminRow(
+                label = if (adim == 0.0) "Eşik yok" else "${adim.toInt()} ve üzeri",
+                selected = adim == esik,
+            ) { kaydet("min_rating", JsonPrimitive(adim)) }
+        }
+
+        item { AdminSectionTitle("Diğer ayarlar (öne çıkanlar, harici depolar) web panelinde: /admin") }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun KeyCap(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun AdminSectionTitle(text: String) {
+    Text(
+        text = text,
+        fontSize = NmType.Caption,
+        color = NmColor.OnSurfaceMuted,
+        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+    )
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun AdminRow(label: String, selected: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
-        modifier = modifier
-            .size(54.dp)
+        modifier = Modifier
+            .fillMaxWidth()
             .clip(shape)
-            .background(if (focused) NmColor.Primary else NmColor.SurfaceHigh)
+            .background(
+                when {
+                    focused  -> NmColor.Primary
+                    selected -> NmColor.PrimarySelected
+                    else     -> NmColor.Surface
+                }
+            )
             .nmFocusRing(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center,
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
         Text(
             text = label,
             fontSize = NmType.Body,
-            fontWeight = FontWeight.Bold,
             color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+            fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Normal,
         )
     }
 }

@@ -248,35 +248,38 @@ private fun CategoryRows(
             item { TopBar(onOpenBrowse) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
-                item(key = "baslik-$title") {
-                    Text(
-                        text = title,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = NmType.RowTitle,
-                        color = NmColor.OnSurfaceMuted,
-                        modifier = Modifier.padding(start = NmDim.SafeH),
-                    )
-                }
+                // Başlık ve raf TEK öğe: ayrı öğelerken odak, henüz oluşturulmamış
+                // alt raflara geçemiyor ve liste ortada takılıyordu (Dean: "gerilim
+                // kalıyor ama oraya kadar inmiyor").
                 item(key = "raf-$title") {
-                    LazyRow(
-                        modifier = Modifier.focusGroup(),
-                        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
-                        horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
-                    ) {
-                        // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
-                        itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
-                            val cardModifier =
-                                if (sIndex == 0 && index == 0) Modifier.focusRequester(firstFocus)
-                                else Modifier
-                            PosterCard(
-                                item = item,
-                                isFavorite = library.isFavorite(item),
-                                progress = library.progress[item.url] ?: 0f,
-                                onClick = { onSelect(item) },
-                                onLongPress = { menuItem = item },
-                                modifier = cardModifier,
-                            )
-                        }
+                    Column {
+                        Text(
+                            text = title,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = NmType.RowTitle,
+                            color = NmColor.OnSurfaceMuted,
+                            modifier = Modifier.padding(start = NmDim.SafeH),
+                        )
+                        LazyRow(
+                            modifier = Modifier.focusGroup(),
+                            contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
+                            horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                        ) {
+                            // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
+                            itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
+                                val cardModifier =
+                                    if (sIndex == 0 && index == 0) Modifier.focusRequester(firstFocus)
+                                    else Modifier
+                                PosterCard(
+                                    item = item,
+                                    isFavorite = library.isFavorite(item),
+                                    progress = library.progress[item.url] ?: 0f,
+                                    onClick = { onSelect(item) },
+                                    onLongPress = { menuItem = item },
+                                    modifier = cardModifier,
+                                )
+                            }
+                    }
                     }
                 }
             }
@@ -395,6 +398,21 @@ private fun PosterCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp),
+            )
+        }
+        // TMDB puanı — sol üstte, okunsun diye kendi zemininde.
+        item.rating?.let { puan ->
+            Text(
+                text = "★ %.1f".format(puan),
+                color = NmColor.Star,
+                fontSize = NmType.Caption,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(NmDim.PillRadius))
+                    .background(NmColor.ScrimSoft)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
         Text(

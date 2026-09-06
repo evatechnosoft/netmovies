@@ -1,5 +1,7 @@
 package com.evaitec.netmovies.tv.data
 
+import kotlinx.serialization.json.JsonObject
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -142,6 +144,15 @@ interface NetMoviesApi {
         @Query("media_type") mediaType: String = "serie",
         @Query("content_url") contentUrl: String = "",
     ): OkResponse
+
+    // Yönetim paneli ayarları. Ham JsonObject: sunucu POST edilen gövdeyi olduğu gibi
+    // yazıyor, kısmi gövde göndermek featured/custom_repos gibi alanları silerdi.
+    // Tam config okunup yalnız ilgili alan değiştirilir.
+    @GET("api/admin/config")
+    suspend fun adminConfig(): JsonObject
+
+    @POST("api/admin/config")
+    suspend fun saveAdminConfig(@Body body: JsonObject): JsonObject
 
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
     @GET("api/v1/load_item")
