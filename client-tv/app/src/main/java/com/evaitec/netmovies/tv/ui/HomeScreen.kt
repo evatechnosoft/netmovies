@@ -140,6 +140,9 @@ fun HomeScreen(
     }
 }
 
+// Bir rafın ana sayfada görünmesi için gereken en az poster sayısı.
+private const val MIN_ROW_ITEMS = 4
+
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryRows(
@@ -155,14 +158,21 @@ private fun CategoryRows(
     onOpenChannels: () -> Unit,
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
+    // Tek-iki posterlik raflar elenir: M3U grup adları ("Business", "Animation;Kids")
+    // ekranı bir ton boş rafla dolduruyordu ve aşağı inmek işkenceydi.
     val groups = remember(items) {
         items.groupBy { it.category?.takeIf { c -> c.isNotBlank() } ?: "Yeni Çıkanlar" }
+            .filterValues { it.size >= MIN_ROW_ITEMS }
     }
     // Kitaplık satırları en üstte (İzlenenler + Favoriler), sonra agregasyon kategorileri.
-    val sections = buildList {
-        if (library.watched.isNotEmpty()) add("Devam Et" to library.watched.toList())
-        if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
-        groups.forEach { add(it.key to it.value) }
+    // remember ŞART: bu liste 500+ öğe taşıyor ve her recomposition'da yeniden
+    // kurulursa raflar arasında gezinmek takılıyor.
+    val sections = remember(groups, library.watched, library.favorites) {
+        buildList {
+            if (library.watched.isNotEmpty()) add("Devam Et" to library.watched.toList())
+            if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
+            groups.forEach { add(it.key to it.value) }
+        }
     }
 
     // Telefondan gelen "TV'de oynat" komutu. Ana ekran açıkken yoklanır; oynatıcı
@@ -238,7 +248,7 @@ private fun CategoryRows(
             item { TopBar(onOpenBrowse) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
-                item {
+                item(key = "baslik-$title") {
                     Text(
                         text = title,
                         fontWeight = FontWeight.Medium,
@@ -247,13 +257,14 @@ private fun CategoryRows(
                         modifier = Modifier.padding(start = NmDim.SafeH),
                     )
                 }
-                item {
+                item(key = "raf-$title") {
                     LazyRow(
                         modifier = Modifier.focusGroup(),
                         contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
                         horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                     ) {
-                        itemsIndexed(list) { index, item ->
+                        // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
+                        itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
                             val cardModifier =
                                 if (sIndex == 0 && index == 0) Modifier.focusRequester(firstFocus)
                                 else Modifier

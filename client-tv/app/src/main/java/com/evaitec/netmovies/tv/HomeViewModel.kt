@@ -34,13 +34,17 @@ class HomeViewModel : ViewModel() {
                 // Önce film (sunucuyu resolve eder + hızlı içerik), sonra diğer tipleri
                 // PARALEL çek → diziler + canlı TV de gelsin (tek "yeni filmler" satırı değil).
                 val movie = Network.api.aggregateNew(type = "movie").result?.items.orEmpty()
-                val others = coroutineScope {
-                    OTHER_TYPES
-                        .map { t -> async { fetchType(t) } }
-                        .awaitAll()
-                        .flatten()
+                // Canlı TV ana sayfada TEK raf: M3U grup adları 20 ayrı kategori
+                // üretiyor ve ekranı tek posterlik raflarla dolduruyordu. Kanalların
+                // tamamı Ayarlar → Canlı TV ekranında kategorileriyle duruyor.
+                // Canlı da diğerleriyle PARALEL çekilir; ardışık olsaydı ana sayfa
+                // bir istek boyu daha geç açılırdı.
+                val rest = coroutineScope {
+                    val others = OTHER_TYPES.map { t -> async { fetchType(t) } }
+                    val live   = async { fetchType("live").take(LIVE_ON_HOME).map { it.copy(category = "Canlı TV") } }
+                    others.awaitAll().flatten() + live.await()
                 }
-                val all = movie + others
+                val all = movie + rest
                 if (all.isEmpty()) HomeState.Error("İçerik yok") else HomeState.Ready(all)
             } catch (e: Exception) {
                 HomeState.Error(e.message ?: "Bilinmeyen hata")
@@ -54,7 +58,10 @@ class HomeViewModel : ViewModel() {
             .getOrDefault(emptyList())
 
     private companion object {
-        // Engine tipleri: dizi, Türk dizi, yabancı dizi, canlı TV.
-        val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign", "live")
+        // Engine tipleri: dizi, Türk dizi, yabancı dizi. Canlı TV ayrı çekilir.
+        val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign")
+
+        // Ana sayfadaki Canlı TV rafında kaç kanal gösterilir.
+        const val LIVE_ON_HOME = 20
     }
 }

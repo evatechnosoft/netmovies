@@ -96,6 +96,9 @@ import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import com.evaitec.netmovies.tv.ui.theme.nmPlayerScrim
 import kotlinx.coroutines.delay
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
 
 // Oynatma hızı seçenekleri (çark → Hız).
 private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -165,6 +168,18 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // kurulumundan ÖNCE tanımlı olmalı.
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
     var currentEpIndex by remember { mutableIntStateOf(0) }
+
+    // Dizi açılınca bölüm seçimi. Bölüm listesi ayar panelinin en altında,
+    // kaynak raporunun ardında gömülüydü: kullanıcı diziye girip bölüm
+    // seçemiyordu. Kaldığı yer varsa açılmaz — devam eden izleme kesilmesin.
+    var showEpisodePicker by remember(item.url) { mutableStateOf(false) }
+    var episodePickerOffered by remember(item.url) { mutableStateOf(false) }
+    LaunchedEffect(episodes) {
+        if (episodes.size > 1 && !episodePickerOffered) {
+            episodePickerOffered = true
+            if ((library.progress[item.url] ?: 0f) <= 0f) showEpisodePicker = true
+        }
+    }
 
     // Scrub / önizleme modu.
     var scrubMode by remember { mutableStateOf(false) }
@@ -246,6 +261,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     BackHandler(enabled = true) {
         when {
             scrubMode -> scrubMode = false
+            showEpisodePicker -> showEpisodePicker = false
             showSettings -> showSettings = false
             showControls -> showControls = false
             else -> onBack()
@@ -629,6 +645,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             )
         }
 
+        if (showEpisodePicker) {
+            EpisodePicker(
+                title = item.title.orEmpty(),
+                episodes = episodes,
+                currentEpIndex = currentEpIndex,
+                onSelect = { idx -> currentEpIndex = idx; showEpisodePicker = false },
+                onClose = { showEpisodePicker = false },
+            )
+        }
+
         if (showSettings) {
             SettingsPanel(
                 links = links,
@@ -961,6 +987,13 @@ private fun SettingsPanel(
                 SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
             }
 
+            if (episodes.isNotEmpty()) {
+                SectionTitle("📑 Bölümler (${episodes.size})")
+                episodes.forEachIndexed { idx, ep ->
+                    SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelectEpisode(idx) }
+                }
+            }
+
             SectionTitle("🧭 Gezinme")
             SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
 
@@ -970,15 +1003,6 @@ private fun SettingsPanel(
                 val report = PlaybackLog.snapshot()
                 if (report.isEmpty()) MutedRow("Kayıt yok")
                 report.take(40).forEach { entry -> MutedRow(entry.format()) }
-            }
-
-            if (episodes.isNotEmpty()) {
-                SectionTitle("📑 Bölümler (${episodes.size})")
-                episodes.forEachIndexed { idx, ep ->
-                    SettingRow(ep.title ?: "Bölüm ${idx + 1}", idx == currentEpIndex) {
-                        onSelectEpisode(idx)
-                    }
-                }
             }
 
             if (videoTrackCount > 0) {
@@ -1043,6 +1067,77 @@ private fun SettingsPanel(
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
+// Bölüm etiketi: kaynak başlığı bölüm numarasını taşımıyor ("Red Flags"), sezon/bölüm
+// bilgisi ayrı alanlarda geliyor. İkisi birleşmezse listede hangi bölüm olduğu okunmuyor.
+private fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: Int): String {
+    val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${index + 1}"
+    val ad     = ep.title?.takeIf { it.isNotBlank() }
+    return if (ad != null) "$numara · $ad" else numara
+}
+
+// Dizi açılınca çıkan bölüm seçimi. Ayrı bir istek yok: liste zaten
+// resolve_sources yanıtından geliyor.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun EpisodePicker(
+    title: String,
+    episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
+    currentEpIndex: Int,
+    onSelect: (Int) -> Unit,
+    onClose: () -> Unit,
+) {
+    val listFocus = remember { FocusRequester() }
+    // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
+    LaunchedEffect(Unit) {
+        repeat(6) {
+            withFrameNanos {}
+            if (runCatching { listFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NmColor.Scrim)
+            .focusGroup(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.9f)
+                .width(NmDim.PanelWidth * 1.6f)
+                .clip(RoundedCornerShape(NmDim.PanelRadius))
+                .background(NmColor.SurfaceDialog)
+                .padding(horizontal = 26.dp, vertical = NmDim.SafeV),
+            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+        ) {
+            Text(
+                text = title,
+                fontSize = NmType.ScreenTitle,
+                fontWeight = FontWeight.Bold,
+                color = NmColor.OnSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            SectionTitle("📑 Bölüm seç (${episodes.size})")
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+            ) {
+                itemsIndexed(episodes, key = { i, ep -> "${ep.url}#$i" }) { idx, ep ->
+                    val mod = if (idx == currentEpIndex) Modifier.focusRequester(listFocus) else Modifier
+                    Box(mod) {
+                        SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
+                    }
+                }
+            }
+
+            SettingRow("▶  Seçmeden oynat", false, onClose)
+        }
+    }
+}
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(

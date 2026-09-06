@@ -27,6 +27,27 @@ from KekikStream.Core import (
 _ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
 
 
+# M3U `group-title` ham geliyor: "Undefined", "Animation;Kids", "Business;Series"
+# gibi değerler ana sayfada tek posterlik çöp raflara dönüşüyordu. Çoklu grupta ilk
+# grup esas alınır, İngilizce adlar Türkçeleşir.
+_GROUP_TR = {
+    "general": "Genel", "undefined": "Genel", "unknown": "Genel", "n/a": "Genel", "other": "Genel",
+    "news": "Haber", "music": "Müzik", "sports": "Spor", "sport": "Spor",
+    "kids": "Çocuk", "movies": "Film", "movie": "Film", "series": "Dizi",
+    "documentary": "Belgesel", "religious": "Dini", "entertainment": "Eğlence",
+    "education": "Eğitim", "culture": "Kültür", "business": "İş", "lifestyle": "Yaşam",
+    "travel": "Gezi", "animation": "Animasyon", "comedy": "Komedi", "shop": "Alışveriş",
+}
+
+
+def _normalize_group(raw: str | None) -> str:
+    """Ham `group-title` → tek, Türkçe, anlamlı grup adı."""
+    ilk = (raw or "").split(";")[0].strip()
+    if not ilk:
+        return "Genel"
+    return _GROUP_TR.get(ilk.lower(), ilk)
+
+
 def _parse_m3u(content: str) -> list[dict]:
     """Bir M3U/M3U8 metnini normalize edilmiş öğe listesine çevirir."""
     items: list[dict] = []
@@ -43,7 +64,7 @@ def _parse_m3u(content: str) -> list[dict]:
             title = line.rsplit(",", 1)[-1].strip()
             meta = {
                 "title":  title or attrs.get("tvg-name", "Bilinmeyen"),
-                "group":  attrs.get("group-title") or "Genel",
+                "group":  _normalize_group(attrs.get("group-title")),
                 "poster": attrs.get("tvg-logo", ""),
                 "tvg_id": attrs.get("tvg-id", ""),
             }
