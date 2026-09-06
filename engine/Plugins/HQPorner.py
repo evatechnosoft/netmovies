@@ -15,7 +15,10 @@ from KekikStream.Core import (
     SearchResult,
 )
 
-_WARP_PROXY = os.getenv("WARP_PROXY_URL", "http://172.31.0.4:8080")
+# compose servisi `WARP_PROXY` adıyla veriyor; IP sabitlemek kırılgandı — WARP
+# container'ı yeniden yaratılınca adres kayıyor ve tüm istekler sessizce
+# WARP'sız gidip ISP engeline takılıyordu (koleksiyon "boş" görünüyordu).
+_WARP_PROXY = os.getenv("WARP_PROXY") or os.getenv("WARP_PROXY_URL") or "http://netmovies-warp:8080"
 
 
 class HQPorner(PluginBase):

@@ -173,6 +173,14 @@ fun BrowseScreen(
     val listState = rememberLazyListState()
     var focusedShelf by remember { mutableStateOf(0) }
 
+    // Tüm raflar çekildi VE hepsi boş döndü mü (ölü kaynak). Kısmen yüklüyse false:
+    // dolu raf varken "ulaşılamıyor" yazmak yanlış olur.
+    val allShelvesEmpty by remember {
+        derivedStateOf {
+            shelves.isNotEmpty() && shelves.all { shelfCache[it.key]?.isEmpty() == true }
+        }
+    }
+
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<MediaItem>?>(null) }
@@ -262,6 +270,12 @@ fun BrowseScreen(
                 shelves.isEmpty() -> Center(
                     if (vaultMode) "Bu koleksiyonda kaynak yok"
                     else "Kaynak bulunamadı",
+                )
+                // Boş raf hiç çizilmez (ShelfRow'daki erken return). Hepsi boşsa ekranda
+                // yalnız üst bar kalıyordu: kullanıcı açılıyor sanıp boşluğa bakıyordu.
+                allShelvesEmpty -> Center(
+                    if (vaultMode) "Bu koleksiyonun kaynağına şu an ulaşılamıyor"
+                    else "Kaynaklara şu an ulaşılamıyor",
                 )
                 else -> ShelfList(
                     shelves = shelves,

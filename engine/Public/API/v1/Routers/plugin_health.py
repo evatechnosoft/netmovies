@@ -6,9 +6,15 @@
 # Sonuçlar TTL ile cache'lenir (varsayılan 6 saat) — sık çağrı kaynak sitelerini
 # yormaz. `?force=1` ile taze kontrol yapılır.
 
+import os
 import time
 import asyncio
 import httpx
+
+# Engellenen siteler (yetişkin kaynaklar) doğrudan erişimde ölü görünüyordu:
+# eklenti WARP üzerinden çalışırken sağlık kontrolü WARP'sız soruyordu ve kaynak
+# sağlıksız sayılıp katalogdan düşüyordu. Kontrol de aynı yoldan geçmeli.
+_WARP_PROXY = os.getenv("WARP_PROXY") or os.getenv("WARP_PROXY_URL") or ""
 
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
@@ -26,28 +32,36 @@ async def _check_one(name: str) -> dict:
     if not main_url.startswith(("http://", "https://")):
         return {"plugin": name, "main_url": main_url, "ok": True, "status": "local", "note": "Yerel kaynak"}
 
-    try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
-            resp = await client.get(
-                main_url,
-                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15.7; rv:135.0) Gecko/20100101 Firefox/135.0"},
-            )
-        ok = resp.status_code < 400
-        return {
-            "plugin"   : name,
-            "main_url" : main_url,
-            "ok"       : ok,
-            "status"   : resp.status_code,
-            "note"     : "" if ok else "Site hata döndü — domain değişmiş olabilir",
-        }
-    except Exception as hata:
-        return {
-            "plugin"   : name,
-            "main_url" : main_url,
-            "ok"       : False,
-            "status"   : "unreachable",
-            "note"     : f"Erişilemedi ({type(hata).__name__}) — domain değişmiş olabilir",
-        }
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15.7; rv:135.0) Gecko/20100101 Firefox/135.0"}
+
+    # Önce doğrudan, olmazsa WARP: doğrudan çalışan kaynak boşuna tünelden geçmesin,
+    # engellenen kaynak da tek denemede ölü sayılmasın.
+    attempts = [None] + ([_WARP_PROXY] if _WARP_PROXY else [])
+    son_hata = None
+    for proxy in attempts:
+        try:
+            async with httpx.AsyncClient(timeout=8, follow_redirects=True, proxy=proxy) as client:
+                resp = await client.get(main_url, headers=headers)
+            if resp.status_code >= 400 and proxy is None and len(attempts) > 1:
+                continue  # engelli olabilir → WARP ile bir daha dene
+            ok = resp.status_code < 400
+            return {
+                "plugin"   : name,
+                "main_url" : main_url,
+                "ok"       : ok,
+                "status"   : resp.status_code,
+                "note"     : "" if ok else "Site hata döndü — domain değişmiş olabilir",
+            }
+        except Exception as hata:
+            son_hata = hata
+
+    return {
+        "plugin"   : name,
+        "main_url" : main_url,
+        "ok"       : False,
+        "status"   : "unreachable",
+        "note"     : f"Erişilemedi ({type(son_hata).__name__}) — domain değişmiş olabilir",
+    }
 
 
 async def run_plugin_health(force: bool = False) -> dict:

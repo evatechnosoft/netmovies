@@ -34,6 +34,15 @@ _HINTS = {
 }
 
 
+# Tip belirten kelimeler: bir kategori adı bunlardan birini içeriyorsa neyin
+# rafı olduğu adından bellidir ("Yeni Filmler", "Son Bölümler", "Yerli Diziler").
+_TYPED_WORDS = ("film", "dizi", "bölüm", "yerli", "yabanc", "türk", "canlı", "kanal", "tv program")
+
+# Eklenti başına en fazla kaç kategori çekilir. Ana sayfa için fazlası gereksiz
+# istek; HDFilmCehennemi 10, DiziYou 11 kategori taşıyor.
+_MAX_CATEGORIES = 6
+
+
 def _pick_category(main_page: dict, media_type: str):
     """Bir eklentinin main_page'inden 'yeni/son + tür' eşleşen ilk kategoriyi seçer."""
     hints = _HINTS.get(media_type, [])
@@ -46,14 +55,52 @@ def _pick_category(main_page: dict, media_type: str):
     return None, None
 
 
-async def _fetch_from(name: str, page: int, media_type: str):
-    plugin = plugin_manager.select_plugin(name)
-    url, cat = _pick_category(plugin.main_page, media_type)
-    if not url:
-        # Sessiz boş liste teşhis edilemiyordu: kaynak ölü mü, kategori adı mı
-        # tutmuyor ayırt edilemezdi (canlı TV rafı tam bu yüzden aylarca boştu).
-        konsol.log(f"[yellow]∅ aggregate:[/] {name} · '{media_type}' için kategori eşleşmedi")
-        return []
+def _dominant_type(plugin_name: str, main_page: dict):
+    """Eklentinin ağırlıklı olarak film mi dizi mi sunduğu.
+
+    Tür kategorileri ("Aksiyon", "Komedi") tip belirtmez: HDFilmCehennemi'nde film,
+    DiziYou'da dizidir. Kategori adları ayırt edemezse eklenti adına düşülür.
+    """
+    cats      = " ".join(str(c).lower() for c in main_page.values())
+    has_movie = "film" in cats
+    has_serie = "dizi" in cats or "bölüm" in cats
+    if has_movie != has_serie:
+        return "movie" if has_movie else "serie"
+    low = plugin_name.lower()
+    if "film" in low:
+        return "movie"
+    if "dizi" in low:
+        return "serie"
+    return "movie" if has_movie else None
+
+
+def _pick_categories(plugin_name: str, main_page: dict, media_type: str):
+    """Bir eklentiden bu tip için çekilecek TÜM kategoriler.
+
+    Tek kategori seçmek katalogu kurutuyordu: HDFilmCehennemi'nin 7 tür rafı ve
+    DiziYou'nun 11 kategorisinin tamamı ana sayfaya hiç girmiyordu (movie 38 içerik).
+    """
+    hints  = _HINTS.get(media_type, [])
+    picked = [
+        (url, cat)
+        for url, cat in main_page.items()
+        if any(all(n in str(cat).lower() for n in needles) for needles in hints)
+    ]
+
+    # Jenerik tür rafları yalnız ana tiplere eklenir; "yerli/yabancı" ayrımı
+    # tür adından çıkarılamaz, oralara sızarsa liste yanlış dolar.
+    if media_type in ("movie", "serie") and _dominant_type(plugin_name, main_page) == media_type:
+        seen = {url for url, _ in picked}
+        for url, cat in main_page.items():
+            low = str(cat).lower()
+            if url in seen or any(w in low for w in _TYPED_WORDS):
+                continue
+            picked.append((url, cat))
+
+    return picked[:_MAX_CATEGORIES]
+
+
+async def _fetch_category(plugin, name: str, page: int, url: str, cat):
     results = await plugin.get_main_page(page, url, cat)
     if not results:
         konsol.log(f"[yellow]∅ aggregate:[/] {name} · {cat} boş döndü")
@@ -74,6 +121,29 @@ async def _fetch_from(name: str, page: int, media_type: str):
             "poster":   getattr(item, "poster", None),
             "category": item_category,
         })
+    return out
+
+
+async def _fetch_from(name: str, page: int, media_type: str):
+    plugin = plugin_manager.select_plugin(name)
+    cats   = _pick_categories(name, plugin.main_page, media_type)
+    if not cats:
+        # Sessiz boş liste teşhis edilemiyordu: kaynak ölü mü, kategori adı mı
+        # tutmuyor ayırt edilemezdi (canlı TV rafı tam bu yüzden aylarca boştu).
+        konsol.log(f"[yellow]∅ aggregate:[/] {name} · '{media_type}' için kategori eşleşmedi")
+        return []
+
+    # Kategoriler paralel: 6 kategori ardışık çekilseydi ana sayfa 6 kat yavaşlardı.
+    batches = await asyncio.gather(
+        *(_fetch_category(plugin, name, page, url, cat) for url, cat in cats),
+        return_exceptions=True,
+    )
+    out = []
+    for (url, cat), batch in zip(cats, batches):
+        if isinstance(batch, Exception):
+            konsol.log(f"[red]✖ aggregate:[/] {name} · {cat} · {type(batch).__name__}: {batch}")
+            continue
+        out.extend(batch)
     return out
 
 
@@ -122,11 +192,18 @@ async def aggregate_new(request: Request):
     )
 
     merged = []
+    # Aynı içerik birden çok kategoride çıkabilir (tür rafları kesişir) → url ile tekille.
+    seen = set()
     for name, b in zip(names, batches):
         if isinstance(b, Exception):
             konsol.log(f"[red]✖ aggregate:[/] {name} · {type(b).__name__}: {b}")
             continue  # çalışmayan kaynağı atla
-        merged.extend(b)
+        for item in b:
+            key = (item["plugin"], item["url"])
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
 
     konsol.log(f"[green]∑ aggregate:[/] type={media_type} · {len(merged)} içerik · {len(names)} kaynak tarandı")
 
