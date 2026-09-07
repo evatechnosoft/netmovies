@@ -8,9 +8,11 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 7 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `ce17349` (master ESKİDİR) · temiz, push'lı · CI success
-**TV sürümü:** `v0.1.54-poc` — GitHub Release'te en üstte (APK 20.002.942 bayt)
-**Cihaz doğrulaması bekliyor** — v0.1.53 ve v0.1.54'ün HİÇBİR değişikliği TV'de görülmedi.
+**Dal:** `fix/general-stability` @ `f9b91d2` (master ESKİDİR) · temiz, push'lı · CI success
+**TV sürümü:** `v0.1.56-poc` — `data/apk/` içinde (yerel OTA) + GitHub Release
+**Cihaz doğrulaması bekliyor** — v0.1.53'ten sonrasının HİÇBİR değişikliği TV'de görülmedi.
+**v0.1.53'teki kurulum ANR'si yüzünden v0.1.56 ELLE kurulmalı** (Dean local send ile
+yolluyor); sonraki güncellemeler yerel OTA ile gelir.
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı
 
 ## 1. Doğrula (tahmin etme)
@@ -67,10 +69,13 @@ ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
 ## 4. Yapma / tekrar deneme
 - **Tünel mimarisine dokunma.** `cloudflared` `network_mode: service:stream` — stream
   recreate = tünel ölür. Dean bilerek kapsam dışı bıraktı (5 Eylül).
-- **`gh release create`'e `--target fix/general-stability` vermeyi unutma.** Unutulunca
-  release oluşuyor ama `/releases` LİSTESİNE hiç düşmüyor (`releases/tags/...` görüyor,
-  liste görmüyor) → TV güncellemeyi hiç görmez. v0.1.54'te tam bu oldu; silip
-  `--target` ile yeniden oluşturulunca listeye girdi.
+- **Yeni release ANONİM `/releases` listesine gecikmeli düşüyor.** Token'lı
+  `gh api .../releases` onu hemen gösterirken kimliksiz `curl` dakikalarca eski
+  listeyi döndürüyor (GitHub cache'i). v0.1.54'te bunu `--target` eksikliği sanıp
+  release silinip yeniden oluşturuldu — gereksizdi; v0.1.56'da `--target` verilmesine
+  rağmen aynı gecikme yaşandı. **Silip yeniden oluşturma, bekle.** Doğrulamayı
+  `gh api` ile yap. TV anonim sorduğu için güncelleme birkaç dakika geç görünebilir —
+  yerel OTA bu beklemeyi tamamen atlar.
 - **Sürüm alanlarını elle üç yerde güncelleme.** `build.gradle.kts` içindeki
   `val appVersion` TEK kaynak; versionCode ondan türer. Sadece onu değiştir.
 - **`docker compose up -d --build` arka planda bırakma** — yarım kalan build
@@ -160,10 +165,17 @@ scripts/netmovies-autostart.cmd                   ← PC açılışında yığı
 ```
 
 ## 7. Yeni sürüm çıkarma (OTA)
+**Yerel OTA (birincil yol):** APK `data/apk/` altına konur; `/api/v1/app_update`
+en yüksek sürümlüyü bildirir, TV LAN'dan indirir. GitHub yalnız yedek yoldur.
+Dosya adı sürüm taşımalı (`NetMovies-TV-vX.Y.Z.apk`), yoksa sunulmaz. Yeni APK'yı
+kopyalarken `data/apk/` içindeki eski sürümü sil (yoksa sadece en yükseği sunulur,
+disk şişer).
+
 ```bash
 # client-tv/app/build.gradle.kts → SADECE `val appVersion` değiştir
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
+cp ../NetMovies-TV-vX.Y.Z.apk data/apk/          # yerel OTA kaynağı
 gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
    --target fix/general-stability --title "..." --notes "..."
 # DOĞRULA: liste API'sinde görünmeli, yoksa TV güncellemeyi hiç görmez
