@@ -141,6 +141,9 @@ services:
       # İnternet zaten serbest; bu liste yalnız özel/LAN adresleri açar. Varsayılan
       # ev LAN'ı: 192.168.0.x ve 192.168.1.x. Boş bırakılırsa iç ağ tamamen kapalı.
       PROXY_ALLOWED_NETS   : ${PROXY_ALLOWED_NETS:-192.168.0.0/16}
+      # Video proxy'nin YEDEK çıkışı. Global proxy DEĞİL: yalnız kaynak 403/451
+      # döndüğünde (ISP engeli — VidMoly gibi) o istek WARP'tan tekrarlanır.
+      WARP_PROXY           : http://netmovies-warp:8080
       # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
       TMDB_API_KEY         : ${TMDB_API_KEY:-}
     volumes:

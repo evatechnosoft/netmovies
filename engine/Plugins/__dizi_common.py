@@ -31,11 +31,23 @@ def get_warp_client() -> httpx.AsyncClient | None:
     return _warp_client
 
 
+def decode_body(resp: httpx.Response, encoding: str | None) -> str:
+    """Decode a response body with an explicit charset when the site lies about it.
+
+    SezonlukDizi serves windows-1254 without a charset header; httpx then falls
+    back to utf-8 and every Turkish title comes out mangled.
+    """
+    if not encoding:
+        return resp.text
+    return resp.content.decode(encoding, "ignore")
+
+
 async def fetch_html(
     client: httpx.AsyncClient,
     url: str,
     headers: dict | None = None,
     cookies: dict | None = None,
+    encoding: str | None = None,
 ) -> str:
     """Fetch HTML with automatic WARP proxy fallback on SNI/SSL/Connection block."""
     h = dict(headers or {})
@@ -44,8 +56,8 @@ async def fetch_html(
 
     try:
         resp = await client.get(url, headers=h, cookies=cookies, timeout=7.0)
-        if resp.status_code == 200 and len(resp.text) > 300:
-            return resp.text
+        if resp.status_code == 200 and len(resp.content) > 300:
+            return decode_body(resp, encoding)
     except Exception:
         pass
 
@@ -53,14 +65,14 @@ async def fetch_html(
     if warp:
         try:
             resp = await warp.get(url, headers=h, cookies=cookies, timeout=12.0)
-            if resp.status_code == 200 or len(resp.text) > 300:
-                return resp.text
+            if resp.status_code == 200 or len(resp.content) > 300:
+                return decode_body(resp, encoding)
         except Exception:
             pass
 
     # Fallback to direct client
     resp = await client.get(url, headers=h, cookies=cookies)
-    return resp.text
+    return decode_body(resp, encoding)
 
 
 def normalize_url(url: str, base_url: str) -> str:

@@ -5,7 +5,7 @@ from fastapi              import Request, Response
 from starlette.background import BackgroundTask
 from fastapi.responses    import StreamingResponse
 from .                    import proxy_router
-from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, shared_client, parse_extra_headers, url_is_public
+from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, parse_extra_headers, url_is_public
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import validate_proxy_token
 
@@ -38,13 +38,9 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
                 },
             )
 
-    # Re-use global shared client
-    client = shared_client
-
     try:
-        # GET isteğini başlat
-        req      = client.build_request("GET", target_url, headers=request_headers)
-        response = await client.send(req, stream=True)
+        # GET isteğini başlat (engelli kaynak WARP'a düşer)
+        response = await open_upstream(target_url, request_headers)
 
         if response.status_code >= 400:
             await response.aclose()

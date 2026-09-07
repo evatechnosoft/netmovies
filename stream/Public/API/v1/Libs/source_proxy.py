@@ -9,6 +9,12 @@ from urllib.parse import quote
 from Public.Proxy.Libs.proxy_token import issue_proxy_token
 
 
+# Bu sağlayıcıların CDN'i Türkiye'den doğrudan 403 döner: engine linki WARP
+# üzerinden çözer, istemci aynı URL'i ham çalamaz. Ek başlık istemeseler de
+# akış sunucudan geçmeli — proxy 403'ü görünce WARP'a düşüyor.
+_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi"}
+
+
 def route_through_proxy(sources: list, base_url: str) -> list:
     """Ek başlık isteyen kaynakları sunucu proxy'sine bağlar.
 
@@ -27,7 +33,8 @@ def route_through_proxy(sources: list, base_url: str) -> list:
 
         extra = source.get("extra_headers") or {}
         url   = str(source.get("url") or "")
-        if not extra or not url:
+        zorla = source.get("plugin") in _ALWAYS_PROXY_PLUGINS
+        if not url or (not extra and not zorla):
             proxied.append(source)
             continue
 

@@ -32,6 +32,42 @@ shared_client = httpx.AsyncClient(
     proxy            = _proxy_url,
 )
 
+# ISP engelli kaynak (VidMoly/SezonlukDizi zinciri) doğrudan çekilince 403 döner:
+# engine linki WARP üzerinden çözer, proxy ise WARP'sız çekiyordu ve oynatma
+# "kaynak bulundu ama açılmıyor" diye ölüyordu. Global proxy VERİLMEZ (WARP çıkış
+# IP'si bazı kaynaklarda bloklu) — yalnız engellenen istek WARP'a düşer.
+_WARP_PROXY  = os.getenv("WARP_PROXY", "").strip()
+warp_client  = httpx.AsyncClient(
+    follow_redirects = True,
+    timeout          = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=10.0),
+    limits           = httpx.Limits(max_connections=100, max_keepalive_connections=40, keepalive_expiry=30.0),
+    verify           = False,
+    proxy            = _WARP_PROXY,
+) if _WARP_PROXY.startswith(("http://", "https://")) else None
+
+# Bir host bir kez WARP gerektirdiyse aynı yayının onlarca segmenti için tekrar
+# 403 yemeye gerek yok — doğrudan WARP'tan gider.
+_warp_hosts: set[str] = set()
+
+
+async def open_upstream(target_url: str, request_headers: dict):
+    """Kaynağı akış modunda açar; ISP engeli (403/451) WARP ile bir kez daha denenir."""
+    host = httpx.URL(target_url).host
+
+    if warp_client is not None and host in _warp_hosts:
+        return await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
+
+    response = await shared_client.send(shared_client.build_request("GET", target_url, headers=request_headers), stream=True)
+    if response.status_code not in (403, 451) or warp_client is None:
+        return response
+
+    await response.aclose()
+    konsol.print(f"[yellow]↻ WARP denemesi:[/yellow] {host} · {response.status_code}")
+    retry = await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
+    if retry.status_code < 400:
+        _warp_hosts.add(host)
+    return retry
+
 
 # SSRF kapısı — TÜM proxy uçları (video/subtitle/image) buradan geçer.
 # Proxy auth'tan muaf ve tünelden dışa açık; hedef URL üçüncü taraf kaynaktan

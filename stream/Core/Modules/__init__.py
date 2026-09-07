@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
 
                 removed_count = 0
                 for name, is_available, status_code in results:
-                    if name in ["RecTV", "WebteIzle"]:
+                    if name in ["WebteIzle"]:
                         continue
 
                     if is_available:
@@ -63,8 +63,10 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     with suppress(Exception):
-        from Public.Proxy.Libs.helpers import shared_client
+        from Public.Proxy.Libs.helpers import shared_client, warp_client
         await shared_client.aclose()
+        if warp_client is not None:
+            await warp_client.aclose()
 
     with suppress(Exception):
         from Public.Home.Libs.provider_client import close_all_provider_clients
