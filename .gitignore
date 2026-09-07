@@ -67,3 +67,7 @@ engine/admin.json
 # Yayin APK'lari GitHub Release'te durur, repoda degil (her biri ~20MB).
 NetMovies-TV-*.apk
 autostart.log
+
+# Acilis kaynak raporu ciktilari (makineye ozel)
+kaynak-son.txt
+KAYNAK-UYARI.txt
