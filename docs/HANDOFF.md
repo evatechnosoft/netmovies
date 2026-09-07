@@ -7,10 +7,10 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 6 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `ce64b67` (master ESKİDİR) · temiz, push'lı
-**TV sürümü:** `v0.1.53-poc` — GitHub Release'te en üstte (APK 20.338.318 bayt)
-**Cihaz doğrulaması bekliyor** — bu turun HİÇBİR düzeltmesi TV'de görülmedi.
+**Son güncelleme:** 7 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `ce17349` (master ESKİDİR) · temiz, push'lı · CI success
+**TV sürümü:** `v0.1.54-poc` — GitHub Release'te en üstte (APK 20.002.942 bayt)
+**Cihaz doğrulaması bekliyor** — v0.1.53 ve v0.1.54'ün HİÇBİR değişikliği TV'de görülmedi.
 **Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı
 
 ## 1. Doğrula (tahmin etme)
@@ -28,83 +28,105 @@ gh run list --limit 1                             # CI kapısı
 (recreate DEĞİL — tünel kopar). Restart TMDB puan cache'ini de siler; puanlar
 ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
 
-## 2. Sistem şu an ne durumda (6 Eylül akşam kanıtlandı)
+## 2. Sistem şu an ne durumda (7 Eylül öğle kanıtlandı)
 | Alan | Durum | Kanıt |
 |---|---|---|
 | Yığın | doh/engine/stream/warp ayakta, engine+stream healthy | `docker compose ps` |
-| Katalog | movie 124 · serie 210 · yerli 25 · yabancı 10 · canlı 142 | `smoke.sh` |
-| Eklenti | **10 yüklü** — 9 sağlıklı, RecTV `unreachable` | `/api/v1/plugin_health` |
-| Özel Koleksiyon | HQPorner 46 · PornHub 46 + 4 kalite · xHamster + 3 kalite | `get_main_page` + `load_links` |
-| Canlı kanal | 172 → **144** (28 ölü sunucu elendi) | `∅ canlı:` log satırı |
-| TMDB puanı | ilk çağrı 0/124 → doldurma sonrası **102/124** | `aggregate_new` yanıtı |
-| Admin filtresi | kaynak gizleyince movie 147 → 23, geri alınca 147 | uçtan uca test |
-| Testler | engine 4/4 · stream geçti · client-tv 0 fail + assembleDebug | `unittest` + `gradlew` |
+| Katalog | movie 144 · serie 335 · yerli 48 · yabancı 35 · canlı 142 | `smoke.sh` |
+| Eklenti | **11 yüklü** — DiziPal + SezonlukDizi geldi, RecTV düştü | `plugin_health` 11/11 |
+| Yeni kaynak | DiziPal dizi+film oynatıyor · SezonlukDizi dublaj+altyazı | uçtan uca proxy 200 + `#EXTM3U` |
+| Açılış raporu | `kaynak-raporu.py` çalıştı, uyarı dosyası doğru davrandı | `SONUC=1 -> UYARI-DOSYASI-OLUSTU` |
+| Testler | engine 4/4 · stream 65/65 · client-tv 0 fail + assembleDebug | `unittest` + `gradlew` |
+| CI | son 2 run `success` | `gh run list` |
 
 ## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.53'te bakılacaklar:
-   posterlerde ★ puan görünüyor mu · ana sayfada EN ALT rafa (Gerilim vb.) D-pad
-   ile inilebiliyor mu · dizi açılınca bölüm seçimi geliyor mu · Ayarlar →
-   Yönetim açılıyor ve kaynak kapatınca listeden düşüyor mu · canlı TV kanalları
-   açılıyor mu. **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
-2. **"Liste altını göstermiyor" netleşmedi.** Poster başlığı kartın İÇİNDE alt
-   şeritte yazıyor; kartın altında ayrı satır yok. Dean'in poster altına
-   başlık+puan satırı mı istediği sorulmalı.
-3. **Puan yalnız ana sayfada.** Gözat (`get_main_page`) ve arama sonuçları puansız —
+1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.54'te bakılacaklar:
+   **DiziPal ve SezonlukDizi içerikleri açılıyor mu** · posterlerde ★ puan ·
+   ana sayfada EN ALT rafa (Gerilim vb.) D-pad ile inilebiliyor mu · dizide bölüm
+   seçimi geliyor mu · Ayarlar → Yönetim açılıyor mu · canlı TV kanalları açılıyor mu.
+   **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
+2. **Film kaynakları — dizi tarafı BİTTİ.** Kekik-cloudstream'de kalan aday (anime/Kore
+   hariç): FilmMakinesi · FilmModu · FullHDFilm · FullHDFilmizlesene · JetFilmizle ·
+   KultFilmler · SetFilmIzle · SineWix · SinemaCX · SuperFilmGeldi · UgurFilm ·
+   Watch2Movies · WebteIzle · RareFilmm · IzleAI (selcukflix) · NetflixMirror.
+   Canlı TV için: CanliTV · GolgeTV · InatBox.
+   **Upstream `.kt` genelde bayat** — selektörleri gerçek HTML'den çıkar, oynatma
+   zincirini elden çöz (DiziPal'de üç katman obfuscation vardı).
+3. **Açılış raporu içerik saymıyor.** Kaynağın ayakta olduğunu söyler; DiziPal'de
+   görülen "200 dönen boş kabuk" tuzağını yakalamaz. Rapora kaynak başına katalog
+   sayısı eklenirse "dün 40, bugün 0" durumu da uyarır.
+4. **"Liste altını göstermiyor" netleşmedi.** Poster başlığı kartın İÇİNDE alt
+   şeritte yazıyor; kartın altında ayrı satır yok. Dean'e sorulacak.
+5. **Puan yalnız ana sayfada.** Gözat (`get_main_page`) ve arama sonuçları puansız —
    zenginleştirme sadece `stream/Public/API/v1/Routers/aggregate_new.py`'de.
-4. **İçerik detay ekranı.** TV'de poster → doğrudan oynatma; özet/oyuncu/benzerler yok.
+6. **İçerik detay ekranı.** TV'de poster → doğrudan oynatma; özet/oyuncu/benzerler yok.
    Web'de `content.html.j2` var. TMDB anahtarı `.env`'de.
-5. **Ölü eklenti:** RecTV domain ailesi NXDOMAIN — ya `.env` override ya listeden düş.
-6. **Atlanan yetişkin kaynaklar:** FullPorner (embed adresi JS template literal ile
-   üretiliyor, JS motoru gerekir) · SpankBang (WARP'tan 403) · OxAx, UncutMaza (denenmedi).
+7. **Atlanan yetişkin kaynaklar:** FullPorner (embed adresi JS template literal ile
+   üretiliyor) · SpankBang (WARP'tan 403) · OxAx, UncutMaza (denenmedi).
 
 ## 4. Yapma / tekrar deneme
 - **Tünel mimarisine dokunma.** `cloudflared` `network_mode: service:stream` — stream
   recreate = tünel ölür. Dean bilerek kapsam dışı bıraktı (5 Eylül).
-- **Sürüm alanlarını elle üç yerde güncelleme.** Artık `build.gradle.kts` içindeki
+- **`gh release create`'e `--target fix/general-stability` vermeyi unutma.** Unutulunca
+  release oluşuyor ama `/releases` LİSTESİNE hiç düşmüyor (`releases/tags/...` görüyor,
+  liste görmüyor) → TV güncellemeyi hiç görmez. v0.1.54'te tam bu oldu; silip
+  `--target` ile yeniden oluşturulunca listeye girdi.
+- **Sürüm alanlarını elle üç yerde güncelleme.** `build.gradle.kts` içindeki
   `val appVersion` TEK kaynak; versionCode ondan türer. Sadece onu değiştir.
 - **`docker compose up -d --build` arka planda bırakma** — yarım kalan build
   "container name already in use" bırakır (`docker rm -f <id>` ile temizlenir).
 - **Sanal fare geri gelmesin** (`2312937`) · **Vault PIN yapılmadı** (Dean "boşver" dedi).
+- **RecTV'yi geri ekleme** — `b.prectv36-60` hem doğrudan hem WARP'tan ölü, upstream
+  `.kt` de hâlâ ölü 38'i gösteriyor. Domain dönerse `git revert fab3df3`.
 
 ## 5. Bu projede bir daha düşme (sert dersler)
-- **WARP adresi env'den gelir, IP sabitlenmez.** HQPorner `WARP_PROXY_URL` +
-  `172.31.0.4` arıyordu; compose `WARP_PROXY` veriyor, gerçek IP `.2`. İstekler
-  sessizce tünelsiz gidip ISP engeline takılıyordu — kaynak ölü değildi, yolu yanlıştı.
-  Ortak yer: `engine/Plugins/__warp_client.py`.
-- **Sağlık kontrolü eklentinin gittiği yoldan gitmeli.** WARP'lı eklentiyi WARP'sız
+- **Terk edilmiş domain ÖLMÜYOR, boş kabuk sunuyor.** dizipal2200/2203/2205/2207 hepsi
+  200 döndürüyor, sıfır içerikle. Sadece HTTP durumuna bakan keşif katalogu sessizce
+  boşaltır (DiziPal ilk denemede `main_url`'ü 2200'e kaydırdı, katalog boş geldi).
+  **İmza doğrula** — `DiziPal.py` sayfada `dp-card` arıyor.
+- **Site kendi charset'ini söylemeyebilir.** SezonlukDizi windows-1254 gönderiyor,
+  başlık yok; httpx utf-8'e düşüp bütün Türkçe başlıkları bozuyordu. `fetch_html`
+  artık `encoding` alıyor. Aynı sitede ARAMA sorgusu da cp1254 kodlanmalı —
+  "Sıcak Kafa" katalogda dururken aramada hiç çıkmıyordu.
+- **WAF eksik parametreye 403 veriyor.** SezonlukDizi'de yalnız `adi=` ile sorunca 403;
+  tam parametre setiyle 200. Sessiz boş liste görünce önce ham isteği curl'le.
+- **Kaynak bulunması oynatılması demek değil.** VidMoly Türkiye'den doğrudan 403,
+  DiziPal CDN'i Referer'sız 404. Engine WARP'la çözüyor, proxy WARP'sız çekiyordu.
+  Video proxy artık 403/451'de WARP'tan tekrarlıyor (host bazlı hatırlar) ve bu iki
+  sağlayıcı `_ALWAYS_PROXY_PLUGINS` ile proxy'ye zorlanıyor.
+- **Ardışık iframe çözümü alternatif bütçesini yiyor.** SezonlukDizi'nin 12 oynatıcısı
+  sırayla çözülünce `resolve_sources`'in 25 sn'lik bütçesi doluyordu; paralel + kaynak
+  başına 12 sn tavan ile 60+ sn'den 14 sn'ye indi.
+- **cmd'de araya giren `type` errorlevel'i eziyor.** Açılış raporunda uyarı dosyası
+  bu yüzden hiç oluşmuyordu; çıkış kodu `type`'tan ÖNCE `set SONUC=%ERRORLEVEL%`.
+- **WARP adresi env'den gelir, IP sabitlenmez.** Ortak yer: `engine/Plugins/__warp_client.py`.
+- **Sağlık kontrolü eklentinin gittiği yoldan gitmeli** — WARP'lı eklentiyi WARP'sız
   yoklamak onu "unreachable" damgalayıp katalogdan düşürüyordu.
-- **httpx bazı sitelerde TLS parmak izinden 403 alır** (PornHub video sayfası curl'de
-  200). Kazımak yerine yt-dlp: `--ignore-no-formats-error` şart, yoksa xHamster'ın
-  "Untested" formatları format seçimini düşürüp TÜM çıktıyı iptal ediyor.
+- **httpx bazı sitelerde TLS parmak izinden 403 alır.** yt-dlp'de
+  `--ignore-no-formats-error` şart.
 - **Eklenti içi `from .x import` çalışmaz** — PluginLoader dosyayı paketsiz yükler:
   `from Plugins.x import ...`.
 - **Bir eklentiden TEK kategori almak katalogu kurutur.** `_pick_categories` eşleşen
-  tüm kategorileri alır; jenerik tür rafları (Aksiyon, Komedi) eklentinin baskın
-  tipine yazılır — "Aksiyon" HDFilmCehennemi'nde film, DiziYou'da dizidir.
-- **M3U grup adını Türkçeleştirmek yeni sızıntı açtı:** "Film" grubu movie ipucuna
-  takılıp canlı kanalları film listesine soktu. Canlı kaynaklar `aggregate_new`'de
-  tip listesinden çıkarılır; live ayrı yoldan (`collect_live_channels`) gelir.
-- **Admin ayarları tek yerde uygulanmıyordu:** `filter_aggregate_items` sadece web
-  ana sayfasında çağrılıyordu, native istemciler ham liste alıyordu. Yeni bir
-  istemci ucu eklerken süzmeyi de bağla.
+  tüm kategorileri alır; jenerik tür rafları eklentinin baskın tipine yazılır.
+- **M3U grup adını Türkçeleştirmek sızıntı açtı:** "Film" grubu movie ipucuna takılıp
+  canlı kanalları film listesine soktu. Live ayrı yoldan (`collect_live_channels`) gelir.
+- **Admin ayarları tek yerde uygulanmıyordu:** `filter_aggregate_items` sadece web ana
+  sayfasında çağrılıyordu. Yeni bir istemci ucu eklerken süzmeyi de bağla.
 - **Compose'da raf başlığı ile şerit AYRI LazyColumn öğesi olmamalı** — odak henüz
   oluşturulmamış alttaki rafa geçemeyip liste ortada takılıyor.
 - **500+ öğelik `sections` remember'sız kurulursa** her recomposition'da yeniden
   hesaplanır; aşağı inmek takılır.
-- **TMDB puanı istek anında çekilmez.** 300+ başlık = dakikalarca bekleme. Liste
-  cache'ten basar, eksikler arka planda dolar. TMDB oy almamışa 0 döner — 0 basma.
+- **TMDB puanı istek anında çekilmez.** Liste cache'ten basar, eksikler arka planda
+  dolar. TMDB oy almamışa 0 döner — 0 basma.
 - **iptv-org listesi bayatlar.** Ölü yayın sunucuları HOST başına elenir
   (`quick_channels`), kanal başına değil: tek domain onlarca kanal taşıyor.
-- **Kaynak geçişi konumu sıfırlar.** Yeni `prepare()` 0'dan başlar; devam-etme
-  `resumeApplied` ile tek seferlik uygulandığı için ikinci kaynakta seek HİÇ olmuyordu →
-  film başa dönüyordu. Konum geçişte elle taşınmalı (`carryOverMs`).
-- **`content_key`'e tür koyma.** `media_type` anahtardaydı; istemcilerin biri gönderip
-  diğeri göndermeyince aynı film iki kayıt oldu (`gorge` + `gorge|movie`) → Devam Et'te
-  iki poster. Anahtar site-agnostik OLDUĞU KADAR tür-agnostik olmalı.
+- **Kaynak geçişi konumu sıfırlar.** Yeni `prepare()` 0'dan başlar; konum geçişte elle
+  taşınmalı (`carryOverMs`).
+- **`content_key`'e tür koyma.** Anahtar site-agnostik OLDUĞU KADAR tür-agnostik olmalı;
+  yoksa aynı film Devam Et'te iki poster olur.
 - **Docker Desktop `AutoStart` kapalıysa `restart: unless-stopped` hiçbir şey yapmaz.**
-  Motor açılmıyorsa container politikası anlamsız.
-- **`/api/v1/plugin_health` stream üzerinden 302 döner** (gateway proxy'lemiyor) — engine
-  container'ının içinden sor.
+- **`/api/v1/plugin_health` stream üzerinden 302 döner** — engine container'ının
+  içinden sor.
 - **Engine kaynağı container'da `/usr/src/KekikStreamAPI/`**, `/usr/src/KekikStream/` DEĞİL.
 - **`ACTION_VIEW` ile APK kurulumu Android TV'de SESSİZCE yutulur** → `PackageInstaller`.
 - **Tek `requestFocus()` ilk karede sessizce düşer** → `repeat(n) + withFrameNanos`.
@@ -114,22 +136,27 @@ ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
 - **`stream/` ve `engine/` kaynağı imajın içinde, mount YOK** → `up -d --build <servis>` şart.
 - **Sunucu `content_url`'ü HAM tutar, `MediaItem.url` quote_plus KODLU** (`Library.kt`).
 - **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip sessizce boş döner.
-- **Kaynak boş dönüyorsa önce domaini doğrula.**
 - **Sessiz `catch` = görünmez arıza.**
 
 ## 6. Kritik dosya haritası
 ```
+engine/Plugins/DiziPal.py                         ← AES oynatıcı zinciri · imza ile domain keşfi
+engine/Plugins/SezonlukDizi.py                    ← cp1254 · paralel oynatıcı çözümü
+engine/Plugins/__dizi_common.py                   ← fetch_html (WARP fallback + encoding)
+engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç) · ALTERNATIVE_ORDER
+engine/Public/API/v1/Routers/plugin_health.py     ← eklenti sağlık raporu (6 saat TTL)
+stream/Public/API/v1/Libs/source_proxy.py         ← _ALWAYS_PROXY_PLUGINS
+stream/Public/Proxy/Libs/helpers.py               ← open_upstream (403/451 → WARP)
 stream/Public/API/v1/Routers/watch.py             ← izleme/favori uçları · _key_from
 stream/Public/Home/Libs/watch_store.py            ← SQLite; content_key SİTE+TÜR-AGNOSTİK
 stream/Public/Home/Libs/admin_config.py           ← gizli kaynak/kategori, vault, provider_url
-engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç) · sağlık süzmesi
-engine/Public/API/v1/Routers/plugin_health.py     ← eklenti sağlık raporu (6 saat TTL)
 client-tv/.../ui/PlayerScreen.kt                  ← kaynak kuyruğu · carryOverMs · ilerleme
 client-tv/.../data/Library.kt                     ← favori/devam senkronu + URL biçim köprüsü
 client-tv/app/build.gradle.kts                    ← `val appVersion` = TEK sürüm kaynağı
 .github/workflows/gate.yml                        ← CI kapısı (client-tv · stream · engine)
 scripts/smoke.sh                                  ← yerel kapı kontrolü
-scripts/netmovies-autostart.cmd                   ← PC açılışında yığını kaldırır
+scripts/kaynak-raporu.py                          ← açılış kaynak sağlık raporu
+scripts/netmovies-autostart.cmd                   ← PC açılışında yığın + kaynak raporu
 ```
 
 ## 7. Yeni sürüm çıkarma (OTA)
@@ -139,14 +166,57 @@ cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
 gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
    --target fix/general-stability --title "..." --notes "..."
-curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"  # doğrula
+# DOĞRULA: liste API'sinde görünmeli, yoksa TV güncellemeyi hiç görmez
+curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"
 ```
 ⚠ GitHub API kimliksiz **saatte 60 istek/IP**; ev ağı ve testler aynı kotayı paylaşır.
 Uygulama `/releases` listesini okur → prerelease yayınlamak yeterli.
 
 ---
 
-## 📋 5 Eylül 2026 (öğle) — kalıcılaştırma turu (EN SON, v0.1.50)
+## 📋 7 Eylül 2026 (öğle) — kaynak genişletme turu (EN SON, v0.1.54)
+
+**Ne yapıldı:** Dizi/film kaynağı iki katına çıktı, ölü kaynak düştü, açılışa
+sağlık raporu eklendi.
+
+- **SezonlukDizi** (`fab3df3`) — bölüm başına dublaj + altyazı ayrı oynatıcı listesi,
+  yani aynı bölüm için gerçek bir yedek. Portta üç tuzak çıktı: windows-1254 charset
+  (Türkçe başlıklar bozuluyordu), WAF'ın eksik parametreye 403 vermesi + arama
+  sorgusunun cp1254 kodlanma zorunluluğu, ve 12 oynatıcının ardışık çözülüp 25 sn'lik
+  alternatif bütçesini doldurması.
+- **RecTV düştü** (aynı commit) — `b.prectv36-60` hem doğrudan hem WARP'tan ölü,
+  upstream `.kt` de hâlâ ölü 38'i gösteriyor. Zaten admin'de gizliydi; canlı TV
+  M3UPlaylist'ten geliyor, katalogdan hiçbir şey eksilmedi.
+- **DiziPal** (`1637968`) — turun en büyük kazancı. Site v57 ile yeniden yazılmış,
+  upstream `.kt` tamamen bayat. Oynatma adresi sayfaya AES şifreli gömülü:
+  `[data-rm-k]` → PBKDF2-SHA512(999, 32B) + AES-CBC (parola `pageload.js`'te açık)
+  → iframe → `openPlayer('<blob>')` → `source2.php` → `m.php` yerine `master.m3u8`.
+  Bölüm listesi HTML yerine JSON-LD'den okunuyor. Domain keşfi imza doğrulamasına
+  bağlandı; terk edilmiş adresler 200 döndürdüğü için ilk denemede `main_url` boş bir
+  kabuğa (2200) kaymış ve katalog sessizce boşalmıştı.
+- **Video proxy WARP yedeği** — kaynak bulunuyor ama oynamıyordu: VidMoly Türkiye'den
+  doğrudan 403, DiziPal CDN'i Referer'sız 404 veriyor. Proxy artık 403/451'de isteği
+  WARP'tan tekrarlıyor (host bazlı hatırlar), iki sağlayıcı proxy'ye zorlandı.
+- **Açılış kaynak raporu** (`9054b3e`) — domain taşındığında katalog sessizce küçülüyor
+  ama hiçbir yerde hata görünmüyordu. Açılış betiği `plugin_health`'i taze soruyor,
+  sorun varsa kökte `KAYNAK-UYARI.txt` bırakıyor (dosyanın VARLIĞI uyarıdır).
+- **v0.1.54-poc yayında** (`ce17349`) — APK'da kod değişikliği YOK; istemci kaynak
+  listesini sunucudan aldığı için v0.1.53 kurulu cihaz da yeni kaynakları görüyor.
+
+**Katalog:** movie 124 → 144 · serie 210 → 335 · yerli 25 → 48 · yabancı 10 → 35.
+
+**Araştırıldı, sonuç olumsuz:** KekikStream pip paketinin `Plugins/` klasörü boş,
+`KekikStreamAPI` reposunda `Plugins/` yok — hazır Python eklenti havuzu diye bir şey
+yok, her kaynak Kotlin'den elle port. `Kekik-cloudstream`'de toplam **44 klasör** var
+(200+ değil). WatchBuddy = KekikStreamAPI fork'u + provider boilerplate'i; merkezi
+eklenti listesi barındırmıyor, herkes kendi provider servisini ayrı yayınlıyor.
+
+**Dokunulmadı:** cihaz doğrulaması (Dean'e bağlı), tünel, içerik detay ekranı,
+Gözat/arama puanları.
+
+---
+
+## 📋 5 Eylül 2026 (öğle) — kalıcılaştırma turu (v0.1.50)
 
 **Commit'ler:** `f52be9c` · `f6265a1` · `8d1f512`
 

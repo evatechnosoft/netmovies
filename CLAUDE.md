@@ -33,7 +33,7 @@ Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
 - Yeni özellik/düzeltme → aynı dala commit + push → herkes `git pull` ile alır.
 
 ## Mimari (özet)
-- `engine/` — KekikStream (Python 3.14) + `engine/Plugins/` (RecTV, HDFilmCehennemi, DiziYou, M3UPlaylist).
+- `engine/` — KekikStream (Python 3.14) + `engine/Plugins/` (DiziPal, SezonlukDizi, HDFilmCehennemi, DiziBox, DiziMom, DiziYou, Dizilla, M3UPlaylist).
 - `stream/` — web UI + video proxy + auth + admin. `DEFAULT_PROVIDER_URL` ile engine'e bağlı.
 - `docker-compose.yml` — engine + stream + doh (DNS-over-HTTPS) + cloudflared (tünel, profile).
 
