@@ -121,7 +121,9 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
                     Updater.downloadApk(context, info.url)
                 }
                 PlaybackLog.info("güncelleme", "indirildi (${file.length() / 1024} KB) · kurulum açılıyor")
-                Updater.installApk(context, file)
+                // 20 MB'lık oturum yazması ANA THREAD'deydi: kurulum başlarken
+                // uygulama saniyelerce donup ANR ile ölüyordu ("indirdi, patladı").
+                withContext(Dispatchers.IO) { Updater.installApk(context, file) }
                 _ui.value = UpdateUi.Opened(info.tag)
             } catch (e: Exception) {
                 PlaybackLog.fail("güncelleme", "indirme/kurulum başarısız", e)
