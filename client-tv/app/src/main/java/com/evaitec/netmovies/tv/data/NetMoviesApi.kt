@@ -8,6 +8,10 @@ import retrofit2.http.Query
 
 interface NetMoviesApi {
 
+    // Yerel OTA: sunucuda APK varsa sürümü ve LAN indirme adresi.
+    @GET("api/v1/app_update")
+    suspend fun appUpdate(): AppUpdateResponse
+
     @GET("api/v1/aggregate_new")
     suspend fun aggregateNew(
         @Query("type") type: String = "movie",

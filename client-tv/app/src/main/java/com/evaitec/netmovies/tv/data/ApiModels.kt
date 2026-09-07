@@ -216,3 +216,20 @@ data class FollowingResponse(val result: FollowingGroups = FollowingGroups())
 // çevirirken encodedUrl() ile kodlanır, oynatma zinciri kodlu bekliyor.
 @Serializable
 data class ChannelsResponse(val result: List<MediaItem> = emptyList())
+
+// /api/v1/app_update yanıtı — YEREL OTA.
+// APK evdeki sunucuda duruyorken güncellemeyi GitHub'dan indirmek gereksiz:
+// internet kesikse güncelleme hiç gelmiyor, GitHub'ın saatlik 60 istek sınırı
+// da ev ağının tamamını kilitliyor. `result` null ise GitHub'a düşülür.
+@Serializable
+data class AppUpdateResponse(
+    val result: AppUpdateInfo? = null,
+)
+
+@Serializable
+data class AppUpdateInfo(
+    val tag: String = "",
+    val url: String = "",
+    val size: Long = 0,
+    val name: String = "",
+)

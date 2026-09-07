@@ -34,4 +34,5 @@ from . import (
     client_config,
     remote,
     following,
+    app_update,
 )

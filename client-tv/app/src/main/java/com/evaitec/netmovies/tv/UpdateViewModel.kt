@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.Github
+import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PlaybackLog
 import com.evaitec.netmovies.tv.update.ReleaseVersion
 import com.evaitec.netmovies.tv.update.Updater
@@ -69,6 +70,17 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 PlaybackLog.info("güncelleme", "kontrol ediliyor · yüklü: ${BuildConfig.RELEASE_TAG}")
+
+                // ÖNCE EV SUNUCUSU. APK zaten evde duruyorken 20 MB'ı internetten
+                // indirmek gereksiz; internet kesikken güncelleme hiç gelmiyordu ve
+                // GitHub'ın saatlik 60 istek sınırı ev ağının tamamını kilitliyordu.
+                yerelGuncelleme()?.let { yerel ->
+                    lastSuccessMillis = System.currentTimeMillis()
+                    PlaybackLog.info("güncelleme", "yerel sunucuda yeni sürüm: ${yerel.tag}")
+                    _ui.value = UpdateUi.Available(yerel)
+                    return@launch
+                }
+
                 val releases = Github.api.releases()
 
                 // Liste sırasına güvenme: APK'sı olan ve yüklüden YENİ olanların en
@@ -105,6 +117,17 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /**
+     * Ev sunucusundaki APK yüklüden yeniyse onu döner. Sunucu kapalı, uç eski
+     * sürümde yok ya da APK konmamışsa null döner ve akış GitHub'a devam eder —
+     * yerel yol bir kısayol, tek yol değil.
+     */
+    private suspend fun yerelGuncelleme(): UpdateInfo? = runCatching {
+        withContext(Dispatchers.IO) { Network.api.appUpdate() }.result
+            ?.takeIf { it.url.isNotBlank() && ReleaseVersion.isNewerThan(it.tag, BuildConfig.RELEASE_TAG) }
+            ?.let { UpdateInfo(it.tag, it.url) }
+    }.getOrNull()
 
     fun download(info: UpdateInfo) {
         val context = getApplication<Application>()
