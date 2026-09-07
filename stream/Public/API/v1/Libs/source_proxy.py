@@ -9,10 +9,11 @@ from urllib.parse import quote
 from Public.Proxy.Libs.proxy_token import issue_proxy_token
 
 
-# Bu sağlayıcıların CDN'i Türkiye'den doğrudan 403 döner: engine linki WARP
-# üzerinden çözer, istemci aynı URL'i ham çalamaz. Ek başlık istemeseler de
-# akış sunucudan geçmeli — proxy 403'ü görünce WARP'a düşüyor.
-_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi"}
+# Bu sağlayıcıların akışı istemcinin ham URL'i çalmasına izin vermiyor:
+# SezonlukDizi'nin CDN'i Türkiye'den doğrudan 403 (engine linki WARP ile çözer),
+# DiziPal'inki Referer'sız istekte 404 döndürüyor. Ek başlık istemeseler de
+# proxy'den geçmeliler — proxy Referer'ı ekliyor, 403'te WARP'a düşüyor.
+_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal"}
 
 
 def route_through_proxy(sources: list, base_url: str) -> list:

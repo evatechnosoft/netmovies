@@ -25,7 +25,7 @@ from .plugin_health import run_plugin_health
 from urllib.parse import quote_plus
 
 # Alternatif tarama sırası — dublaj ağırlıklı kaynaklar önde.
-ALTERNATIVE_ORDER = ["HDFilmCehennemi", "DiziBox", "DiziYou", "DiziMom", "Dizilla", "SezonlukDizi"]
+ALTERNATIVE_ORDER = ["HDFilmCehennemi", "DiziPal", "DiziBox", "DiziYou", "DiziMom", "Dizilla", "SezonlukDizi"]
 
 # Bir alternatif sağlayıcıya ayrılan üst süre. Ölü site (DNS/connect timeout) eskiden
 # httpx'in kendi süresine kadar zinciri bekletiyordu; bütçe aşılırsa o sağlayıcı atlanır.
