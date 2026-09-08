@@ -7,8 +7,8 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 7 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `f9b91d2` (master ESKİDİR) · temiz, push'lı · CI success
+**Son güncelleme:** 8 Eylül 2026 (sabah)
+**Dal:** `fix/general-stability` @ `01d92e2` (master ESKİDİR) · temiz, push'lı · CI success
 **TV sürümü:** `v0.1.56-poc` — `data/apk/` içinde (yerel OTA) + GitHub Release
 **Cihaz doğrulaması bekliyor** — v0.1.53'ten sonrasının HİÇBİR değişikliği TV'de görülmedi.
 **v0.1.53'teki kurulum ANR'si yüzünden v0.1.56 ELLE kurulmalı** (Dean local send ile
@@ -29,6 +29,21 @@ gh run list --limit 1                             # CI kapısı
 `docker restart netmovies-stream` yapmadan smoke ESKİ sayıları gösterir
 (recreate DEĞİL — tünel kopar). Restart TMDB puan cache'ini de siler; puanlar
 ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
+
+## 1b. "Film açılmıyor" şikayeti — SUNUCU TARAFI TEMİZ (8 Eylül sabah)
+Dean "film izlemek istiyorum, düzelt" dedi; sunucuda **arıza bulunamadı**:
+- `type=movie` → **144 film**, `type=serie` → **335** (`aggregate_new`, engine ve stream aynı)
+- Uçtan uca oynatma — Moana/DiziPal: `resolve_sources` → 1 kaynak →
+  `proxy/video` → **200 `application/vnd.apple.mpegurl` 7647b**
+- 11 eklenti `plugin_health` 200 · web ana sayfası 445 poster basıyor
+- Yerel OTA `v0.1.56-poc` sunuluyor (`/api/v1/app_update`, 20 019 326 bayt)
+
+**En güçlü hipotez (DOĞRULANMADI):** TV'deki APK hâlâ v0.1.53. Dean hangi cihazda,
+ne hata aldığını söylemedi — iş burada durdu. Şikayet tekrar gelirse önce
+`Ayarlar → 🩺 Kaynak raporu` satırını ve APK sürümünü iste.
+
+⚠️ **`aggregate_new` parametresi `type=`, `media_type=` DEĞİL.** Yanlış adla sorulunca
+hata vermez; sessizce farklı/eksik sonuç döner (bu oturumda movie 78 sanıldı, doğrusu 144).
 
 ## 2. Sistem şu an ne durumda (7 Eylül öğle kanıtlandı)
 | Alan | Durum | Kanıt |
