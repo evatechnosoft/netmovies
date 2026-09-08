@@ -54,7 +54,7 @@ DEFAULT_CONFIG: dict = {
     # etkilenmez: koruma cerezle yapilir, TV cerez tasimaz (bkz. Core/Modules/_pin.py).
     "site_pin": "",
     "gemini_api_key": "",
-    "gemini_model": "gemini-2.5-flash",
+    "gemini_model": "gemini-3.5-flash-lite",
     # CloudStream benzeri özel GitHub / harici eklenti repoları
     "custom_repos": [
         {

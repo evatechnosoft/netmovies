@@ -104,7 +104,7 @@ async def voice(request: Request):
     dedikten sonra ayrıca bir düğmeye basmak zorunda kalmasın. Arama niyeti
     yazılmaz: sonucu kullanıcı seçer, TV'de ne açılacağına Gemini karar vermez."""
     api_key = _ayar("gemini_api_key", "GEMINI_API_KEY")
-    model   = _ayar("gemini_model", "GEMINI_MODEL", "gemini-2.5-flash")
+    model   = _ayar("gemini_model", "GEMINI_MODEL", "gemini-3.5-flash-lite")
     if not api_key:
         return _hata("Gemini anahtari yok (Yonetim -> Sesli Kumanda)", 503)
 

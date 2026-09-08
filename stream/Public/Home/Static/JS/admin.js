@@ -85,7 +85,7 @@ function renderGemini() {
     const key = $("#admin-gemini-key");
     if (key) key.value = CONFIG.gemini_api_key || "";
     const model = $("#admin-gemini-model");
-    if (model) model.value = CONFIG.gemini_model || "gemini-2.5-flash";
+    if (model) model.value = CONFIG.gemini_model || "gemini-3.5-flash-lite";
     const st = $("#admin-gemini-status");
     if (st) st.textContent = CONFIG.gemini_api_key ? "Anahtar kayıtlı." : "Anahtar yok — sesli komut kapalı.";
 }
