@@ -7,197 +7,91 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 8 Eylül 2026 (sabah)
-**Dal:** `fix/general-stability` @ `01d92e2` (master ESKİDİR) · temiz, push'lı · CI success
-**TV sürümü:** `v0.1.56-poc` — `data/apk/` içinde (yerel OTA) + GitHub Release
-**Cihaz doğrulaması bekliyor** — v0.1.53'ten sonrasının HİÇBİR değişikliği TV'de görülmedi.
-**v0.1.53'teki kurulum ANR'si yüzünden v0.1.56 ELLE kurulmalı** (Dean local send ile
-yolluyor); sonraki güncellemeler yerel OTA ile gelir.
-**Yerel API:** `http://192.168.1.185:3310` · **Tünel:** kapsam dışı
+**Son güncelleme:** 8 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `66722d0` · temiz, push'lı (4 commit gitti)
+**TV sürümü:** `v0.1.57-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
+**Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
+**Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
+
+## 0. Bu oturumda ne oldu (tek cümle)
+Telefon kumandası (`/rc`) baştan sona kuruldu: D-pad + oynatma kontrolü + arama +
+TV'ye metin yazma + Gemini ile sesli komut; tünel açıldı ve site PIN kapısına alındı.
 
 ## 1. Doğrula (tahmin etme)
 ```bash
-git fetch && git checkout fix/general-stability && git pull
-docker compose up -d --build                      # PC yeni açıldıysa autostart kaldırır
-bash scripts/smoke.sh                             # kapı: yeşil olmalı
-python -m unittest discover -s engine/tests       # 4 test
-cd client-tv && ./gradlew testDebugUnitTest       # 0 fail
-gh run list --limit 1                             # CI kapısı
+git fetch && git checkout fix/general-stability && git pull   # 66722d0 bekleniyor
+docker compose ps                                  # 5 kap ayakta olmalı
+bash scripts/smoke.sh                              # kapı YEŞİL
+docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests   # 78 test
+curl -s localhost:3310/api/v1/app_update           # v0.1.57-poc · 20019326 bayt
+curl -s -o /dev/null -w "%{http_code}
+" https://w.evaitec.com/giris   # 200
 ```
-`docker exec` çağrılarında Git Bash yolu bozar: `MSYS_NO_PATHCONV=1 docker exec ...`
-**Stream 10 dk `aggregate_new` cache'ler:** engine'i rebuild edince
-`docker restart netmovies-stream` yapmadan smoke ESKİ sayıları gösterir
-(recreate DEĞİL — tünel kopar). Restart TMDB puan cache'ini de siler; puanlar
-ilk çağrıda boş gelir, arka plan doldurduktan sonra dolar (~1 dk).
+`docker exec`/curl'de Git Bash yolu ve Türkçe karakteri bozar: `MSYS_NO_PATHCONV=1`
+kullan, Türkçe metinli isteği **Python'la** at (curl `sıcak`→`sicak` yapıyor).
 
-## 1b. "Film açılmıyor" şikayeti — SUNUCU TARAFI TEMİZ (8 Eylül sabah)
-Dean "film izlemek istiyorum, düzelt" dedi; sunucuda **arıza bulunamadı**:
-- `type=movie` → **144 film**, `type=serie` → **335** (`aggregate_new`, engine ve stream aynı)
-- Uçtan uca oynatma — Moana/DiziPal: `resolve_sources` → 1 kaynak →
-  `proxy/video` → **200 `application/vnd.apple.mpegurl` 7647b**
-- 11 eklenti `plugin_health` 200 · web ana sayfası 445 poster basıyor
-- Yerel OTA `v0.1.56-poc` sunuluyor (`/api/v1/app_update`, 20 019 326 bayt)
+## 2. SIRADAKİ İŞ — #1 cihazda, kod işi değil
+1. **TV'ye v0.1.57'yi kur ve dene.** Ev ağındayken (OTA tünelden değil LAN'dan iner).
+   Bakılacaklar: `/rc` → D-pad ana ekranda geziyor mu · film açıkken ⏯ ve ⏪10 ·
+   "Yaz" sekmesindeki metin Gözat'ın arama kutusuna düşüyor mu · Menü tuşu
+   oynatıcı ayarlarını açıyor mu · mikrofon (yalnız **https://w.evaitec.com/rc**'de,
+   LAN'da tarayıcı mikrofonu vermez).
+   Kurulum "Uygulama yüklenemedi" derse: imza uyuşmazlığı, eskiyi kaldırıp kur.
+2. **Sesli komut cihazda denenmedi.** Sunucu tarafı kanıtlı (aşağıda), ama
+   telefon mikrofonundan WAV üretip gönderen yol (`rc.html.j2: wavYap`) hiç
+   çalıştırılmadı — `decodeAudioData` telefonun webm/opus kaydını çözemezse orada
+   patlar. İlk gerçek konuşmada tarayıcı konsoluna bak.
+3. Film kaynakları (dizi tarafı bitti) — eski listeye bak: FilmMakinesi · FilmModu ·
+   FullHDFilm · JetFilmizle · SineWix · UgurFilm · Watch2Movies…
 
-**En güçlü hipotez (DOĞRULANMADI):** TV'deki APK hâlâ v0.1.53. Dean hangi cihazda,
-ne hata aldığını söylemedi — iş burada durdu. Şikayet tekrar gelirse önce
-`Ayarlar → 🩺 Kaynak raporu` satırını ve APK sürümünü iste.
+## 3. Bu oturumda kanıtlanan (tekrar denemene gerek yok)
+| Ne | Kanıt |
+|---|---|
+| Uzun-yoklama | boş kuyrukta `wait=5` → 5.009s, komut varken → 0.008s |
+| Komut şeması kapalı | `{"key":"POWER"}` → `gecersiz key: POWER` |
+| PIN kapısı (tünelden) | `/` → 303 · `/giris` → 200 · PIN'siz `remote/command` → **401** · çerezle → 200 |
+| Sesli niyet | 7 cümlenin 7'si doğru (seek −10 / seek 300 / volume −0.2 / play_pause / search / nav / none) |
+| APK içeriği | dex'te `RemoteBus`, `tusGonder`, `remoteQuery`, `kumandaMetni` VAR |
+| Arama temizliği | "inception" 60 sonuç → **1** (Özel Koleksiyon + sorguyu yok sayan kaynak elendi) |
+| Testler | stream 78/78 · engine 4/4 · client-tv 0 fail + assembleDebug |
 
-⚠️ **`aggregate_new` parametresi `type=`, `media_type=` DEĞİL.** Yanlış adla sorulunca
-hata vermez; sessizce farklı/eksik sonuç döner (bu oturumda movie 78 sanıldı, doğrusu 144).
+## 4. Yapma / bir daha düşme
+- **Azure'da vault arama.** `evaitec-shared-kv` dahil 8 vault 8 Eylül 12:35'te
+  **maliyet için bilerek silindi**; kurtarma yok. Gemini anahtarı yalnız
+  `/data/admin.json → gemini_api_key`'de. `~/.ai/vg.env` pointer'ı ölüydü, yorumlandı.
+- **Model adını tahmin etme.** `gemini-2.5-flash` bu anahtarla **429 kota** veriyor.
+  Çalışan: `gemini-3.5-flash-lite`. Gerçek liste:
+  `GET https://generativelanguage.googleapis.com/v1beta/models` (`x-goog-api-key`).
+- **`AUTH_USER`/`AUTH_PASS` DOLDURMA.** TV istemcisi Basic Auth taşımıyor, 401 alıp
+  katalogsuz kalır. Koruma çerezle: `Core/Modules/_pin.py`.
+- **Yeni istemci ucu eklerken sor: TV mi çağırıyor, tarayıcı mı?** Tarayıcıysa
+  `_pin.py: _KORUMALI_API`'ye ekle; TV'ninkini eklersen televizyon kırılır.
+- **`Permissions-Policy`** mikrofonu sessizce öldürüyordu (izin penceresi hiç
+  açılmıyordu) → `microphone=(self)` yapıldı, geri alma.
+- **Stream'e her dokunuş tüneli düşürür** — recreate'te 530, sadece `docker restart`'ta
+  **502**. Kurtarma (stream'e dokunmadan):
+  `docker compose --profile tunnel up -d --force-recreate --no-deps cloudflared`
+- Tünelden 20 MB APK indirme bağlantıyı doyurup tüneli geçici düşürüyor; TV zaten
+  LAN'ı önce deniyor.
+- Sanal fare geri gelmesin (`2312937`) · Vault PIN yapılmadı · RecTV'yi geri ekleme.
 
-## 2. Sistem şu an ne durumda (7 Eylül öğle kanıtlandı)
-| Alan | Durum | Kanıt |
-|---|---|---|
-| Yığın | doh/engine/stream/warp ayakta, engine+stream healthy | `docker compose ps` |
-| Katalog | movie 144 · serie 335 · yerli 48 · yabancı 35 · canlı 142 | `smoke.sh` |
-| Eklenti | **11 yüklü** — DiziPal + SezonlukDizi geldi, RecTV düştü | `plugin_health` 11/11 |
-| Yeni kaynak | DiziPal dizi+film oynatıyor · SezonlukDizi dublaj+altyazı | uçtan uca proxy 200 + `#EXTM3U` |
-| Açılış raporu | `kaynak-raporu.py` çalıştı, uyarı dosyası doğru davrandı | `SONUC=1 -> UYARI-DOSYASI-OLUSTU` |
-| Testler | engine 4/4 · stream 65/65 · client-tv 0 fail + assembleDebug | `unittest` + `gradlew` |
-| CI | son 2 run `success` | `gh run list` |
+## 5. Önce oku (sırayla)
+1. `stream/Public/API/v1/Routers/remote.py` — komut şeması ve kuyruk, her şeyin merkezi
+2. `stream/Public/Home/Templates/pages/rc.html.j2` — kumanda arayüzü + ses yolu
+3. `client-tv/.../MainActivity.kt` — tek yoklama döngüsü, `tusGonder` ile KeyEvent enjeksiyonu
+4. `stream/Core/Modules/_pin.py` — kapının neyi koruyup neyi korumadığı
 
-## 3. SIRADAKİ İŞ
-1. **Cihaz doğrulaması — Dean'e bağlı, kod işi değil.** v0.1.54'te bakılacaklar:
-   **DiziPal ve SezonlukDizi içerikleri açılıyor mu** · posterlerde ★ puan ·
-   ana sayfada EN ALT rafa (Gerilim vb.) D-pad ile inilebiliyor mu · dizide bölüm
-   seçimi geliyor mu · Ayarlar → Yönetim açılıyor mu · canlı TV kanalları açılıyor mu.
-   **Şikâyet gelirse önce Ayarlar → 🩺 Kaynak raporu satırını iste.**
-2. **Film kaynakları — dizi tarafı BİTTİ.** Kekik-cloudstream'de kalan aday (anime/Kore
-   hariç): FilmMakinesi · FilmModu · FullHDFilm · FullHDFilmizlesene · JetFilmizle ·
-   KultFilmler · SetFilmIzle · SineWix · SinemaCX · SuperFilmGeldi · UgurFilm ·
-   Watch2Movies · WebteIzle · RareFilmm · IzleAI (selcukflix) · NetflixMirror.
-   Canlı TV için: CanliTV · GolgeTV · InatBox.
-   **Upstream `.kt` genelde bayat** — selektörleri gerçek HTML'den çıkar, oynatma
-   zincirini elden çöz (DiziPal'de üç katman obfuscation vardı).
-3. **Açılış raporu içerik saymıyor.** Kaynağın ayakta olduğunu söyler; DiziPal'de
-   görülen "200 dönen boş kabuk" tuzağını yakalamaz. Rapora kaynak başına katalog
-   sayısı eklenirse "dün 40, bugün 0" durumu da uyarır.
-4. **"Liste altını göstermiyor" netleşmedi.** Poster başlığı kartın İÇİNDE alt
-   şeritte yazıyor; kartın altında ayrı satır yok. Dean'e sorulacak.
-5. **Puan yalnız ana sayfada.** Gözat (`get_main_page`) ve arama sonuçları puansız —
-   zenginleştirme sadece `stream/Public/API/v1/Routers/aggregate_new.py`'de.
-6. **İçerik detay ekranı.** TV'de poster → doğrudan oynatma; özet/oyuncu/benzerler yok.
-   Web'de `content.html.j2` var. TMDB anahtarı `.env`'de.
-7. **Atlanan yetişkin kaynaklar:** FullPorner (embed adresi JS template literal ile
-   üretiliyor) · SpankBang (WARP'tan 403) · OxAx, UncutMaza (denenmedi).
-
-## 4. Yapma / tekrar deneme
-- **Tünel mimarisine dokunma.** `cloudflared` `network_mode: service:stream` — stream
-  recreate = tünel ölür. Dean bilerek kapsam dışı bıraktı (5 Eylül).
-- **Yeni release ANONİM `/releases` listesine gecikmeli düşüyor.** Token'lı
-  `gh api .../releases` onu hemen gösterirken kimliksiz `curl` dakikalarca eski
-  listeyi döndürüyor (GitHub cache'i). v0.1.54'te bunu `--target` eksikliği sanıp
-  release silinip yeniden oluşturuldu — gereksizdi; v0.1.56'da `--target` verilmesine
-  rağmen aynı gecikme yaşandı. **Silip yeniden oluşturma, bekle.** Doğrulamayı
-  `gh api` ile yap. TV anonim sorduğu için güncelleme birkaç dakika geç görünebilir —
-  yerel OTA bu beklemeyi tamamen atlar.
-- **Sürüm alanlarını elle üç yerde güncelleme.** `build.gradle.kts` içindeki
-  `val appVersion` TEK kaynak; versionCode ondan türer. Sadece onu değiştir.
-- **`docker compose up -d --build` arka planda bırakma** — yarım kalan build
-  "container name already in use" bırakır (`docker rm -f <id>` ile temizlenir).
-- **Sanal fare geri gelmesin** (`2312937`) · **Vault PIN yapılmadı** (Dean "boşver" dedi).
-- **RecTV'yi geri ekleme** — `b.prectv36-60` hem doğrudan hem WARP'tan ölü, upstream
-  `.kt` de hâlâ ölü 38'i gösteriyor. Domain dönerse `git revert fab3df3`.
-
-## 5. Bu projede bir daha düşme (sert dersler)
-- **Terk edilmiş domain ÖLMÜYOR, boş kabuk sunuyor.** dizipal2200/2203/2205/2207 hepsi
-  200 döndürüyor, sıfır içerikle. Sadece HTTP durumuna bakan keşif katalogu sessizce
-  boşaltır (DiziPal ilk denemede `main_url`'ü 2200'e kaydırdı, katalog boş geldi).
-  **İmza doğrula** — `DiziPal.py` sayfada `dp-card` arıyor.
-- **Site kendi charset'ini söylemeyebilir.** SezonlukDizi windows-1254 gönderiyor,
-  başlık yok; httpx utf-8'e düşüp bütün Türkçe başlıkları bozuyordu. `fetch_html`
-  artık `encoding` alıyor. Aynı sitede ARAMA sorgusu da cp1254 kodlanmalı —
-  "Sıcak Kafa" katalogda dururken aramada hiç çıkmıyordu.
-- **WAF eksik parametreye 403 veriyor.** SezonlukDizi'de yalnız `adi=` ile sorunca 403;
-  tam parametre setiyle 200. Sessiz boş liste görünce önce ham isteği curl'le.
-- **Kaynak bulunması oynatılması demek değil.** VidMoly Türkiye'den doğrudan 403,
-  DiziPal CDN'i Referer'sız 404. Engine WARP'la çözüyor, proxy WARP'sız çekiyordu.
-  Video proxy artık 403/451'de WARP'tan tekrarlıyor (host bazlı hatırlar) ve bu iki
-  sağlayıcı `_ALWAYS_PROXY_PLUGINS` ile proxy'ye zorlanıyor.
-- **Ardışık iframe çözümü alternatif bütçesini yiyor.** SezonlukDizi'nin 12 oynatıcısı
-  sırayla çözülünce `resolve_sources`'in 25 sn'lik bütçesi doluyordu; paralel + kaynak
-  başına 12 sn tavan ile 60+ sn'den 14 sn'ye indi.
-- **cmd'de araya giren `type` errorlevel'i eziyor.** Açılış raporunda uyarı dosyası
-  bu yüzden hiç oluşmuyordu; çıkış kodu `type`'tan ÖNCE `set SONUC=%ERRORLEVEL%`.
-- **WARP adresi env'den gelir, IP sabitlenmez.** Ortak yer: `engine/Plugins/__warp_client.py`.
-- **Sağlık kontrolü eklentinin gittiği yoldan gitmeli** — WARP'lı eklentiyi WARP'sız
-  yoklamak onu "unreachable" damgalayıp katalogdan düşürüyordu.
-- **httpx bazı sitelerde TLS parmak izinden 403 alır.** yt-dlp'de
-  `--ignore-no-formats-error` şart.
-- **Eklenti içi `from .x import` çalışmaz** — PluginLoader dosyayı paketsiz yükler:
-  `from Plugins.x import ...`.
-- **Bir eklentiden TEK kategori almak katalogu kurutur.** `_pick_categories` eşleşen
-  tüm kategorileri alır; jenerik tür rafları eklentinin baskın tipine yazılır.
-- **M3U grup adını Türkçeleştirmek sızıntı açtı:** "Film" grubu movie ipucuna takılıp
-  canlı kanalları film listesine soktu. Live ayrı yoldan (`collect_live_channels`) gelir.
-- **Admin ayarları tek yerde uygulanmıyordu:** `filter_aggregate_items` sadece web ana
-  sayfasında çağrılıyordu. Yeni bir istemci ucu eklerken süzmeyi de bağla.
-- **Compose'da raf başlığı ile şerit AYRI LazyColumn öğesi olmamalı** — odak henüz
-  oluşturulmamış alttaki rafa geçemeyip liste ortada takılıyor.
-- **500+ öğelik `sections` remember'sız kurulursa** her recomposition'da yeniden
-  hesaplanır; aşağı inmek takılır.
-- **TMDB puanı istek anında çekilmez.** Liste cache'ten basar, eksikler arka planda
-  dolar. TMDB oy almamışa 0 döner — 0 basma.
-- **iptv-org listesi bayatlar.** Ölü yayın sunucuları HOST başına elenir
-  (`quick_channels`), kanal başına değil: tek domain onlarca kanal taşıyor.
-- **Kaynak geçişi konumu sıfırlar.** Yeni `prepare()` 0'dan başlar; konum geçişte elle
-  taşınmalı (`carryOverMs`).
-- **`content_key`'e tür koyma.** Anahtar site-agnostik OLDUĞU KADAR tür-agnostik olmalı;
-  yoksa aynı film Devam Et'te iki poster olur.
-- **Docker Desktop `AutoStart` kapalıysa `restart: unless-stopped` hiçbir şey yapmaz.**
-- **`/api/v1/plugin_health` stream üzerinden 302 döner** — engine container'ının
-  içinden sor.
-- **Engine kaynağı container'da `/usr/src/KekikStreamAPI/`**, `/usr/src/KekikStream/` DEĞİL.
-- **`ACTION_VIEW` ile APK kurulumu Android TV'de SESSİZCE yutulur** → `PackageInstaller`.
-- **Tek `requestFocus()` ilk karede sessizce düşer** → `repeat(n) + withFrameNanos`.
-- **Compose efekt anahtarı listeye bağlanırsa** liste büyüdüğünde iş yeniden koşar.
-- **Proxy jetonu manifeste BİR KEZ basılır** (`PROXY_TOKEN_TTL`, varsayılan 6 saat).
-- **`clickable` + ayrı `focusable()` = İKİ odak hedefi** → OK basışı hiçbir yere gitmez.
-- **`stream/` ve `engine/` kaynağı imajın içinde, mount YOK** → `up -d --build <servis>` şart.
-- **Sunucu `content_url`'ü HAM tutar, `MediaItem.url` quote_plus KODLU** (`Library.kt`).
-- **Aggregate tipi `serie`'dir, `series` değil.** Bilinmeyen tip sessizce boş döner.
-- **Sessiz `catch` = görünmez arıza.**
-
-## 6. Kritik dosya haritası
-```
-engine/Plugins/DiziPal.py                         ← AES oynatıcı zinciri · imza ile domain keşfi
-engine/Plugins/SezonlukDizi.py                    ← cp1254 · paralel oynatıcı çözümü
-engine/Plugins/__dizi_common.py                   ← fetch_html (WARP fallback + encoding)
-engine/Public/API/v1/Routers/resolve_sources.py   ← oynatma zinciri (TEK uç) · ALTERNATIVE_ORDER
-engine/Public/API/v1/Routers/plugin_health.py     ← eklenti sağlık raporu (6 saat TTL)
-stream/Public/API/v1/Libs/source_proxy.py         ← _ALWAYS_PROXY_PLUGINS
-stream/Public/Proxy/Libs/helpers.py               ← open_upstream (403/451 → WARP)
-stream/Public/API/v1/Routers/watch.py             ← izleme/favori uçları · _key_from
-stream/Public/Home/Libs/watch_store.py            ← SQLite; content_key SİTE+TÜR-AGNOSTİK
-stream/Public/Home/Libs/admin_config.py           ← gizli kaynak/kategori, vault, provider_url
-client-tv/.../ui/PlayerScreen.kt                  ← kaynak kuyruğu · carryOverMs · ilerleme
-client-tv/.../data/Library.kt                     ← favori/devam senkronu + URL biçim köprüsü
-client-tv/app/build.gradle.kts                    ← `val appVersion` = TEK sürüm kaynağı
-.github/workflows/gate.yml                        ← CI kapısı (client-tv · stream · engine)
-scripts/smoke.sh                                  ← yerel kapı kontrolü
-scripts/kaynak-raporu.py                          ← açılış kaynak sağlık raporu
-scripts/netmovies-autostart.cmd                   ← PC açılışında yığın + kaynak raporu
-```
-
-## 7. Yeni sürüm çıkarma (OTA)
-**Yerel OTA (birincil yol):** APK `data/apk/` altına konur; `/api/v1/app_update`
-en yüksek sürümlüyü bildirir, TV LAN'dan indirir. GitHub yalnız yedek yoldur.
-Dosya adı sürüm taşımalı (`NetMovies-TV-vX.Y.Z.apk`), yoksa sunulmaz. Yeni APK'yı
-kopyalarken `data/apk/` içindeki eski sürümü sil (yoksa sadece en yükseği sunulur,
-disk şişer).
-
+## 6. Yeni TV sürümü çıkarma
 ```bash
-# client-tv/app/build.gradle.kts → SADECE `val appVersion` değiştir
-cd client-tv && ./gradlew testDebugUnitTest assembleDebug
-cp app/build/outputs/apk/debug/app-debug.apk ../NetMovies-TV-vX.Y.Z.apk
-cp ../NetMovies-TV-vX.Y.Z.apk data/apk/          # yerel OTA kaynağı
-gh release create vX.Y.Z-poc ../NetMovies-TV-vX.Y.Z.apk --prerelease \
-   --target fix/general-stability --title "..." --notes "..."
-# DOĞRULA: liste API'sinde görünmeli, yoksa TV güncellemeyi hiç görmez
-curl -s "https://api.github.com/repos/evatechnosoft/netmovies/releases?per_page=1"
+# build.gradle.kts içindeki `val appVersion` TEK KAYNAK — versionCode ondan türer.
+cd client-tv && ./gradlew testDebugUnitTest assembleDebug && cd ..
+cp client-tv/app/build/outputs/apk/debug/app-debug.apk data/apk/NetMovies-TV-vX.Y.Z.apk
+curl -s localhost:3310/api/v1/app_update      # yeni sürümü göstermeli
 ```
-⚠ GitHub API kimliksiz **saatte 60 istek/IP**; ev ağı ve testler aynı kotayı paylaşır.
-Uygulama `/releases` listesini okur → prerelease yayınlamak yeterli.
+Yerel OTA bu kadar. GitHub release İSTEĞE BAĞLI — anonim `/releases` listesi
+dakikalarca gecikir, **silip yeniden oluşturma, bekle**; doğrulamayı `gh api` ile yap.
+
 
 ---
 
