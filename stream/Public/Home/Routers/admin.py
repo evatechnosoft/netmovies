@@ -23,7 +23,9 @@ async def admin_page(request: Request):
 # --------------------------------------------------------------------------- Config
 @home_router.get("/api/admin/config")
 async def admin_get_config():
-    return JSONResponse(admin_config.load_config())
+    # Sırlar maskeli döner (Gemini anahtarı) — panel dolu/boş olduğunu görür,
+    # değeri görmez.
+    return JSONResponse(admin_config.masked_config())
 
 
 @home_router.post("/api/admin/config")
@@ -32,8 +34,9 @@ async def admin_set_config(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
-    saved = admin_config.save_config(body)
-    return JSONResponse({"ok": True, "config": saved})
+    # Panel maskeli anahtarı geri gönderirse mevcut anahtar korunur.
+    saved = admin_config.save_config(admin_config.merge_secrets(body))
+    return JSONResponse({"ok": True, "config": admin_config.masked_config(saved)})
 
 
 @home_router.post("/api/admin/featured")

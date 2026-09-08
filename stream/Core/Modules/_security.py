@@ -22,8 +22,12 @@ async def add_security_headers(request: Request, call_next):
 
     # --- Permissions-Policy (Feature-Policy) ---
     # Permissions-Policy: sadece bilinen ve stabil feature'lar kısıtlanıyor
+    # microphone=(self): sesli kumanda (/rc mikrofonu) bu izne bağlı. Kapalıyken
+    # tarayıcı getUserMedia'yı sessizce reddediyordu — sayfa "mikrofon izni
+    # verilmedi" diyor ama izin penceresi hiç açılmıyordu. Yalnız kendi sayfamıza
+    # açık; üçüncü taraf iframe'ler yine mikrofona ulaşamaz.
     response.headers["Permissions-Policy"] = (
-        "camera=(), microphone=(), geolocation=(), payment=(), "
+        "camera=(), microphone=(self), geolocation=(), payment=(), "
         "fullscreen=(self)"
     )
 

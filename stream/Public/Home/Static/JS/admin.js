@@ -72,6 +72,24 @@ function renderProviderUrl() {
     if (st) st.textContent = CONFIG.provider_url ? "Şu an: uzak sağlayıcı" : "Şu an: yerel motor";
 }
 
+// Anahtar sunucudan MASKELİ gelir ("••••1f2e"). Alan dokunulmadan kaydedilirse
+// sunucu maskeyi yok sayıp mevcut anahtarı korur (admin_config.merge_secrets).
+function renderSitePin() {
+    const el = $("#admin-site-pin");
+    if (el) el.value = CONFIG.site_pin || "";
+    const st = $("#admin-site-pin-status");
+    if (st) st.textContent = CONFIG.site_pin ? "Kapı açık: giriş PIN sorulur." : "Kapı yok — site herkese açık.";
+}
+
+function renderGemini() {
+    const key = $("#admin-gemini-key");
+    if (key) key.value = CONFIG.gemini_api_key || "";
+    const model = $("#admin-gemini-model");
+    if (model) model.value = CONFIG.gemini_model || "gemini-2.5-flash";
+    const st = $("#admin-gemini-status");
+    if (st) st.textContent = CONFIG.gemini_api_key ? "Anahtar kayıtlı." : "Anahtar yok — sesli komut kapalı.";
+}
+
 function renderHealth(data) {
     const box = $("#admin-health");
     const plugins = (data && data.result && data.result.plugins) || [];
@@ -116,6 +134,9 @@ function collectConfig() {
         featured: CONFIG.featured || [],
         min_rating: Number($("#admin-min-rating").value || 0),
         provider_url: ($("#admin-provider-url")?.value || "").trim(),
+        site_pin: ($("#admin-site-pin")?.value || "").trim(),
+        gemini_api_key: ($("#admin-gemini-key")?.value || "").trim(),
+        gemini_model: ($("#admin-gemini-model")?.value || "").trim(),
     };
 }
 
@@ -138,6 +159,27 @@ async function save() {
         }
     } catch (e) {
         status.textContent = "Kaydetme başarısız";
+    }
+}
+
+// "Dene": anahtarı ve model adını gerçek bir Gemini çağrısıyla doğrular.
+// dry=true → niyet çözülür ama TV'ye komut gönderilmez.
+async function testGemini() {
+    const st = $("#admin-gemini-status");
+    st.textContent = "Deneniyor… (önce Kaydet)";
+    try {
+        const r = await fetch("/api/v1/voice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: "on saniye geri al", dry: true }),
+        });
+        const d = await r.json();
+        const res = d && d.result;
+        st.textContent = res && res.ok
+            ? `✓ Çalışıyor (${res.model}) — anlaşılan: ${res.action || "?"} ${res.transport || res.key || ""}`
+            : `✗ ${(res && res.error) || "bilinmeyen hata"}`;
+    } catch (e) {
+        st.textContent = "✗ Sunucuya ulaşılamadı";
     }
 }
 
@@ -164,6 +206,8 @@ async function init() {
     renderFeatured();
     renderRating();
     renderProviderUrl();
+    renderGemini();
+    renderSitePin();
     loadHealth();
     loadRepos();
 
@@ -173,6 +217,7 @@ async function init() {
     $("#admin-save").addEventListener("click", save);
     $("#admin-health-refresh").addEventListener("click", () => loadHealth(true));
     $("#admin-repo-add")?.addEventListener("click", addRepo);
+    $("#admin-gemini-test")?.addEventListener("click", testGemini);
 
     $("#admin-provider-watchbuddy")?.addEventListener("click", () => {
         // NOT: kök adres (/api/v1 EKLEME) — client uç noktaları kendi ekler.

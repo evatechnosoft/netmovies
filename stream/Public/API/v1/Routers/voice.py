@@ -5,8 +5,10 @@
 # harfiyen yazılınca hiçbir işe yaramıyor. Burada Gemini sesi doğrudan alıp EYLEM
 # üretir: arama sorgusu mu, tuş mu, oynatma kontrolü mü.
 #
-# Anahtar yalnız SUNUCUDA durur — istemciye hiç gitmez. GEMINI_API_KEY boşsa uç
-# 503 döner ve kumanda sayfası tarayıcının kendi tanımasına düşer (düz metin arama).
+# Anahtar yalnız SUNUCUDA durur — koda gömülü değildir, istemciye hiç gitmez ve
+# panele maskeli döner. Yönetim panelinden girilir (Yönetim → Sesli Kumanda);
+# .env'deki GEMINI_API_KEY yedek yoldur. Anahtar yoksa uç 503 döner ve kumanda
+# sayfası tarayıcının kendi tanımasına düşer (yalnız arama yapar).
 
 import base64
 import json
@@ -18,10 +20,17 @@ from Core     import Request, JSONResponse
 from .        import api_v1_router, api_v1_global_message
 from .remote  import build_command, enqueue
 
-_API_KEY  = os.getenv("GEMINI_API_KEY", "").strip()
-# Model adı .env'den gelir: Google model adlarını emekliye ayırdığında kod
-# değiştirmek gerekmesin, tek satır ayarla düzelsin.
-_MODEL    = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+# Anahtar KODDA DEĞİL: önce yönetim panelinden (admin.json), yoksa .env'den.
+# Panel önce gelir ki anahtar değişince kap yeniden başlatılmasın.
+def _ayar(ad: str, env_ad: str, varsayilan: str = "") -> str:
+    try:
+        from Public.Home.Libs import admin_config
+        deger = str(admin_config.load_config().get(ad) or "").strip()
+    except Exception:
+        deger = ""
+    return deger or os.getenv(env_ad, "").strip() or varsayilan
+
+
 _ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 # Ses tavanı: kumandada tek cümle söylenir, 15 sn'lik opus ~120 KB. Tavan bunun
@@ -94,10 +103,14 @@ async def voice(request: Request):
     Tuş/oynatma/ekran niyetleri DOĞRUDAN kuyruğa yazılır — kullanıcı "durdur"
     dedikten sonra ayrıca bir düğmeye basmak zorunda kalmasın. Arama niyeti
     yazılmaz: sonucu kullanıcı seçer, TV'de ne açılacağına Gemini karar vermez."""
-    if not _API_KEY:
-        return _hata("GEMINI_API_KEY tanimli degil", 503)
+    api_key = _ayar("gemini_api_key", "GEMINI_API_KEY")
+    model   = _ayar("gemini_model", "GEMINI_MODEL", "gemini-2.5-flash")
+    if not api_key:
+        return _hata("Gemini anahtari yok (Yonetim -> Sesli Kumanda)", 503)
 
     veri  = request.state.veri or {}
+    # Panelde "Dene": anahtarı ve modeli doğrular ama TV'ye komut GÖNDERMEZ.
+    deneme = str(veri.get("dry") or "").lower() in ("1", "true", "evet")
     metin = str(veri.get("text") or "").strip()
     ses   = str(veri.get("audio") or "").strip()
     mime  = str(veri.get("mime") or "audio/webm").strip()
@@ -130,8 +143,8 @@ async def voice(request: Request):
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5, read=20, write=20, pool=5)) as client:
             yanit = await client.post(
-                _ENDPOINT.format(model=_MODEL),
-                headers = {"x-goog-api-key": _API_KEY},
+                _ENDPOINT.format(model=model),
+                headers = {"x-goog-api-key": api_key},
                 json    = govde,
             )
     except httpx.HTTPError as hata:
@@ -139,14 +152,14 @@ async def voice(request: Request):
 
     if yanit.status_code != 200:
         # Model adı yanlışsa Google 404 döner; teşhis için modeli de söyle.
-        return _hata(f"gemini {yanit.status_code} (model={_MODEL}): {yanit.text[:200]}", 502)
+        return _hata(f"gemini {yanit.status_code} (model={model}): {yanit.text[:200]}", 502)
 
     niyet = _cikti_ayikla(yanit.json())
     if niyet is None:
         return _hata("gemini yanitindan JSON cikarilamadi", 502)
 
     gonderildi = False
-    ham_komut  = _komuta_cevir(niyet)
+    ham_komut  = None if deneme else _komuta_cevir(niyet)
     if ham_komut:
         komut = build_command(ham_komut)
         if isinstance(komut, str):
@@ -155,4 +168,4 @@ async def voice(request: Request):
             enqueue(komut)
             gonderildi = True
 
-    return {**api_v1_global_message, "result": {"ok": True, "sent": gonderildi, **niyet}}
+    return {**api_v1_global_message, "result": {"ok": True, "sent": gonderildi, "model": model, **niyet}}

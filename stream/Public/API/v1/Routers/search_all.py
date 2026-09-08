@@ -65,7 +65,11 @@ async def search_all(request: Request):
 
     basliklar = get_client_headers(request)
     cfg       = admin_config.load_config()
-    gizli     = set(cfg["hidden_providers"])
+    # Özel Koleksiyon kaynakları burada HER ZAMAN dışarıda: panelde görünür
+    # yapılmış olsalar bile ("Özel Koleksiyon" ekranı onları listeleyebilsin diye)
+    # genel aramaya karışmamalılar — "inception" araması 47 alakasız sonuç
+    # getiriyordu. O koleksiyon kendi ekranından elle aranır.
+    gizli     = set(cfg["hidden_providers"]) | set(cfg["adult_providers"])
 
     adlar = await fuck_dmca("/get_plugin_names", client_headers=basliklar)
     adlar = [ad for ad in (adlar or []) if ad not in gizli]

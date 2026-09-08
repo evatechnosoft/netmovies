@@ -39,6 +39,7 @@ from . import (
     icerik,
     ara,
     rc,
+    giris,
     izle,
     admin,
     tmdb

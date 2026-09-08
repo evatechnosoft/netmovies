@@ -37,6 +37,28 @@
         <span id="admin-provider-status" class="admin-muted"></span>
     </section>
 
+    <!-- Siteye giriş PIN'i -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-lock"></i> Siteye Giriş PIN'i</h2>
+        <p class="admin-card-sub">Tünelden (<strong>w.evaitec.com</strong>) açıkken siteye girmek için sorulan PIN. Boş bırakılırsa kapı yoktur, adres bilen herkes girer. Televizyon uygulaması bundan <strong>etkilenmez</strong> — koruma çerezle çalışır, TV çerez taşımaz. PIN'i değiştirince daha önce giriş yapmış tüm cihazlar düşer.</p>
+        <div class="admin-rating-row">
+            <input type="password" id="admin-site-pin" placeholder="örn. 1234" inputmode="numeric" autocomplete="off" maxlength="12" style="flex:0 1 220px; min-width:0;">
+        </div>
+        <span id="admin-site-pin-status" class="admin-muted"></span>
+    </section>
+
+    <!-- Sesli kumanda (Gemini) -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-microphone"></i> Sesli Kumanda (Gemini)</h2>
+        <p class="admin-card-sub">Telefon kumandasındaki mikrofon (<a href="/rc">/rc</a>) için Google Gemini anahtarı. Ücretsiz alınır: <strong>aistudio.google.com → Get API key</strong>. Anahtar yalnız sunucuda durur, koda gömülü değildir ve buraya bir daha maskeli döner. Boş bırakılırsa mikrofon tarayıcının kendi tanımasına düşer (yalnız arama yapar, komut vermez).</p>
+        <div class="admin-rating-row">
+            <input type="password" id="admin-gemini-key" placeholder="AIza…" autocomplete="off" style="flex:1; min-width:0;">
+            <input type="text" id="admin-gemini-model" placeholder="gemini-2.5-flash" style="flex:0 1 200px; min-width:0;">
+            <button type="button" class="button button-secondary" id="admin-gemini-test">Dene</button>
+        </div>
+        <span id="admin-gemini-status" class="admin-muted"></span>
+    </section>
+
     <!-- Eklenti Repoları (GitHub / CloudStream) -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fab fa-github"></i> Eklenti Havuzları (CloudStream / GitHub)</h2>

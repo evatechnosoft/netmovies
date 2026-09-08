@@ -47,6 +47,14 @@ DEFAULT_CONFIG: dict = {
     # kullanılır. Doluysa tüm cihazlar (telefon/Mibox/PC) bu sağlayıcıyı görür —
     # 200+ eklenti + CF/domain bakımı upstream'de. Bedeli: istekler o sunucudan geçer.
     "provider_url": "",
+    # Sesli kumanda (/rc mikrofonu) icin Google Gemini erisimi. Panelden girilir;
+    # .env'deki GEMINI_API_KEY yedek yol olarak kalir (panel bossa o kullanilir).
+    # Anahtar koda ASLA gomulmez ve istemciye maskeli doner (bkz. masked_config).
+    # Siteye giris PIN'i (tunelden acikken kapi). Bos = kapi yok. TV istemcisi
+    # etkilenmez: koruma cerezle yapilir, TV cerez tasimaz (bkz. Core/Modules/_pin.py).
+    "site_pin": "",
+    "gemini_api_key": "",
+    "gemini_model": "gemini-2.5-flash",
     # CloudStream benzeri özel GitHub / harici eklenti repoları
     "custom_repos": [
         {
@@ -77,6 +85,9 @@ def _normalize(cfg: dict) -> dict:
     out["vault_alias"]       = str(out.get("vault_alias") or "Özel Koleksiyon")
     out["vault_pin"]         = str(out.get("vault_pin") or "")
     out["adult_providers"]   = list(out.get("adult_providers") or list(DEFAULT_CONFIG["adult_providers"]))
+    out["site_pin"]          = str(out.get("site_pin") or "").strip()
+    out["gemini_api_key"]    = str(out.get("gemini_api_key") or "").strip()
+    out["gemini_model"]      = str(out.get("gemini_model") or DEFAULT_CONFIG["gemini_model"]).strip()
     # provider_url: normalize (strip, protokol ekle). Boş bırakılabilir → yerel motor.
     _pu = str(out.get("provider_url") or "").strip().rstrip("/")
     if _pu and not _pu.startswith(("http://", "https://")):
@@ -180,3 +191,32 @@ def filter_aggregate_items(items: list, cfg: dict | None = None) -> list:
             continue
         out.append(item)
     return filter_items(out, cfg)
+
+
+# Gemini anahtarı gibi sırlar panele MASKELİ gider. Panel ADMIN_PASS arkasında
+# olsa da düz anahtarı ağa geri vermek gereksiz risk: tünelden açılan bir sayfada
+# tarayıcı geçmişi, uzantı ve önbellek de anahtarı görürdü.
+_MASKE = "••••"
+
+
+def mask_secret(deger: str) -> str:
+    """Anahtarı tanınacak kadar gösterir: ••••1f2e (son 4 hane)."""
+    deger = str(deger or "")
+    return f"{_MASKE}{deger[-4:]}" if deger else ""
+
+
+def masked_config(cfg: dict | None = None) -> dict:
+    cfg = dict(cfg or load_config())
+    cfg["gemini_api_key"] = mask_secret(cfg.get("gemini_api_key"))
+    return cfg
+
+
+def merge_secrets(gelen: dict, mevcut: dict | None = None) -> dict:
+    """Panelden dönen maskeli değeri kayda YAZMAZ — kullanıcı alana dokunmadıysa
+    mevcut anahtar korunur. Bu olmadan her kaydetme anahtarı "••••1f2e" yapardı."""
+    mevcut = mevcut or load_config()
+    gelen  = dict(gelen or {})
+    anahtar = str(gelen.get("gemini_api_key") or "")
+    if not anahtar or anahtar.startswith(_MASKE):
+        gelen["gemini_api_key"] = mevcut.get("gemini_api_key", "")
+    return gelen

@@ -26,6 +26,9 @@ from Core.Modules._auth import AdminAuthMiddleware, BasicAuthMiddleware
 kekik_FastAPI.add_middleware(BasicAuthMiddleware)
 # İzleme açık kalsa bile yönetim paneli ADMIN_PASS ile korunur
 kekik_FastAPI.add_middleware(AdminAuthMiddleware)
+# Tünelden açılan site için PIN kapısı (çerezle; TV istemcisini kırmaz).
+from Core.Modules._pin import SitePinMiddleware
+kekik_FastAPI.add_middleware(SitePinMiddleware)
 
 # ! ----------------------------------------» Routers
 
