@@ -74,6 +74,13 @@ function renderProviderUrl() {
 
 // Anahtar sunucudan MASKELİ gelir ("••••1f2e"). Alan dokunulmadan kaydedilirse
 // sunucu maskeyi yok sayıp mevcut anahtarı korur (admin_config.merge_secrets).
+function renderRemote() {
+    const r = $("#admin-rc-recent");
+    if (r) r.checked = CONFIG.rc_show_recent !== false;
+    const t = $("#admin-rc-text");
+    if (t) t.checked = CONFIG.rc_text_to_tv !== false;
+}
+
 function renderSitePin() {
     const el = $("#admin-site-pin");
     if (el) el.value = CONFIG.site_pin || "";
@@ -135,6 +142,8 @@ function collectConfig() {
         min_rating: Number($("#admin-min-rating").value || 0),
         provider_url: ($("#admin-provider-url")?.value || "").trim(),
         site_pin: ($("#admin-site-pin")?.value || "").trim(),
+        rc_show_recent: !!$("#admin-rc-recent")?.checked,
+        rc_text_to_tv: !!$("#admin-rc-text")?.checked,
         gemini_api_key: ($("#admin-gemini-key")?.value || "").trim(),
         gemini_model: ($("#admin-gemini-model")?.value || "").trim(),
     };
@@ -208,6 +217,7 @@ async function init() {
     renderProviderUrl();
     renderGemini();
     renderSitePin();
+    renderRemote();
     loadHealth();
     loadRepos();
 

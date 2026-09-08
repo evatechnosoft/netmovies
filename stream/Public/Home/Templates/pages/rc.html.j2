@@ -112,36 +112,38 @@
     </div>
   </section>
 
-  <!-- ======================= ARA ======================= -->
+  <!-- ======================= ARA =======================
+       Tek kutu, iki iş: telefonda ara ya da aynı metni TV'nin arama kutusuna
+       yolla. Ayrı bir "Yaz" sekmesi vardı; aynı metni iki yere yazdırıyordu. -->
   <section id="s-ara" class="sekme">
     <div class="arama">
       <input id="sorgu" type="search" placeholder="Film veya dizi ara…" autocomplete="off" enterkeyhint="search">
       <button class="dugme" id="mikrofon" title="Sesle ara">🎤</button>
     </div>
+    {% if rc_text_to_tv %}
+    <div class="satir" style="margin-top:10px">
+      <button class="dugme genis" id="tvye-yaz" title="Kutudaki metni televizyonun arama kutusuna yolla">📺 TV'ye yaz</button>
+    </div>
+    {% endif %}
     <p id="durum"></p>
     <div class="sonuclar" id="sonuclar"></div>
-  </section>
-
-  <!-- ======================= YAZ ======================= -->
-  <section id="s-yaz" class="sekme">
-    <p class="baslik">Televizyondaki kutuya yaz</p>
-    <textarea id="metin" rows="3" placeholder="TV'nin arama kutusuna gidecek metin…"></textarea>
-    <div class="satir" style="margin-top:12px">
-      <button class="dugme genis" id="yaz-gonder">⌨️ TV'ye yaz</button>
-      <button class="dugme genis" id="yaz-ara">🔍 Yaz ve ara</button>
-    </div>
   </section>
 </main>
 
 <nav>
   <button class="aktif" data-sekme="kumanda"><i>🕹️</i>Kumanda</button>
   <button data-sekme="ara"><i>🔍</i>Ara</button>
-  <button data-sekme="yaz"><i>⌨️</i>Yaz</button>
 </nav>
 
 <script>
 (() => {
   'use strict';
+  // Yönetim panelinden gelen ayarlar (admin.json). TV de aynı değerleri
+  // /api/v1/client_config ile okur — tek kaynak, tek aç/kapa.
+  const AYAR = {
+    liste : {{ 'true' if rc_show_recent else 'false' }},
+    tvYaz : {{ 'true' if rc_text_to_tv else 'false' }},
+  };
   const $ = (id) => document.getElementById(id);
   const durum = $('durum');
   const titre = () => { try { navigator.vibrate?.(12); } catch (_) {} };
@@ -187,6 +189,7 @@
   document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('aktif', x === b));
     document.querySelectorAll('.sekme').forEach((s) => s.classList.toggle('aktif', s.id === 's-' + b.dataset.sekme));
+    if (b.dataset.sekme === 'ara') yeniCikanlar();
   }));
 
   // ---------------------------------------------------------------- TV bağlı mı
@@ -225,6 +228,20 @@
     } catch (_) { durum.textContent = 'Arama başarısız — sunucuya ulaşılamadı'; }
   }
 
+  function basSonuclar(ogeler) {
+    const kap = $('sonuclar');
+    kap.innerHTML = '';
+    ogeler.forEach((o) => {
+      const kart = document.createElement('button');
+      kart.className = 'kart';
+      kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
+      kart.querySelector('img').src = poster(o.poster, o.title);
+      kart.querySelector('span').textContent = o.title || o.url;
+      kart.addEventListener('click', () => tvdeOynat(o));
+      kap.appendChild(kart);
+    });
+  }
+
   async function tvdeOynat(o) {
     titre();
     const q = new URLSearchParams({ plugin: o.plugin || '', url: o.url || '', title: o.title || '', poster: o.poster || '' });
@@ -236,9 +253,40 @@
 
   $('sorgu').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); ara(e.target.value); } });
 
-  // ---------------------------------------------------------------- klavye
-  $('yaz-gonder').addEventListener('click', () => komut({ type: 'text', text: $('metin').value, submit: false }));
-  $('yaz-ara').addEventListener('click', () => komut({ type: 'text', text: $('metin').value, submit: true }));
+  // Ara sekmesi boş açılmasın: Yeni Çıkanlar listesi gelir, dokununca TV'de başlar.
+  // Aramaya girmeden de bir şey seçilebilsin diye — kumandada klavye zahmetli.
+  let listeYuklendi = false;
+  async function yeniCikanlar() {
+    if (!AYAR.liste || listeYuklendi) return;
+    listeYuklendi = true;
+    durum.textContent = 'Yeni çıkanlar yükleniyor…';
+    try {
+      const cek = (tip) => fetch('/api/v1/aggregate_new?type=' + tip)
+        .then((r) => r.json()).then((d) => (d?.result?.items || []).slice(0, 24)).catch(() => []);
+      const [filmler, diziler] = await Promise.all([cek('movie'), cek('serie')]);
+      // Film ve dizi dönüşümlü: tek tür listenin başını kaplamasın.
+      const karisik = [];
+      for (let i = 0; i < Math.max(filmler.length, diziler.length); i++) {
+        if (filmler[i]) karisik.push(filmler[i]);
+        if (diziler[i]) karisik.push(diziler[i]);
+      }
+      if (!karisik.length) { durum.textContent = ''; listeYuklendi = false; return; }
+      durum.textContent = 'Yeni çıkanlar — dokun, TV'de başlasın';
+      basSonuclar(karisik);
+    } catch (_) {
+      durum.textContent = '';
+      listeYuklendi = false;
+    }
+  }
+
+  // ---------------------------------------------------------------- TV'ye yaz
+  // Arama kutusundaki metin televizyonun arama kutusuna düşer (submit: TV kendi arar).
+  $('tvye-yaz')?.addEventListener('click', async () => {
+    const metin = $('sorgu').value.trim();
+    if (!metin) { durum.textContent = 'Önce bir şey yaz'; return; }
+    const ok = await komut({ type: 'text', text: metin, submit: true });
+    durum.textContent = ok ? '📺 TV'ye yazıldı: ' + metin : 'Gönderilemedi';
+  });
 
   // ---------------------------------------------------------------- sesli komut
   // Gemini sesi doğrudan NİYETE çevirir: "durdur" tuşa, "inception aç" aramaya gider.

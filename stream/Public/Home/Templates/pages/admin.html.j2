@@ -37,6 +37,14 @@
         <span id="admin-provider-status" class="admin-muted"></span>
     </section>
 
+    <!-- Telefon kumandası -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-gamepad"></i> Telefon Kumandası</h2>
+        <p class="admin-card-sub">Telefondaki kumanda sayfasının (<a href="/rc">/rc</a>) davranışı. Ayarlar sunucuda tutulur; televizyon uygulaması da aynı değerleri <code>/api/v1/client_config</code> ile okur, yani tek yerden açıp kapatırsın.</p>
+        <label class="admin-check"><input type="checkbox" id="admin-rc-recent"> <span>Ara sekmesi açılınca <strong>Yeni Çıkanlar</strong> listesi gelsin (film ve dizi dönüşümlü)</span></label>
+        <label class="admin-check"><input type="checkbox" id="admin-rc-text"> <span><strong>TV'ye yaz</strong> düğmesi görünsün (arama kutusundaki metni televizyonun arama kutusuna yollar)</span></label>
+    </section>
+
     <!-- Siteye giriş PIN'i -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fas fa-lock"></i> Siteye Giriş PIN'i</h2>

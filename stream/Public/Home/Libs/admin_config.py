@@ -50,6 +50,10 @@ DEFAULT_CONFIG: dict = {
     # Sesli kumanda (/rc mikrofonu) icin Google Gemini erisimi. Panelden girilir;
     # .env'deki GEMINI_API_KEY yedek yol olarak kalir (panel bossa o kullanilir).
     # Anahtar koda ASLA gomulmez ve istemciye maskeli doner (bkz. masked_config).
+    # Telefon kumandasi (/rc) davranisi. Panelde tutulur ki tek yerden acilip
+    # kapansin ve ayni deger TV istemcisine de gitsin (client_config).
+    "rc_show_recent": True,   # Ara sekmesi acilinca Yeni Cikanlar listesi gelsin mi
+    "rc_text_to_tv" : True,   # Arama satirinda "TV'ye yaz" dugmesi gorunsun mu
     # Siteye giris PIN'i (tunelden acikken kapi). Bos = kapi yok. TV istemcisi
     # etkilenmez: koruma cerezle yapilir, TV cerez tasimaz (bkz. Core/Modules/_pin.py).
     "site_pin": "",
@@ -86,6 +90,8 @@ def _normalize(cfg: dict) -> dict:
     out["vault_pin"]         = str(out.get("vault_pin") or "")
     out["adult_providers"]   = list(out.get("adult_providers") or list(DEFAULT_CONFIG["adult_providers"]))
     out["site_pin"]          = str(out.get("site_pin") or "").strip()
+    out["rc_show_recent"]    = bool(out.get("rc_show_recent", True))
+    out["rc_text_to_tv"]     = bool(out.get("rc_text_to_tv", True))
     out["gemini_api_key"]    = str(out.get("gemini_api_key") or "").strip()
     out["gemini_model"]      = str(out.get("gemini_model") or DEFAULT_CONFIG["gemini_model"]).strip()
     # provider_url: normalize (strip, protokol ekle). Boş bırakılabilir → yerel motor.

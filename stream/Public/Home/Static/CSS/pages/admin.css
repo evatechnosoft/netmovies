@@ -13,6 +13,11 @@
 .admin-health-item.down { border-color: var(--error-color); background: var(--error-bg); }
 .admin-health-item small { color: var(--text-muted); font-size: var(--font-size-xs); }
 .admin-rating-row { display: flex; align-items: center; gap: var(--spacing-lg); }
+
+/* Aç/kapa satırı (kumanda ayarları). Etiketin tamamı tıklanabilir olsun diye
+   onay kutusu label içinde; uzun açıklamada kutu üstte hizalı kalır. */
+.admin-check { display: flex; align-items: flex-start; gap: .6rem; margin: .5rem 0; cursor: pointer; line-height: 1.45; }
+.admin-check input { margin-top: .25rem; flex: 0 0 auto; }
 .admin-rating-row input[type=range] { flex: 1; }
 .admin-featured-item { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-lg); padding: var(--spacing-sm) var(--spacing-md); border: 1px solid var(--glass-edge); border-radius: var(--border-radius); margin-bottom: var(--spacing-sm); background: var(--surface-glass); }
 .admin-featured-item small { color: var(--text-muted); }

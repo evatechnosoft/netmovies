@@ -23,5 +23,9 @@ async def client_config(request: Request):
             "hidden_categories": cfg.get("hidden_categories") or [],
             "vault_alias"      : cfg.get("vault_alias") or "Özel Koleksiyon",
             "min_rating"       : cfg.get("min_rating") or 0.0,
+            # Kumanda ayarları burada da veriliyor: panelde bir kez açılıp kapanır,
+            # web kumandası ve TV aynı değeri görür (tek kaynak admin.json).
+            "rc_show_recent"   : bool(cfg.get("rc_show_recent", True)),
+            "rc_text_to_tv"    : bool(cfg.get("rc_text_to_tv", True)),
         },
     }
