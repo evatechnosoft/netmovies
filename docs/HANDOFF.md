@@ -8,7 +8,7 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 8 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `66722d0` · temiz, push'lı (4 commit gitti)
+**Dal:** `fix/general-stability` @ `c751ce1` · temiz, push'lı, origin ile eşit
 **TV sürümü:** `v0.1.57-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
@@ -18,9 +18,16 @@
 Telefon kumandası (`/rc`) baştan sona kuruldu: D-pad + oynatma kontrolü + arama +
 TV'ye metin yazma + Gemini ile sesli komut; tünel açıldı ve site PIN kapısına alındı.
 
+**Kumanda iki sekme:** *Kumanda* (D-pad, ⏯/⏪10/⏩30, ses, ⏹, ekran kısayolları) ve
+*Ara* (tek kutu: Enter'la telefonda arar, 🎤 sesli, **📺 TV'ye yaz** aynı metni TV'nin
+arama kutusuna yollar). Ara sekmesi açılınca **Yeni Çıkanlar** gelir (film/dizi
+dönüşümlü). Son ikisi Yönetim → **Telefon Kumandası** kartından açılıp kapanır
+(`rc_show_recent`, `rc_text_to_tv`), değerler `admin.json`'da ve `client_config`
+ile TV'ye de gider.
+
 ## 1. Doğrula (tahmin etme)
 ```bash
-git fetch && git checkout fix/general-stability && git pull   # 66722d0 bekleniyor
+git fetch && git checkout fix/general-stability && git pull   # c751ce1 bekleniyor
 docker compose ps                                  # 5 kap ayakta olmalı
 bash scripts/smoke.sh                              # kapı YEŞİL
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests   # 78 test
@@ -34,15 +41,19 @@ kullan, Türkçe metinli isteği **Python'la** at (curl `sıcak`→`sicak` yapı
 ## 2. SIRADAKİ İŞ — #1 cihazda, kod işi değil
 1. **TV'ye v0.1.57'yi kur ve dene.** Ev ağındayken (OTA tünelden değil LAN'dan iner).
    Bakılacaklar: `/rc` → D-pad ana ekranda geziyor mu · film açıkken ⏯ ve ⏪10 ·
-   "Yaz" sekmesindeki metin Gözat'ın arama kutusuna düşüyor mu · Menü tuşu
-   oynatıcı ayarlarını açıyor mu · mikrofon (yalnız **https://w.evaitec.com/rc**'de,
-   LAN'da tarayıcı mikrofonu vermez).
+   Ara sekmesinde **📺 TV'ye yaz** metni Gözat'ın arama kutusuna düşürüyor mu ·
+   Yeni Çıkanlar listesi geliyor mu · Menü tuşu oynatıcı ayarlarını açıyor mu ·
+   mikrofon (yalnız **https://w.evaitec.com/rc**'de, LAN'da tarayıcı mikrofonu vermez).
    Kurulum "Uygulama yüklenemedi" derse: imza uyuşmazlığı, eskiyi kaldırıp kur.
 2. **Sesli komut cihazda denenmedi.** Sunucu tarafı kanıtlı (aşağıda), ama
    telefon mikrofonundan WAV üretip gönderen yol (`rc.html.j2: wavYap`) hiç
    çalıştırılmadı — `decodeAudioData` telefonun webm/opus kaydını çözemezse orada
    patlar. İlk gerçek konuşmada tarayıcı konsoluna bak.
-3. Film kaynakları (dizi tarafı bitti) — eski listeye bak: FilmMakinesi · FilmModu ·
+3. **TV'de kumanda ayarlarının karşılığını bağla** (Dean: "karşılığı bağlarız").
+   `/api/v1/client_config` artık `rc_show_recent` ve `rc_text_to_tv` veriyor ama
+   `client-tv` bunları OKUMUYOR — uç hazır, tüketici yok. `ClientConfig` veri
+   sınıfına (`data/ApiModels.kt`) iki alan eklenip ilgili ekranlarda kullanılacak.
+4. Film kaynakları (dizi tarafı bitti) — eski listeye bak: FilmMakinesi · FilmModu ·
    FullHDFilm · JetFilmizle · SineWix · UgurFilm · Watch2Movies…
 
 ## 3. Bu oturumda kanıtlanan (tekrar denemene gerek yok)
