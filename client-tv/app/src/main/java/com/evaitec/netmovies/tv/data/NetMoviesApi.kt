@@ -119,8 +119,11 @@ interface NetMoviesApi {
 
     // "TV'de oynat": telefon komutu bırakır, TV yoklayıp açar. Yansıtma değil —
     // akışı yine TV çözer (kalite/kaynak zinciri TV'de kalır).
+    // `wait`: sunucu komut gelene kadar bağlantıyı açık tutar (uzun-yoklama).
+    // D-pad'in kumanda gibi hissettirmesi buna bağlı — 4 sn'lik turlarla her tuş
+    // ortalama iki saniye gecikiyordu. Sunucu tavanı 25 sn (`remote.py: _MAX_WAIT`).
     @GET("api/v1/remote/poll")
-    suspend fun remotePoll(): RemoteCommandResponse
+    suspend fun remotePoll(@Query("wait") wait: Int = 0): RemoteCommandResponse
 
     // Telefon/tablet bu uygulamadan gönderir; televizyon yoklayıp açar.
     @POST("api/v1/remote/play")

@@ -107,6 +107,10 @@ fun BrowseScreen(
     showVault: Boolean = false,
     vaultMode: Boolean = false,
     onSelect: (MediaItem) -> Unit,
+    // Telefon kumandasından yazılan metin. TV'de klavye kullanmak işkence olduğu
+    // için arama terimi telefondan gelir; geldiğinde doğrudan aranır.
+    remoteQuery: String? = null,
+    onRemoteQueryUsed: () -> Unit = {},
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -234,6 +238,17 @@ fun BrowseScreen(
                 }.awaitAll().flatten()
             }
             resultsLoading = false
+        }
+    }
+
+    // Kumandadan metin geldiğinde ara. Eklentiler yüklenmeden arama boş döner —
+    // `plugins` listesi dolana kadar bekler.
+    LaunchedEffect(remoteQuery, plugins.size) {
+        val metin = remoteQuery?.trim().orEmpty()
+        if (metin.isNotEmpty() && plugins.isNotEmpty()) {
+            query = metin
+            doSearch(metin)
+            onRemoteQueryUsed()
         }
     }
 

@@ -6,7 +6,11 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#0d0f13",
   "theme_color": "#0d0f13",
@@ -16,6 +20,21 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Kumanda",
+      "short_name": "Kumanda",
+      "description": "Telefondan televizyonu sür",
+      "url": "/rc",
+      "icons": [
+        {
+          "src": "/static/home/ico/logo.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

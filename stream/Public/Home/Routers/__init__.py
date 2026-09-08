@@ -38,6 +38,7 @@ from . import (
     kategori,
     icerik,
     ara,
+    rc,
     izle,
     admin,
     tmdb

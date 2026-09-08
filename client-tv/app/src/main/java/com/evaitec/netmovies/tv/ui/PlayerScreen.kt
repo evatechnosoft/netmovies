@@ -236,6 +236,20 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
     val controller = remember { RemoteInputController(bindings, scope) { dispatch(it) } }
 
+    // Telefon kumandasının oynatma komutları. Tuşlar (D-pad, geri) sentetik KeyEvent
+    // olarak zaten aşağıdaki onKeyEvent'ten akıyor; burada yalnız tuş karşılığı
+    // olmayan eylemler var: serbest saniyeyle sarma ve durdurup çıkma.
+    LaunchedEffect(Unit) {
+        com.evaitec.netmovies.tv.data.RemoteBus.komutlar.collect { cmd ->
+            if (cmd.type != "transport") return@collect
+            when (cmd.action) {
+                "play_pause" -> dispatch(RemoteAction.PLAY_PAUSE)
+                "seek" -> seekBy((cmd.value * 1000).toLong())
+                "stop" -> onBack()
+            }
+        }
+    }
+
     // Scrub modunda D-pad: ◀/▶ imleç, OK atla, Geri iptal (native olayları doğrudan işlenir).
     fun handleScrubKey(e: KeyEvent): Boolean {
         if (e.action != KeyEvent.ACTION_DOWN) return true
@@ -567,6 +581,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     // Hata ekranında tuşları tüketme: overlay butonları (Tekrar dene / Geri)
                     // arası d-pad navigasyonu ve BACK, Compose'a serbest kalsın.
                     error != null -> false
+                    // Telefon kumandasındaki "Menü": oynatıcı ayarlarını (altyazı,
+                    // kalite, kaynak) açar. TV kumandalarının çoğunda bu tuş yok,
+                    // bu yüzden buton eşlemesine değil doğrudan buraya bağlı.
+                    ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_MENU -> {
+                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) showSettings = true
+                        true
+                    }
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
                     showSettings || showSeek -> false
                     else -> controller.process(ke.nativeKeyEvent)

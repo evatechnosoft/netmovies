@@ -23,6 +23,7 @@ from . import (
     get_plugin,
     get_main_page,
     search,
+    search_all,
     load_item,
     load_links,
     aggregate_new,
@@ -33,6 +34,7 @@ from . import (
     watch,
     client_config,
     remote,
+    voice,
     following,
     app_update,
 )

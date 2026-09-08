@@ -1,0 +1,358 @@
+{#- NetMovies — telefon kumandası. Bilerek tek dosya ve bağımlılıksız: kumanda
+    tünelin ucunda, kötü bir hatta, tek elle açılıyor. CDN yazı tipi / ikon paketi
+    beklemek yerine emoji kullanılır; site şablonu miras alınmaz. -#}
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0d0f13">
+  <link rel="manifest" href="{{ url_for('static_home', path='manifest.webmanifest') }}">
+  <link rel="icon" href="{{ url_for('static_home', path='ico/logo.png') }}">
+  <title>{{ title }}</title>
+  <style>
+    :root { --bg:#0d0f13; --kart:#171b22; --cizgi:#252b35; --metin:#e8ecf3; --soluk:#8b94a5; --vurgu:#e50914; --yesil:#2ecc71; }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { margin:0; background:var(--bg); color:var(--metin); font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+           min-height:100dvh; display:flex; flex-direction:column; overscroll-behavior:none; user-select:none; }
+
+    header { display:flex; align-items:center; gap:10px; padding:10px 14px; padding-top:max(10px,env(safe-area-inset-top));
+             border-bottom:1px solid var(--cizgi); background:var(--kart); position:sticky; top:0; z-index:5; }
+    header b { font-size:15px; letter-spacing:.3px; }
+    #tv-durum { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--soluk); }
+    #tv-nokta { width:9px; height:9px; border-radius:50%; background:#555; transition:background .3s; }
+    #tv-nokta.acik { background:var(--yesil); box-shadow:0 0 8px var(--yesil); }
+    #kur { display:none; background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:12px; }
+
+    main { flex:1; overflow-y:auto; padding:14px; padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+    .sekme { display:none; } .sekme.aktif { display:block; }
+
+    /* ---- D-pad: başparmak için büyük hedefler, ortada OK ---- */
+    .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:320px; margin:0 auto 18px; aspect-ratio:1; }
+    .pad button { background:var(--kart); border:1px solid var(--cizgi); border-radius:16px; color:var(--metin); font-size:26px; }
+    .pad button:active, .dugme:active { background:var(--vurgu); transform:scale(.96); }
+    .pad .bos { visibility:hidden; }
+    .pad .ok { font-size:15px; font-weight:600; border-radius:50%; }
+
+    .satir { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px; }
+    .dugme { background:var(--kart); border:1px solid var(--cizgi); color:var(--metin); border-radius:12px;
+             padding:14px 16px; font-size:15px; min-width:64px; transition:transform .08s; }
+    .dugme.genis { flex:1; min-width:110px; }
+    .baslik { color:var(--soluk); font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:18px 0 8px; }
+
+    /* ---- Arama ---- */
+    .arama { display:flex; gap:8px; }
+    .arama input, textarea { flex:1; background:var(--kart); border:1px solid var(--cizgi); color:var(--metin);
+                             border-radius:12px; padding:14px; font-size:16px; font-family:inherit; user-select:text; }
+    #mikrofon.dinliyor { background:var(--vurgu); animation:nabiz 1s infinite; }
+    @keyframes nabiz { 50% { opacity:.55; } }
+    #durum { color:var(--soluk); font-size:13px; min-height:20px; margin:10px 2px; }
+
+    .sonuclar { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; margin-top:12px; }
+    .kart { background:var(--kart); border:1px solid var(--cizgi); border-radius:12px; overflow:hidden; text-align:left; padding:0; color:var(--metin); }
+    .kart img { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:#0a0c10; }
+    .kart span { display:block; padding:7px; font-size:12px; line-height:1.25; }
+    .kart:active { border-color:var(--vurgu); }
+
+    /* ---- Alt sekme çubuğu ---- */
+    nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
+          padding-bottom:env(safe-area-inset-bottom); z-index:5; }
+    nav button { flex:1; background:none; border:0; color:var(--soluk); padding:12px 4px; font-size:11px; }
+    nav button.aktif { color:var(--metin); box-shadow:inset 0 2px 0 var(--vurgu); }
+    nav button i { display:block; font-style:normal; font-size:19px; margin-bottom:3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <b>NetMovies</b>
+  <button id="kur" type="button">📲 Ekle</button>
+  <span id="tv-durum"><i id="tv-nokta"></i><span id="tv-yazi">aranıyor…</span></span>
+</header>
+
+<main>
+  <!-- ======================= KUMANDA ======================= -->
+  <section id="s-kumanda" class="sekme aktif">
+    <div class="pad">
+      <div class="bos"></div>
+      <button data-key="UP">▲</button>
+      <div class="bos"></div>
+      <button data-key="LEFT">◀</button>
+      <button class="ok" data-key="CENTER">OK</button>
+      <button data-key="RIGHT">▶</button>
+      <div class="bos"></div>
+      <button data-key="DOWN">▼</button>
+      <div class="bos"></div>
+    </div>
+
+    <div class="satir">
+      <button class="dugme" data-key="BACK">↩ Geri</button>
+      <button class="dugme" data-key="HOME">⌂ Ana</button>
+      <button class="dugme" data-key="MENU">☰ Menü</button>
+    </div>
+
+    <p class="baslik">Oynatma</p>
+    <div class="satir">
+      <button class="dugme" data-seek="-10">⏪ 10</button>
+      <button class="dugme genis" data-transport="play_pause">⏯ Oynat / Duraklat</button>
+      <button class="dugme" data-seek="30">30 ⏩</button>
+    </div>
+    <div class="satir">
+      <button class="dugme" data-volume="-0.1">🔉 Ses −</button>
+      <button class="dugme" data-transport="stop">⏹ Durdur</button>
+      <button class="dugme" data-volume="0.1">🔊 Ses +</button>
+    </div>
+
+    <p class="baslik">Ekranlar</p>
+    <div class="satir">
+      <button class="dugme" data-nav="home">🏠 Ana ekran</button>
+      <button class="dugme" data-nav="browse">🔍 Gözat</button>
+      <button class="dugme" data-nav="following">⭐ Takip</button>
+      <button class="dugme" data-nav="channels">📺 Kanallar</button>
+    </div>
+  </section>
+
+  <!-- ======================= ARA ======================= -->
+  <section id="s-ara" class="sekme">
+    <div class="arama">
+      <input id="sorgu" type="search" placeholder="Film veya dizi ara…" autocomplete="off" enterkeyhint="search">
+      <button class="dugme" id="mikrofon" title="Sesle ara">🎤</button>
+    </div>
+    <p id="durum"></p>
+    <div class="sonuclar" id="sonuclar"></div>
+  </section>
+
+  <!-- ======================= YAZ ======================= -->
+  <section id="s-yaz" class="sekme">
+    <p class="baslik">Televizyondaki kutuya yaz</p>
+    <textarea id="metin" rows="3" placeholder="TV'nin arama kutusuna gidecek metin…"></textarea>
+    <div class="satir" style="margin-top:12px">
+      <button class="dugme genis" id="yaz-gonder">⌨️ TV'ye yaz</button>
+      <button class="dugme genis" id="yaz-ara">🔍 Yaz ve ara</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="aktif" data-sekme="kumanda"><i>🕹️</i>Kumanda</button>
+  <button data-sekme="ara"><i>🔍</i>Ara</button>
+  <button data-sekme="yaz"><i>⌨️</i>Yaz</button>
+</nav>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const durum = $('durum');
+  const titre = () => { try { navigator.vibrate?.(12); } catch (_) {} };
+
+  // ---------------------------------------------------------------- komut kanalı
+  async function komut(govde) {
+    titre();
+    try {
+      const r = await fetch('/api/v1/remote/command', {
+        method  : 'POST',
+        headers : { 'Content-Type': 'application/json' },
+        body    : JSON.stringify(govde),
+      });
+      const d = await r.json();
+      if (!d?.result?.ok) console.warn('komut reddedildi', d?.result?.error);
+      return !!d?.result?.ok;
+    } catch (_) { return false; }
+  }
+
+  // Basılı tutunca tekrar: menüde uzun listeyi tek tek dürtmek yerine kayarak gez.
+  document.querySelectorAll('[data-key]').forEach((btn) => {
+    const gonder = () => komut({ type: 'key', key: btn.dataset.key });
+    let ilk = null, tekrar = null;
+    const dur = () => { clearTimeout(ilk); clearInterval(tekrar); };
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      gonder();
+      ilk = setTimeout(() => { tekrar = setInterval(gonder, 160); }, 420);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((olay) => btn.addEventListener(olay, dur));
+  });
+
+  document.querySelectorAll('[data-transport]').forEach((b) =>
+    b.addEventListener('click', () => komut({ type: 'transport', action: b.dataset.transport, value: 0 })));
+  document.querySelectorAll('[data-seek]').forEach((b) =>
+    b.addEventListener('click', () => komut({ type: 'transport', action: 'seek', value: Number(b.dataset.seek) })));
+  document.querySelectorAll('[data-volume]').forEach((b) =>
+    b.addEventListener('click', () => komut({ type: 'transport', action: 'volume', value: Number(b.dataset.volume) })));
+  document.querySelectorAll('[data-nav]').forEach((b) =>
+    b.addEventListener('click', () => komut({ type: 'nav', screen: b.dataset.nav })));
+
+  // ---------------------------------------------------------------- sekmeler
+  document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('aktif', x === b));
+    document.querySelectorAll('.sekme').forEach((s) => s.classList.toggle('aktif', s.id === 's-' + b.dataset.sekme));
+  }));
+
+  // ---------------------------------------------------------------- TV bağlı mı
+  async function durumYokla() {
+    try {
+      const d = await (await fetch('/api/v1/remote/status')).json();
+      const acik = !!d?.result?.tv_online;
+      $('tv-nokta').classList.toggle('acik', acik);
+      $('tv-yazi').textContent = acik ? 'TV bağlı' : 'TV kapalı';
+    } catch (_) { $('tv-yazi').textContent = 'sunucu yok'; }
+  }
+  durumYokla();
+  setInterval(durumYokla, 6000);
+
+  // ---------------------------------------------------------------- arama
+  const poster = (u, t) => '/proxy/image?url=' + encodeURIComponent(u || '') + '&title=' + encodeURIComponent(t || '');
+
+  async function ara(sorgu) {
+    if (!sorgu.trim()) return;
+    durum.textContent = '“' + sorgu + '” aranıyor…';
+    $('sonuclar').innerHTML = '';
+    try {
+      const d = await (await fetch('/api/v1/search_all?query=' + encodeURIComponent(sorgu))).json();
+      const ogeler = d?.result || [];
+      durum.textContent = ogeler.length ? ogeler.length + ' sonuç — dokun, TV\'de başlasın' : 'Sonuç yok';
+      $('sonuclar').innerHTML = '';
+      ogeler.forEach((o) => {
+        const kart = document.createElement('button');
+        kart.className = 'kart';
+        kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
+        kart.querySelector('img').src = poster(o.poster, o.title);
+        kart.querySelector('span').textContent = o.title || o.url;
+        kart.addEventListener('click', () => tvdeOynat(o));
+        $('sonuclar').appendChild(kart);
+      });
+    } catch (_) { durum.textContent = 'Arama başarısız — sunucuya ulaşılamadı'; }
+  }
+
+  async function tvdeOynat(o) {
+    titre();
+    const q = new URLSearchParams({ plugin: o.plugin || '', url: o.url || '', title: o.title || '', poster: o.poster || '' });
+    try {
+      const d = await (await fetch('/api/v1/remote/play?' + q, { method: 'POST' })).json();
+      durum.textContent = d?.result?.ok ? '📺 TV\'ye gönderildi: ' + (o.title || '') : 'Gönderilemedi';
+    } catch (_) { durum.textContent = 'Gönderilemedi'; }
+  }
+
+  $('sorgu').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); ara(e.target.value); } });
+
+  // ---------------------------------------------------------------- klavye
+  $('yaz-gonder').addEventListener('click', () => komut({ type: 'text', text: $('metin').value, submit: false }));
+  $('yaz-ara').addEventListener('click', () => komut({ type: 'text', text: $('metin').value, submit: true }));
+
+  // ---------------------------------------------------------------- sesli komut
+  // Gemini sesi doğrudan NİYETE çevirir: "durdur" tuşa, "inception aç" aramaya gider.
+  // Sunucuda anahtar yoksa (503) tarayıcının kendi tanımasına düşeriz — o yalnız
+  // metin verir, yani sadece arama yapabilir.
+  const mikrofon = $('mikrofon');
+  let kayit = null;
+
+  async function wavYap(blob) {
+    // Gemini'nin belgelenmiş ses biçimleri arasında webm yok; kaydı 16 kHz mono
+    // WAV'a çeviriyoruz. Boyut da düşer, tünelden hızlı gider.
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const cozulmus = await ac.decodeAudioData(await blob.arrayBuffer());
+    ac.close();
+    const hedef = new OfflineAudioContext(1, Math.ceil(cozulmus.duration * 16000), 16000);
+    const kaynak = hedef.createBufferSource();
+    kaynak.buffer = cozulmus; kaynak.connect(hedef.destination); kaynak.start();
+    const mono = (await hedef.startRendering()).getChannelData(0);
+
+    const tampon = new ArrayBuffer(44 + mono.length * 2);
+    const gorunum = new DataView(tampon);
+    const yaz = (konum, metin) => { for (let i = 0; i < metin.length; i++) gorunum.setUint8(konum + i, metin.charCodeAt(i)); };
+    yaz(0, 'RIFF'); gorunum.setUint32(4, 36 + mono.length * 2, true); yaz(8, 'WAVEfmt ');
+    gorunum.setUint32(16, 16, true); gorunum.setUint16(20, 1, true); gorunum.setUint16(22, 1, true);
+    gorunum.setUint32(24, 16000, true); gorunum.setUint32(28, 32000, true);
+    gorunum.setUint16(32, 2, true); gorunum.setUint16(34, 16, true);
+    yaz(36, 'data'); gorunum.setUint32(40, mono.length * 2, true);
+    for (let i = 0; i < mono.length; i++) {
+      const s = Math.max(-1, Math.min(1, mono[i]));
+      gorunum.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([tampon], { type: 'audio/wav' });
+  }
+
+  const base64 = (blob) => new Promise((coz) => {
+    const okuyucu = new FileReader();
+    okuyucu.onloadend = () => coz(String(okuyucu.result).split(',')[1]);
+    okuyucu.readAsDataURL(blob);
+  });
+
+  function tarayiciTanima() {
+    const Tanima = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Tanima) { durum.textContent = 'Bu tarayıcı sesli aramayı desteklemiyor'; return; }
+    const t = new Tanima();
+    t.lang = 'tr-TR'; t.interimResults = false;
+    t.onresult = (e) => { const m = e.results[0][0].transcript; $('sorgu').value = m; ara(m); };
+    t.onerror = () => { durum.textContent = 'Mikrofon kullanılamadı'; };
+    t.onend = () => mikrofon.classList.remove('dinliyor');
+    mikrofon.classList.add('dinliyor');
+    durum.textContent = 'Dinliyorum…';
+    t.start();
+  }
+
+  async function sesGonder(blob) {
+    durum.textContent = 'Anlaşılıyor…';
+    try {
+      const wav = await wavYap(blob);
+      const d = await (await fetch('/api/v1/voice', {
+        method  : 'POST',
+        headers : { 'Content-Type': 'application/json' },
+        body    : JSON.stringify({ audio: await base64(wav), mime: 'audio/wav' }),
+      })).json();
+
+      const n = d?.result;
+      if (!n?.ok) {                       // anahtar yok / Gemini erişilemedi
+        durum.textContent = 'Sesli komut kapalı — tarayıcı tanımasına geçiliyor';
+        tarayiciTanima();
+        return;
+      }
+      if (n.action === 'search' && n.query) { $('sorgu').value = n.query; ara(n.query); return; }
+      durum.textContent = n.reply || (n.sent ? 'TV\'ye gönderildi' : 'Anlaşılmadı');
+    } catch (_) { durum.textContent = 'Ses gönderilemedi'; }
+  }
+
+  mikrofon.addEventListener('click', async () => {
+    if (kayit?.state === 'recording') { kayit.stop(); return; }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      // http:// üzerinden mikrofon kapalıdır (yalnız https / localhost).
+      tarayiciTanima();
+      return;
+    }
+    try {
+      const akis = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const parcalar = [];
+      kayit = new MediaRecorder(akis);
+      kayit.ondataavailable = (e) => parcalar.push(e.data);
+      kayit.onstop = () => {
+        akis.getTracks().forEach((t) => t.stop());
+        mikrofon.classList.remove('dinliyor');
+        sesGonder(new Blob(parcalar, { type: kayit.mimeType || 'audio/webm' }));
+      };
+      kayit.start();
+      mikrofon.classList.add('dinliyor');
+      durum.textContent = 'Dinliyorum… (bitince tekrar dokun)';
+      setTimeout(() => { if (kayit?.state === 'recording') kayit.stop(); }, 12000);
+    } catch (_) {
+      durum.textContent = 'Mikrofon izni verilmedi';
+      mikrofon.classList.remove('dinliyor');
+    }
+  });
+
+  // ---------------------------------------------------------------- PWA kurulumu
+  let kurulumIstemi = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); kurulumIstemi = e; $('kur').style.display = 'block'; });
+  window.addEventListener('appinstalled', () => { $('kur').style.display = 'none'; });
+  $('kur').addEventListener('click', async () => {
+    if (!kurulumIstemi) return;
+    kurulumIstemi.prompt();
+    await kurulumIstemi.userChoice;
+    kurulumIstemi = null;
+    $('kur').style.display = 'none';
+  });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>

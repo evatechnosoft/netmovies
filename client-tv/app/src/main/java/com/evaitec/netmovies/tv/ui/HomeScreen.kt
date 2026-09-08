@@ -175,33 +175,8 @@ private fun CategoryRows(
         }
     }
 
-    // Telefondan gelen "TV'de oynat" komutu. Ana ekran açıkken yoklanır; oynatıcı
-    // açıkken YOKLANMAZ (izlenen film telefondaki bir tıklamayla değişmesin).
-    // YALNIZ TELEVİZYONDA: aynı APK telefona da kuruluyor; telefon da yoklasaydı
-    // kendi gönderdiği komutu yakalayıp içeriği kendinde açardı.
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val isTv = remember {
-        val mode = context.getSystemService(android.content.Context.UI_MODE_SERVICE)
-            as android.app.UiModeManager
-        mode.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-    }
-    LaunchedEffect(isTv) {
-        if (!isTv) return@LaunchedEffect
-        while (true) {
-            kotlinx.coroutines.delay(4000)
-            val cmd = runCatching { Network.api.remotePoll().result }.getOrNull()
-            if (cmd != null && cmd.url.isNotBlank()) {
-                onSelect(
-                    MediaItem(
-                        plugin = cmd.plugin,
-                        title = cmd.title.ifBlank { null },
-                        url = encodedUrl(cmd.url),
-                        poster = cmd.poster.ifBlank { null },
-                    )
-                )
-            }
-        }
-    }
+    // Kumanda yoklaması BURADA DEĞİL: tek döngü MainActivity'de. Ekran başına
+    // döngü kurulduğunda oynatıcı açıkken kumanda ölüyordu (bkz. data/RemoteBus.kt).
 
     // Poster uzun-bas menüsü.
     var menuItem by remember { mutableStateOf<MediaItem?>(null) }

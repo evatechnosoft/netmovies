@@ -176,13 +176,23 @@ data class ClientConfig(
 @Serializable
 data class ClientConfigResponse(val result: ClientConfig = ClientConfig())
 
-// /api/v1/remote/poll — telefondan gelen "TV'de oynat" komutu (yoksa result null).
+// /api/v1/remote/poll — telefon kumandasından gelen komut (yoksa result null).
+// Tek şema, beş tür: play / key / transport / text / nav. Sunucu (Routers/remote.py)
+// alanları doğrulayıp yollar; burada tanınmayan tür sessizce yok sayılır — eski
+// APK'nın yeni bir komut türüyle çökmemesi için alanların hepsi varsayılanlı.
 @Serializable
 data class RemoteCommand(
+    val type: String = "play",
     val plugin: String = "",
     val url: String = "",
     val title: String = "",
     val poster: String = "",
+    val key: String = "",
+    val action: String = "",
+    val value: Float = 0f,
+    val screen: String = "",
+    val text: String = "",
+    val submit: Boolean = false,
 )
 
 @Serializable
