@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.1.57"
+val appVersion = "0.1.58"
 
 plugins {
     id("com.android.application")
@@ -32,7 +32,8 @@ android {
         // Ev iki ağ kullanıyor (192.168.1.x ve 192.168.0.x); tek sabit IP diğer
         // ağda uygulamayı tünele mahkûm ediyordu.
         val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
-            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310"
+            // ponytail: IP listesi DHCP'ye bağlı, sunucu PC'ye DHCP rezervasyonu verilince tek adrese iner.
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310,http://192.168.0.29:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.

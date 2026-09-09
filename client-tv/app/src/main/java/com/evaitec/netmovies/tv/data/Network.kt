@@ -37,6 +37,15 @@ object Network {
         )
         .build()
 
+    // Poster yükleyici (Coil) için istemci: Coil'in varsayılan OkHttp'si sistem DNS'ini
+    // kullanıyor → tünelde w.evaitec.com TR'de bloklu CF IP'sine çözülüp posterler
+    // sessizce boş kalıyordu (katalog API'si pinli DNS'le geliyordu). Aynı DNS pini.
+    val imageClient: OkHttpClient = OkHttpClient.Builder()
+        .dns(PreferIpv4Dns)
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .build()
+
     val api: NetMoviesApi by lazy {
         Retrofit.Builder()
             .baseUrl(BuildConfig.BASE_URL.trimEnd('/') + "/")

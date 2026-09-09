@@ -9,7 +9,13 @@
 
 **Son güncelleme:** 9 Eylül 2026 (öğle)
 **Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.57-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**TV sürümü:** `v0.1.58-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**Poster boşluğu (9 Eylül fotoğraf):** kök neden iki katlı — PC'nin LAN IP'si
+`192.168.1.185` → **`192.168.0.29`** olmuş (DHCP), TV aday listesinde yok → tünele düşmüş;
+tünelde Coil'in varsayılan OkHttp'si pinli DNS kullanmadığı için w.evaitec.com TR'de
+bloklu CF IP'sine çözülüp posterler boş kalıyor (katalog API'si pinli, o yüzden başlıklar
+geliyor). v0.1.58: Coil `Network.imageClient` (pinli DNS) + `192.168.0.29` aday. Kalıcı
+çözüm: sunucu PC'ye **DHCP rezervasyonu** ver, aday listesi tek adrese insin.
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)

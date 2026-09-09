@@ -5,8 +5,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.proxiedPoster
+
+// Tek ImageLoader: pinli DNS'li OkHttp ile (bkz. Network.imageClient). Her
+// composable'da yeni loader kurmak bellek cache'ini de böler.
+@Volatile private var posterLoader: ImageLoader? = null
+
+private fun posterLoader(context: android.content.Context): ImageLoader =
+    posterLoader ?: synchronized(Network) {
+        posterLoader ?: ImageLoader.Builder(context.applicationContext)
+            .okHttpClient(Network.imageClient)
+            .build()
+            .also { posterLoader = it }
+    }
 
 /**
  * Poster görseli — kaynak afişi yoksa ya da yüklenemezse (ölü CDN, hotlink,
@@ -26,6 +41,7 @@ fun PosterImage(
 
     AsyncImage(
         model = model,
+        imageLoader = posterLoader(LocalContext.current),
         contentDescription = title,
         contentScale = ContentScale.Crop,
         modifier = modifier,
