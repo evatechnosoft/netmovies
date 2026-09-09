@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.evaitec.netmovies.tv.data.ServerResolver.init(this)
         setContent {
             NetMoviesTheme {
                 run {

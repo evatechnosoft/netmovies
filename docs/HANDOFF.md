@@ -9,7 +9,11 @@
 
 **Son güncelleme:** 9 Eylül 2026 (öğle)
 **Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.58-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**TV sürümü:** `v0.1.59-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**v0.1.59 — sunucuyu kendi bulur:** `ServerResolver` üç katman: son çalışan adres
+(SharedPreferences `server/last_local`) + derleme adayları → yoksa /24 taraması (cihazın
+kendi alt ağı + 192.168.0/1, 508 host, 64 paralel, 500 ms) → yoksa tünel. Tarama
+boş çıkarsa 5 dk tekrarlanmaz. Yerel bulunca hatırlanır; bir sonraki açılış anında.
 **Poster boşluğu (9 Eylül fotoğraf):** kök neden iki katlı — PC'nin LAN IP'si
 `192.168.1.185` → **`192.168.0.29`** olmuş (DHCP), TV aday listesinde yok → tünele düşmüş;
 tünelde Coil'in varsayılan OkHttp'si pinli DNS kullanmadığı için w.evaitec.com TR'de
