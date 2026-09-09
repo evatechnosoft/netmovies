@@ -93,10 +93,16 @@ title="$(printf '%s' "$first" | sed -n 3p)"
 if [[ -z "$plugin" ]]; then
   fail "katalog boş — zincir denenemedi"
 else
-  resolved="$(curl -s --max-time 90 "${AUTH_ARGS[@]}"     --get --data-urlencode "plugin=$plugin" --data-urlencode "title=$title" --data-urlencode "mode=fast"     "$BASE/api/v1/resolve_sources?encoded_url=$curl_url"     | "$PY" -c 'import json,sys; r=(json.load(sys.stdin).get("result") or {}); s=r.get("sources") or []; print(len(s), (s[0].get("language",{}).get("label") if s else "-"), len(r.get("diagnostics") or []))' 2>/dev/null || echo "0 - 0")"
-  count="$(printf '%s' "$resolved" | cut -d' ' -f1)"
-  label="$(printf '%s' "$resolved" | cut -d' ' -f2-)"
+  resolved="$(curl -s --max-time 90 "${AUTH_ARGS[@]}"     --get --data-urlencode "plugin=$plugin" --data-urlencode "title=$title" --data-urlencode "mode=fast"     "$BASE/api/v1/resolve_sources?encoded_url=$curl_url"     | "$PY" -c 'import json,sys; r=(json.load(sys.stdin).get("result") or {}); s=r.get("sources") or []; print(len(s), (s[0].get("language",{}).get("label") if s else "-"), len(r.get("diagnostics") or [])); print(s[0].get("url","") if s else "")' 2>/dev/null || echo "0 - 0")"
+  count="$(printf '%s' "$resolved" | sed -n 1p | cut -d' ' -f1)"
+  label="$(printf '%s' "$resolved" | sed -n 1p | cut -d' ' -f2-)"
+  play_url="$(printf '%s' "$resolved" | sed -n 2p)"
   if [[ "$count" -gt 0 ]]; then ok "$plugin · $count kaynak · ilk sıra: $label"; else fail "$plugin · zincir kaynak vermedi"; fi
+  # Kaynak bulunması oynadığı anlamına gelmez: manifest proxy'den gerçekten inmeli.
+  if [[ -n "$play_url" ]]; then
+    head="$(curl -s --max-time 60 "${AUTH_ARGS[@]}" -r 0-200 "$play_url" | head -c 7)"
+    [[ "$head" == "#EXTM3U" ]] && ok "manifest proxy'den indi (#EXTM3U)" || fail "manifest inmedi: '$head'"
+  fi
 fi
 
 # 7) Sözleşme testleri — çalışan container içinde, gerçek import grafiğiyle.
