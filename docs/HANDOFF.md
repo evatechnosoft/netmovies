@@ -9,9 +9,9 @@
 
 **Son güncelleme:** 9 Eylül 2026 (öğle)
 **Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.61-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**TV sürümü:** `v0.1.62-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
 (v0.1.60: üst bar ⚙ ve 📱 yazısız/dar; 📱 = telefon kumandası adres kartı; arama tek satır ·
-v0.1.61: Gözat kartlarında ★ puan; Gözat'ta GERİ alt raftayken önce en üste + odak ilk rafa)
+v0.1.61: Gözat kartlarında ★ puan; GERİ önce en üste · v0.1.62: /24 taraması ana iş parçacığından çıktı — `uiBase()` bloklamaz, donma/ANR bitti; 📱 kartındaki adresler tıklanınca açılır)
 **Akış:** `aggregate_new` kaynakları dönüşümlü birleştiriyor (`5d70931`); DiziPal "Son
 Eklenen Filmler" ana sayfa bölümünden (6 film), `/filmler` arşivi "Popüler Filmler".
 **v0.1.59 — sunucuyu kendi bulur:** `ServerResolver` üç katman: son çalışan adres

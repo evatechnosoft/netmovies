@@ -330,10 +330,22 @@ private fun TopBar(
 @Composable
 private fun RemoteInfoCard(onClose: () -> Unit) {
     val base = ServerResolver.cachedBase()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Telefonda açıldığında satıra basınca tarayıcı açılsın; TV'de tarayıcı yoksa sessiz.
+    fun open(url: String) {
+        runCatching {
+            context.startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+    val remoteRc = "${BuildConfig.BASE_URL.trimEnd('/')}/rc"
     ModalCard(title = "Telefon Kumandası", onClose = onClose) {
-        MenuRow("🌐  ${BuildConfig.BASE_URL.trimEnd('/')}/rc", onClick = {})
+        MenuRow("🌐  $remoteRc", onClick = { open(remoteRc) })
         if (base != null && ServerResolver.isLocal(base)) {
-            MenuRow("🏠  ${base.toString().trimEnd('/')}/rc  (ev ağı, mikrofon yok)", onClick = {})
+            val localRc = "${base.toString().trimEnd('/')}/rc"
+            MenuRow("🏠  $localRc  (ev ağı, mikrofon yok)", onClick = { open(localRc) })
         }
         MenuRow("🔑  Giriş PIN'i: Yönetim Paneli → Siteye Giriş PIN'i", onClick = {})
         MenuRow("✕  Kapat", onClose)

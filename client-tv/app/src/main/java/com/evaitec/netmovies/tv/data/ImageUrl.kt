@@ -12,7 +12,8 @@ fun proxiedPoster(url: String?, title: String? = null): String? {
     if (!url.isNullOrBlank() && (url.startsWith("/") || url.startsWith("data:"))) return url
     if (url.isNullOrBlank() && title.isNullOrBlank()) return null
 
-    val base = ServerResolver.activeBaseString()
+    // Composable içinden çağrılır: bloklamayan uiBase (aktif seçim yoksa uzak).
+    val base = ServerResolver.uiBase().toString().trimEnd('/')
     val query = StringBuilder("url=").append(Uri.encode(url ?: ""))
     if (!title.isNullOrBlank()) query.append("&title=").append(Uri.encode(title))
     return "$base/proxy/image?$query"
@@ -22,6 +23,6 @@ fun proxiedPoster(url: String?, title: String? = null): String? {
 // yerler) gerekirse kullanılır.
 fun tmdbPoster(title: String?): String? {
     if (title.isNullOrBlank()) return null
-    val base = ServerResolver.activeBaseString()
+    val base = ServerResolver.uiBase().toString().trimEnd('/')
     return "$base/tmdb-poster?title=" + Uri.encode(title)
 }

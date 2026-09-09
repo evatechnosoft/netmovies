@@ -121,6 +121,22 @@ object ServerResolver {
 
     fun activeBaseString(): String = activeBase().toString().trimEnd('/')
 
+    private val resolving = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** UI için: HİÇ bloklamaz. Seçim yoksa uzak adresi verir ve seçimi arka planda
+     *  başlatır. Eskiden poster URL'i üretilirken activeBase() ana iş parçacığında
+     *  yoklama (v0.1.59'dan sonra /24 taraması) yapıyordu → ekran donuyor, ANR ile
+     *  uygulama kapanıp yeniden açılıyordu. */
+    fun uiBase(): HttpUrl {
+        active?.let { return it }
+        if (resolving.compareAndSet(false, true)) {
+            Thread {
+                try { activeBase() } finally { resolving.set(false) }
+            }.apply { isDaemon = true }.start()
+        }
+        return BuildConfig.BASE_URL.toHttpUrl()
+    }
+
     /** Seçilmiş adres — HİÇ ağ yoklamaz. UI'dan (main thread) güvenle çağrılır;
      *  henüz seçim yapılmadıysa null. */
     fun cachedBase(): HttpUrl? = active
