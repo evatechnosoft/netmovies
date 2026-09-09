@@ -7,16 +7,21 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 8 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `c751ce1` · temiz, push'lı, origin ile eşit
+**Son güncelleme:** 9 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
 **TV sürümü:** `v0.1.57-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
 
 ## 0. Bu oturumda ne oldu (tek cümle)
-Telefon kumandası (`/rc`) baştan sona kuruldu: D-pad + oynatma kontrolü + arama +
-TV'ye metin yazma + Gemini ile sesli komut; tünel açıldı ve site PIN kapısına alındı.
+**9 Eylül:** Film kaynak turu — **KultFilmler** ve **FilmMakinesi** eklendi, movie
+**144 → 313** (HDFC 124 · FilmMakinesi 91 · KultFilmler 78 · DiziPal 20); 12 film artık
+iki kaynakta. Keşifte 11 aday elendi (aşağıda). `smoke.sh` artık ilk kaynağın
+manifest'ini proxy'den indirip `#EXTM3U` görmeden yeşil demiyor.
+
+**8 Eylül:** Telefon kumandası (`/rc`) baştan sona kuruldu: D-pad + oynatma kontrolü +
+arama + TV'ye metin yazma + Gemini ile sesli komut; tünel açıldı ve site PIN kapısına alındı.
 
 **Kumanda iki sekme:** *Kumanda* (D-pad, ⏯/⏪10/⏩30, ses, ⏹, ekran kısayolları) ve
 *Ara* (tek kutu: Enter'la telefonda arar, 🎤 sesli, **📺 TV'ye yaz** aynı metni TV'nin
@@ -27,9 +32,9 @@ ile TV'ye de gider.
 
 ## 1. Doğrula (tahmin etme)
 ```bash
-git fetch && git checkout fix/general-stability && git pull   # c751ce1 bekleniyor
+git fetch && git checkout fix/general-stability && git pull   # b858602 bekleniyor
 docker compose ps                                  # 5 kap ayakta olmalı
-bash scripts/smoke.sh                              # kapı YEŞİL
+bash scripts/smoke.sh                              # kapı YEŞİL · 13 eklenti · movie 313
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests   # 78 test
 curl -s localhost:3310/api/v1/app_update           # v0.1.57-poc · 20019326 bayt
 curl -s -o /dev/null -w "%{http_code}
@@ -53,12 +58,24 @@ kullan, Türkçe metinli isteği **Python'la** at (curl `sıcak`→`sicak` yapı
    `/api/v1/client_config` artık `rc_show_recent` ve `rc_text_to_tv` veriyor ama
    `client-tv` bunları OKUMUYOR — uç hazır, tüketici yok. `ClientConfig` veri
    sınıfına (`data/ApiModels.kt`) iki alan eklenip ilgili ekranlarda kullanılacak.
-4. Film kaynakları (dizi tarafı bitti) — eski listeye bak: FilmMakinesi · FilmModu ·
-   FullHDFilm · JetFilmizle · SineWix · UgurFilm · Watch2Movies…
+4. Film kaynakları — ikinci tur (isteğe bağlı): **JetFilmizle** canlı (`jetfilmizle.now`,
+   upstream v19) ama site yeniden tasarlanmış, `.kt` seçicileri bayat → orta zorluk.
+   **Selcukflix** (upstream IzleAI) katalog veriyor (Dizilla ile aynı macellan altyapısı,
+   `Selcukflix(Dizilla)` türetmesi yazılmıştı) ama oynatıcısı `sn.dplayer82.site`
+   Cloudflare **403** — httpx, curl, curl_cffi chrome impersonate, WARP hepsi; port
+   edilmedi, dosya silindi. **Ölü (tekrar deneme):** FilmModu (domain kumar sitesine
+   gitmiş) · FullHDFilm (`.site` NXDOMAIN, `.pro` WARP 429) · SineWix (`ythls.kekikakademi.org`
+   yok) · UgurFilm (parklanmış) · Watch2Movies (NXDOMAIN + WebView bağımlı) ·
+   SetFilmIzle (Plesk) · SuperFilmGeldi (410) · SinemaCX / WebteIzle (NXDOMAIN).
+5. Yeni film kaynaklarında **admin görünürlüğü ve kalite etiketi** kontrol edilmedi
+   (KultFilmler "KULT Altyazılı" tek kalite; FilmMakinesi master'ında çoklu varyant var mı bakılmadı).
 
 ## 3. Bu oturumda kanıtlanan (tekrar denemene gerek yok)
 | Ne | Kanıt |
 |---|---|
+| KultFilmler zinciri | `a.mcard` kart · `kf-srcdata` JSON · FirePlayer `getVideo` → `securedLink`; manifest iframe Referer'sız 403, WARP'tan 403 → `_ALWAYS_PROXY_PLUGINS`; proxy'den 2 film `#EXTM3U` 200 |
+| FilmMakinesi zinciri | `filmmakinesi.to` (`.de` ölü), kısa UA 403 → tam Chrome UA; closeload embed'de `sources:[{file: <var>}]` → `_js_player` tüm inline script'leri çalıştırıyor; JSON-LD `contentUrl` sahte (404); master Referer'sız 404 → proxy; 2 film `#EXTM3U` 200 |
+| Eski film zinciri hâlâ sağlam | HDFC ×3 + DiziPal ×4: manifest → segment 94–300 KB gerçek veri |
 | Uzun-yoklama | boş kuyrukta `wait=5` → 5.009s, komut varken → 0.008s |
 | Komut şeması kapalı | `{"key":"POWER"}` → `gecersiz key: POWER` |
 | PIN kapısı (tünelden) | `/` → 303 · `/giris` → 200 · PIN'siz `remote/command` → **401** · çerezle → 200 |
