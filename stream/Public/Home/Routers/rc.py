@@ -23,4 +23,11 @@ async def kumanda(request: Request):
         "rc_show_recent" : bool(cfg.get("rc_show_recent", True)),
         "rc_text_to_tv"  : bool(cfg.get("rc_text_to_tv", True)),
     })
-    return home_template.TemplateResponse(request=request, name="pages/rc.html.j2", context=context)
+    return home_template.TemplateResponse(
+        request=request,
+        name="pages/rc.html.j2",
+        context=context,
+        # Sayfanın tamamı (JS dahil) tek HTML: telefon eski kopyayı tutarsa düzeltmeler
+        # cihaza hiç ulaşmıyor. Kumanda küçük, her açılışta taze gelsin.
+        headers={"Cache-Control": "no-store"},
+    )
