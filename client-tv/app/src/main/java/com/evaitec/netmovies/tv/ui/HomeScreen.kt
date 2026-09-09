@@ -118,6 +118,7 @@ fun HomeScreen(
     onOpenFollowing: () -> Unit,
     onOpenChannels: () -> Unit,
     library: Library,
+    onOpenRemote: () -> Unit = {},
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -129,14 +130,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -158,6 +159,7 @@ private fun CategoryRows(
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
     onOpenChannels: () -> Unit,
+    onOpenRemote: () -> Unit = {},
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     // Tek-iki posterlik raflar elenir: M3U grup adları ("Business", "Animation;Kids")
@@ -185,7 +187,6 @@ private fun CategoryRows(
 
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
     val firstFocus = remember { FocusRequester() }
@@ -223,7 +224,7 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse, onOpenRemote = { openRemote(context) }) { showSettingsMenu = true } }
+            item { TopBar(onOpenBrowse, onOpenRemote = onOpenRemote) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 // Başlık ve raf TEK öğe: ayrı öğelerken odak, henüz oluşturulmamış
@@ -319,17 +320,7 @@ private fun TopBar(
     }
 }
 
-// 📱: seçenek kartı yerine TEK dokunuş — çalışan sunucunun /rc sayfası açılır
-// (ev ağındaysa yerel adres, PIN'siz; değilse tünel). Dean: "tek gitsin".
-private fun openRemote(context: android.content.Context) {
-    val base = ServerResolver.uiBase().toString().trimEnd('/')
-    runCatching {
-        context.startActivity(
-            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("$base/rc"))
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    }
-}
+// 📱: tek dokunuş, uygulama içinde RemoteScreen (tarayıcıya atmaz).
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

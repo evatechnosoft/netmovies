@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
                         var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
+                        var showRemote by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
                         var showFollowing by remember { mutableStateOf(false) }
@@ -190,6 +191,11 @@ class MainActivity : ComponentActivity() {
                                 PlayerScreen(item = current, bindings = bindings, library = library, onBack = { selected = null })
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
+                            showRemote ->
+                                com.evaitec.netmovies.tv.ui.RemoteScreen(
+                                    url = com.evaitec.netmovies.tv.data.ServerResolver.uiBase().toString().trimEnd('/') + "/rc",
+                                    onBack = { showRemote = false },
+                                )
                             showAdmin ->
                                 com.evaitec.netmovies.tv.ui.AdminScreen(onBack = { showAdmin = false })
                             showChannels ->
@@ -224,6 +230,7 @@ class MainActivity : ComponentActivity() {
                                         onExit = { finish() },
                                         onOpenBrowse = { browseVaultMode = false; showBrowse = true },
                                         onOpenKeyMap = { showKeyMap = true },
+                                        onOpenRemote = { showRemote = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
                                         onOpenFollowing = { showFollowing = true },
