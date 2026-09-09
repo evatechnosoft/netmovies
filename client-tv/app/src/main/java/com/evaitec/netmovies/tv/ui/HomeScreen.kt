@@ -185,8 +185,7 @@ private fun CategoryRows(
 
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
-    // Telefon kumandası adres kartı
-    var showRemoteInfo by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
     val firstFocus = remember { FocusRequester() }
@@ -203,7 +202,7 @@ private fun CategoryRows(
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
     // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
-    val modalOpen = showSettingsMenu || showRemoteInfo || menuItem != null
+    val modalOpen = showSettingsMenu || menuItem != null
     BackHandler(enabled = !modalOpen) {
         if (atTop) {
             onExit()
@@ -224,7 +223,7 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse, onOpenRemote = { showRemoteInfo = true }) { showSettingsMenu = true } }
+            item { TopBar(onOpenBrowse, onOpenRemote = { openRemote(context) }) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 // Başlık ve raf TEK öğe: ayrı öğelerken odak, henüz oluşturulmamış
@@ -274,10 +273,6 @@ private fun CategoryRows(
             )
         }
 
-        if (showRemoteInfo) {
-            RemoteInfoCard(onClose = { showRemoteInfo = false })
-        }
-
         if (showSettingsMenu) {
             SettingsMenu(
                 onOpenKeyMap = onOpenKeyMap,
@@ -324,31 +319,15 @@ private fun TopBar(
     }
 }
 
-// Telefonu kumanda yapmak için adres kartı. QR kütüphanesi eklenmedi: adres kısa,
-// telefona bir kez yazılır; PIN'in kendisi ekranda gösterilmez (Yönetim'de).
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun RemoteInfoCard(onClose: () -> Unit) {
-    val base = ServerResolver.cachedBase()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    // Telefonda açıldığında satıra basınca tarayıcı açılsın; TV'de tarayıcı yoksa sessiz.
-    fun open(url: String) {
-        runCatching {
-            context.startActivity(
-                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-        }
-    }
-    val remoteRc = "${BuildConfig.BASE_URL.trimEnd('/')}/rc"
-    ModalCard(title = "Telefon Kumandası", onClose = onClose) {
-        MenuRow("🌐  $remoteRc", onClick = { open(remoteRc) })
-        if (base != null && ServerResolver.isLocal(base)) {
-            val localRc = "${base.toString().trimEnd('/')}/rc"
-            MenuRow("🏠  $localRc  (ev ağı, mikrofon yok)", onClick = { open(localRc) })
-        }
-        MenuRow("🔑  Giriş PIN'i: Yönetim Paneli → Siteye Giriş PIN'i", onClick = {})
-        MenuRow("✕  Kapat", onClose)
+// 📱: seçenek kartı yerine TEK dokunuş — çalışan sunucunun /rc sayfası açılır
+// (ev ağındaysa yerel adres, PIN'siz; değilse tünel). Dean: "tek gitsin".
+private fun openRemote(context: android.content.Context) {
+    val base = ServerResolver.uiBase().toString().trimEnd('/')
+    runCatching {
+        context.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("$base/rc"))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 

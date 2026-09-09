@@ -9,7 +9,7 @@
 
 **Son güncelleme:** 9 Eylül 2026 (öğle)
 **Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.62-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**TV sürümü:** `v0.1.63-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
 (v0.1.60: üst bar ⚙ ve 📱 yazısız/dar; 📱 = telefon kumandası adres kartı; arama tek satır ·
 v0.1.61: Gözat kartlarında ★ puan; GERİ önce en üste · v0.1.62: /24 taraması ana iş parçacığından çıktı — `uiBase()` bloklamaz, donma/ANR bitti; 📱 kartındaki adresler tıklanınca açılır)
 **Akış:** `aggregate_new` kaynakları dönüşümlü birleştiriyor (`5d70931`); DiziPal "Son
@@ -109,6 +109,9 @@ kullan, Türkçe metinli isteği **Python'la** at (curl `sıcak`→`sicak` yapı
   katalogsuz kalır. Koruma çerezle: `Core/Modules/_pin.py`.
 - **Yeni istemci ucu eklerken sor: TV mi çağırıyor, tarayıcı mı?** Tarayıcıysa
   `_pin.py: _KORUMALI_API`'ye ekle; TV'ninkini eklersen televizyon kırılır.
+  **Ev ağı muaf (`0d15a6e`):** Host özel IP/localhost ise kapı yok (`lan_istegi`) — telefondaki
+  uygulama çerezsiz `remote/play` atıp 401 alıyordu. Tünelden (w.evaitec.com) hâlâ PIN şart;
+  uygulama tünel üzerinden TV'ye komut gönderemez (çerez yok) — evde LAN'dan çalışır.
 - **`Permissions-Policy`** mikrofonu sessizce öldürüyordu (izin penceresi hiç
   açılmıyordu) → `microphone=(self)` yapıldı, geri alma.
 - **Stream'e her dokunuş tüneli düşürür** — recreate'te 530, sadece `docker restart`'ta
