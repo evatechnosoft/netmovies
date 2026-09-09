@@ -14,6 +14,7 @@
 
 import hashlib
 import hmac
+import ipaddress
 import os
 import secrets
 
@@ -72,6 +73,20 @@ def girisli_mi(request) -> bool:
     return secrets.compare_digest(request.cookies.get(_COOKIE, ""), cerez_degeri(pin))
 
 
+def lan_istegi(request) -> bool:
+    """İstek ev ağından mı geldi? Kapı tünel (w.evaitec.com) için kuruldu; evdeki
+    telefon uygulaması (okhttp, çerez taşımaz) `remote/play` atınca 401 alıyordu.
+    Docker ardında istemci IP'si hep 172.31.0.1 göründüğü için ayrım Host'tan:
+    Cloudflare tünel isteklerinin Host'u her zaman tünel alan adı, özel IP olamaz."""
+    host = request.url.hostname or ""
+    if host in ("localhost", "127.0.0.1"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        return False
+
+
 class SitePinMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         pin = site_pin()
@@ -83,7 +98,7 @@ class SitePinMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         korumali = yol.startswith(_KORUMALI_API) or not yol.startswith("/api/")
-        if not korumali or girisli_mi(request):
+        if not korumali or lan_istegi(request) or girisli_mi(request):
             return await call_next(request)
 
         # API'de yönlendirme işe yaramaz (fetch HTML'i JSON sanır) — açık 401.

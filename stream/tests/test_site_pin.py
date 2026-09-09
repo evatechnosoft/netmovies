@@ -43,3 +43,25 @@ class SitePinTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SahteUrl:
+    def __init__(self, hostname: str | None) -> None:
+        self.hostname = hostname
+
+
+class LanIstegiTest(unittest.TestCase):
+    # Telefondaki uygulama çerez taşımaz; evdeyken remote/play 401 alıyordu.
+    # Docker ardında istemci IP'si ayırt edilemez → Host'a bakılır.
+    def _istek(self, host: str | None):
+        istek = SahteIstek({})
+        istek.url = SahteUrl(host)
+        return istek
+
+    def test_private_host_is_lan(self) -> None:
+        for host in ("192.168.0.29", "192.168.1.185", "10.0.0.5", "localhost", "127.0.0.1"):
+            self.assertTrue(_pin.lan_istegi(self._istek(host)), host)
+
+    def test_tunnel_and_public_hosts_are_not_lan(self) -> None:
+        for host in ("w.evaitec.com", "8.8.8.8", "", None):
+            self.assertFalse(_pin.lan_istegi(self._istek(host)), host)
