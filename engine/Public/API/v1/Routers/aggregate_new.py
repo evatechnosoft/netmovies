@@ -11,6 +11,7 @@ from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 
 from urllib.parse import quote_plus
+from itertools import zip_longest
 
 # type -> kategori adı ipuçları (öncelik sırasıyla)
 _HINTS = {
@@ -196,19 +197,25 @@ async def aggregate_new(request: Request):
         return_exceptions=True,
     )
 
-    merged = []
     # Aynı içerik birden çok kategoride çıkabilir (tür rafları kesişir) → url ile tekille.
     seen = set()
+    per_plugin: list[list[dict]] = []
     for name, b in zip(names, batches):
         if isinstance(b, Exception):
             konsol.log(f"[red]✖ aggregate:[/] {name} · {type(b).__name__}: {b}")
             continue  # çalışmayan kaynağı atla
+        bucket = []
         for item in b:
             key = (item["plugin"], item["url"])
             if key in seen:
                 continue
             seen.add(key)
-            merged.append(item)
+            bucket.append(item)
+        per_plugin.append(bucket)
+
+    # Kaynaklar dönüşümlü: eskiden ilk eklentinin listesi akışın başını tek başına
+    # kaplıyordu ve "Yeni Çıkanlar" hep aynı 20 filmle açılıyordu.
+    merged = [item for group in zip_longest(*per_plugin) for item in group if item is not None]
 
     konsol.log(f"[green]∑ aggregate:[/] type={media_type} · {len(merged)} içerik · {len(names)} kaynak tarandı")
 

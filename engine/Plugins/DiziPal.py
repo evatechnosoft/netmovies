@@ -79,8 +79,19 @@ class DiziPal(PluginBase):
     main_page = {
         f"{main_url}/yeni-eklenen-bolumler": "Son Bölümler",
         f"{main_url}/diziler": "Yeni Diziler",
-        f"{main_url}/filmler": "Yeni Filmler",
+        # /filmler arşivi popülerliğe göre ve hiç değişmiyor; gerçek "yeni" liste ana
+        # sayfadaki "Son Eklenen Filmler" bölümünde (Dean: "başta hiç değişmeyen liste").
+        f"{main_url}/": "Son Eklenen Filmler",
+        f"{main_url}/filmler": "Popüler Filmler",
     }
+
+    @staticmethod
+    def _home_section(html: str, heading: str) -> str:
+        """Ana sayfada <h2>heading</h2> taşıyan <section> bloğu (yoksa boş)."""
+        for chunk in html.split("<section")[1:]:
+            if f"<h2>{heading}</h2>" in chunk:
+                return f"<section{chunk}"
+        return ""
 
     _passphrase: str | None = None
 
@@ -110,7 +121,10 @@ class DiziPal(PluginBase):
             if not target.endswith("/diziler"):
                 return []
             target = f"{target}/{page}"
-        return self._cards(HTMLHelper(await self._html(target)), self.main_url, category)
+        html = await self._html(target)
+        if target.rstrip("/") == self.main_url.rstrip("/"):
+            html = self._home_section(html, category)
+        return self._cards(HTMLHelper(html), self.main_url, category)
 
     async def search(self, query: str) -> list[SearchResult]:
         try:
