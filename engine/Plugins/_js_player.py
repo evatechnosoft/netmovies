@@ -60,21 +60,22 @@ def extract_player_config(html: str) -> dict | None:
     if MiniRacer is None:
         return None
 
-    scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, re.DOTALL)
-    # jwplayer + sources içeren script öncelikli; yoksa sadece sources içeren
-    target = next((s for s in scripts if "sources:" in s and "jwplayer" in s), None)
-    if not target:
-        target = next((s for s in scripts if "sources:" in s), None)
-    if not target:
+    # Sayfadaki TÜM inline script'ler sırayla: closeload ailesinde `sources:[{file: lvgx3}]`
+    # değişkeni bir önceki script'teki obfuscated fonksiyondan geliyor; yalnız
+    # setup() script'ini çalıştırmak tanımsız değişkenle bitiyordu.
+    scripts = re.findall(r"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", html, re.DOTALL)
+    scripts = [s for s in scripts if s.strip() and "application/ld+json" not in s]
+    if not any("sources:" in s for s in scripts):
         return None
 
     ctx = MiniRacer()
     ctx.eval(_POLYFILL)
-    try:
-        ctx.eval(target)
-    except Exception:
-        # setup() çağrısı hata ANINDAN önce olabilir; __out'a yine de bakarız
-        pass
+    for script in scripts:
+        try:
+            ctx.eval(script)
+        except Exception:
+            # setup() çağrısı hata ANINDAN önce olabilir; __out'a yine de bakarız
+            continue
 
     try:
         raw = ctx.eval("JSON.stringify(__out)")
