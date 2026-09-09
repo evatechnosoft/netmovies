@@ -589,7 +589,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                         true
                     }
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
-                    showSettings || showSeek -> false
+                    // Bölüm seçici de bir modal: tuşlar yutulunca liste hiç hareket
+                    // etmiyordu (Dean: "bölüm seçimi açılıyor, hareket etmiyor").
+                    showSettings || showSeek || showEpisodePicker -> false
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
