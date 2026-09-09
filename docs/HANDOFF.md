@@ -9,7 +9,8 @@
 
 **Son güncelleme:** 9 Eylül 2026 (öğle)
 **Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.59-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**TV sürümü:** `v0.1.60-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+(v0.1.60: üst bar ⚙ ve 📱 yazısız/dar; 📱 = telefon kumandası adres kartı; arama tek satır)
 **v0.1.59 — sunucuyu kendi bulur:** `ServerResolver` üç katman: son çalışan adres
 (SharedPreferences `server/last_local`) + derleme adayları → yoksa /24 taraması (cihazın
 kendi alt ağı + 192.168.0/1, 508 host, 64 paralel, 500 ms) → yoksa tünel. Tarama

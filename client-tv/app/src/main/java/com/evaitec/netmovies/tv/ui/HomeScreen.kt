@@ -52,6 +52,7 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.HomeState
 import com.evaitec.netmovies.tv.HomeViewModel
 import com.evaitec.netmovies.tv.BuildConfig
+import com.evaitec.netmovies.tv.data.ServerResolver
 import com.evaitec.netmovies.tv.UpdateUi
 import com.evaitec.netmovies.tv.UpdateViewModel
 import com.evaitec.netmovies.tv.data.Library
@@ -74,6 +75,7 @@ fun TvTopBarButton(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,   // yazısız ikon butonu (⚙ / 📱): dar, kare-ye yakın
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale = nmFocusScale(isFocused, label = "topBarBtnScale")
@@ -93,7 +95,7 @@ fun TvTopBarButton(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(horizontal = 20.dp, vertical = 11.dp),
+            .padding(horizontal = if (compact) 12.dp else 20.dp, vertical = if (compact) 8.dp else 11.dp),
     ) {
         Text(
             text = label,
@@ -183,6 +185,8 @@ private fun CategoryRows(
 
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
+    // Telefon kumandası adres kartı
+    var showRemoteInfo by remember { mutableStateOf(false) }
 
     // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
     val firstFocus = remember { FocusRequester() }
@@ -199,7 +203,7 @@ private fun CategoryRows(
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
     // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
-    val modalOpen = showSettingsMenu || menuItem != null
+    val modalOpen = showSettingsMenu || showRemoteInfo || menuItem != null
     BackHandler(enabled = !modalOpen) {
         if (atTop) {
             onExit()
@@ -220,7 +224,7 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse) { showSettingsMenu = true } }
+            item { TopBar(onOpenBrowse, onOpenRemote = { showRemoteInfo = true }) { showSettingsMenu = true } }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 // Başlık ve raf TEK öğe: ayrı öğelerken odak, henüz oluşturulmamış
@@ -270,6 +274,10 @@ private fun CategoryRows(
             )
         }
 
+        if (showRemoteInfo) {
+            RemoteInfoCard(onClose = { showRemoteInfo = false })
+        }
+
         if (showSettingsMenu) {
             SettingsMenu(
                 onOpenKeyMap = onOpenKeyMap,
@@ -283,11 +291,13 @@ private fun CategoryRows(
     }
 }
 
-// Sade üst bar: marka + tam genişlik arama + ayarlar. Tek odak grubu.
+// Sade üst bar: marka + tam genişlik arama + 📱 kumanda + ⚙ ayarlar (ikisi yazısız,
+// dar — "⚙ Ayarlar" yazısı aramadan yer çalıyordu). Tek odak grubu.
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun TopBar(
     onOpenBrowse: () -> Unit,
+    onOpenRemote: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
@@ -309,7 +319,24 @@ private fun TopBar(
             modifier = Modifier.weight(1f),
             onClick = onOpenBrowse,
         )
-        TvTopBarButton("⚙  Ayarlar", onClick = onOpenSettings)
+        TvTopBarButton("📱", onClick = onOpenRemote, compact = true)
+        TvTopBarButton("⚙", onClick = onOpenSettings, compact = true)
+    }
+}
+
+// Telefonu kumanda yapmak için adres kartı. QR kütüphanesi eklenmedi: adres kısa,
+// telefona bir kez yazılır; PIN'in kendisi ekranda gösterilmez (Yönetim'de).
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun RemoteInfoCard(onClose: () -> Unit) {
+    val base = ServerResolver.cachedBase()
+    ModalCard(title = "Telefon Kumandası", onClose = onClose) {
+        MenuRow("🌐  ${BuildConfig.BASE_URL.trimEnd('/')}/rc", onClick = {})
+        if (base != null && ServerResolver.isLocal(base)) {
+            MenuRow("🏠  ${base.toString().trimEnd('/')}/rc  (ev ağı, mikrofon yok)", onClick = {})
+        }
+        MenuRow("🔑  Giriş PIN'i: Yönetim Paneli → Siteye Giriş PIN'i", onClick = {})
+        MenuRow("✕  Kapat", onClose)
     }
 }
 
@@ -556,11 +583,14 @@ fun HomeSearchBarButton(
             .padding(horizontal = 20.dp, vertical = 11.dp),
         contentAlignment = Alignment.CenterStart
     ) {
+        // Tek satır: uzun placeholder dar ekranda ikinci satıra sarıp pill'i şişiriyordu.
         Text(
             text = "🔎  Film, dizi veya tür ara…",
             color = if (isFocused) NmColor.OnSurface else NmColor.OnSurfaceFaint,
             fontWeight = FontWeight.Medium,
             fontSize = NmType.Label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
