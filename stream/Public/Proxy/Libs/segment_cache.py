@@ -29,6 +29,11 @@ class SegmentCache:
         self._cache      : dict[str, tuple[bytes, float, float, int]] = {}
         self._total_size                                              = 0
         self._lock                                                    = asyncio.Lock()
+        # Disk yazımları arka planda koşar; referans tutulmazsa GC görevi iptal eder.
+        self._disk_tasks : set[asyncio.Task] = set()
+        # Budama sayacı: dizin taraması pahalı (9p üzerinde binlerce stat), her
+        # yazımda değil arada bir yapılır.
+        self._disk_writes = 0
 
     async def get(self, url: str) -> bytes | None:
         """Cache'den segment al ve access time'ı güncelle"""
@@ -73,7 +78,15 @@ class SegmentCache:
 
             # LRU eviction - boyut limiti aşıldıysa en az kullanılanları sil
             await self._evict_if_needed()
-        await asyncio.to_thread(self._write_disk, url, content)
+
+        # Disk yazımı YANIT YOLUNDA BEKLENMEZ: /data Windows'a 9p ile bağlı ve
+        # yavaş; segment başına ~17 sn eklenip oynatma "3 sn oynar 5 sn donar"
+        # hâline geliyordu. Segment zaten bellekte, disk yalnız yeniden izleme için.
+        gorev = asyncio.create_task(asyncio.to_thread(self._write_disk, url, content))
+        self._disk_tasks.add(gorev)
+        gorev.add_done_callback(self._disk_tasks.discard)
+
+    _PRUNE_EVERY = 200   # kaç yazımda bir disk budaması yapılır
 
     def _path_for(self, url: str) -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
@@ -99,16 +112,30 @@ class SegmentCache:
         try:
             temp.write_bytes(content)
             temp.replace(path)
-            files = sorted(self.disk_dir.iterdir(), key=lambda item: item.stat().st_mtime)
-            total = sum(item.stat().st_size for item in files if item.is_file())
-            for item in files:
-                if total <= self.disk_size_bytes:
-                    break
-                size = item.stat().st_size
-                item.unlink(missing_ok=True)
-                total -= size
         except OSError:
             temp.unlink(missing_ok=True)
+            return
+
+        # Budama her yazımda yapılırsa dizindeki her dosya için stat gerekir; 2600
+        # dosyalık cache'te bu tek başına ~17 saniye sürüyordu. Arada bir yeterli:
+        # limit aşımı en fazla _PRUNE_EVERY segment kadar sarkar.
+        self._disk_writes += 1
+        if self._disk_writes % self._PRUNE_EVERY:
+            return
+        try:
+            # scandir: mtime ve size tek dizin girişinden okunur (iterdir + stat değil).
+            files = sorted(
+                ((entry.path, entry.stat()) for entry in os.scandir(self.disk_dir) if entry.is_file()),
+                key=lambda item: item[1].st_mtime,
+            )
+            total = sum(stat.st_size for _, stat in files)
+            for dosya, stat in files:
+                if total <= self.disk_size_bytes:
+                    break
+                Path(dosya).unlink(missing_ok=True)
+                total -= stat.st_size
+        except OSError:
+            pass
 
     async def _set_memory(self, url: str, content: bytes):
         if len(content) > self.max_item_bytes:
