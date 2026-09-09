@@ -176,6 +176,9 @@ fun BrowseScreen(
     // girip çıkınca liste en üstten başlamasın (Dean: "en üstten başlıyor, olmuyor").
     val listState = rememberLazyListState()
     var focusedShelf by remember { mutableStateOf(0) }
+    // GERİ ile "en üste dön": listeyi kaydırmak yetmiyor, odak alt rafta kalınca ilk
+    // D-pad basışı listeyi geri aşağı çekiyordu → odak da ilk rafa taşınır.
+    var focusResetKey by remember { mutableStateOf(0) }
 
     // Tüm raflar çekildi VE hepsi boş döndü mü (ölü kaynak). Kısmen yüklüyse false:
     // dolu raf varken "ulaşılamıyor" yazmak yanlış olur.
@@ -210,7 +213,13 @@ fun BrowseScreen(
         when {
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
-            !atTop          -> browseScope.launch { listState.animateScrollToItem(0) }
+            // Odak alt raftayken liste "en üstte" görünebiliyor (raf yüksekliği ekrana
+            // sığıyor) → yalnız kaydırma konumuna bakınca GERİ ana ekrana atıyordu.
+            !atTop || focusedShelf > 0 -> {
+                focusedShelf = 0
+                focusResetKey++
+                browseScope.launch { listState.animateScrollToItem(0) }
+            }
             selectedPlugin != null -> selectedPlugin = null
             else            -> onBack()
         }
@@ -298,6 +307,7 @@ fun BrowseScreen(
                     started = started,
                     listState = listState,
                     focusedShelf = focusedShelf,
+                    focusResetKey = focusResetKey,
                     onShelfFocused = { focusedShelf = it },
                     onSelect = onSelect,
                 )
@@ -446,12 +456,14 @@ private fun ShelfList(
     started: MutableSet<String>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     focusedShelf: Int,
+    focusResetKey: Int,
     onShelfFocused: (Int) -> Unit,
     onSelect: (MediaItem) -> Unit,
 ) {
     // Bu liste her ekrana dönüşte yeniden oluşur; odağı SON kalınan rafa geri ver
-    // (yeniden en üste atlamasın). Kullanıcı gezinmeye başlayınca bir daha çalmaz.
-    var pendingFocus by remember(shelves.firstOrNull()?.key) { mutableStateOf(true) }
+    // (yeniden en üste atlamasın). Kullanıcı gezinmeye başlayınca bir daha çalmaz;
+    // GERİ ile en üste dönüşte (focusResetKey) yeniden çalır.
+    var pendingFocus by remember(shelves.firstOrNull()?.key, focusResetKey) { mutableStateOf(true) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -636,6 +648,21 @@ private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick
                 .height(54.dp)
                 .background(nmBottomScrim),
         )
+        // Puan rozeti — ana ekrandaki kartla aynı; Gözat'ta eksikti.
+        item.rating?.let { puan ->
+            Text(
+                text = "★ %.1f".format(puan),
+                color = NmColor.Star,
+                fontSize = NmType.Caption,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(NmDim.PillRadius))
+                    .background(NmColor.ScrimSoft)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
         Text(
             text = item.title.orEmpty(),
             maxLines = 2,
