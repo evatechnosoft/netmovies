@@ -23,8 +23,10 @@ _QUEUE_MAX     = 32
 # Uzun-yoklamada TV'nin bağlantıyı ne kadar açık tutabileceği tavan (sn).
 # İstek middleware'i 30sn'de 504 veriyor (`_istek.py: istek_timeout`) — altında kalmalı.
 _MAX_WAIT      = 25
-# TV bu süre içinde yokladıysa "bağlı" sayılır (kumandadaki gösterge).
-_ONLINE_WINDOW = 15
+# TV bu süre içinde yokladıysa "bağlı" sayılır (kumandadaki gösterge). Uzun-yoklama
+# `_MAX_WAIT` sn askıda kalır; pencere ondan kısaysa TV beklerken "kapalı" görünür,
+# ilk tuşta yoklama dönüp yenilenince "bağlı" olur (Dean: "play/pause yapınca bağlanıyor").
+_ONLINE_WINDOW = _MAX_WAIT + 15
 
 # Kumandanın gönderebileceği eylemler. Şema burada KAPALI tutulur: telefon TV'ye
 # rastgele alan geçiremez, yalnız bilinen bir eylemi tetikler.
@@ -175,6 +177,8 @@ async def remote_poll(request: Request):
             if int(time.time()) - cmd.get("sent_at", 0) > _TTL_SECONDS:
                 cmd = None
 
+    # Bekleme boyunca da TV hattaydı: son görülme, isteğin başı değil sonu.
+    _last_poll = time.time()
     return {**api_v1_global_message, "result": cmd}
 
 

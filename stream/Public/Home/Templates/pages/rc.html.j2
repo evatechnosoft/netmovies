@@ -77,6 +77,10 @@
     .sonuclar.liste .kart img { width:44px; aspect-ratio:2/3; flex:none; }
     .sonuclar.liste .kart span { font-size:13px; }
     .sonuclar.liste .kart .onay { inset:0 0 0 auto; width:auto; padding:0 14px; }
+    /* Öneriler: satırda 5 küçük kart, iki satır — telefonda tek bakışta 10 içerik. */
+    .sonuclar.oneri { grid-template-columns:repeat(5,1fr); gap:6px; }
+    .sonuclar.oneri .kart span { font-size:10px; padding:5px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sonuclar.oneri .kart .onay { font-size:10px; padding:6px 2px; gap:3px; }
 
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
@@ -173,6 +177,10 @@
     <!-- Son izlenenler: basılı tut → TV'de devam et. Kart / liste görünümü telefonda hatırlanır. -->
     <p class="baslik satirli">Son izlenenler <button id="gorunum" type="button">liste</button></p>
     <div class="sonuclar" id="son"></div>
+
+    <!-- İzlemek isteyeceklerin: önce "izlenecek" listesi, kalan yer Yeni Çıkanlar'dan. -->
+    <p class="baslik">İzlemek isteyeceklerin</p>
+    <div class="sonuclar oneri" id="oneri"></div>
   </section>
 
   <!-- ======================= ARA =======================
@@ -303,19 +311,46 @@
       const ogeler = (d?.result || []).slice(0, 5).map((r) => ({
         plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster,
       })).filter((o) => o.url);
-      const kap = $('son');
-      kap.innerHTML = '';
-      ogeler.forEach((o) => {
-        const kart = document.createElement('button');
-        kart.className = 'kart';
-        kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
-        kart.querySelector('img').src = poster(o.poster, o.title);
-        kart.querySelector('span').textContent = o.title || o.url;
-        onayaBagla(kart, o);
-        kap.appendChild(kart);
-      });
+      kartlariBas($('son'), ogeler);
     } catch (_) {}
   }
+
+  function kartlariBas(kap, ogeler) {
+    kap.innerHTML = '';
+    ogeler.forEach((o) => {
+      const kart = document.createElement('button');
+      kart.className = 'kart';
+      kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
+      kart.querySelector('img').src = poster(o.poster, o.title);
+      kart.querySelector('span').textContent = o.title || o.url;
+      onayaBagla(kart, o);
+      kap.appendChild(kart);
+    });
+  }
+
+  // İzlemek isteyeceklerin: "izlenecek" listesi önde, 10'a kadar Yeni Çıkanlar
+  // (film/dizi dönüşümlü) ile tamamlanır. Aynı başlık iki kez girmez.
+  async function oneriler() {
+    const cek = (u, sec) => fetch(u).then((r) => r.json()).then(sec).catch(() => []);
+    const [liste, filmler, diziler] = await Promise.all([
+      cek('/api/v1/lists/izlenecek', (d) => (d?.result || []).map((r) => ({ plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster }))),
+      cek('/api/v1/aggregate_new?type=movie', (d) => d?.result?.items || []),
+      cek('/api/v1/aggregate_new?type=serie', (d) => d?.result?.items || []),
+    ]);
+    const secilen = [], gorulen = new Set();
+    const ekle = (o) => {
+      const k = (o.title || o.url || '').toLowerCase();
+      if (!o.url || !k || gorulen.has(k) || secilen.length >= 10) return;
+      gorulen.add(k); secilen.push(o);
+    };
+    liste.forEach(ekle);
+    for (let i = 0; i < Math.max(filmler.length, diziler.length) && secilen.length < 10; i++) {
+      if (filmler[i]) ekle(filmler[i]);
+      if (diziler[i]) ekle(diziler[i]);
+    }
+    kartlariBas($('oneri'), secilen);
+  }
+  oneriler();
   const gorunumUygula = (liste) => {
     $('son').classList.toggle('liste', liste);
     $('gorunum').textContent = liste ? 'kart' : 'liste';
