@@ -314,7 +314,7 @@
 </nav>
 
 <script>
-(() => {
+(async () => {
   'use strict';
   // Yönetim panelinden gelen ayarlar (admin.json). TV de aynı değerleri
   // /api/v1/client_config ile okur — tek kaynak, tek aç/kapa.
@@ -323,6 +323,40 @@
     tvYaz : {{ 'true' if rc_text_to_tv else 'false' }},
   };
   const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- ayar deposu
+  // localStorage KÖKEN BAŞINA ayrı: LAN adresi ile tünel iki ayrı depo, PWA'yı
+  // yeniden kurmak da siliyor — düzen her açılışta sıfırlanmış görünüyordu.
+  // Kayıt artık sunucuda (/api/v1/prefs), localStorage yalnız anında okunan
+  // önbellek. Yazma toplanır: kaydırıcıyı sürüklerken her pikselde istek gitmesin.
+  const KAYIT = window.__ayar = { veri: {}, hazir: false };
+  let yazZamani = null;
+  KAYIT.oku = (anahtar, varsayilan) => {
+    if (anahtar in KAYIT.veri) return KAYIT.veri[anahtar];
+    try {
+      const ham = localStorage.getItem(anahtar);
+      if (ham !== null) return JSON.parse(ham);
+    } catch (_) {}
+    return varsayilan;
+  };
+  KAYIT.yaz = (anahtar, deger) => {
+    KAYIT.veri[anahtar] = deger;
+    try { localStorage.setItem(anahtar, JSON.stringify(deger)); } catch (_) {}
+    clearTimeout(yazZamani);
+    yazZamani = setTimeout(() => {
+      fetch('/api/v1/prefs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(KAYIT.veri),
+      }).catch(() => {});
+    }, 600);
+  };
+  // Sunucudaki kayıt sayfa çizilmeden ÖNCE gelmeli; yoksa düzen bir an eski
+  // hâliyle görünüp yerine oturuyor.
+  try {
+    const d = await (await fetch('/api/v1/prefs')).json();
+    if (d?.result && typeof d.result === 'object') KAYIT.veri = d.result;
+  } catch (_) {}
+  KAYIT.hazir = true;
   const durum = $('durum');
   const titre = () => { try { navigator.vibrate?.(12); } catch (_) {} };
 
@@ -359,14 +393,14 @@
   // sürükle ya da ▲▼ ile taşı; sıra telefonda saklanır (rc_sira).
   const kumanda = $('s-kumanda');
   const bloklar = () => [...kumanda.querySelectorAll(':scope > .blok')];
-  const siraKaydet = () => { try { localStorage.setItem('rc_sira', JSON.stringify(bloklar().map((b) => b.dataset.blok))); } catch (_) {} };
+  const siraKaydet = () => KAYIT.yaz('rc_sira', bloklar().map((b) => b.dataset.blok));
   let olcekler = {};
-  const olcekKaydet = () => { try { localStorage.setItem('rc_olcek', JSON.stringify(olcekler)); } catch (_) {} };
-  try {
-    const sira = JSON.parse(localStorage.getItem('rc_sira') || '[]');
-    sira.forEach((ad) => { const b = kumanda.querySelector(`.blok[data-blok="${ad}"]`); if (b) kumanda.appendChild(b); });
-    olcekler = JSON.parse(localStorage.getItem('rc_olcek') || '{}');
-  } catch (_) {}
+  const olcekKaydet = () => KAYIT.yaz('rc_olcek', olcekler);
+  (KAYIT.oku('rc_sira', []) || []).forEach((ad) => {
+    const b = kumanda.querySelector(`.blok[data-blok="${ad}"]`);
+    if (b) kumanda.appendChild(b);
+  });
+  olcekler = KAYIT.oku('rc_olcek', {}) || {};
   bloklar().forEach((blok) => {
     const t = document.createElement('div');
     t.className = 'tutamak';
@@ -428,11 +462,11 @@
   const DOKUN_PX = 10, DOKUN_MS = 350, KENAR_PX = 22, TEKRAR_MS = 170;
   // Hassasiyet: bir yön için gereken kayma (px). Telefonda hatırlanır.
   let esik = 44;
-  try { esik = Number(localStorage.getItem('rc_esik')) || 44; } catch (_) {}
+  esik = Number(KAYIT.oku('rc_esik', 44)) || 44;
   $('esik').value = esik;
   $('esik').addEventListener('input', (e) => {
     esik = Number(e.target.value) || 44;
-    try { localStorage.setItem('rc_esik', String(esik)); } catch (_) {}
+    KAYIT.yaz('rc_esik', esik);
   });
   ['pointerdown', 'pointermove', 'pointerup'].forEach((olay) => $('esik').addEventListener(olay, (e) => e.stopPropagation()));
 
@@ -486,12 +520,12 @@
     $('mod').textContent = dokunmatik ? 'tuşlar' : 'dokunmatik';
   };
   let dokunmatikMod = false;
-  try { dokunmatikMod = localStorage.getItem('rc_dokunmatik') === '1'; } catch (_) {}
+  dokunmatikMod = KAYIT.oku('rc_dokunmatik', false) === true;
   modUygula(dokunmatikMod);
   $('mod').addEventListener('click', () => {
     dokunmatikMod = !dokunmatikMod;
     modUygula(dokunmatikMod);
-    try { localStorage.setItem('rc_dokunmatik', dokunmatikMod ? '1' : '0'); } catch (_) {}
+    KAYIT.yaz('rc_dokunmatik', dokunmatikMod);
   });
 
   document.querySelectorAll('[data-transport]').forEach((b) =>
@@ -604,12 +638,12 @@
     $('gorunum').textContent = liste ? 'kart' : 'liste';
   };
   let listeGorunum = false;
-  try { listeGorunum = localStorage.getItem('rc_son_liste') === '1'; } catch (_) {}
+  listeGorunum = KAYIT.oku('rc_son_liste', false) === true;
   gorunumUygula(listeGorunum);
   $('gorunum').addEventListener('click', () => {
     listeGorunum = !listeGorunum;
     gorunumUygula(listeGorunum);
-    try { localStorage.setItem('rc_son_liste', listeGorunum ? '1' : '0'); } catch (_) {}
+    KAYIT.yaz('rc_son_liste', listeGorunum);
   });
   sonIzlenenler();
 

@@ -44,6 +44,8 @@ _KORUMALI_API = (
     "/api/v1/remote/play",
     "/api/v1/voice",
     "/api/v1/search_all",
+    # Tarayıcı çağırıyor (kumanda düzeni) ve DİSKE yazıyor — TV istemcisi kullanmaz.
+    "/api/v1/prefs",
 )
 
 

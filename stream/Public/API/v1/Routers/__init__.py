@@ -32,6 +32,7 @@ from . import (
     extract,
     ytdlp_extract,
     watch,
+    prefs,
     client_config,
     remote,
     voice,
