@@ -1,6 +1,6 @@
 package com.evaitec.netmovies.tv.ui
 
-import androidx.activity.compose.BackHandler
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -209,7 +209,7 @@ fun BrowseScreen(
     val atTop by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
     }
-    BackHandler(enabled = true) {
+    NmBackHandler(enabled = true) {
         when {
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null

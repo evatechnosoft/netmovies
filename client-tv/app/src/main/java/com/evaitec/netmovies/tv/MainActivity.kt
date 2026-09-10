@@ -60,7 +60,19 @@ class MainActivity : ComponentActivity() {
     private var bekleyenUzak by mutableStateOf<MediaItem?>(null)
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        val bekleyen = bekleyenUzak ?: return super.dispatchKeyEvent(event)
+        val bekleyen = bekleyenUzak
+        if (bekleyen == null) {
+            // GERİ, Compose'un odak sistemine İNMEDEN önce ekranın işleyicisine
+            // gider: odak grupları tuşu "ilk öğeye dön" diye yutuyordu.
+            if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+                if (event.action == android.view.KeyEvent.ACTION_UP) {
+                    if (com.evaitec.netmovies.tv.input.BackBus.geri()) return true
+                } else if (com.evaitec.netmovies.tv.input.BackBus.varMi()) {
+                    return true
+                }
+            }
+            return super.dispatchKeyEvent(event)
+        }
         if (event.action == android.view.KeyEvent.ACTION_DOWN) when (event.keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER,
             android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ->

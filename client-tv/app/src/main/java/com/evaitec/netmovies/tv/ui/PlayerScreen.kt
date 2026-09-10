@@ -2,7 +2,7 @@ package com.evaitec.netmovies.tv.ui
 
 import android.net.Uri
 import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -281,7 +281,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Ayar menüsü açıksa Geri onu kapatsın; kontroller görünürse gizlesin; yoksa çık.
     // Kaynak aranırken/bulunamadığında da Geri doğrudan çıkar — ekranda tutan
     // bir hata kutusu yok.
-    BackHandler(enabled = true) {
+    NmBackHandler(enabled = true) {
         when {
             scrubMode -> scrubMode = false
             // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki

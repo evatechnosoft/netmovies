@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.activity.compose.BackHandler
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.derivedStateOf
@@ -204,7 +204,7 @@ private fun CategoryRows(
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
     // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
     val modalOpen = showSettingsMenu || menuItem != null
-    BackHandler(enabled = !modalOpen) {
+    NmBackHandler(enabled = !modalOpen) {
         if (atTop) {
             onExit()
         } else {
@@ -474,7 +474,7 @@ private fun ModalCard(title: String, onClose: () -> Unit, content: @Composable (
     }
 
     // GERİ modalı kapatır (arkadaki ana ekran handler'ı modal açıkken kapalıdır).
-    BackHandler(enabled = true) { onClose() }
+    NmBackHandler(enabled = true) { onClose() }
 
     Box(
         Modifier.fillMaxSize().background(NmColor.Scrim),

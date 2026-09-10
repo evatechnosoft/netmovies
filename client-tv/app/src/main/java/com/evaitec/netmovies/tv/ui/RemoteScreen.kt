@@ -3,7 +3,7 @@ package com.evaitec.netmovies.tv.ui
 import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,7 +16,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun RemoteScreen(url: String, onBack: () -> Unit) {
-    BackHandler { onBack() }
+    NmBackHandler { onBack() }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->

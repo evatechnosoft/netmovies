@@ -152,52 +152,6 @@
     body.duzenle #duzenle { border-color:var(--vurgu); }
 
     /* ---- Mini: tek ekran widget. Yay üzerinde yuvarlak posterler, altında pad. ---- */
-    /* Mini panel: hangi sayfada olursan ol tek tuşla yukarıdan iner, tekrar basınca
-       kalkar. Sekme değil — kumanda ve arama akışını bölmez. */
-    /* z-index başlığın (5) altında: panel inince "Mini" tuşu görünür ve tekrar
-       basılabilir kalır. */
-    #s-mini { position:fixed; inset:0 0 auto 0; z-index:4; background:var(--bg);
-              border-bottom:1px solid var(--cizgi);
-              padding:calc(58px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
-              display:flex; flex-direction:column; gap:10px; max-height:88dvh; overflow-y:auto;
-              transform:translateY(-102%); transition:transform .22s ease; box-shadow:0 12px 30px rgba(0,0,0,.5); }
-    body.mini-acik #s-mini { transform:translateY(0); }
-    #mini-kapat { position:fixed; inset:0; z-index:3; background:rgba(0,0,0,.45); display:none; }
-    body.mini-acik #mini-kapat { display:block; }
-    #mini { background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:12px; }
-    body.mini-acik #mini { border-color:var(--vurgu); }
-    .yay { position:relative; height:170px; margin:0 -14px 4px; overflow-x:auto; overflow-y:hidden;
-           scroll-snap-type:x mandatory; scrollbar-width:none; touch-action:pan-x; }
-    .yay::-webkit-scrollbar { display:none; }
-    .yay .ic-yay { display:flex; align-items:flex-start; height:100%; padding:0 calc(50vw - 42px); gap:14px; }
-    .yay .top { flex:0 0 84px; scroll-snap-align:center; position:relative; border:0; padding:0; background:none;
-                transition:transform .12s linear; }
-    .yay .top img { width:84px; height:84px; border-radius:50%; object-fit:cover; display:block;
-                    background:#0a0c10; border:2px solid var(--cizgi); }
-    .yay .top.orta img { border-color:var(--vurgu); }
-    .yay .top b { display:block; font-size:11px; font-weight:500; color:var(--soluk); margin-top:6px;
-                  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px; }
-    .yay .top.orta b { color:var(--metin); }
-
-    .mini-alt { margin-top:auto; display:flex; flex-direction:column; gap:12px; align-items:center; }
-    .mini-pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:min(280px,74vw); aspect-ratio:1; }
-    .mini-pad button { background:var(--kart); border:1px solid var(--cizgi); border-radius:14px; color:var(--metin); font-size:24px; }
-    .mini-pad button:active { background:var(--vurgu); transform:scale(.96); }
-    .mini-pad .bos { visibility:hidden; }
-    .mini-pad .ok { border-radius:50%; font-size:14px; font-weight:700; }
-    .mini-satir { display:flex; gap:14px; }
-    .mini-satir button { width:64px; height:64px; border-radius:50%; background:var(--kart);
-                         border:1px solid var(--cizgi); color:var(--metin); display:flex; align-items:center; justify-content:center; }
-    .mini-satir button.uyari { border-color:var(--vurgu); color:var(--vurgu); }
-    .mini-satir .ic { width:26px; height:26px; }
-    #mini-tp { flex:1; min-height:120px; width:100%; background:var(--kart); border:1px dashed var(--cizgi);
-               border-radius:16px; touch-action:none; display:flex; align-items:center; justify-content:center;
-               color:var(--soluk); font-size:12px; }
-    #mini-tp.aktif { border-color:var(--yesil); border-style:solid; }
-    body.mini-yuzey .mini-pad { display:none; }
-    body:not(.mini-yuzey) #mini-tp { display:none; }
-    #mini-mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:5px 10px; font-size:11px; }
-
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
           padding-bottom:env(safe-area-inset-bottom); z-index:5; }
@@ -238,7 +192,7 @@
 <header>
   <b>NetMovies</b>
   <button id="kur" type="button">Ekle</button>
-  <button id="mini" type="button" title="Mini paneli aç/kapat">Mini</button>
+  <button id="duzenle" type="button" title="Blokları kendine göre sırala">Düzenle</button>
   <span id="tv-durum"><i id="tv-nokta"></i><span id="tv-yazi">aranıyor…</span></span>
 </header>
 
@@ -340,27 +294,6 @@
     <div class="sonuclar" id="sonuclar"></div>
   </section>
 
-  <!-- ======================= MİNİ =======================
-       Tek ekran: yay üzerinde yuvarlak posterler (dokun=bilgi, basılı tut=TV'de
-       oynat), altında yön pad ya da dokunmatik yüzey, en altta OK ve GERİ. -->
-  <section id="s-mini">
-    <div class="yay" id="yay"><div class="ic-yay"></div></div>
-    <div class="mini-alt">
-      <div class="mini-pad">
-        <div class="bos"></div><button data-key="UP">▲</button><div class="bos"></div>
-        <button data-key="LEFT">◀</button><button class="ok" data-key="CENTER">OK</button><button data-key="RIGHT">▶</button>
-        <div class="bos"></div><button data-key="DOWN">▼</button><div class="bos"></div>
-      </div>
-      <div id="mini-tp">kaydır: yön · dokun: OK</div>
-      <div class="mini-satir">
-        <button id="mini-ok" aria-label="Oynat / seç"><svg class="ic"><use href="#i-oynat"/></svg></button>
-        <button id="mini-geri" aria-label="Duraklat, tekrar basınca çık"><svg class="ic"><use href="#i-geri"/></svg></button>
-        <button id="mini-mod" type="button">yüzey</button>
-        <button id="duzenle" type="button" title="Blokları kendine göre sırala">düzen</button>
-      </div>
-    </div>
-  </section>
-  <div id="mini-kapat"></div>
 </main>
 
 <!-- Bilgi sayfası: karta tek dokunuş açar; basılı tutma yine doğrudan TV'de oynatır. -->
@@ -484,95 +417,8 @@
   });
   $('duzenle').addEventListener('click', () => {
     const acik = document.body.classList.toggle('duzenle');
-    $('duzenle').textContent = acik ? 'bitti' : 'düzen';
-    if (acik) miniAc(false);   // düzenlerken panel önü kapatmasın
+    $('duzenle').textContent = acik ? 'Bitti' : 'Düzenle';
   });
-
-  // ---------------------------------------------------------------- mini (widget)
-  // Yay: posterler yatay kayar, merkezden uzaklaştıkça aşağı iner ve küçülür —
-  // yarım daire hissi. Dokun = bilgi, basılı tut = doğrudan TV'de oynat.
-  const yay = $('yay');
-  let yayDoldu = false;
-  function yayCiz() {
-    const orta = yay.getBoundingClientRect().left + yay.clientWidth / 2;
-    yay.querySelectorAll('.top').forEach((t) => {
-      const r = t.getBoundingClientRect();
-      const d = (r.left + r.width / 2 - orta) / (yay.clientWidth / 2);   // -1 … 1
-      const k = Math.min(Math.abs(d), 1);
-      t.style.transform = `translateY(${(k * k * 46).toFixed(1)}px) scale(${(1 - k * 0.28).toFixed(3)})`;
-      t.classList.toggle('orta', k < 0.18);
-    });
-  }
-  yay.addEventListener('scroll', () => requestAnimationFrame(yayCiz), { passive: true });
-
-  async function yayDoldur() {
-    if (yayDoldu) return;
-    yayDoldu = true;
-    const kap = yay.querySelector('.ic-yay');
-    // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar.
-    const cek = (u, sec) => fetch(u).then((r) => r.json()).then(sec).catch(() => []);
-    const [son, filmler, diziler] = await Promise.all([
-      cek('/api/v1/continue_watching', (d) => (d?.result || []).map((r) => ({ plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster }))),
-      cek('/api/v1/aggregate_new?type=movie', (d) => d?.result?.items || []),
-      cek('/api/v1/aggregate_new?type=serie', (d) => d?.result?.items || []),
-    ]);
-    const secilen = [], gorulen = new Set();
-    const ekle = (o) => {
-      const k = (o.title || o.url || '').toLowerCase();
-      if (!o.url || !k || gorulen.has(k) || secilen.length >= 20) return;
-      gorulen.add(k); secilen.push(o);
-    };
-    son.forEach(ekle);
-    for (let i = 0; i < Math.max(filmler.length, diziler.length) && secilen.length < 20; i++) {
-      if (filmler[i]) ekle(filmler[i]);
-      if (diziler[i]) ekle(diziler[i]);
-    }
-    kap.innerHTML = '';
-    secilen.forEach((o) => {
-      const t = document.createElement('button');
-      t.className = 'top';
-      t.innerHTML = '<img loading="lazy" alt=""><b></b>';
-      t.querySelector('img').src = poster(o.poster, o.title);
-      t.querySelector('b').textContent = o.title || '';
-      onayaBagla(t, o);
-      kap.appendChild(t);
-    });
-    requestAnimationFrame(yayCiz);
-  }
-
-  // OK: seç / başlat. GERİ: önce duraklat, 2 sn içinde tekrar basılırsa çıkar.
-  $('mini-ok').addEventListener('click', () => komut({ type: 'key', key: 'CENTER' }));
-  let geriAn = 0;
-  $('mini-geri').addEventListener('click', () => {
-    const btn = $('mini-geri');
-    if (Date.now() - geriAn < 2000) {
-      geriAn = 0; btn.classList.remove('uyari');
-      komut({ type: 'key', key: 'BACK' });
-      return;
-    }
-    geriAn = Date.now();
-    btn.classList.add('uyari');
-    setTimeout(() => btn.classList.remove('uyari'), 2000);
-    komut({ type: 'transport', action: 'play_pause', value: 0 });
-  });
-
-  // Tek tuş: mini panel her sayfadan iner, tekrar basınca ya da karartıya
-  // dokununca kalkar. Düzenle artık başlıkta değil, bu panelin içinde.
-  const miniAc = (ac) => {
-    document.body.classList.toggle('mini-acik', ac);
-    if (ac) yayDoldur();
-  };
-  $('mini').addEventListener('click', () => miniAc(!document.body.classList.contains('mini-acik')));
-  $('mini-kapat').addEventListener('click', () => miniAc(false));
-
-  $('mini-mod').addEventListener('click', () => {
-    const acik = document.body.classList.toggle('mini-yuzey');
-    $('mini-mod').textContent = acik ? 'pad' : 'yüzey';
-    try { localStorage.setItem('rc_mini_yuzey', acik ? '1' : '0'); } catch (_) {}
-  });
-  try {
-    if (localStorage.getItem('rc_mini_yuzey') === '1') { document.body.classList.add('mini-yuzey'); $('mini-mod').textContent = 'pad'; }
-  } catch (_) {}
 
   // ---------------------------------------------------------------- dokunmatik yüzey
   // D-pad ekranın üstünde, başparmak alta yetişiyor: "dokunmatik" modda alt çubuğun
@@ -634,7 +480,6 @@
     el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
   yuzeyBagla(tp);
-  yuzeyBagla($('mini-tp'));
 
   const modUygula = (dokunmatik) => {
     document.body.classList.toggle('dokunmatik', dokunmatik);
