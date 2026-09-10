@@ -7,9 +7,14 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 9 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `b858602` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.65-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**Son güncelleme:** 10 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `c53f0cd`+ · temiz, push'lı, origin ile eşit
+**TV sürümü:** `v0.1.67-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+(v0.1.67: kaynak açılınca "sıradaki deneniyor" bandı kalkar — film oynarken asılı kalıyordu)
+**10 Eylül (fotoğraf):** FilmMakinesi dublajlı film "Türkçe altyazı" etiketliydi → eklenti
+sayfadaki `.type` rozetini (Dual/Yerli Film) okuyup ada "Türkçe Dublaj" ekliyor; kanıt
+`resolve_sources` → `rank 0 / Türkçe dublaj`. **Eklenti kodu değişince
+`docker compose up -d --build engine`** — restart imajdaki eski kodu çalıştırır.
 (v0.1.60: üst bar ⚙ ve 📱 yazısız/dar; 📱 = telefon kumandası adres kartı; arama tek satır ·
 v0.1.61: Gözat kartlarında ★ puan; GERİ önce en üste · v0.1.62: /24 taraması ana iş parçacığından çıktı — `uiBase()` bloklamaz, donma/ANR bitti; 📱 kartındaki adresler tıklanınca açılır)
 **Akış:** `aggregate_new` kaynakları dönüşümlü birleştiriyor (`5d70931`); DiziPal "Son

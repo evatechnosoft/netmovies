@@ -30,6 +30,8 @@ Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
 - Kod tek kaynak: bu git dalı. Kim çalışırsa `git pull` ile güncel olur.
 - **Kaynak domainleri otomatik güncellenir** (eklentiler Kekik-cloudstream'den çeker) —
   elle domain takibi yok. Yeni domain çıkınca `docker compose restart engine` yeter.
+- Eklenti KODU değişince restart yetmez (Plugins imaja gömülü, volume yok):
+  `docker compose up -d --build engine`.
 - Yeni özellik/düzeltme → aynı dala commit + push → herkes `git pull` ile alır.
 
 ## Mimari (özet)
