@@ -77,10 +77,31 @@
     .sonuclar.liste .kart img { width:44px; aspect-ratio:2/3; flex:none; }
     .sonuclar.liste .kart span { font-size:13px; }
     .sonuclar.liste .kart .onay { inset:0 0 0 auto; width:auto; padding:0 14px; }
-    /* Öneriler: satırda 5 küçük kart, iki satır — telefonda tek bakışta 10 içerik. */
-    .sonuclar.oneri { grid-template-columns:repeat(5,1fr); gap:6px; }
-    .sonuclar.oneri .kart span { font-size:10px; padding:5px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .sonuclar.oneri .kart .onay { font-size:10px; padding:6px 2px; gap:3px; }
+    /* Raf: tek sıra, yana kaydırmalı — sığmayan alt satıra düşmez (Dean). */
+    .sonuclar.raf { display:flex; overflow-x:auto; gap:8px; padding-bottom:6px; scroll-snap-type:x proximity; scrollbar-width:none; }
+    .sonuclar.raf::-webkit-scrollbar { display:none; }
+    .sonuclar.raf .kart { flex:0 0 96px; scroll-snap-align:start; }
+    .sonuclar.raf .kart span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sonuclar.raf.liste { display:grid; overflow:visible; }
+    .sonuclar.raf.liste .kart { flex:none; }
+
+    /* ---- Dokunmatik yüzey (mouse mode): D-pad yerine kaydırma alanı, başparmak
+       hizasında sabit — sayfa nereye kaydırılırsa kaydırılsın elin altında. ---- */
+    #tp { display:none; position:fixed; left:14px; right:14px; bottom:calc(58px + env(safe-area-inset-bottom));
+          height:180px; background:var(--kart); border:1px solid var(--vurgu); border-radius:18px; z-index:4;
+          touch-action:none; user-select:none; align-items:center; justify-content:center; color:var(--soluk); font-size:12px; }
+    body.dokunmatik #tp { display:flex; }
+    body.dokunmatik .pad { display:none; }
+    body.dokunmatik main { padding-bottom:calc(76px + 196px + env(safe-area-inset-bottom)); }
+    /* Ara sekmesinde yüzey sonuçların üstüne binmesin. */
+    body.sekme-ara #tp { display:none; }
+    body.sekme-ara main { padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+    #tp .ipucu { pointer-events:none; text-align:center; line-height:1.6; }
+    #tp .ipucu b { display:block; font-size:22px; color:var(--metin); }
+    #tp .geri { position:absolute; right:10px; top:10px; background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:10px; padding:8px 10px; }
+    #tp .geri .ic { width:20px; height:20px; margin:0; }
+    #tp.aktif { border-color:var(--yesil); }
+    #mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:6px 10px; font-size:12px; }
 
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
@@ -136,6 +157,7 @@
       <div class="bar"><i></i></div>
     </div>
 
+    <p class="baslik satirli">Yön <button id="mod" type="button">dokunmatik</button></p>
     <div class="pad">
       <div class="bos"></div>
       <button data-key="UP">▲</button>
@@ -176,12 +198,18 @@
 
     <!-- Son izlenenler: basılı tut → TV'de devam et. Kart / liste görünümü telefonda hatırlanır. -->
     <p class="baslik satirli">Son izlenenler <button id="gorunum" type="button">liste</button></p>
-    <div class="sonuclar" id="son"></div>
+    <div class="sonuclar raf" id="son"></div>
 
     <!-- İzlemek isteyeceklerin: önce "izlenecek" listesi, kalan yer Yeni Çıkanlar'dan. -->
     <p class="baslik">İzlemek isteyeceklerin</p>
-    <div class="sonuclar oneri" id="oneri"></div>
+    <div class="sonuclar raf" id="oneri"></div>
   </section>
+
+  <!-- Dokunmatik yüzey: kaydır = yön, dokun = OK. Sabit konumlu, alt çubuğun üstünde. -->
+  <div id="tp">
+    <div class="ipucu"><b>kaydır · dokun</b>kaydır: yön tuşu &nbsp;·&nbsp; dokun: OK</div>
+    <button class="geri" type="button" data-key="BACK" aria-label="Geri"><svg class="ic"><use href="#i-geri"/></svg></button>
+  </div>
 
   <!-- ======================= ARA =======================
        Tek kutu, iki iş: telefonda ara ya da aynı metni TV'nin arama kutusuna
@@ -247,6 +275,48 @@
     ['pointerup', 'pointerleave', 'pointercancel'].forEach((olay) => btn.addEventListener(olay, dur));
   });
 
+  // ---------------------------------------------------------------- dokunmatik yüzey
+  // D-pad ekranın üstünde, başparmak alta yetişiyor: "dokunmatik" modda alt çubuğun
+  // üstüne sabit bir yüzey gelir. Her ESIK px kayma bir yön tuşu (sürekli sürükle =
+  // tekrar), kısa dokunuş OK. Seçim telefonda hatırlanır.
+  const tp = $('tp');
+  const ESIK = 44, DOKUN_PX = 10, DOKUN_MS = 350;
+  let tpBas = null, tpSon = null, tpAn = 0, tpKaydi = false;
+  const yonGonder = (key) => { tp.classList.add('aktif'); komut({ type: 'key', key }); setTimeout(() => tp.classList.remove('aktif'), 120); };
+  tp.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.geri')) return;
+    tp.setPointerCapture(e.pointerId);
+    tpBas = tpSon = { x: e.clientX, y: e.clientY }; tpAn = Date.now(); tpKaydi = false;
+  });
+  tp.addEventListener('pointermove', (e) => {
+    if (!tpSon) return;
+    const dx = e.clientX - tpSon.x, dy = e.clientY - tpSon.y;
+    if (Math.abs(dx) >= ESIK && Math.abs(dx) >= Math.abs(dy)) { yonGonder(dx > 0 ? 'RIGHT' : 'LEFT'); tpSon = { x: e.clientX, y: e.clientY }; tpKaydi = true; }
+    else if (Math.abs(dy) >= ESIK) { yonGonder(dy > 0 ? 'DOWN' : 'UP'); tpSon = { x: e.clientX, y: e.clientY }; tpKaydi = true; }
+  });
+  const tpBitir = (e) => {
+    if (!tpBas) return;
+    const kisa = Date.now() - tpAn < DOKUN_MS && Math.hypot(e.clientX - tpBas.x, e.clientY - tpBas.y) < DOKUN_PX;
+    if (!tpKaydi && kisa) yonGonder('CENTER');
+    tpBas = tpSon = null;
+  };
+  tp.addEventListener('pointerup', tpBitir);
+  tp.addEventListener('pointercancel', () => { tpBas = tpSon = null; });
+  tp.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  const modUygula = (dokunmatik) => {
+    document.body.classList.toggle('dokunmatik', dokunmatik);
+    $('mod').textContent = dokunmatik ? 'tuşlar' : 'dokunmatik';
+  };
+  let dokunmatikMod = false;
+  try { dokunmatikMod = localStorage.getItem('rc_dokunmatik') === '1'; } catch (_) {}
+  modUygula(dokunmatikMod);
+  $('mod').addEventListener('click', () => {
+    dokunmatikMod = !dokunmatikMod;
+    modUygula(dokunmatikMod);
+    try { localStorage.setItem('rc_dokunmatik', dokunmatikMod ? '1' : '0'); } catch (_) {}
+  });
+
   document.querySelectorAll('[data-transport]').forEach((b) =>
     b.addEventListener('click', () => komut({ type: 'transport', action: b.dataset.transport, value: 0 })));
   document.querySelectorAll('[data-seek]').forEach((b) =>
@@ -260,6 +330,7 @@
   document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('aktif', x === b));
     document.querySelectorAll('.sekme').forEach((s) => s.classList.toggle('aktif', s.id === 's-' + b.dataset.sekme));
+    document.body.classList.toggle('sekme-ara', b.dataset.sekme === 'ara');
     if (b.dataset.sekme === 'ara') yeniCikanlar();
   }));
 
