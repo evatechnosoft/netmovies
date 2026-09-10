@@ -53,6 +53,13 @@
     .kart img { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:#0a0c10; }
     .kart span { display:block; padding:7px; font-size:12px; line-height:1.25; }
     .kart:active { border-color:var(--vurgu); }
+    /* Yanlış basma koruması: kart tek dokunuşla oynatmaz, basılı tutunca onay çıkar. */
+    .kart { position:relative; }
+    .kart.secili { border-color:var(--vurgu); }
+    .kart .onay { position:absolute; inset:auto 0 0 0; background:var(--vurgu); color:#04070d;
+      font-weight:700; font-size:13px; padding:10px 6px; border:0; width:100%; display:flex;
+      align-items:center; justify-content:center; gap:6px; }
+    .kart .onay .ic { width:16px; height:16px; fill:currentColor; }
 
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
@@ -264,9 +271,44 @@
       kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
       kart.querySelector('img').src = poster(o.poster, o.title);
       kart.querySelector('span').textContent = o.title || o.url;
-      kart.addEventListener('click', () => tvdeOynat(o));
+      onayaBagla(kart, o);
       kap.appendChild(kart);
     });
+  }
+
+  // Kartlar cebe girmiş telefonda yanlışlıkla basılıyordu: tek dokunuş artık
+  // oynatmıyor, ~550 ms basılı tutunca kartın altında onay butonu çıkıyor ve
+  // TV'de oynatma yalnız o butona basınca başlıyor.
+  const BASILI_MS = 550;
+
+  function onayaBagla(kart, o) {
+    let sayac = null;
+
+    const goster = () => {
+      document.querySelectorAll('.kart .onay').forEach((d) => d.remove());
+      document.querySelectorAll('.kart.secili').forEach((k) => k.classList.remove('secili'));
+      kart.classList.add('secili');
+      const onay = document.createElement('button');
+      onay.className = 'onay';
+      onay.innerHTML = '<svg class="ic"><use href="#i-tv"/></svg>TV\'de oynat';
+      onay.addEventListener('click', (e) => { e.stopPropagation(); onay.remove(); kart.classList.remove('secili'); tvdeOynat(o); });
+      kart.appendChild(onay);
+      titre();
+    };
+
+    const basla = (e) => {
+      if (e.target.closest('.onay')) return;
+      sayac = setTimeout(goster, BASILI_MS);
+    };
+    const bitir = () => { clearTimeout(sayac); sayac = null; };
+
+    kart.addEventListener('pointerdown', basla);
+    kart.addEventListener('pointerup', bitir);
+    kart.addEventListener('pointercancel', bitir);
+    kart.addEventListener('pointerleave', bitir);
+    // Basılı tutunca tarayıcının metin seçimi/bağlam menüsü araya girmesin.
+    kart.addEventListener('contextmenu', (e) => e.preventDefault());
+    kart.addEventListener('click', (e) => { if (!e.target.closest('.onay')) e.preventDefault(); });
   }
 
   async function tvdeOynat(o) {

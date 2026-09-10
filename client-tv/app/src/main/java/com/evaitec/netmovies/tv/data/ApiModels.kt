@@ -26,6 +26,9 @@ data class MediaItem(
     val category: String? = null,
     // TMDB puanı; sunucu cache'inde varsa gelir, yoksa null (yıldız çizilmez).
     val rating: Double? = null,
+    // Telefondan "TV'de oynat" ile gelen içerik: onay telefonda (basılı tutma) zaten
+    // verildi, TV'de başlangıç paneli bir daha OYNAT beklemesin.
+    val autoplay: Boolean = false,
 )
 
 // /api/v1/load_links yanıtı:

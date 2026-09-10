@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -169,17 +170,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
     var currentEpIndex by remember { mutableIntStateOf(0) }
 
-    // Dizi açılınca bölüm seçimi. Bölüm listesi ayar panelinin en altında,
-    // kaynak raporunun ardında gömülüydü: kullanıcı diziye girip bölüm
-    // seçemiyordu. Kaldığı yer varsa açılmaz — devam eden izleme kesilmesin.
-    var showEpisodePicker by remember(item.url) { mutableStateOf(false) }
-    var episodePickerOffered by remember(item.url) { mutableStateOf(false) }
-    LaunchedEffect(episodes) {
-        if (episodes.size > 1 && !episodePickerOffered) {
-            episodePickerOffered = true
-            if ((library.progress[item.url] ?: 0f) <= 0f) showEpisodePicker = true
-        }
-    }
+    // Başlangıç paneli: içerik açılır açılmaz gelir ve çözümleme bitene kadar
+    // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
+    // OYNAT'a basmadan akış başlamaz — yanlış içeriğe girip izlemeye başlamak yok.
+    var showStartPanel by remember(item.url) { mutableStateOf(!item.autoplay) }
+    // OYNAT'a panel açıkken basıldıysa: kaynak henüz yokken de kabul edilir,
+    // hazır olduğu anda başlar.
+    var playRequested by remember(item.url) { mutableStateOf(item.autoplay) }
+    // Panelin OYNAT satırı için "nereden devam" bilgisi. Kayıt sunucuda; panel
+    // çözümlemeyi beklemeden gösterilebilsin diye ayrıca burada okunuyor.
+    var resumeLabel by remember(item.url) { mutableStateOf<String?>(null) }
 
     // Scrub / önizleme modu.
     var scrubMode by remember { mutableStateOf(false) }
@@ -275,7 +275,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     BackHandler(enabled = true) {
         when {
             scrubMode -> scrubMode = false
-            showEpisodePicker -> showEpisodePicker = false
+            // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki
+            // ilk adım, kapatıp boş ekranda kalmanın anlamı yok.
+            showStartPanel -> onBack()
             showSettings -> showSettings = false
             showControls -> showControls = false
             else -> onBack()
@@ -344,6 +346,20 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
 
     // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
     LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
+
+    // Devam bilgisi paneli beklemez: çözümleme sürerken okunur, 30sn–%92 aralığı
+    // oynatıcıdaki devam kuralıyla aynı — panelde "devam" yazıp sonra baştan
+    // başlaması olmasın.
+    LaunchedEffect(item.url) {
+        // content_key tür-agnostik (watch_store.py): tip bilinmeden de kayıt bulunur.
+        val row = library.loadProgress(item.title.orEmpty()) ?: return@LaunchedEffect
+        val savedMs = (row.positionSeconds * 1000).toLong()
+        val durMs   = (row.durationSeconds * 1000).toLong()
+        if (savedMs > 30_000 && (durMs <= 0 || savedMs < durMs * 0.92)) {
+            val bolum = row.episode.takeIf { it.isNotBlank() }?.let { "$it · " } ?: ""
+            resumeLabel = bolum + fmtTime(savedMs)
+        }
+    }
 
     // Tazeleme hakkı yalnız içerik/bölüm değişince yenilenir. retryKey'i anahtara
     // KOYMA: tazeleme sayacı kendi tetiklediği efektte sıfırlanırsa döngü kapanmaz.
@@ -470,7 +486,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 position = carryOverMs
                 carryOverMs = 0L
             }
-            exo.playWhenReady = true
+            // Panel açıkken hazırlanır ama oynamaz: kullanıcı OYNAT'a bastığında
+            // (playRequested) akış zaten buffer'lanmış olur, bekleme kısalır.
+            exo.playWhenReady = playRequested
             exo.setPlaybackSpeed(speed)
 
             // Preview oynatıcısı: aynı kaynak (ayrı MediaSource örneği), en düşük kalite.
@@ -591,7 +609,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
                     // Bölüm seçici de bir modal: tuşlar yutulunca liste hiç hareket
                     // etmiyordu (Dean: "bölüm seçimi açılıyor, hareket etmiyor").
-                    showSettings || showSeek || showEpisodePicker -> false
+                    showSettings || showSeek || showStartPanel -> false
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
@@ -668,13 +686,18 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             )
         }
 
-        if (showEpisodePicker) {
-            EpisodePicker(
+        if (showStartPanel) {
+            StartPanel(
                 title = item.title.orEmpty(),
                 episodes = episodes,
                 currentEpIndex = currentEpIndex,
-                onSelect = { idx -> currentEpIndex = idx; showEpisodePicker = false },
-                onClose = { showEpisodePicker = false },
+                resumeLabel = resumeLabel,
+                hazir = links.isNotEmpty(),
+                // Bölüm seçimi paneli kapatmaz: seçtikten sonra OYNAT'a basılır,
+                // yanlış bölüme basıp izlemeye başlamak da böyle elenir.
+                onSelect = { idx -> currentEpIndex = idx },
+                onPlay = { playRequested = true; showStartPanel = false; exo.playWhenReady = true },
+                onOpenSettings = { showSettings = true },
             )
         }
 
@@ -1098,24 +1121,37 @@ private fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: I
     return if (ad != null) "$numara · $ad" else numara
 }
 
-// Dizi açılınca çıkan bölüm seçimi. Ayrı bir istek yok: liste zaten
+// İçerik açılınca gelen başlangıç paneli. Odak doğrudan OYNAT'ta: kullanıcı
+// çözümleme sürerken paneli okuyup tek OK ile başlatır, "play'i arama" yok.
+// Bölüm listesi ve kaynak/dil aynı panelde — ayrı istek yok, liste zaten
 // resolve_sources yanıtından geliyor.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun EpisodePicker(
+private fun StartPanel(
     title: String,
     episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
     currentEpIndex: Int,
+    resumeLabel: String?,
+    hazir: Boolean,
     onSelect: (Int) -> Unit,
-    onClose: () -> Unit,
+    onPlay: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    val listFocus = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
     // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
     LaunchedEffect(Unit) {
         repeat(6) {
             withFrameNanos {}
-            if (runCatching { listFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
+    }
+
+    // Oynat satırının ne yapacağı tek cümlede görünsün: yarım kalan varsa devam,
+    // yeni diziye giriliyorsa 1. bölüm, filmde düz oynat.
+    val playLabel = when {
+        resumeLabel != null   -> "▶  Devam et — $resumeLabel"
+        episodes.isNotEmpty() -> "▶  ${episodeLabel(episodes[currentEpIndex], currentEpIndex)} — baştan"
+        else                  -> "▶  Oynat"
     }
 
     Box(
@@ -1142,21 +1178,26 @@ private fun EpisodePicker(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            SectionTitle("📑 Bölüm seç (${episodes.size})")
+            Box(Modifier.focusRequester(playFocus)) {
+                SettingRow(playLabel, true) { onPlay() }
+            }
+            if (!hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
-            ) {
-                itemsIndexed(episodes, key = { i, ep -> "${ep.url}#$i" }) { idx, ep ->
-                    val mod = if (idx == currentEpIndex) Modifier.focusRequester(listFocus) else Modifier
-                    Box(mod) {
+            if (episodes.isNotEmpty()) {
+                SectionTitle("📑 Bölüm seç (${episodes.size})")
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+                ) {
+                    itemsIndexed(episodes, key = { i, ep -> "${ep.url}#$i" }) { idx, ep ->
                         SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
                     }
                 }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
 
-            SettingRow("▶  Seçmeden oynat", false, onClose)
+            SettingRow("⚙  Kaynak · dil · kalite", false, onOpenSettings)
         }
     }
 }

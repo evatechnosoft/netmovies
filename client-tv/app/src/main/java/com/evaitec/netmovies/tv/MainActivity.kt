@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
                                                 title = cmd.title.ifBlank { null },
                                                 url = com.evaitec.netmovies.tv.data.encodedUrl(cmd.url),
                                                 poster = cmd.poster.ifBlank { null },
+                                                autoplay = true,
                                             )
                                         }
 
