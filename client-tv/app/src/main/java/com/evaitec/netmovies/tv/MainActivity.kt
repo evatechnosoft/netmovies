@@ -7,7 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +52,24 @@ class MainActivity : ComponentActivity() {
         dispatchKeyEvent(android.view.KeyEvent(an, an + 1, android.view.KeyEvent.ACTION_UP, kod, 0))
     }
 
+    // Açık içerik (Player). Telefondan "TV'de oynat" gelince bir şey OYNUYORSA doğrudan
+    // geçilmez: `bekleyenUzak` dolar, ekranda "açayım mı?" kartı çıkar; OK = aç, GERİ = kal.
+    // Tuşlar odaktan bağımsız burada (dispatchKeyEvent) yakalanır — oynatıcının kök
+    // kutusu odağı geri alsa da kart tuşsuz kalmaz. Ekran boşsa eski davranış: hemen açılır.
+    private var selected by mutableStateOf<MediaItem?>(null)
+    private var bekleyenUzak by mutableStateOf<MediaItem?>(null)
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val bekleyen = bekleyenUzak ?: return super.dispatchKeyEvent(event)
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) when (event.keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER,
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ->
+                { bekleyenUzak = null; selected = bekleyen }
+            android.view.KeyEvent.KEYCODE_BACK -> bekleyenUzak = null
+        }
+        return true   // kart açıkken diğer tuşlar oynatıcıya sızmaz
+    }
+
 
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +82,6 @@ class MainActivity : ComponentActivity() {
                         Modifier.fillMaxSize().background(NmColor.Background)
                     ) {
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
-                        var selected by remember { mutableStateOf<MediaItem?>(null) }
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showRemote by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
@@ -133,13 +153,16 @@ class MainActivity : ComponentActivity() {
 
                                     when (cmd.type) {
                                         "play" -> if (cmd.url.isNotBlank()) {
-                                            selected = MediaItem(
+                                            val gelen = MediaItem(
                                                 plugin = cmd.plugin,
                                                 title = cmd.title.ifBlank { null },
                                                 url = com.evaitec.netmovies.tv.data.encodedUrl(cmd.url),
                                                 poster = cmd.poster.ifBlank { null },
                                                 autoplay = true,
                                             )
+                                            // Bir şey oynuyorsa sormadan kesme (Dean: "film
+                                            // çalışırken direkt geçiş yapıyor").
+                                            if (selected != null) bekleyenUzak = gelen else selected = gelen
                                         }
 
                                         "key" -> when (cmd.key) {
@@ -240,8 +263,45 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                         }
+
+                        bekleyenUzak?.let { UzakOnayKarti(it.title.orEmpty()) }
                     }
                 }
+            }
+        }
+    }
+
+    // "Açayım mı?" kartı: oynayan filmin üstünde alt-orta, tuşlar dispatchKeyEvent'te.
+    // Cevapsız kalırsa 30 sn sonra kendi kapanır; film kesintisiz sürer.
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    @androidx.compose.runtime.Composable
+    private fun UzakOnayKarti(baslik: String) {
+        androidx.compose.runtime.LaunchedEffect(baslik) {
+            kotlinx.coroutines.delay(30_000)
+            bekleyenUzak = null
+        }
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxSize().padding(bottom = 48.dp),
+            contentAlignment = androidx.compose.ui.Alignment.BottomCenter,
+        ) {
+            androidx.compose.foundation.layout.Column(
+                Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(NmColor.SurfaceDialog)
+                    .padding(horizontal = 28.dp, vertical = 18.dp),
+            ) {
+                androidx.tv.material3.Text(
+                    "📱 Telefondan geldi: $baslik",
+                    color = NmColor.OnSurface,
+                    fontSize = 22.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+                androidx.tv.material3.Text(
+                    "OK — şimdi aç   ·   GERİ — izlemeye devam et",
+                    color = NmColor.Primary,
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
         }
     }
