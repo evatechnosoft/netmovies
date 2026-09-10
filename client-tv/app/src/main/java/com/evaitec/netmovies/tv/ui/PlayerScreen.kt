@@ -291,7 +291,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     DisposableEffect(exo) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) ready = true
+                // Kaynak gerçekten açılınca bant kalkar; yoksa "sıradaki deneniyor"
+                // yazısı film oynarken ekranda asılı kalıyordu.
+                if (state == Player.STATE_READY) { ready = true; status = null }
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {

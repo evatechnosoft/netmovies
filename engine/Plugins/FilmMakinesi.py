@@ -86,6 +86,11 @@ class FilmMakinesi(PluginBase):
     async def load_links(self, url: str) -> list[ExtractResult]:
         page    = await self.httpx.get(url, headers={"User-Agent": _UA})
         iframes = [f for f in re.findall(r'<iframe[^>]+src="([^"]+)"', page.text) if "youtube" not in f]
+        # Sayfa rozeti `<div class="type"> Dual </div>`: Dual = dublaj + orijinal ses,
+        # Yerli Film = zaten Türkçe. Ada "dublaj" girmezse gateway (Libs/language.py)
+        # Türkçe altyazı dosyasına bakıp kaynağı "Türkçe altyazı" sayıyordu.
+        badge  = (re.search(r'<div class="type">\s*([^<]*?)\s*</div>', page.text) or [None, ""])[1].lower()
+        dil    = " | Türkçe Dublaj" if ("dual" in badge or "yerli" in badge) else ""
 
         results: list[ExtractResult] = []
         for iframe_url in dict.fromkeys(iframes):
@@ -101,7 +106,7 @@ class FilmMakinesi(PluginBase):
                 if source.get("file"):
                     results.append(
                         ExtractResult(
-                            name       = f"{self.name} | CloseLoad",
+                            name       = f"{self.name} | CloseLoad{dil}",
                             url        = source["file"],
                             referer    = iframe_url,
                             user_agent = _UA,
