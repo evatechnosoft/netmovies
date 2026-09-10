@@ -108,6 +108,24 @@
                  box-shadow:inset 0 0 0 22px rgba(255,255,255,.035); }
     #mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:6px 10px; font-size:12px; }
 
+    /* ---- Bilgi sayfası: karta tek dokunuş. Özet, sezon sekmeleri, bölüm listesi. ---- */
+    #bilgi { position:fixed; inset:0; background:var(--arka, #0b0d12); z-index:8; overflow-y:auto; padding:14px; padding-bottom:calc(20px + env(safe-area-inset-bottom)); }
+    #bilgi[hidden] { display:none; }
+    #bilgi .ust { display:flex; gap:12px; align-items:flex-start; }
+    #bilgi .ust img { width:96px; aspect-ratio:2/3; object-fit:cover; border-radius:10px; background:#0a0c10; flex:none; }
+    #bilgi h2 { margin:0 0 4px; font-size:18px; }
+    #bilgi .meta { color:var(--soluk); font-size:12px; margin-bottom:6px; }
+    #bilgi .ozet { font-size:13px; line-height:1.45; color:var(--metin); opacity:.9; max-height:7.2em; overflow:hidden; }
+    #bilgi .kapat { position:absolute; right:12px; top:10px; background:var(--kart); border:1px solid var(--cizgi); color:var(--metin); border-radius:10px; padding:8px 12px; }
+    #bilgi .sezonlar { display:flex; gap:8px; overflow-x:auto; margin:14px 0 8px; scrollbar-width:none; }
+    #bilgi .sezonlar button { flex:none; background:var(--kart); border:1px solid var(--cizgi); color:var(--soluk); border-radius:10px; padding:8px 14px; font-size:13px; }
+    #bilgi .sezonlar button.aktif { border-color:var(--vurgu); color:var(--metin); }
+    #bilgi .bolumler { display:flex; flex-direction:column; gap:6px; }
+    #bilgi .bolumler button { display:flex; align-items:center; gap:10px; text-align:left; background:var(--kart); border:1px solid var(--cizgi); color:var(--metin); border-radius:10px; padding:11px 12px; font-size:14px; }
+    #bilgi .bolumler button b { color:var(--vurgu); flex:none; min-width:48px; }
+    #bilgi .bolumler button:active { border-color:var(--vurgu); }
+    #bilgi .oynat { margin:12px 0 4px; }
+
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
           padding-bottom:env(safe-area-inset-bottom); z-index:5; }
@@ -235,6 +253,18 @@
     <div class="sonuclar" id="sonuclar"></div>
   </section>
 </main>
+
+<!-- Bilgi sayfası: karta tek dokunuş açar; basılı tutma yine doğrudan TV'de oynatır. -->
+<div id="bilgi" hidden>
+  <button class="kapat" type="button" id="bilgi-kapat" aria-label="Kapat">✕</button>
+  <div class="ust">
+    <img alt="">
+    <div><h2></h2><div class="meta"></div><div class="ozet"></div></div>
+  </div>
+  <div class="satir oynat"><button class="dugme genis" id="bilgi-oynat"><svg class="ic"><use href="#i-tv"/></svg><span>TV'de oynat</span></button></div>
+  <div class="sezonlar"></div>
+  <div class="bolumler"></div>
+</div>
 
 <nav>
   <button class="aktif" data-sekme="kumanda"><svg class="ic"><use href="#i-kumanda"/></svg>Kumanda</button>
@@ -480,17 +510,8 @@
     try {
       const d = await (await fetch('/api/v1/search_all?query=' + encodeURIComponent(sorgu))).json();
       const ogeler = d?.result || [];
-      durum.textContent = ogeler.length ? ogeler.length + ' sonuç — dokun, TV\'de başlasın' : 'Sonuç yok';
-      $('sonuclar').innerHTML = '';
-      ogeler.forEach((o) => {
-        const kart = document.createElement('button');
-        kart.className = 'kart';
-        kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
-        kart.querySelector('img').src = poster(o.poster, o.title);
-        kart.querySelector('span').textContent = o.title || o.url;
-        kart.addEventListener('click', () => tvdeOynat(o));
-        $('sonuclar').appendChild(kart);
-      });
+      durum.textContent = ogeler.length ? ogeler.length + ' sonuç — dokun: bilgi · basılı tut: TV\'de oynat' : 'Sonuç yok';
+      kartlariBas($('sonuclar'), ogeler);
     } catch (_) { durum.textContent = 'Arama başarısız — sunucuya ulaşılamadı'; }
   }
 
@@ -514,9 +535,10 @@
   const BASILI_MS = 550;
 
   function onayaBagla(kart, o) {
-    let sayac = null;
+    let sayac = null, gosterildi = false;
 
     const goster = () => {
+      gosterildi = true;
       document.querySelectorAll('.kart .onay').forEach((d) => d.remove());
       document.querySelectorAll('.kart.secili').forEach((k) => k.classList.remove('secili'));
       kart.classList.add('secili');
@@ -530,6 +552,7 @@
 
     const basla = (e) => {
       if (e.target.closest('.onay')) return;
+      gosterildi = false;
       sayac = setTimeout(goster, BASILI_MS);
     };
     const bitir = () => { clearTimeout(sayac); sayac = null; };
@@ -540,12 +563,69 @@
     kart.addEventListener('pointerleave', bitir);
     // Basılı tutunca tarayıcının metin seçimi/bağlam menüsü araya girmesin.
     kart.addEventListener('contextmenu', (e) => e.preventDefault());
-    kart.addEventListener('click', (e) => { if (!e.target.closest('.onay')) e.preventDefault(); });
+    // Tek dokunuş = bilgi sayfası (özet, bölümler); basılı tutma zaten onayı gösterdi.
+    kart.addEventListener('click', (e) => {
+      if (e.target.closest('.onay')) return;
+      e.preventDefault();
+      if (!gosterildi) bilgiAc(o);
+    });
   }
 
-  async function tvdeOynat(o) {
+  // ---------------------------------------------------------------- bilgi sayfası
+  const bilgi = $('bilgi');
+  const encUrl = (u) => (/%[0-9A-Fa-f]{2}/.test(u || '') ? u : encodeURIComponent(u || ''));
+  let bilgiOge = null, bilgiBolumler = [];
+  $('bilgi-kapat').addEventListener('click', () => { bilgi.hidden = true; });
+  $('bilgi-oynat').addEventListener('click', () => { if (bilgiOge) { bilgi.hidden = true; tvdeOynat(bilgiOge); } });
+
+  function bolumleriCiz(sezon) {
+    bilgi.querySelectorAll('.sezonlar button').forEach((b) => b.classList.toggle('aktif', Number(b.dataset.sezon) === sezon));
+    const kap = bilgi.querySelector('.bolumler');
+    kap.innerHTML = '';
+    bilgiBolumler.forEach((ep, idx) => {
+      if ((ep.season || 1) !== sezon) return;
+      const b = document.createElement('button');
+      const ad = (ep.title || '').replace(/^\d+x\d+$/, '');
+      b.innerHTML = '<b></b><span></span>';
+      b.querySelector('b').textContent = 'S' + (ep.season || 1) + 'B' + (ep.episode ?? idx + 1);
+      b.querySelector('span').textContent = ad || 'Bölüm ' + (ep.episode ?? idx + 1);
+      b.addEventListener('click', () => { bilgi.hidden = true; tvdeOynat(bilgiOge, idx); });
+      kap.appendChild(b);
+    });
+  }
+
+  async function bilgiAc(o) {
     titre();
-    const q = new URLSearchParams({ plugin: o.plugin || '', url: o.url || '', title: o.title || '', poster: o.poster || '' });
+    bilgiOge = o; bilgiBolumler = [];
+    bilgi.querySelector('img').src = poster(o.poster, o.title);
+    bilgi.querySelector('h2').textContent = o.title || '';
+    bilgi.querySelector('.meta').textContent = o.plugin || '';
+    bilgi.querySelector('.ozet').textContent = 'Yükleniyor…';
+    bilgi.querySelector('.sezonlar').innerHTML = '';
+    bilgi.querySelector('.bolumler').innerHTML = '';
+    bilgi.hidden = false; bilgi.scrollTop = 0;
+    try {
+      const d = await (await fetch('/api/v1/load_item?plugin=' + encodeURIComponent(o.plugin || '') + '&encoded_url=' + encUrl(o.url))).json();
+      const r = d?.result || {};
+      const meta = [r.year, Array.isArray(r.tags) ? r.tags.join(', ') : r.tags, r.rating ? '★ ' + r.rating : ''].filter((x) => x && x !== 'None').join('  ·  ');
+      bilgi.querySelector('.meta').textContent = meta || o.plugin || '';
+      bilgi.querySelector('.ozet').textContent = (r.description && r.description !== 'None') ? r.description : '';
+      bilgiBolumler = r.episodes || [];
+      const sezonlar = [...new Set(bilgiBolumler.map((e) => e.season || 1))].sort((a, b) => a - b);
+      const kap = bilgi.querySelector('.sezonlar');
+      sezonlar.forEach((s) => {
+        const b = document.createElement('button');
+        b.dataset.sezon = s; b.textContent = 'Sezon ' + s;
+        b.addEventListener('click', () => bolumleriCiz(s));
+        kap.appendChild(b);
+      });
+      if (sezonlar.length) bolumleriCiz(sezonlar[0]);
+    } catch (_) { bilgi.querySelector('.ozet').textContent = 'Bilgi alınamadı'; }
+  }
+
+  async function tvdeOynat(o, episode = -1) {
+    titre();
+    const q = new URLSearchParams({ plugin: o.plugin || '', url: o.url || '', title: o.title || '', poster: o.poster || '', episode: String(episode) });
     try {
       const d = await (await fetch('/api/v1/remote/play?' + q, { method: 'POST' })).json();
       durum.textContent = d?.result?.ok ? '📺 TV\'ye gönderildi: ' + (o.title || '') : 'Gönderilemedi';

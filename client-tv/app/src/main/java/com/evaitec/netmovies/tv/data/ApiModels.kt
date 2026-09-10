@@ -29,6 +29,8 @@ data class MediaItem(
     // Telefondan "TV'de oynat" ile gelen içerik: onay telefonda (basılı tutma) zaten
     // verildi, TV'de başlangıç paneli bir daha OYNAT beklemesin.
     val autoplay: Boolean = false,
+    // Telefon belirli bir bölümü seçtiyse (0 tabanlı sıra); -1 = kayıttan/baştan.
+    val episode: Int = -1,
 )
 
 // /api/v1/load_links yanıtı:
@@ -91,8 +93,25 @@ data class ItemDetails(
     val title: String? = null,
     val poster: String? = null,
     val description: String? = null,
+    // Başlangıç paneli bilgi satırı; kaynak sayı ya da metin gönderebiliyor.
+    val year: kotlinx.serialization.json.JsonPrimitive? = null,
+    val rating: kotlinx.serialization.json.JsonPrimitive? = null,
+    val tags: kotlinx.serialization.json.JsonElement? = null,
+    val actors: kotlinx.serialization.json.JsonElement? = null,
     val episodes: List<EpisodeItem> = emptyList(),
-)
+) {
+    // "Bilim Kurgu, Gizem" — liste ya da metin gelsin, tek satır.
+    private fun metin(e: kotlinx.serialization.json.JsonElement?): String = when (e) {
+        null -> ""
+        is kotlinx.serialization.json.JsonArray -> e.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }.joinToString(", ")
+        is kotlinx.serialization.json.JsonPrimitive -> e.content
+        else -> ""
+    }
+    val tagsText: String get() = metin(tags)
+    val actorsText: String get() = metin(actors)
+    val yearText: String get() = year?.content?.takeIf { it != "null" }.orEmpty()
+    val ratingText: String get() = rating?.content?.takeIf { it != "null" && it.isNotBlank() }.orEmpty()
+}
 
 @Serializable
 data class EpisodeItem(
@@ -196,6 +215,8 @@ data class RemoteCommand(
     val screen: String = "",
     val text: String = "",
     val submit: Boolean = false,
+    // play: telefonun seçtiği bölüm sırası (0 tabanlı), yoksa -1.
+    val episode: Int = -1,
 )
 
 @Serializable

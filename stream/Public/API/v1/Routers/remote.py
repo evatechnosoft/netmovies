@@ -56,12 +56,18 @@ def build_command(veri: dict) -> dict | str:
         url    = str(veri.get("url") or "").strip()
         if not plugin or not url:
             return "plugin ve url gerekli"
+        try:
+            episode = int(veri.get("episode") if veri.get("episode") not in (None, "") else -1)
+        except (TypeError, ValueError):
+            return "episode sayi olmali"
         return {
-            "type"   : "play",
-            "plugin" : plugin,
-            "url"    : url,
-            "title"  : str(veri.get("title") or ""),
-            "poster" : str(veri.get("poster") or ""),
+            "type"    : "play",
+            "plugin"  : plugin,
+            "url"     : url,
+            "title"   : str(veri.get("title") or ""),
+            "poster"  : str(veri.get("poster") or ""),
+            # Telefon bölüm seçtiyse 0 tabanlı sıra; -1 = TV kayıttan/baştan karar verir.
+            "episode" : max(episode, -1),
         }
 
     if tur == "key":

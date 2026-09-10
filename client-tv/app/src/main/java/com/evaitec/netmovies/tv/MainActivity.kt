@@ -159,6 +159,7 @@ class MainActivity : ComponentActivity() {
                                                 url = com.evaitec.netmovies.tv.data.encodedUrl(cmd.url),
                                                 poster = cmd.poster.ifBlank { null },
                                                 autoplay = true,
+                                                episode = cmd.episode,
                                             )
                                             // Bir şey oynuyorsa sormadan kesme (Dean: "film
                                             // çalışırken direkt geçiş yapıyor").
@@ -290,17 +291,18 @@ class MainActivity : ComponentActivity() {
                     .background(NmColor.SurfaceDialog)
                     .padding(horizontal = 28.dp, vertical = 18.dp),
             ) {
+                // Yazı yok, simge var (Dean): OK = ⏭ yeni içeriğe geç · GERİ = ▶ sürdür.
                 androidx.tv.material3.Text(
-                    "📱 Telefondan geldi: $baslik",
+                    "📱  $baslik",
                     color = NmColor.OnSurface,
                     fontSize = 22.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 )
                 androidx.tv.material3.Text(
-                    "OK — şimdi aç   ·   GERİ — izlemeye devam et",
+                    "OK ⏭        GERİ ▶",
                     color = NmColor.Primary,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 6.dp),
+                    fontSize = 20.sp,
+                    modifier = Modifier.padding(top = 6.dp).align(androidx.compose.ui.Alignment.CenterHorizontally),
                 )
             }
         }

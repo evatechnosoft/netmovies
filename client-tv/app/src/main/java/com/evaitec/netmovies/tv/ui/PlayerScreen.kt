@@ -100,6 +100,8 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
 // Oynatma hızı seçenekleri (çark → Hız).
 private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -168,7 +170,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Bölüm durumu: onDispose içindeki ilerleme kaydı da okuduğu için oynatıcı
     // kurulumundan ÖNCE tanımlı olmalı.
     var episodes by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
-    var currentEpIndex by remember { mutableIntStateOf(0) }
+    // Telefon bölüm seçtiyse oradan başlar; yoksa 0.
+    var currentEpIndex by remember(item.url) { mutableIntStateOf(item.episode.coerceAtLeast(0)) }
+    // Başlangıç paneli bilgi alanı (özet, yıl, tür, puan) — load_item'dan, tek istek.
+    var details by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
+    LaunchedEffect(item.url) {
+        details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
+    }
 
     // Başlangıç paneli: içerik açılır açılmaz gelir ve çözümleme bitene kadar
     // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
@@ -711,13 +719,18 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         if (showStartPanel) {
             StartPanel(
                 title = item.title.orEmpty(),
+                details = details,
+                rating = item.rating,
                 episodes = episodes,
                 currentEpIndex = currentEpIndex,
+                links = links,
+                currentLinkIndex = currentLinkIndex,
                 resumeLabel = resumeLabel,
                 hazir = links.isNotEmpty(),
                 // Bölüm seçimi paneli kapatmaz: seçtikten sonra OYNAT'a basılır,
                 // yanlış bölüme basıp izlemeye başlamak da böyle elenir.
                 onSelect = { idx -> currentEpIndex = idx },
+                onSelectLink = { idx -> currentLinkIndex = idx },
                 onPlay = { playRequested = true; showStartPanel = false; exo.playWhenReady = true },
                 onOpenSettings = { showSettings = true },
             )
@@ -1151,14 +1164,29 @@ private fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: I
 @Composable
 private fun StartPanel(
     title: String,
+    details: com.evaitec.netmovies.tv.data.ItemDetails?,
+    rating: Double?,
     episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
     currentEpIndex: Int,
+    links: List<com.evaitec.netmovies.tv.data.StreamLink>,
+    currentLinkIndex: Int,
     resumeLabel: String?,
     hazir: Boolean,
     onSelect: (Int) -> Unit,
+    onSelectLink: (Int) -> Unit,
     onPlay: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // Sezon rafı: seçili bölümün sezonu açık gelir; SOL/SAĞ sezon, YUKARI/AŞAĞI bölüm.
+    val seasons = remember(episodes) { episodes.map { it.season }.distinct().sorted() }
+    var season by remember(episodes, currentEpIndex) {
+        mutableIntStateOf(episodes.getOrNull(currentEpIndex)?.season ?: seasons.firstOrNull() ?: 1)
+    }
+    val bilgi = listOfNotNull(
+        details?.yearText?.takeIf { it.isNotBlank() },
+        details?.tagsText?.takeIf { it.isNotBlank() },
+        (details?.ratingText?.takeIf { it.isNotBlank() } ?: rating?.let { "%.1f".format(it) })?.let { "★ $it" },
+    ).joinToString("  ·  ")
     val playFocus = remember { FocusRequester() }
     // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
     LaunchedEffect(Unit) {
@@ -1200,18 +1228,40 @@ private fun StartPanel(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (bilgi.isNotBlank()) MutedRow(bilgi)
+            details?.description?.takeIf { it.isNotBlank() && it != "None" }?.let {
+                Text(
+                    text = it,
+                    fontSize = NmType.Body,
+                    color = NmColor.OnSurfaceMuted,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Box(Modifier.focusRequester(playFocus)) {
                 SettingRow(playLabel, true) { onPlay() }
             }
             if (!hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
 
             if (episodes.isNotEmpty()) {
-                SectionTitle("📑 Bölüm seç (${episodes.size})")
+                // Üstte sezon rafı (SOL/SAĞ), altta o sezonun bölümleri adlarıyla (YUKARI/AŞAĞI).
+                if (seasons.size > 1) {
+                    SectionTitle("📑 Sezon")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
+                        items(seasons.size, key = { seasons[it] }) { i ->
+                            val s = seasons[i]
+                            Box(Modifier.width(110.dp)) { SettingRow("S$s", s == season) { season = s } }
+                        }
+                    }
+                }
+                val secili = episodes.withIndex().filter { it.value.season == season }
+                SectionTitle("🎬 Bölümler (${secili.size})")
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
                 ) {
-                    itemsIndexed(episodes, key = { i, ep -> "${ep.url}#$i" }) { idx, ep ->
+                    items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
+                        val (idx, ep) = secili[i]
                         SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
                     }
                 }
@@ -1219,7 +1269,14 @@ private fun StartPanel(
                 Spacer(Modifier.weight(1f))
             }
 
-            SettingRow("⚙  Kaynak · dil · kalite", false, onOpenSettings)
+            // Kaynak/dil burada seçilir; kalite (çözünürlük) hâlâ ayarlar panelinde.
+            if (links.isNotEmpty()) {
+                SectionTitle("🌐 Kaynak · dil")
+                links.take(6).forEachIndexed { i, l ->
+                    SettingRow(languageLabel(l), i == currentLinkIndex) { onSelectLink(i) }
+                }
+            }
+            SettingRow("⚙  Kalite · altyazı", false, onOpenSettings)
         }
     }
 }
