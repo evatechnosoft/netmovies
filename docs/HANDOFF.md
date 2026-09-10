@@ -8,14 +8,15 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 10 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `b369b29` · temiz, push'lı, origin ile eşit
+**Dal:** `fix/general-stability` @ `3529746` · temiz, push'lı, origin ile eşit
 **TV sürümü:** `v0.1.74-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
 **Oturum özeti:** iki kök neden kapandı — (1) `resolve_sources` alternatif
 sağlayıcıları kodlanmış URL ile çağırıyordu, yedek zincirin tamamı ölüydü
 (0 → 2 kaynak · 19 bölüm); (2) TV Material odak grupları GERİ tuşunu yutuyordu,
 `BackBus` ile tek kapıya alındı. Ayarlar artık sunucuda (`/api/v1/prefs`):
 localStorage köken başına ayrı olduğu için her açılışta sıfırlanmış görünüyordu.
-**Ayrıntılı devir:** `.claude/handoffs/latest.md`
+**Ayrıntılı devir:** `.claude/handoffs/latest.md` · **Kalan tek iş:** TV'ye
+`v0.1.74` kurup denemek — bu oturumun TV düzeltmeleri cihazda görülmedi.
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
