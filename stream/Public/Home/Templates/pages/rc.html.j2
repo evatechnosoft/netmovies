@@ -88,11 +88,11 @@
     /* ---- Dokunmatik yüzey (mouse mode): D-pad yerine kaydırma alanı, başparmak
        hizasında sabit — sayfa nereye kaydırılırsa kaydırılsın elin altında. ---- */
     #tp { display:none; position:fixed; left:14px; right:14px; bottom:calc(58px + env(safe-area-inset-bottom));
-          height:180px; background:var(--kart); border:1px solid var(--vurgu); border-radius:18px; z-index:4;
+          height:calc(180px * var(--tp-ol, 1)); background:var(--kart); border:1px solid var(--vurgu); border-radius:18px; z-index:4;
           touch-action:none; user-select:none; align-items:center; justify-content:center; color:var(--soluk); font-size:12px; }
     body.dokunmatik #tp { display:flex; }
     body.dokunmatik .pad { display:none; }
-    body.dokunmatik main { padding-bottom:calc(76px + 196px + env(safe-area-inset-bottom)); }
+    body.dokunmatik main { padding-bottom:calc(76px + 196px * var(--tp-ol, 1) + env(safe-area-inset-bottom)); }
     /* Ara sekmesinde yüzey sonuçların üstüne binmesin. */
     body.sekme-ara #tp { display:none; }
     body.sekme-ara main { padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
@@ -125,6 +125,31 @@
     #bilgi .bolumler button b { color:var(--vurgu); flex:none; min-width:48px; }
     #bilgi .bolumler button:active { border-color:var(--vurgu); }
     #bilgi .oynat { margin:12px 0 4px; }
+
+    /* ---- Düzenle modu: bloklar tutamaktan sürüklenir ya da ▲▼ ile taşınır. ---- */
+    .blok { position:relative; }
+    .blok .tutamak { display:none; }
+    body.duzenle .blok { border:1px dashed var(--cizgi); border-radius:14px; padding:8px 8px 4px; margin-bottom:10px; }
+    body.duzenle .blok.suruklenen { border-color:var(--vurgu); opacity:.85; }
+    body.duzenle .blok .tutamak { display:flex; align-items:center; gap:8px; background:var(--kart); border:1px solid var(--cizgi);
+      border-radius:10px; padding:6px 8px; margin-bottom:6px; font-size:12px; color:var(--soluk); touch-action:none; }
+    body.duzenle .blok .tutamak b { flex:1; font-weight:600; color:var(--metin); }
+    body.duzenle .blok .tutamak button { background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:14px; }
+    body.duzenle .blok .olcek { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--soluk); margin:0 2px 6px; }
+    body.duzenle .blok .olcek input { flex:1; accent-color:var(--vurgu); }
+    .blok .olcek { display:none; }
+    /* Boyut: her blok kendi --ol çarpanını taşır; ölçüler ondan türer. */
+    .blok { --ol:1; }
+    .blok .pad { max-width:calc(320px * var(--ol)); gap:calc(10px * var(--ol)); }
+    .blok .pad button { font-size:calc(26px * var(--ol)); }
+    .blok .dugme { padding:calc(14px * var(--ol)) calc(16px * var(--ol)); font-size:calc(15px * var(--ol)); min-width:calc(64px * var(--ol)); }
+    .blok .dugme .ic { width:calc(24px * var(--ol)); height:calc(24px * var(--ol)); }
+    .blok .sonuclar.raf .kart { flex:0 0 calc(96px * var(--ol)); }
+    .blok #oynayan .ad { font-size:calc(14px * var(--ol)); }
+    body.duzenle .blok > :not(.tutamak):not(.olcek) { pointer-events:none; opacity:.55; }
+    body.duzenle #oynayan[hidden] { display:block; }
+    #duzenle { background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:12px; }
+    body.duzenle #duzenle { border-color:var(--vurgu); }
 
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
@@ -166,6 +191,7 @@
 <header>
   <b>NetMovies</b>
   <button id="kur" type="button">Ekle</button>
+  <button id="duzenle" type="button" title="Blokları kendine göre sırala">Düzenle</button>
   <span id="tv-durum"><i id="tv-nokta"></i><span id="tv-yazi">aranıyor…</span></span>
 </header>
 
@@ -174,13 +200,16 @@
   <section id="s-kumanda" class="sekme aktif">
     <!-- TV'de oynayan: ad, geçen / kalan süre, ince ilerleme şeridi. TV birkaç
          saniyede bir /remote/state bildirir; bildirim kesilince şerit kaybolur. -->
-    <div id="oynayan" hidden>
+    <div class="blok" data-blok="oynayan" data-ad="Şu an oynayan">
+<div id="oynayan" hidden>
       <div class="ad"></div>
       <div class="sure"><span class="gecen">0:00</span><span class="kalan">-0:00</span></div>
       <div class="bar"><i></i></div>
     </div>
+</div>
 
-    <p class="baslik satirli">Yön <button id="mod" type="button">dokunmatik</button></p>
+    <div class="blok" data-blok="yon" data-ad="Yön tuşları">
+<p class="baslik satirli">Yön <button id="mod" type="button">dokunmatik</button></p>
     <div class="pad">
       <div class="bos"></div>
       <button data-key="UP">▲</button>
@@ -192,14 +221,18 @@
       <button data-key="DOWN">▼</button>
       <div class="bos"></div>
     </div>
+</div>
 
-    <div class="satir">
+    <div class="blok" data-blok="tuslar" data-ad="Geri · Ana · Menü">
+<div class="satir">
       <button class="dugme" data-key="BACK" aria-label="Geri"><svg class="ic"><use href="#i-geri"/></svg></button>
       <button class="dugme" data-key="HOME" aria-label="Ana"><svg class="ic"><use href="#i-ev"/></svg></button>
       <button class="dugme" data-key="MENU" aria-label="Menü"><svg class="ic"><use href="#i-menu"/></svg></button>
     </div>
+</div>
 
-    <p class="baslik">Oynatma</p>
+    <div class="blok" data-blok="oynatma" data-ad="Oynatma">
+<p class="baslik">Oynatma</p>
     <div class="satir">
       <button class="dugme" data-seek="-10" aria-label="10 saniye geri"><svg class="ic"><use href="#i-geri10"/></svg></button>
       <button class="dugme genis" data-transport="play_pause" aria-label="Oynat / Duraklat"><svg class="ic"><use href="#i-oynat"/></svg></button>
@@ -210,22 +243,29 @@
       <button class="dugme" data-transport="stop" aria-label="Durdur"><svg class="ic"><use href="#i-dur"/></svg></button>
       <button class="dugme" data-volume="0.1" aria-label="Ses arttır"><svg class="ic"><use href="#i-ses-cok"/></svg></button>
     </div>
+</div>
 
-    <p class="baslik">Ekranlar</p>
+    <div class="blok" data-blok="ekranlar" data-ad="Ekranlar">
+<p class="baslik">Ekranlar</p>
     <div class="satir">
       <button class="dugme" data-nav="home" aria-label="Ana ekran"><svg class="ic"><use href="#i-ev"/></svg></button>
       <button class="dugme" data-nav="browse" aria-label="Gözat"><svg class="ic"><use href="#i-ara"/></svg></button>
       <button class="dugme" data-nav="following" aria-label="Takip"><svg class="ic"><use href="#i-yildiz"/></svg></button>
       <button class="dugme" data-nav="channels" aria-label="Kanallar"><svg class="ic"><use href="#i-tv"/></svg></button>
     </div>
+</div>
 
     <!-- Son izlenenler: basılı tut → TV'de devam et. Kart / liste görünümü telefonda hatırlanır. -->
-    <p class="baslik satirli">Son izlenenler <button id="gorunum" type="button">liste</button></p>
+    <div class="blok" data-blok="son" data-ad="Son izlenenler">
+<p class="baslik satirli">Son izlenenler <button id="gorunum" type="button">liste</button></p>
     <div class="sonuclar raf" id="son"></div>
+</div>
 
     <!-- İzlemek isteyeceklerin: önce "izlenecek" listesi, kalan yer Yeni Çıkanlar'dan. -->
-    <p class="baslik">İzlemek isteyeceklerin</p>
+    <div class="blok" data-blok="oneri" data-ad="İzlemek isteyeceklerin">
+<p class="baslik">İzlemek isteyeceklerin</p>
     <div class="sonuclar raf" id="oneri"></div>
+</div>
   </section>
 
   <!-- Dokunmatik yüzey: kaydır = yön, dokun = OK. Sabit konumlu, alt çubuğun üstünde. -->
@@ -310,6 +350,72 @@
       ilk = setTimeout(() => { tekrar = setInterval(gonder, 160); }, 420);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach((olay) => btn.addEventListener(olay, dur));
+  });
+
+  // ---------------------------------------------------------------- düzenle (blok sırası)
+  // Bloklar kullanıcının eline göre dizilir: "Düzenle" → her bloğa tutamak gelir,
+  // sürükle ya da ▲▼ ile taşı; sıra telefonda saklanır (rc_sira).
+  const kumanda = $('s-kumanda');
+  const bloklar = () => [...kumanda.querySelectorAll(':scope > .blok')];
+  const siraKaydet = () => { try { localStorage.setItem('rc_sira', JSON.stringify(bloklar().map((b) => b.dataset.blok))); } catch (_) {} };
+  let olcekler = {};
+  const olcekKaydet = () => { try { localStorage.setItem('rc_olcek', JSON.stringify(olcekler)); } catch (_) {} };
+  try {
+    const sira = JSON.parse(localStorage.getItem('rc_sira') || '[]');
+    sira.forEach((ad) => { const b = kumanda.querySelector(`.blok[data-blok="${ad}"]`); if (b) kumanda.appendChild(b); });
+    olcekler = JSON.parse(localStorage.getItem('rc_olcek') || '{}');
+  } catch (_) {}
+  bloklar().forEach((blok) => {
+    const t = document.createElement('div');
+    t.className = 'tutamak';
+    t.innerHTML = '<span>☰</span><b></b><button type="button" data-tasi="-1">▲</button><button type="button" data-tasi="1">▼</button>';
+    t.querySelector('b').textContent = blok.dataset.ad || blok.dataset.blok;
+    blok.prepend(t);
+
+    // Boyut: 0.6×–1.6× arası; blok kendi --ol değişkenini taşır, ölçüler ondan türer.
+    const ad = blok.dataset.blok;
+    const olcekUygula = (v) => blok.style.setProperty('--ol', String(v));
+    olcekUygula(olcekler[ad] || 1);
+    if (ad === 'yon') document.body.style.setProperty('--tp-ol', String(olcekler[ad] || 1));
+    const o = document.createElement('label');
+    o.className = 'olcek';
+    o.innerHTML = '<span>boyut</span><input type="range" min="0.6" max="1.6" step="0.05">';
+    const kaydirici = o.querySelector('input');
+    kaydirici.value = olcekler[ad] || 1;
+    kaydirici.addEventListener('input', (e) => {
+      olcekler[ad] = Number(e.target.value);
+      olcekUygula(olcekler[ad]);
+      // Yön bloğunun boyutu dokunmatik yüzeyi de büyütür: ikisi aynı işin iki yüzü.
+      if (ad === 'yon') document.body.style.setProperty('--tp-ol', String(olcekler[ad]));
+      olcekKaydet();
+    });
+    ['pointerdown', 'pointermove', 'pointerup'].forEach((olay) => kaydirici.addEventListener(olay, (e) => e.stopPropagation()));
+    t.after(o);
+
+    t.querySelectorAll('[data-tasi]').forEach((b) => b.addEventListener('click', () => {
+      const hedef = Number(b.dataset.tasi) < 0 ? blok.previousElementSibling : blok.nextElementSibling?.nextElementSibling;
+      if (Number(b.dataset.tasi) < 0 && !blok.previousElementSibling) return;
+      kumanda.insertBefore(blok, hedef || null); siraKaydet(); titre();
+    }));
+    // Sürükleme: tutamağa bas, parmağın altındaki bloğun önüne/arkasına geç.
+    let surukle = false;
+    t.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      surukle = true; blok.classList.add('suruklenen'); t.setPointerCapture(e.pointerId);
+    });
+    t.addEventListener('pointermove', (e) => {
+      if (!surukle) return;
+      const alt = document.elementFromPoint(e.clientX, e.clientY)?.closest('.blok');
+      if (!alt || alt === blok) return;
+      const r = alt.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) kumanda.insertBefore(blok, alt); else kumanda.insertBefore(blok, alt.nextElementSibling);
+    });
+    const birak = () => { if (!surukle) return; surukle = false; blok.classList.remove('suruklenen'); siraKaydet(); };
+    t.addEventListener('pointerup', birak); t.addEventListener('pointercancel', birak);
+  });
+  $('duzenle').addEventListener('click', () => {
+    const acik = document.body.classList.toggle('duzenle');
+    $('duzenle').textContent = acik ? 'Bitti' : 'Düzenle';
   });
 
   // ---------------------------------------------------------------- dokunmatik yüzey
