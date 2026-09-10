@@ -62,6 +62,10 @@ class DiziBox(PluginBase):
     favicon = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "DiziBox — yabancı dizi bölümleri ve alternatif oynatıcılar."
     main_page = {
+        # Arşiv sayfaları tarihe göre sıralanamıyor (yalnız IMDB/yorum); "yeni" rafı
+        # hep aynı eski başlıkları (CMXXIV, Mira…) gösteriyordu. Taze akış ana
+        # sayfadaki "Yeni Eklenen Bölümler"in tam listesi: /tum-bolumler/.
+        f"{main_url}/tum-bolumler/page/SAYFA/": "Son Bölümler",
         f"{main_url}/dizi-arsivi/page/SAYFA/?ulke[]=turkiye&yil=&imdb": "Yerli Diziler",
         f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=dram&yil&imdb": "Dram",
         f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aksiyon&yil&imdb": "Aksiyon",
@@ -81,9 +85,35 @@ class DiziBox(PluginBase):
             return None
         return MainPageResult(category=category, title=title, url=normalize_url(href, base_url), poster=poster)
 
+    # Bölüm kartından dizi sayfası: /the-ark-3-sezon-7-bolum-izle/ → /diziler/the-ark/
+    _EPISODE_SLUG = re.compile(r"/([^/]+?)-\d+-sezon-\d+-bolum[^/]*/?$")
+    _EPISODE_SUFFIX = re.compile(r"\s+\d+\.\s*Sezon\s+\d+\.\s*Bölüm.*$", re.I)
+
+    def _episode_card(self, node: HTMLHelper, category: str) -> MainPageResult | None:
+        link = first_attr(node, ("a.episode-card-title", "a"), "href")
+        m = self._EPISODE_SLUG.search(link or "")
+        if not m:
+            return None
+        title = self._EPISODE_SUFFIX.sub("", first_attr(node, ("a.episode-card-title",), "title") or "").strip() \
+            or first_text(node, ("b.series-name",)).title()
+        poster = absolute(self.main_url, first_attr(node, ("img",), "data-src") or first_attr(node, ("img",), "src"))
+        if not title:
+            return None
+        return MainPageResult(category=category, title=title, url=f"{self.main_url}/diziler/{m.group(1)}/", poster=poster)
+
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         text = await self._get(url.replace("SAYFA", str(page or 1)))
         selector = HTMLHelper(text)
+        if "tum-bolumler" in url:
+            # Aynı dizinin birden çok bölümü listede; raf dizi başına tek kart.
+            seen: set[str] = set()
+            items: list[MainPageResult] = []
+            for node in selector.select("article.article-episode-card"):
+                item = self._episode_card(node, category)
+                if item and item.url not in seen:
+                    seen.add(item.url)
+                    items.append(item)
+            return items
         return [item for node in selector.select("article.detailed-article") if (item := self._card(node, self.main_url, category))]
 
     async def search(self, query: str) -> list[SearchResult]:
