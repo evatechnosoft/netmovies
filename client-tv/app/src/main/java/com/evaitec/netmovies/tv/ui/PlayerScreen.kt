@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -624,6 +625,18 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             // kenarlarda şerit gibi görünüyordu (Dean: "mor oynatıcı çerçevesi").
             .background(androidx.compose.ui.graphics.Color.Black)
             .focusRequester(rootFocus)
+            // GERİ'yi paneller AŞAĞI inmeden yakala. TV Material odak grubu GERİ'yi
+            // "ilk öğeye dön" diye yutuyordu: odak OYNAT'a atlıyor, BackHandler hiç
+            // çalışmıyordu (Dean: "play'e döndürüyor ama geri çıkmıyor").
+            // onPreviewKeyEvent kökten aşağı ilk çalışan yoldur.
+            // Yalnız bu durum ele alınır; diğer panellerin kendi işleyicileri var.
+            .onPreviewKeyEvent { ke ->
+                if (!showStartPanel || ke.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
+                    return@onPreviewKeyEvent false
+                }
+                if (ke.nativeKeyEvent.action == KeyEvent.ACTION_UP) onBack()
+                true
+            }
             .onKeyEvent { ke ->
                 when {
                     // Hata ekranında tuşları tüketme: overlay butonları (Tekrar dene / Geri)
