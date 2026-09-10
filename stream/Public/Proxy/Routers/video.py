@@ -9,6 +9,56 @@ from ..Libs.helpers       import prepare_request_headers, prepare_response_heade
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import validate_proxy_token
 
+import asyncio
+from urllib.parse import urljoin
+
+# Ön-yükleme: kaç segment, ve görevlerin GC'ye yem olmaması için referans kümesi.
+PREFETCH_COUNT   = 3
+_prefetch_tasks  : set[asyncio.Task] = set()
+
+
+async def _prefetch(urls: list[str], request_headers: dict):
+    for segment_url in urls:
+        if await segment_cache.get(segment_url):
+            continue
+        try:
+            response = await open_upstream(segment_url, request_headers)
+        except Exception:
+            continue
+        try:
+            if response.status_code < 400:
+                content = await response.aread()
+                if len(content) <= segment_cache.max_item_bytes:
+                    await segment_cache.set(segment_url, content)
+        except Exception:
+            pass
+        finally:
+            await response.aclose()
+
+
+def prefetch_segments(manifest: bytes, manifest_url: str, request_headers: dict):
+    """Varyant manifestindeki ilk segmentleri arka planda cache'e çeker.
+
+    Master manifestte satırlar başka m3u8'dir (segment değil) — `is_hls_segment`
+    onları eler, o yüzden ayrıca ayrım yapmaya gerek yok.
+    """
+    hedefler: list[str] = []
+    for line in manifest.decode("utf-8", "ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        segment_url = urljoin(manifest_url, line)
+        if is_hls_segment(segment_url):
+            hedefler.append(segment_url)
+        if len(hedefler) >= PREFETCH_COUNT:
+            break
+    if not hedefler:
+        return
+    gorev = asyncio.create_task(_prefetch(hedefler, request_headers))
+    _prefetch_tasks.add(gorev)
+    gorev.add_done_callback(_prefetch_tasks.discard)
+
+
 @proxy_router.get("/video")
 @proxy_router.head("/video")
 async def video_proxy(request: Request, url: str, proxy_token: str = None, referer: str = None, user_agent: str = None, force_proxy: str = None, title: str = None, subtitle_url: str = None, extra_headers: str = None):
@@ -79,6 +129,11 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             # Manifest URL'lerini yeniden yaz
             rewritten_content = rewrite_hls_manifest(content, target_url, referer, user_agent, is_force_proxy, parsed_extra_headers, proxy_token)
 
+            # Oynatma başlarken ilk segmentler daha istenmeden çekilsin: oynatıcı
+            # varyant manifestini aldığı anda ilk N segmenti arka planda cache'e
+            # alıyoruz, istemci sırası geldiğinde bellekten servis ediliyor.
+            prefetch_segments(content, target_url, request_headers)
+
             # Content-Length güncelle
             final_headers["Content-Length"] = str(len(rewritten_content))
 
@@ -89,11 +144,12 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
                 media_type  = final_headers.get("Content-Type")
             )
 
-        # HLS segment ise ve boyutu <= 5MB ise cache'e al, aksi halde stream et
+        # HLS segment ise ve cache'in tekil sınırına sığıyorsa belleğe al, aksi halde stream et
         if is_hls_segment(target_url):
             content_length = int(response.headers.get("content-length", "0"))
-            # Sadece bilinen ve makul boyutlu (<= 5MB) segmentleri belleğe al
-            if 0 < content_length <= 5 * 1024 * 1024:
+            # Sınır cache'in kendi ayarı (SEGMENT_ITEM_MB): burada 5MB sabiti vardı,
+            # gerçek segmentler 3–8MB olduğu için çoğu hiç cache'lenmiyordu.
+            if 0 < content_length <= segment_cache.max_item_bytes:
                 content = await response.aread()
                 await response.aclose()
 
