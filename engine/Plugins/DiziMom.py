@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
 # Domain zinciri: dizimom.plus → .work → .food → .diy. Upstream .kt hâlâ ölü .plus'ı
@@ -99,5 +99,12 @@ class DiziMom(PluginBase):
             if iframe_url:
                 iframe_html = await fetch_html(self.httpx, iframe_url, headers=headers)
                 results.extend(extract_embedded_sources(iframe_html, iframe_url, self.name))
+                # Embed'ler (hdplayersystem, hdstreamable) FirePlayer: link packed JS
+                # ardında, regex bulamıyor — getVideo JSON'undan imzalı master gelir.
+                if "/video/" in iframe_url:
+                    try:
+                        results.extend(await fireplayer_sources(self.httpx, iframe_url, f"{self.name} | Kaynak", f"{self.main_url}/"))
+                    except Exception:
+                        pass
                 self.collect_results(results, await self.extract(iframe_url, referer=page_url))
         return self.deduplicate(results)

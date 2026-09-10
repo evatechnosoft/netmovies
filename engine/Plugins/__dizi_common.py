@@ -6,10 +6,10 @@ import base64
 import html
 import os
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
-from KekikStream.Core import ExtractResult, HTMLHelper
+from KekikStream.Core import ExtractResult, HTMLHelper, Subtitle
 
 _WARP_PROXY = os.getenv("WARP_PROXY", "http://warp:8080")
 _DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -150,3 +150,61 @@ def extract_embedded_sources(
             )
         )
     return results
+
+
+async def fireplayer_sources(
+    client: httpx.AsyncClient,
+    iframe_url: str,
+    label: str,
+    site_url: str,
+) -> list[ExtractResult]:
+    """FirePlayer embed'ini (vidpapi, hdplayersystem, …) imzalı HLS master'a çevirir.
+
+    Player linki packed JS ardında; `POST <origin>/player/index.php?data=<hash>&do=getVideo`
+    JSON'unda `securedLink` (md5+expires imzalı) düz metin geliyor. Altyazı varsa
+    iframe sayfasındaki `playerjsSubtitle` değişkeninden okunur.
+    """
+    parts  = urlsplit(iframe_url)
+    origin = f"{parts.scheme}://{parts.netloc}"
+    video  = parts.path.rstrip("/").rsplit("/", 1)[-1]
+
+    subtitles: list[Subtitle] = []
+    try:
+        frame   = await client.get(iframe_url, headers={"User-Agent": _DEFAULT_UA, "Referer": site_url})
+        sub_var = re.search(r'playerjsSubtitle\s*=\s*"([^"]*)"', frame.text)
+        for sub_name, sub_url in re.findall(r"\[([^\]]+)\](https?://[^,\s]+)", sub_var.group(1) if sub_var else ""):
+            subtitles.append(Subtitle(name=sub_name, url=sub_url))
+    except Exception:
+        pass
+
+    response = await client.post(
+        f"{origin}/player/index.php?data={video}&do=getVideo",
+        data    = {"hash": video, "r": site_url},
+        headers = {
+            "User-Agent"      : _DEFAULT_UA,
+            "Referer"         : iframe_url,
+            "Origin"          : origin,
+            "X-Requested-With": "XMLHttpRequest",
+        },
+        timeout = 15.0,
+    )
+    if response.status_code != 200:
+        return []
+    try:
+        payload = response.json()
+    except Exception:
+        return []
+
+    stream = payload.get("securedLink") or payload.get("videoSource")
+    if not stream:
+        return []
+
+    return [
+        ExtractResult(
+            name       = label,
+            url        = stream,
+            referer    = iframe_url,
+            user_agent = _DEFAULT_UA,
+            subtitles  = subtitles,
+        )
+    ]

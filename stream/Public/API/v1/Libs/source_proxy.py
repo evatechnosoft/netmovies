@@ -14,7 +14,10 @@ from Public.Proxy.Libs.proxy_token import issue_proxy_token
 # DiziPal'inki Referer'sız istekte 404, KultFilmler'inki (vidpapi) iframe Referer'sız
 # 403, FilmMakinesi'ninki (closeload CDN) Referer'sız 404 döndürüyor. Ek başlık istemeseler de proxy'den geçmeliler — proxy Referer'ı
 # ekliyor, 403'te WARP'a düşüyor.
-_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi"}
+# DiziBox (molystream), Dizilla (pichive) ve DiziMom (hdplayersystem/FirePlayer) de
+# aynı: çıplak istekte manifest 403, kaynağın kendi referer+user_agent'ı ile 200 —
+# istemci bu başlıkları gönderemez.
+_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom"}
 
 
 def route_through_proxy(sources: list, base_url: str) -> list:
