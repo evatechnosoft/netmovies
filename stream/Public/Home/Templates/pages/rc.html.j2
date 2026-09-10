@@ -151,6 +151,41 @@
     #duzenle { background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:12px; }
     body.duzenle #duzenle { border-color:var(--vurgu); }
 
+    /* ---- Mini: tek ekran widget. Yay üzerinde yuvarlak posterler, altında pad. ---- */
+    #s-mini { display:none; }
+    #s-mini.aktif { display:flex; flex-direction:column; min-height:calc(100dvh - 160px); }
+    .yay { position:relative; height:170px; margin:0 -14px 4px; overflow-x:auto; overflow-y:hidden;
+           scroll-snap-type:x mandatory; scrollbar-width:none; touch-action:pan-x; }
+    .yay::-webkit-scrollbar { display:none; }
+    .yay .ic-yay { display:flex; align-items:flex-start; height:100%; padding:0 calc(50vw - 42px); gap:14px; }
+    .yay .top { flex:0 0 84px; scroll-snap-align:center; position:relative; border:0; padding:0; background:none;
+                transition:transform .12s linear; }
+    .yay .top img { width:84px; height:84px; border-radius:50%; object-fit:cover; display:block;
+                    background:#0a0c10; border:2px solid var(--cizgi); }
+    .yay .top.orta img { border-color:var(--vurgu); }
+    .yay .top b { display:block; font-size:11px; font-weight:500; color:var(--soluk); margin-top:6px;
+                  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px; }
+    .yay .top.orta b { color:var(--metin); }
+
+    .mini-alt { margin-top:auto; display:flex; flex-direction:column; gap:12px; align-items:center; }
+    .mini-pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:min(280px,74vw); aspect-ratio:1; }
+    .mini-pad button { background:var(--kart); border:1px solid var(--cizgi); border-radius:14px; color:var(--metin); font-size:24px; }
+    .mini-pad button:active { background:var(--vurgu); transform:scale(.96); }
+    .mini-pad .bos { visibility:hidden; }
+    .mini-pad .ok { border-radius:50%; font-size:14px; font-weight:700; }
+    .mini-satir { display:flex; gap:14px; }
+    .mini-satir button { width:64px; height:64px; border-radius:50%; background:var(--kart);
+                         border:1px solid var(--cizgi); color:var(--metin); display:flex; align-items:center; justify-content:center; }
+    .mini-satir button.uyari { border-color:var(--vurgu); color:var(--vurgu); }
+    .mini-satir .ic { width:26px; height:26px; }
+    #mini-tp { flex:1; min-height:120px; width:100%; background:var(--kart); border:1px dashed var(--cizgi);
+               border-radius:16px; touch-action:none; display:flex; align-items:center; justify-content:center;
+               color:var(--soluk); font-size:12px; }
+    #mini-tp.aktif { border-color:var(--yesil); border-style:solid; }
+    body.mini-yuzey .mini-pad { display:none; }
+    body:not(.mini-yuzey) #mini-tp { display:none; }
+    #mini-mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:5px 10px; font-size:11px; }
+
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
           padding-bottom:env(safe-area-inset-bottom); z-index:5; }
@@ -292,6 +327,26 @@
     <p id="durum"></p>
     <div class="sonuclar" id="sonuclar"></div>
   </section>
+
+  <!-- ======================= MİNİ =======================
+       Tek ekran: yay üzerinde yuvarlak posterler (dokun=bilgi, basılı tut=TV'de
+       oynat), altında yön pad ya da dokunmatik yüzey, en altta OK ve GERİ. -->
+  <section id="s-mini" class="sekme">
+    <div class="yay" id="yay"><div class="ic-yay"></div></div>
+    <div class="mini-alt">
+      <div class="mini-pad">
+        <div class="bos"></div><button data-key="UP">▲</button><div class="bos"></div>
+        <button data-key="LEFT">◀</button><button class="ok" data-key="CENTER">OK</button><button data-key="RIGHT">▶</button>
+        <div class="bos"></div><button data-key="DOWN">▼</button><div class="bos"></div>
+      </div>
+      <div id="mini-tp">kaydır: yön · dokun: OK</div>
+      <div class="mini-satir">
+        <button id="mini-ok" aria-label="Oynat / seç"><svg class="ic"><use href="#i-oynat"/></svg></button>
+        <button id="mini-geri" aria-label="Duraklat, tekrar basınca çık"><svg class="ic"><use href="#i-geri"/></svg></button>
+        <button id="mini-mod" type="button">yüzey</button>
+      </div>
+    </div>
+  </section>
 </main>
 
 <!-- Bilgi sayfası: karta tek dokunuş açar; basılı tutma yine doğrudan TV'de oynatır. -->
@@ -309,6 +364,7 @@
 <nav>
   <button class="aktif" data-sekme="kumanda"><svg class="ic"><use href="#i-kumanda"/></svg>Kumanda</button>
   <button data-sekme="ara"><svg class="ic"><use href="#i-ara"/></svg>Ara</button>
+  <button data-sekme="mini"><svg class="ic"><use href="#i-tv"/></svg>Mini</button>
 </nav>
 
 <script>
@@ -418,6 +474,83 @@
     $('duzenle').textContent = acik ? 'Bitti' : 'Düzenle';
   });
 
+  // ---------------------------------------------------------------- mini (widget)
+  // Yay: posterler yatay kayar, merkezden uzaklaştıkça aşağı iner ve küçülür —
+  // yarım daire hissi. Dokun = bilgi, basılı tut = doğrudan TV'de oynat.
+  const yay = $('yay');
+  let yayDoldu = false;
+  function yayCiz() {
+    const orta = yay.getBoundingClientRect().left + yay.clientWidth / 2;
+    yay.querySelectorAll('.top').forEach((t) => {
+      const r = t.getBoundingClientRect();
+      const d = (r.left + r.width / 2 - orta) / (yay.clientWidth / 2);   // -1 … 1
+      const k = Math.min(Math.abs(d), 1);
+      t.style.transform = `translateY(${(k * k * 46).toFixed(1)}px) scale(${(1 - k * 0.28).toFixed(3)})`;
+      t.classList.toggle('orta', k < 0.18);
+    });
+  }
+  yay.addEventListener('scroll', () => requestAnimationFrame(yayCiz), { passive: true });
+
+  async function yayDoldur() {
+    if (yayDoldu) return;
+    yayDoldu = true;
+    const kap = yay.querySelector('.ic-yay');
+    // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar.
+    const cek = (u, sec) => fetch(u).then((r) => r.json()).then(sec).catch(() => []);
+    const [son, filmler, diziler] = await Promise.all([
+      cek('/api/v1/continue_watching', (d) => (d?.result || []).map((r) => ({ plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster }))),
+      cek('/api/v1/aggregate_new?type=movie', (d) => d?.result?.items || []),
+      cek('/api/v1/aggregate_new?type=serie', (d) => d?.result?.items || []),
+    ]);
+    const secilen = [], gorulen = new Set();
+    const ekle = (o) => {
+      const k = (o.title || o.url || '').toLowerCase();
+      if (!o.url || !k || gorulen.has(k) || secilen.length >= 20) return;
+      gorulen.add(k); secilen.push(o);
+    };
+    son.forEach(ekle);
+    for (let i = 0; i < Math.max(filmler.length, diziler.length) && secilen.length < 20; i++) {
+      if (filmler[i]) ekle(filmler[i]);
+      if (diziler[i]) ekle(diziler[i]);
+    }
+    kap.innerHTML = '';
+    secilen.forEach((o) => {
+      const t = document.createElement('button');
+      t.className = 'top';
+      t.innerHTML = '<img loading="lazy" alt=""><b></b>';
+      t.querySelector('img').src = poster(o.poster, o.title);
+      t.querySelector('b').textContent = o.title || '';
+      onayaBagla(t, o);
+      kap.appendChild(t);
+    });
+    requestAnimationFrame(yayCiz);
+  }
+
+  // OK: seç / başlat. GERİ: önce duraklat, 2 sn içinde tekrar basılırsa çıkar.
+  $('mini-ok').addEventListener('click', () => komut({ type: 'key', key: 'CENTER' }));
+  let geriAn = 0;
+  $('mini-geri').addEventListener('click', () => {
+    const btn = $('mini-geri');
+    if (Date.now() - geriAn < 2000) {
+      geriAn = 0; btn.classList.remove('uyari');
+      komut({ type: 'key', key: 'BACK' });
+      return;
+    }
+    geriAn = Date.now();
+    btn.classList.add('uyari');
+    setTimeout(() => btn.classList.remove('uyari'), 2000);
+    komut({ type: 'transport', action: 'play_pause', value: 0 });
+  });
+
+  $('mini-mod').addEventListener('click', () => {
+    const acik = document.body.classList.toggle('mini-yuzey');
+    $('mini-mod').textContent = acik ? 'pad' : 'yüzey';
+    try { localStorage.setItem('rc_mini_yuzey', acik ? '1' : '0'); } catch (_) {}
+  });
+  try {
+    if (localStorage.getItem('rc_mini_yuzey') === '1') { document.body.classList.add('mini-yuzey'); $('mini-mod').textContent = 'pad'; }
+  } catch (_) {}
+
   // ---------------------------------------------------------------- dokunmatik yüzey
   // D-pad ekranın üstünde, başparmak alta yetişiyor: "dokunmatik" modda alt çubuğun
   // üstüne sabit bir yüzey gelir. Her ESIK px kayma bir yön tuşu (sürekli sürükle =
@@ -434,46 +567,51 @@
   });
   ['pointerdown', 'pointermove', 'pointerup'].forEach((olay) => $('esik').addEventListener(olay, (e) => e.stopPropagation()));
 
-  let tpBas = null, tpSon = null, tpAn = 0, tpKaydi = false;
-  // Kenar tekrarı: parmak yüzeyin kenarında beklerken o yön sürer (sürükleme bitmesin).
-  let kenarYon = null, kenarSayac = null;
-  const kenarDur = () => { clearInterval(kenarSayac); kenarSayac = null; kenarYon = null; };
-  const yonGonder = (key) => { tp.classList.add('aktif'); komut({ type: 'key', key }); setTimeout(() => tp.classList.remove('aktif'), 120); };
-  const kenardaki = (e) => {
-    const r = tp.getBoundingClientRect();
-    if (e.clientY - r.top < KENAR_PX) return 'UP';
-    if (r.bottom - e.clientY < KENAR_PX) return 'DOWN';
-    if (e.clientX - r.left < KENAR_PX) return 'LEFT';
-    if (r.right - e.clientX < KENAR_PX) return 'RIGHT';
-    return null;
-  };
-  tp.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.geri, .hassas')) return;
-    tp.setPointerCapture(e.pointerId);
-    tpBas = tpSon = { x: e.clientX, y: e.clientY }; tpAn = Date.now(); tpKaydi = false;
-  });
-  tp.addEventListener('pointermove', (e) => {
-    if (!tpSon) return;
-    const dx = e.clientX - tpSon.x, dy = e.clientY - tpSon.y;
-    if (Math.abs(dx) >= esik && Math.abs(dx) >= Math.abs(dy)) { yonGonder(dx > 0 ? 'RIGHT' : 'LEFT'); tpSon = { x: e.clientX, y: e.clientY }; tpKaydi = true; }
-    else if (Math.abs(dy) >= esik) { yonGonder(dy > 0 ? 'DOWN' : 'UP'); tpSon = { x: e.clientX, y: e.clientY }; tpKaydi = true; }
-    // Kenara dayandıysa tekrarı başlat; kenardan çıktıysa durdur.
-    const yon = tpKaydi ? kenardaki(e) : null;
-    if (yon !== kenarYon) {
+  // Aynı yüzey davranışı iki yerde: Kumanda'daki sabit şerit ve Mini'deki alan.
+  function yuzeyBagla(el) {
+    let bas = null, son = null, an = 0, kaydi = false;
+    // Kenar tekrarı: parmak yüzeyin kenarında beklerken o yön sürer (sürükleme bitmesin).
+    let kenarYon = null, kenarSayac = null;
+    const kenarDur = () => { clearInterval(kenarSayac); kenarSayac = null; kenarYon = null; };
+    const yonGonder = (key) => { el.classList.add('aktif'); komut({ type: 'key', key }); setTimeout(() => el.classList.remove('aktif'), 120); };
+    const kenardaki = (e) => {
+      const r = el.getBoundingClientRect();
+      if (e.clientY - r.top < KENAR_PX) return 'UP';
+      if (r.bottom - e.clientY < KENAR_PX) return 'DOWN';
+      if (e.clientX - r.left < KENAR_PX) return 'LEFT';
+      if (r.right - e.clientX < KENAR_PX) return 'RIGHT';
+      return null;
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.geri, .hassas')) return;
+      el.setPointerCapture(e.pointerId);
+      bas = son = { x: e.clientX, y: e.clientY }; an = Date.now(); kaydi = false;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!son) return;
+      const dx = e.clientX - son.x, dy = e.clientY - son.y;
+      if (Math.abs(dx) >= esik && Math.abs(dx) >= Math.abs(dy)) { yonGonder(dx > 0 ? 'RIGHT' : 'LEFT'); son = { x: e.clientX, y: e.clientY }; kaydi = true; }
+      else if (Math.abs(dy) >= esik) { yonGonder(dy > 0 ? 'DOWN' : 'UP'); son = { x: e.clientX, y: e.clientY }; kaydi = true; }
+      // Kenara dayandıysa tekrarı başlat; kenardan çıktıysa durdur.
+      const yon = kaydi ? kenardaki(e) : null;
+      if (yon !== kenarYon) {
+        kenarDur();
+        if (yon) { kenarYon = yon; kenarSayac = setInterval(() => yonGonder(yon), TEKRAR_MS); }
+      }
+    });
+    const bitir = (e) => {
       kenarDur();
-      if (yon) { kenarYon = yon; kenarSayac = setInterval(() => yonGonder(yon), TEKRAR_MS); }
-    }
-  });
-  const tpBitir = (e) => {
-    kenarDur();
-    if (!tpBas) return;
-    const kisa = Date.now() - tpAn < DOKUN_MS && Math.hypot(e.clientX - tpBas.x, e.clientY - tpBas.y) < DOKUN_PX;
-    if (!tpKaydi && kisa) yonGonder('CENTER');
-    tpBas = tpSon = null;
-  };
-  tp.addEventListener('pointerup', tpBitir);
-  tp.addEventListener('pointercancel', () => { kenarDur(); tpBas = tpSon = null; });
-  tp.addEventListener('contextmenu', (e) => e.preventDefault());
+      if (!bas) return;
+      const kisa = Date.now() - an < DOKUN_MS && Math.hypot(e.clientX - bas.x, e.clientY - bas.y) < DOKUN_PX;
+      if (!kaydi && kisa) yonGonder('CENTER');
+      bas = son = null;
+    };
+    el.addEventListener('pointerup', bitir);
+    el.addEventListener('pointercancel', () => { kenarDur(); bas = son = null; });
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  yuzeyBagla(tp);
+  yuzeyBagla($('mini-tp'));
 
   const modUygula = (dokunmatik) => {
     document.body.classList.toggle('dokunmatik', dokunmatik);
@@ -501,8 +639,9 @@
   document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('aktif', x === b));
     document.querySelectorAll('.sekme').forEach((s) => s.classList.toggle('aktif', s.id === 's-' + b.dataset.sekme));
-    document.body.classList.toggle('sekme-ara', b.dataset.sekme === 'ara');
+    document.body.classList.toggle('sekme-ara', b.dataset.sekme !== 'kumanda');
     if (b.dataset.sekme === 'ara') yeniCikanlar();
+    if (b.dataset.sekme === 'mini') yayDoldur();
   }));
 
   // ---------------------------------------------------------------- TV bağlı mı
@@ -643,24 +782,16 @@
   function onayaBagla(kart, o) {
     let sayac = null, gosterildi = false;
 
+    // Basılı tutmak DOĞRUDAN gönderir: ayrıca "TV'de oynat" düğmesine basmak
+    // gereksiz ikinci adımdı (Dean). Tek dokunuş hâlâ bilgi sayfasını açar.
     const goster = () => {
       gosterildi = true;
-      document.querySelectorAll('.kart .onay').forEach((d) => d.remove());
-      document.querySelectorAll('.kart.secili').forEach((k) => k.classList.remove('secili'));
       kart.classList.add('secili');
-      const onay = document.createElement('button');
-      onay.className = 'onay';
-      onay.innerHTML = '<svg class="ic"><use href="#i-tv"/></svg>TV\'de oynat';
-      onay.addEventListener('click', (e) => { e.stopPropagation(); onay.remove(); kart.classList.remove('secili'); tvdeOynat(o); });
-      kart.appendChild(onay);
-      titre();
+      setTimeout(() => kart.classList.remove('secili'), 400);
+      tvdeOynat(o);
     };
 
-    const basla = (e) => {
-      if (e.target.closest('.onay')) return;
-      gosterildi = false;
-      sayac = setTimeout(goster, BASILI_MS);
-    };
+    const basla = () => { gosterildi = false; sayac = setTimeout(goster, BASILI_MS); };
     const bitir = () => { clearTimeout(sayac); sayac = null; };
 
     kart.addEventListener('pointerdown', basla);
@@ -669,12 +800,8 @@
     kart.addEventListener('pointerleave', bitir);
     // Basılı tutunca tarayıcının metin seçimi/bağlam menüsü araya girmesin.
     kart.addEventListener('contextmenu', (e) => e.preventDefault());
-    // Tek dokunuş = bilgi sayfası (özet, bölümler); basılı tutma zaten onayı gösterdi.
-    kart.addEventListener('click', (e) => {
-      if (e.target.closest('.onay')) return;
-      e.preventDefault();
-      if (!gosterildi) bilgiAc(o);
-    });
+    // Tek dokunuş = bilgi sayfası; basılı tutma zaten TV'ye gönderdi.
+    kart.addEventListener('click', (e) => { e.preventDefault(); if (!gosterildi) bilgiAc(o); });
   }
 
   // ---------------------------------------------------------------- bilgi sayfası

@@ -23,6 +23,10 @@ _CACHE_MAX = 5000
 # temiz-başlık(lower) -> vote_average | None
 _rating_cache: dict[str, float | None] = {}
 
+# Yayın yılı da aynı yanıtta: ana sayfa "yeni" rafını yıla göre sıralayabilsin.
+# temiz-başlık(lower) -> yıl | None
+_year_cache: dict[str, int | None] = {}
+
 _client = httpx.AsyncClient(
     timeout = httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=5.0),
     limits  = httpx.Limits(max_connections=20, max_keepalive_connections=10),
@@ -54,6 +58,7 @@ async def _resolve_poster(clean_title: str) -> str | None:
 
     poster_path: str | None = None
     rating: float | None = None
+    year: int | None = None
     try:
         resp = await _client.get(_TMDB_SEARCH, params={
             "api_key"       : TMDB_API_KEY,
@@ -71,6 +76,9 @@ async def _resolve_poster(clean_title: str) -> str | None:
                     puan = r.get("vote_average")
                     # TMDB oy almamış içeriğe 0 yazıyor; 0 puan göstermek yanlış olur.
                     rating = round(float(puan), 1) if puan else None
+                if year is None:
+                    tarih = str(r.get("release_date") or r.get("first_air_date") or "")[:4]
+                    year = int(tarih) if tarih.isdigit() else None
                 if poster_path is not None:
                     break
     except Exception:
@@ -79,7 +87,14 @@ async def _resolve_poster(clean_title: str) -> str | None:
     if len(_cache) < _CACHE_MAX:
         _cache[key] = poster_path
         _rating_cache[key] = rating
+        _year_cache[key] = year
     return poster_path
+
+
+def year_for(title: str) -> int | None:
+    """Başlığın TMDB yılı — YALNIZ cache'ten (puanla aynı aramadan gelir)."""
+    clean = _clean_title(title)
+    return _year_cache.get(clean.lower()) if clean else None
 
 
 async def rating_for(title: str, fetch: bool = False) -> float | None:

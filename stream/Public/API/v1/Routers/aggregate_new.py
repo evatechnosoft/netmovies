@@ -9,7 +9,7 @@ from ..Libs import fuck_dmca, get_client_headers
 import asyncio
 
 from Public.Home.Libs   import admin_config
-from Public.Home.Routers.tmdb import rating_for
+from Public.Home.Routers.tmdb import rating_for, year_for
 
 # Aynı anda kaç TMDB araması. Sınırsız bırakılırsa 300+ eşzamanlı istek TMDB
 # tarafından kısılır ve hiçbir puan gelmez.
@@ -62,6 +62,17 @@ async def aggregate_new(request: Request):
         if eksik:
             _doldurma.update(eksik)
             asyncio.create_task(_puanlari_doldur(eksik))
+
+        # Sıra kaynak sırasıydı: KultFilmler'in kült klasikleri ve DiziPal'in eski
+        # filmleri "Yeni Çıkanlar"ın başına düşüyordu (Ben-Hur, THX 1138…).
+        # TMDB yılı (aynı aramadan, ek istek yok) ile yeniden en öne alınır.
+        # Sıralama STABİL: aynı yıl içinde kaynak dönüşümü korunur, yılı bilinmeyen
+        # içerik listeden düşmez, sona gider.
+        for item in suzulmus:
+            yil = year_for(item.get("title") or "")
+            if yil:
+                item["year"] = yil
+        suzulmus.sort(key=lambda x: -(x.get("year") or 0))
 
         result = {**result, "items": suzulmus, "count": len(suzulmus)}
 

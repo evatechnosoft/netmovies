@@ -6,6 +6,7 @@ from Core import Request, HTMLResponse, JSONResponse
 from .    import home_router, home_template, build_context, get_provider_client, fuck_dmca, get_client_headers
 from ..Libs import admin_config
 from ..Libs.official_sources import get_official_sources
+from .tmdb import year_for
 
 @home_router.get("/health")
 @home_router.head("/health")
@@ -45,7 +46,12 @@ async def ana_sayfa(request: Request):
                         client_headers = get_client_headers(request),
                     )
                 items = data.get("items", []) if isinstance(data, dict) else []
-                return admin_config.filter_aggregate_items(items[:40], admin_cfg)
+                suzulmus = admin_config.filter_aggregate_items(items[:40], admin_cfg)
+                # Yeni olan önde: kaynak sırası eski filmleri (kült klasikler,
+                # DiziPal arşivi) rafın başına atıyordu. Yıl TMDB cache'inden gelir;
+                # stabil sıralama aynı yıl içindeki kaynak dönüşümünü bozmaz.
+                suzulmus.sort(key=lambda x: -(year_for(x.get("title") or "") or 0))
+                return suzulmus
             except Exception:
                 return []  # kaynak yeni-çıkanlar veremezse ana sayfa yine açılsın
 
