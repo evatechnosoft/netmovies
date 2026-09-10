@@ -51,6 +51,11 @@ geri gelmesi. Hepsi yalnız derlendi.
 - FilmMakinesi kendi sayfaları engine'in paylaşılan httpx'inde `Non-2xx` veriyor
   (taze istemcide 200). UA/WARP farkı, ayrı iş; alternatif sağlayıcı devrede.
 - DiziBox'ta Türk dizisi için tarih sıralı sayfa YOK.
+- **`Episode`'da tarih alanı YOK** — kapta doğrulandı:
+  `docker exec netmovies-engine python -c "from KekikStream.Core import Episode; ..."`
+  → `['season', 'episode', 'title', 'url']`. KekikStream bu makinede kurulu değil,
+  yalnız imajda; repodan okumaya çalışma. Ajandanın tarihi bu yüzden **TMDB'den**
+  gelmek zorunda, kaynak sitelerden değil.
 
 ## Sonraki iki iş (başlanmadı)
 1. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
