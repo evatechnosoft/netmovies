@@ -209,8 +209,16 @@ private fun CategoryRows(
             onExit()
         } else {
             scope.launch {
-                listState.animateScrollToItem(0)
+                // Odak ÖNCE en üste alınır: sırası ters olunca liste 0'a kayıyor,
+                // odak hâlâ aşağıdaki rafta kaldığı için Compose hemen geri
+                // kaydırıyordu — GERİ "başa dönmüyor, raflar arası geziyor"
+                // gibi görünüyordu (Dean).
                 runCatching { firstFocus.requestFocus() }
+                listState.animateScrollToItem(0)
+                repeat(4) {
+                    withFrameNanos {}
+                    if (runCatching { firstFocus.requestFocus() }.isSuccess) return@launch
+                }
             }
         }
     }

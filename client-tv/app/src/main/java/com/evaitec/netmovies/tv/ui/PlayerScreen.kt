@@ -727,9 +727,14 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 currentLinkIndex = currentLinkIndex,
                 resumeLabel = resumeLabel,
                 hazir = links.isNotEmpty(),
-                // Bölüm seçimi paneli kapatmaz: seçtikten sonra OYNAT'a basılır,
-                // yanlış bölüme basıp izlemeye başlamak da böyle elenir.
-                onSelect = { idx -> currentEpIndex = idx },
+                // Bölüme basmak DOĞRUDAN başlatır: seçtikten sonra panelin
+                // tepesindeki OYNAT'a dönmek fazladan bir yolculuktu (Dean).
+                onSelect = { idx ->
+                    currentEpIndex = idx
+                    playRequested = true
+                    showStartPanel = false
+                    exo.playWhenReady = true
+                },
                 onSelectLink = { idx -> currentLinkIndex = idx },
                 onPlay = { playRequested = true; showStartPanel = false; exo.playWhenReady = true },
                 onOpenSettings = { showSettings = true },
@@ -1195,6 +1200,18 @@ private fun StartPanel(
             if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
+    // Odak nöbeti: liste yeniden oluşunca (bölümler geç gelir, sezon değişir) odak
+    // hiçbir satırda kalmıyor ve D-pad ölüyordu (Dean: "cursor kayboluyor, bir daha
+    // bir şey seçmiyor"). Panelin tamamı odaksız kalırsa OYNAT'a geri alınır.
+    var panelOdakli by remember { mutableStateOf(false) }
+    LaunchedEffect(panelOdakli, episodes.size, season) {
+        if (panelOdakli) return@LaunchedEffect
+        repeat(8) {
+            withFrameNanos {}
+            if (panelOdakli) return@LaunchedEffect
+            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
 
     // Oynat satırının ne yapacağı tek cümlede görünsün: yarım kalan varsa devam,
     // yeni diziye giriliyorsa 1. bölüm, filmde düz oynat.
@@ -1208,6 +1225,7 @@ private fun StartPanel(
         modifier = Modifier
             .fillMaxSize()
             .background(NmColor.Scrim)
+            .onFocusChanged { panelOdakli = it.hasFocus }
             .focusGroup(),
         contentAlignment = Alignment.Center,
     ) {
@@ -1229,12 +1247,14 @@ private fun StartPanel(
                 overflow = TextOverflow.Ellipsis,
             )
             if (bilgi.isNotBlank()) MutedRow(bilgi)
+            // Dizide özet kısa tutulur: bölüm listesi kaydırmadan görünsün
+            // (Dean: "kaç bölüm olduğu gözükmüyor").
             details?.description?.takeIf { it.isNotBlank() && it != "None" }?.let {
                 Text(
                     text = it,
                     fontSize = NmType.Body,
                     color = NmColor.OnSurfaceMuted,
-                    maxLines = 3,
+                    maxLines = if (episodes.isEmpty()) 3 else 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1269,14 +1289,15 @@ private fun StartPanel(
                 Spacer(Modifier.weight(1f))
             }
 
-            // Kaynak/dil burada seçilir; kalite (çözünürlük) hâlâ ayarlar panelinde.
-            if (links.isNotEmpty()) {
+            // Dizide kaynak listesi paneli uzatıp bölümleri aşağı itiyordu; orada
+            // yalnız ayarlar satırı kalır, kaynak seçimi ayar panelinden yapılır.
+            if (links.isNotEmpty() && episodes.isEmpty()) {
                 SectionTitle("🌐 Kaynak · dil")
                 links.take(6).forEachIndexed { i, l ->
                     SettingRow(languageLabel(l), i == currentLinkIndex) { onSelectLink(i) }
                 }
             }
-            SettingRow("⚙  Kalite · altyazı", false, onOpenSettings)
+            SettingRow("⚙  Kaynak · kalite · altyazı", false, onOpenSettings)
         }
     }
 }
