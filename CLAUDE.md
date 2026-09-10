@@ -40,6 +40,8 @@ Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
 ## Doğrulama (iddia etmeden önce çalıştır)
 ```bash
 bash scripts/smoke.sh                     # kapı: health + katalog + zincir + testler
+python scripts/chain_scan.py --n 2        # HER sağlayıcının HER kaynağı manifeste kadar
+                                          # (yeni eklenti eklerken zorunlu kapı)
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 docker logs netmovies-engine | grep -E "aggregate:|resolve:"   # kaynak teşhisi
