@@ -7,28 +7,15 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 10 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `c53f0cd`+ · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.67-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
-(v0.1.67: kaynak açılınca "sıradaki deneniyor" bandı kalkar — film oynarken asılı kalıyordu)
-**10 Eylül (fotoğraf):** FilmMakinesi dublajlı film "Türkçe altyazı" etiketliydi → eklenti
-sayfadaki `.type` rozetini (Dual/Yerli Film) okuyup ada "Türkçe Dublaj" ekliyor; kanıt
-`resolve_sources` → `rank 0 / Türkçe dublaj`. **Eklenti kodu değişince
-`docker compose up -d --build engine`** — restart imajdaki eski kodu çalıştırır.
-(v0.1.60: üst bar ⚙ ve 📱 yazısız/dar; 📱 = telefon kumandası adres kartı; arama tek satır ·
-v0.1.61: Gözat kartlarında ★ puan; GERİ önce en üste · v0.1.62: /24 taraması ana iş parçacığından çıktı — `uiBase()` bloklamaz, donma/ANR bitti; 📱 kartındaki adresler tıklanınca açılır)
-**Akış:** `aggregate_new` kaynakları dönüşümlü birleştiriyor (`5d70931`); DiziPal "Son
-Eklenen Filmler" ana sayfa bölümünden (6 film), `/filmler` arşivi "Popüler Filmler".
-**v0.1.59 — sunucuyu kendi bulur:** `ServerResolver` üç katman: son çalışan adres
-(SharedPreferences `server/last_local`) + derleme adayları → yoksa /24 taraması (cihazın
-kendi alt ağı + 192.168.0/1, 508 host, 64 paralel, 500 ms) → yoksa tünel. Tarama
-boş çıkarsa 5 dk tekrarlanmaz. Yerel bulunca hatırlanır; bir sonraki açılış anında.
-**Poster boşluğu (9 Eylül fotoğraf):** kök neden iki katlı — PC'nin LAN IP'si
-`192.168.1.185` → **`192.168.0.29`** olmuş (DHCP), TV aday listesinde yok → tünele düşmüş;
-tünelde Coil'in varsayılan OkHttp'si pinli DNS kullanmadığı için w.evaitec.com TR'de
-bloklu CF IP'sine çözülüp posterler boş kalıyor (katalog API'si pinli, o yüzden başlıklar
-geliyor). v0.1.58: Coil `Network.imageClient` (pinli DNS) + `192.168.0.29` aday. Kalıcı
-çözüm: sunucu PC'ye **DHCP rezervasyonu** ver, aday listesi tek adrese insin.
+**Son güncelleme:** 10 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `b369b29` · temiz, push'lı, origin ile eşit
+**TV sürümü:** `v0.1.74-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
+**Oturum özeti:** iki kök neden kapandı — (1) `resolve_sources` alternatif
+sağlayıcıları kodlanmış URL ile çağırıyordu, yedek zincirin tamamı ölüydü
+(0 → 2 kaynak · 19 bölüm); (2) TV Material odak grupları GERİ tuşunu yutuyordu,
+`BackBus` ile tek kapıya alındı. Ayarlar artık sunucuda (`/api/v1/prefs`):
+localStorage köken başına ayrı olduğu için her açılışta sıfırlanmış görünüyordu.
+**Ayrıntılı devir:** `.claude/handoffs/latest.md`
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
