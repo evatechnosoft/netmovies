@@ -349,6 +349,26 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Oynatılan içeriği İzlenenler'e ekle (isim ile satır olarak görünür).
     LaunchedEffect(item.plugin, item.url) { library.addWatched(item) }
 
+    // Telefon kumandasına "şu an oynayan": 5 sn'de bir ad + konum + süre. Sunucu 20 sn
+    // bildirim almazsa şeridi düşürür; ekrandan çıkınca döngü de biter.
+    LaunchedEffect(item.url) {
+        while (true) {
+            val sure = exo.duration
+            if (sure > 0) runCatching {
+                Network.api.remoteState(
+                    title = item.title.orEmpty(),
+                    position = exo.currentPosition / 1000.0,
+                    duration = sure / 1000.0,
+                    playing = exo.isPlaying,
+                    plugin = item.plugin,
+                    url = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                    poster = item.poster.orEmpty(),
+                )
+            }
+            delay(5000)
+        }
+    }
+
     // Devam bilgisi paneli beklemez: çözümleme sürerken okunur, 30sn–%92 aralığı
     // oynatıcıdaki devam kuralıyla aynı — panelde "devam" yazıp sonra baştan
     // başlaması olmasın.

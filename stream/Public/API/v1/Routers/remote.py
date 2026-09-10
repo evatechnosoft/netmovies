@@ -35,6 +35,10 @@ _SCREENS   = {"home", "browse", "following", "channels", "admin"}
 _queue: asyncio.Queue = asyncio.Queue(maxsize=_QUEUE_MAX)
 # TV'nin son yoklama zamanı — kumanda "televizyon açık mı" diye buna bakar.
 _last_poll: float = 0.0
+# TV'nin "şu an oynayan" bildirimi (birkaç saniyede bir). Bu kadar süredir
+# gelmediyse oynatıcı kapanmış sayılır; kumandadaki şerit kaybolur.
+_STATE_TTL = 20
+_now: dict = {}
 
 
 def _err(mesaj: str) -> dict:
@@ -174,11 +178,42 @@ async def remote_poll(request: Request):
     return {**api_v1_global_message, "result": cmd}
 
 
+@api_v1_router.post("/remote/state")
+async def remote_state(request: Request):
+    """Televizyon çağırır: şu an ne oynuyor, neresinde. Kumanda şeridi buradan beslenir."""
+    global _now
+    veri = request.state.veri or {}
+    try:
+        position = max(float(veri.get("position") or 0), 0.0)
+        duration = max(float(veri.get("duration") or 0), 0.0)
+    except (TypeError, ValueError):
+        return _err("position/duration sayi olmali")
+    _now = {
+        "title"    : str(veri.get("title") or "")[:200],
+        "poster"   : str(veri.get("poster") or ""),
+        "plugin"   : str(veri.get("plugin") or ""),
+        "url"      : str(veri.get("url") or ""),
+        "position" : position,
+        "duration" : duration,
+        "playing"  : str(veri.get("playing") or "").lower() in ("1", "true", "evet"),
+        "at"       : time.time(),
+    }
+    return {**api_v1_global_message, "result": {"ok": True}}
+
+
+def now_playing() -> dict | None:
+    """Taze bildirim varsa oynayan içerik, yoksa None."""
+    if not _now or time.time() - _now["at"] > _STATE_TTL:
+        return None
+    return {k: v for k, v in _now.items() if k != "at"}
+
+
 @api_v1_router.get("/remote/status")
 async def remote_status(request: Request):
-    """Kumanda çağırır: televizyon yokluyor mu, kuyrukta bekleyen var mı."""
+    """Kumanda çağırır: televizyon yokluyor mu, kuyrukta bekleyen var mı, ne oynuyor."""
     return {**api_v1_global_message, "result": {
-        "tv_online" : bool(_last_poll) and (time.time() - _last_poll) <= _ONLINE_WINDOW,
-        "last_poll" : int(_last_poll) or None,
-        "pending"   : _queue.qsize(),
+        "tv_online"   : bool(_last_poll) and (time.time() - _last_poll) <= _ONLINE_WINDOW,
+        "last_poll"   : int(_last_poll) or None,
+        "pending"     : _queue.qsize(),
+        "now_playing" : now_playing(),
     }}

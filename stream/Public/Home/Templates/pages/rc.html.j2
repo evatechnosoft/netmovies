@@ -61,6 +61,23 @@
       align-items:center; justify-content:center; gap:6px; }
     .kart .onay .ic { width:16px; height:16px; fill:currentColor; }
 
+    /* ---- Şu an oynayan: ince şerit + süre ---- */
+    #oynayan { background:var(--kart); border:1px solid var(--cizgi); border-radius:12px; padding:10px 12px; margin-bottom:14px; }
+    #oynayan[hidden] { display:none; }
+    #oynayan .ad { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #oynayan .sure { display:flex; justify-content:space-between; color:var(--soluk); font-size:12px; margin:4px 0 6px; font-variant-numeric:tabular-nums; }
+    #oynayan .bar { height:3px; background:var(--cizgi); border-radius:2px; overflow:hidden; }
+    #oynayan .bar i { display:block; height:100%; width:0; background:var(--vurgu); transition:width .5s linear; }
+
+    /* ---- Son izlenenler: kart ya da liste ---- */
+    .baslik.satirli { display:flex; align-items:center; justify-content:space-between; }
+    .baslik.satirli button { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:3px 8px; font-size:11px; text-transform:none; letter-spacing:0; }
+    .sonuclar.liste { grid-template-columns:1fr; gap:6px; }
+    .sonuclar.liste .kart { display:flex; align-items:center; gap:10px; }
+    .sonuclar.liste .kart img { width:44px; aspect-ratio:2/3; flex:none; }
+    .sonuclar.liste .kart span { font-size:13px; }
+    .sonuclar.liste .kart .onay { inset:0 0 0 auto; width:auto; padding:0 14px; }
+
     /* ---- Alt sekme çubuğu ---- */
     nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--kart); border-top:1px solid var(--cizgi);
           padding-bottom:env(safe-area-inset-bottom); z-index:5; }
@@ -107,6 +124,14 @@
 <main>
   <!-- ======================= KUMANDA ======================= -->
   <section id="s-kumanda" class="sekme aktif">
+    <!-- TV'de oynayan: ad, geçen / kalan süre, ince ilerleme şeridi. TV birkaç
+         saniyede bir /remote/state bildirir; bildirim kesilince şerit kaybolur. -->
+    <div id="oynayan" hidden>
+      <div class="ad"></div>
+      <div class="sure"><span class="gecen">0:00</span><span class="kalan">-0:00</span></div>
+      <div class="bar"><i></i></div>
+    </div>
+
     <div class="pad">
       <div class="bos"></div>
       <button data-key="UP">▲</button>
@@ -144,6 +169,10 @@
       <button class="dugme" data-nav="following" aria-label="Takip"><svg class="ic"><use href="#i-yildiz"/></svg></button>
       <button class="dugme" data-nav="channels" aria-label="Kanallar"><svg class="ic"><use href="#i-tv"/></svg></button>
     </div>
+
+    <!-- Son izlenenler: basılı tut → TV'de devam et. Kart / liste görünümü telefonda hatırlanır. -->
+    <p class="baslik satirli">Son izlenenler <button id="gorunum" type="button">liste</button></p>
+    <div class="sonuclar" id="son"></div>
   </section>
 
   <!-- ======================= ARA =======================
@@ -233,13 +262,75 @@
       const acik = !!d?.result?.tv_online;
       $('tv-nokta').classList.toggle('acik', acik);
       $('tv-yazi').textContent = acik ? 'TV bağlı' : 'TV kapalı';
+      oynayanGuncelle(d?.result?.now_playing || null);
     } catch (_) { $('tv-yazi').textContent = 'sunucu yok'; }
   }
   durumYokla();
   setInterval(durumYokla, 6000);
 
-  // ---------------------------------------------------------------- arama
+  // ---------------------------------------------------------------- şu an oynayan
+  // Sunucu 6 sn'de bir konum verir; aradaki saniyeler telefonda sayılır ki şerit
+  // takılmadan aksın. TV duraklattıysa sayaç durur.
+  const sureYaz = (sn) => {
+    sn = Math.max(0, Math.round(sn));
+    const s = Math.floor(sn / 3600), d = Math.floor((sn % 3600) / 60), n = sn % 60;
+    return (s ? s + ':' + String(d).padStart(2, '0') : d) + ':' + String(n).padStart(2, '0');
+  };
+  let oynayan = null, oynayanAn = 0;
+  function oynayanGuncelle(o) {
+    oynayan = o && o.duration > 0 ? o : null;
+    oynayanAn = Date.now();
+    oynayanCiz();
+  }
+  function oynayanCiz() {
+    const kutu = $('oynayan');
+    if (!oynayan) { kutu.hidden = true; return; }
+    const gecen = Math.min(oynayan.duration, oynayan.position + (oynayan.playing ? (Date.now() - oynayanAn) / 1000 : 0));
+    kutu.hidden = false;
+    kutu.querySelector('.ad').textContent = (oynayan.playing ? '▶ ' : '⏸ ') + (oynayan.title || 'Oynatılıyor');
+    kutu.querySelector('.gecen').textContent = sureYaz(gecen);
+    kutu.querySelector('.kalan').textContent = '-' + sureYaz(oynayan.duration - gecen);
+    kutu.querySelector('.bar i').style.width = (100 * gecen / oynayan.duration).toFixed(2) + '%';
+  }
+  setInterval(oynayanCiz, 1000);
+
+  // ---------------------------------------------------------------- son izlenenler
+  // Devam Et rafının ilk 5'i; basılı tut → TV kaldığı yerden sürdürür.
   const poster = (u, t) => '/proxy/image?url=' + encodeURIComponent(u || '') + '&title=' + encodeURIComponent(t || '');
+  async function sonIzlenenler() {
+    try {
+      const d = await (await fetch('/api/v1/continue_watching')).json();
+      const ogeler = (d?.result || []).slice(0, 5).map((r) => ({
+        plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster,
+      })).filter((o) => o.url);
+      const kap = $('son');
+      kap.innerHTML = '';
+      ogeler.forEach((o) => {
+        const kart = document.createElement('button');
+        kart.className = 'kart';
+        kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
+        kart.querySelector('img').src = poster(o.poster, o.title);
+        kart.querySelector('span').textContent = o.title || o.url;
+        onayaBagla(kart, o);
+        kap.appendChild(kart);
+      });
+    } catch (_) {}
+  }
+  const gorunumUygula = (liste) => {
+    $('son').classList.toggle('liste', liste);
+    $('gorunum').textContent = liste ? 'kart' : 'liste';
+  };
+  let listeGorunum = false;
+  try { listeGorunum = localStorage.getItem('rc_son_liste') === '1'; } catch (_) {}
+  gorunumUygula(listeGorunum);
+  $('gorunum').addEventListener('click', () => {
+    listeGorunum = !listeGorunum;
+    gorunumUygula(listeGorunum);
+    try { localStorage.setItem('rc_son_liste', listeGorunum ? '1' : '0'); } catch (_) {}
+  });
+  sonIzlenenler();
+
+  // ---------------------------------------------------------------- arama
 
   async function ara(sorgu) {
     if (!sorgu.trim()) return;

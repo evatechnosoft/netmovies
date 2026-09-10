@@ -134,6 +134,19 @@ interface NetMoviesApi {
         @Query("poster") poster: String = "",
     ): OkResponse
 
+    // Televizyon oynatırken birkaç saniyede bir bildirir: telefon kumandasındaki
+    // "şu an oynayan" şeridi (ad, geçen/kalan süre, ilerleme) buradan beslenir.
+    @POST("api/v1/remote/state")
+    suspend fun remoteState(
+        @Query("title") title: String,
+        @Query("position") position: Double,
+        @Query("duration") duration: Double,
+        @Query("playing") playing: Boolean,
+        @Query("plugin") plugin: String = "",
+        @Query("url") url: String = "",
+        @Query("poster") poster: String = "",
+    ): OkResponse
+
     // Canlı kanallar — tek uç, 170+ kanal (M3U listeleri).
     @GET("api/v1/quick_channels")
     suspend fun quickChannels(): ChannelsResponse
