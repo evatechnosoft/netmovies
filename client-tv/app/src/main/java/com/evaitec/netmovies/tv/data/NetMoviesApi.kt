@@ -147,6 +147,14 @@ interface NetMoviesApi {
         @Query("poster") poster: String = "",
     ): OkResponse
 
+    // Kişisel ayarlar (buton eşleme vb.) — cihazda değil sunucuda. Uygulamayı
+    // yeniden kurmak ya da başka bir TV'den girmek ayarları sıfırlamasın.
+    @GET("api/v1/prefs")
+    suspend fun prefsGet(): PrefsResponse
+
+    @POST("api/v1/prefs")
+    suspend fun prefsPost(@Body body: Map<String, String>): OkResponse
+
     // Canlı kanallar — tek uç, 170+ kanal (M3U listeleri).
     @GET("api/v1/quick_channels")
     suspend fun quickChannels(): ChannelsResponse

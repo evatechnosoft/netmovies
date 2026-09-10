@@ -88,6 +88,31 @@ class KeyBindings(context: Context) {
         }
     }
 
+    // Eşleme sunucuda da tutulur (/api/v1/prefs, "tv_keymap_*" anahtarları):
+    // uygulamayı yeniden kurmak ya da başka bir TV'ye geçmek ayarı sıfırlamasın.
+    // Cihazdaki kopya önbellek olarak kalır; sunucu erişilemezse eski davranış sürer.
+    private val UZAK_ONEK = "tv_keymap_"
+
+    suspend fun sunucudanYukle() {
+        val uzak = runCatching { com.evaitec.netmovies.tv.data.Network.api.prefsGet().result }
+            .getOrNull() ?: return
+        val duzenleyici = prefs.edit()
+        var degisti = false
+        uzak.forEach { (anahtar, deger) ->
+            if (!anahtar.startsWith(UZAK_ONEK)) return@forEach
+            val sk = anahtar.removePrefix(UZAK_ONEK)
+            val id = (deger as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
+            map[sk] = RemoteAction.fromId(id)
+            duzenleyici.putString(sk, id)
+            degisti = true
+        }
+        if (degisti) duzenleyici.apply()
+    }
+
+    private suspend fun sunucuyaYaz(sk: String, id: String) {
+        runCatching { com.evaitec.netmovies.tv.data.Network.api.prefsPost(mapOf("$UZAK_ONEK$sk" to id)) }
+    }
+
     fun get(key: RemoteKey, p: PressType): RemoteAction =
         map[storageKey(key, p)] ?: RemoteAction.NONE
 
@@ -100,6 +125,10 @@ class KeyBindings(context: Context) {
         val sk = storageKey(key, p)
         map[sk] = action
         prefs.edit().putString(sk, action.id).apply()
+        // Sunucuya yazmak ekranı bekletmemeli: eşleme cihazda zaten geçerli oldu.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            sunucuyaYaz(sk, action.id)
+        }
     }
 
     fun reset() {

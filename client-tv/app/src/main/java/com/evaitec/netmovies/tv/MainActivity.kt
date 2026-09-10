@@ -221,6 +221,9 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         val bindings = remember(this@MainActivity) { KeyBindings(this@MainActivity) }
+                        // Buton eşlemesi sunucuda da duruyor: yeniden kurulumda ya da
+                        // başka bir TV'de aynı düzen gelsin (Dean: "her yüklemede sıfırlanıyor").
+                        androidx.compose.runtime.LaunchedEffect(Unit) { bindings.sunucudanYukle() }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
                         val current = selected
                         when {

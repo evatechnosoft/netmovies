@@ -222,6 +222,11 @@ data class RemoteCommand(
 @Serializable
 data class RemoteCommandResponse(val result: RemoteCommand? = null)
 
+// /api/v1/prefs — serbest anahtar/değer. TV yalnız kendi anahtarlarını okur;
+// kumandanın yazdıkları (rc_*) burada da görünür, TV onları yok sayar.
+@Serializable
+data class PrefsResponse(val result: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap())
+
 // /api/v1/following — takip edilen diziler + TMDB yayın takvimi, Türkçe/yabancı ayrık.
 @Serializable
 data class FollowedShow(
