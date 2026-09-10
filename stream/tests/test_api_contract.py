@@ -77,11 +77,20 @@ class ApiV1ContractTest(unittest.TestCase):
         res = self.client.get("/api/v1/load_item", params={"plugin": "DiziBox", "encoded_url": "https%3A%2F%2Fx%2Fy"})
 
         self.assertEqual(200, res.status_code)
-        self.assertEqual(["/api/v1/load_item"], self.provider.paths)
+        # Ön-ısıtma da aynı adresle resolve çağırabilir; sözleşme load_item'ın
+        # kendisiyle ilgili, çağrı sayısıyla değil.
+        self.assertEqual("/api/v1/load_item", self.provider.paths[0])
         self.assertEqual(
             {"plugin": "DiziBox", "encoded_url": "https%3A%2F%2Fx%2Fy"},
             self.provider.params_of(),
         )
+
+    def test_load_item_prewarms_resolve_for_movies(self) -> None:
+        """Detay ekranı açılınca çözümleme arka planda başlar: "oynat"a basınca
+        beklenen 1.8–7.7 sn burada, kullanıcı afişe bakarken harcanır."""
+        self.client.get("/api/v1/load_item", params={"plugin": "DiziBox", "encoded_url": "https%3A%2F%2Fx%2Ffilm"})
+
+        self.assertIn("/api/v1/resolve_sources", self.provider.paths)
 
     def test_get_main_page_forwards_catalog_parameters(self) -> None:
         params = {

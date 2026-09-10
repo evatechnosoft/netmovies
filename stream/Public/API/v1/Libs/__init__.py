@@ -58,6 +58,10 @@ _CACHE_TTL = {
     "/get_plugin_names" : 3600,
     "/quick_channels"   : 600,   # 10 dk — M3U listesi seyrek değişir, home her açılışta çekiyor
     "/aggregate_new"    : 600,   # 10 dk — soğuk çağrı ~40s; cache'lenince anında (TV/telefon home)
+    # Çözümleme 1.8–7.7 sn sürüyor ve "oynat"a basınca beklenen ilk spinner bu.
+    # TTL kısa: sonuçtaki CDN linkleri imzalı/süreli. Proxy sarmalama (ve jeton
+    # üretimi) her istekte yeniden yapıldığı için cache bayat jeton üretmez.
+    "/resolve_sources"  : 180,
 }
 _CACHE_MAX_ENTRIES = 512
 
@@ -82,6 +86,10 @@ def _cacheable(endpoint: str, result) -> bool:
     boş kalıyordu. Boş sonuç cache'lenmez → bir sonraki istek taze dener."""
     if endpoint == "/aggregate_new":
         return bool(result and result.get("items"))
+    # Aynı gerekçe: kaynak vermeyen çözümleme cache'lenirse kullanıcı 3 dk boyunca
+    # "çalışan kaynak yok" görür, oysa ikinci deneme çoğu zaman tutuyor.
+    if endpoint == "/resolve_sources":
+        return bool(result and result.get("sources"))
     return True
 
 def _prune(cache: dict, max_entries: int):
