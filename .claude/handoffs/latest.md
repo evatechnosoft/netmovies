@@ -58,8 +58,8 @@ yeniden kurulumdan sonra geri gelmesi.
 - FilmMakinesi kendi sayfaları engine'in paylaşılan httpx'inde `Non-2xx` veriyor
   (taze istemcide 200). UA/WARP farkı, ayrı iş; alternatif sağlayıcı devrede.
 - DiziBox'ta Türk dizisi için tarih sıralı sayfa YOK.
-- `git restore` ile geri alındı: `.claude/handoffs/2026-09-03-1954-*.md` bir ara
-  silinmiş görünüyordu, kim sildiği belirsiz — dosya yerinde, ağaç temiz.
+- **Eski devir dosyalarını geri getirme.** Dean `.claude/handoffs/` altını
+  bilerek temiz tutuyor; silinmiş bir baton dosyası kaza değil, tercihtir.
 
 ## Sonraki iki iş (ikisi de başlanmadı)
 1. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
