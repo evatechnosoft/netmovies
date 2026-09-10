@@ -152,8 +152,20 @@
     body.duzenle #duzenle { border-color:var(--vurgu); }
 
     /* ---- Mini: tek ekran widget. Yay üzerinde yuvarlak posterler, altında pad. ---- */
-    #s-mini { display:none; }
-    #s-mini.aktif { display:flex; flex-direction:column; min-height:calc(100dvh - 160px); }
+    /* Mini panel: hangi sayfada olursan ol tek tuşla yukarıdan iner, tekrar basınca
+       kalkar. Sekme değil — kumanda ve arama akışını bölmez. */
+    /* z-index başlığın (5) altında: panel inince "Mini" tuşu görünür ve tekrar
+       basılabilir kalır. */
+    #s-mini { position:fixed; inset:0 0 auto 0; z-index:4; background:var(--bg);
+              border-bottom:1px solid var(--cizgi);
+              padding:calc(58px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+              display:flex; flex-direction:column; gap:10px; max-height:88dvh; overflow-y:auto;
+              transform:translateY(-102%); transition:transform .22s ease; box-shadow:0 12px 30px rgba(0,0,0,.5); }
+    body.mini-acik #s-mini { transform:translateY(0); }
+    #mini-kapat { position:fixed; inset:0; z-index:3; background:rgba(0,0,0,.45); display:none; }
+    body.mini-acik #mini-kapat { display:block; }
+    #mini { background:none; border:1px solid var(--cizgi); color:var(--metin); border-radius:8px; padding:6px 10px; font-size:12px; }
+    body.mini-acik #mini { border-color:var(--vurgu); }
     .yay { position:relative; height:170px; margin:0 -14px 4px; overflow-x:auto; overflow-y:hidden;
            scroll-snap-type:x mandatory; scrollbar-width:none; touch-action:pan-x; }
     .yay::-webkit-scrollbar { display:none; }
@@ -226,7 +238,7 @@
 <header>
   <b>NetMovies</b>
   <button id="kur" type="button">Ekle</button>
-  <button id="duzenle" type="button" title="Blokları kendine göre sırala">Düzenle</button>
+  <button id="mini" type="button" title="Mini paneli aç/kapat">Mini</button>
   <span id="tv-durum"><i id="tv-nokta"></i><span id="tv-yazi">aranıyor…</span></span>
 </header>
 
@@ -331,7 +343,7 @@
   <!-- ======================= MİNİ =======================
        Tek ekran: yay üzerinde yuvarlak posterler (dokun=bilgi, basılı tut=TV'de
        oynat), altında yön pad ya da dokunmatik yüzey, en altta OK ve GERİ. -->
-  <section id="s-mini" class="sekme">
+  <section id="s-mini">
     <div class="yay" id="yay"><div class="ic-yay"></div></div>
     <div class="mini-alt">
       <div class="mini-pad">
@@ -344,9 +356,11 @@
         <button id="mini-ok" aria-label="Oynat / seç"><svg class="ic"><use href="#i-oynat"/></svg></button>
         <button id="mini-geri" aria-label="Duraklat, tekrar basınca çık"><svg class="ic"><use href="#i-geri"/></svg></button>
         <button id="mini-mod" type="button">yüzey</button>
+        <button id="duzenle" type="button" title="Blokları kendine göre sırala">düzen</button>
       </div>
     </div>
   </section>
+  <div id="mini-kapat"></div>
 </main>
 
 <!-- Bilgi sayfası: karta tek dokunuş açar; basılı tutma yine doğrudan TV'de oynatır. -->
@@ -364,7 +378,6 @@
 <nav>
   <button class="aktif" data-sekme="kumanda"><svg class="ic"><use href="#i-kumanda"/></svg>Kumanda</button>
   <button data-sekme="ara"><svg class="ic"><use href="#i-ara"/></svg>Ara</button>
-  <button data-sekme="mini"><svg class="ic"><use href="#i-tv"/></svg>Mini</button>
 </nav>
 
 <script>
@@ -471,7 +484,8 @@
   });
   $('duzenle').addEventListener('click', () => {
     const acik = document.body.classList.toggle('duzenle');
-    $('duzenle').textContent = acik ? 'Bitti' : 'Düzenle';
+    $('duzenle').textContent = acik ? 'bitti' : 'düzen';
+    if (acik) miniAc(false);   // düzenlerken panel önü kapatmasın
   });
 
   // ---------------------------------------------------------------- mini (widget)
@@ -541,6 +555,15 @@
     setTimeout(() => btn.classList.remove('uyari'), 2000);
     komut({ type: 'transport', action: 'play_pause', value: 0 });
   });
+
+  // Tek tuş: mini panel her sayfadan iner, tekrar basınca ya da karartıya
+  // dokununca kalkar. Düzenle artık başlıkta değil, bu panelin içinde.
+  const miniAc = (ac) => {
+    document.body.classList.toggle('mini-acik', ac);
+    if (ac) yayDoldur();
+  };
+  $('mini').addEventListener('click', () => miniAc(!document.body.classList.contains('mini-acik')));
+  $('mini-kapat').addEventListener('click', () => miniAc(false));
 
   $('mini-mod').addEventListener('click', () => {
     const acik = document.body.classList.toggle('mini-yuzey');
@@ -641,7 +664,6 @@
     document.querySelectorAll('.sekme').forEach((s) => s.classList.toggle('aktif', s.id === 's-' + b.dataset.sekme));
     document.body.classList.toggle('sekme-ara', b.dataset.sekme !== 'kumanda');
     if (b.dataset.sekme === 'ara') yeniCikanlar();
-    if (b.dataset.sekme === 'mini') yayDoldur();
   }));
 
   // ---------------------------------------------------------------- TV bağlı mı

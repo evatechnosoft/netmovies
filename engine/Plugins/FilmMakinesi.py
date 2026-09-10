@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from KekikStream.Core import ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, Subtitle
+from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo, Subtitle
 from Plugins.__kekik_domain import discover_main_url
 from Plugins._js_player import extract_player_config
 
@@ -67,9 +67,42 @@ class FilmMakinesi(PluginBase):
         response = await self.httpx.get(f"{self.main_url}/arama/", params={"s": query}, headers={"User-Agent": _UA})
         return [SearchResult(title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
 
-    async def load_item(self, url: str) -> MovieInfo:
+    # Dizi bölümü: /dizi/<slug>/sezon-1/bolum-3/
+    _EPISODE_URL = re.compile(r"/sezon-(\d+)/bolum-(\d+)/?$")
+
+    async def load_item(self, url: str) -> MovieInfo | SeriesInfo:
         response = await self.httpx.get(url, headers={"User-Agent": _UA})
         secici   = HTMLHelper(response.text)
+
+        # Site yalnız film değil dizi de yayınlıyor ve arama ikisini birden
+        # döndürüyordu; dizi URL'i MovieInfo olarak dönünce bölüm listesi boş
+        # kalıyor, oynatma "kaynak bulunamadı" diyordu (Dean: "The Walking Dead
+        # City ... ne bölüm listesi ne provider").
+        if "/dizi/" in url:
+            h1     = secici.select_text("h1") or ""
+            title  = re.sub(r"\s*izle\b.*$", "", h1, flags=re.I).strip() or h1.strip()
+            bolumler: list[Episode] = []
+            gorulen: set[str] = set()
+            for href in re.findall(r'href="([^"]*/sezon-\d+/bolum-\d+/?)"', response.text):
+                tam = self.fix_url(href)
+                m   = self._EPISODE_URL.search(href)
+                if not m or tam in gorulen:
+                    continue
+                gorulen.add(tam)
+                sezon, bolum = int(m.group(1)), int(m.group(2))
+                bolumler.append(Episode(season=sezon, episode=bolum, title=f"{sezon}x{bolum}", url=tam))
+            bolumler.sort(key=lambda e: (e.season, e.episode))
+            return SeriesInfo(
+                url         = url,
+                title       = title,
+                poster      = self.fix_url(secici.og_poster) if secici.og_poster else None,
+                description = secici.og_description,
+                tags        = secici.select_texts("a[href*='/tur/']"),
+                rating      = secici.select_text(".imdb-score span"),
+                year        = secici.regex_first(r"(\d{4})", h1),
+                episodes    = bolumler,
+            )
+
         # h1 "İfşa Günü izle (2026)" biçiminde; yıl ayrı span'da.
         h1    = secici.select_text("h1") or ""
         title = re.sub(r"\s*izle\b.*$", "", h1, flags=re.I).strip() or h1.strip()

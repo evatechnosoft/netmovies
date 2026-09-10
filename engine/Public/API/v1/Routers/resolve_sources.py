@@ -58,11 +58,14 @@ class Diagnostics:
         konsol.log(f"{mark} resolve: {stage} — {message}")
 
 
-async def _links_for(plugin_name: str, encoded_url: str, episode_index: int, diag: Diagnostics) -> tuple[list[dict], list[dict]]:
-    """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır."""
+async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics) -> tuple[list[dict], list[dict]]:
+    """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır.
+
+    `content_url` DÜZ url'dir (kodlanmış değil): eklentiler httpx'e doğrudan verir.
+    """
     plugin   = plugin_manager.select_plugin(plugin_name)
     episodes : list[dict] = []
-    target   = encoded_url
+    target   = content_url
 
     async def _load(url: str) -> list:
         try:
@@ -196,8 +199,13 @@ async def resolve_sources(request: Request):
             for name, match in zip(candidates, matches):
                 if isinstance(match, Exception) or not match:
                     continue
+                # `match` zaten düz URL; `_links_for` de düz URL bekliyor (seçili
+                # sağlayıcı yolunda `encoded_url` çözülmüş halde geliyor). Burada
+                # yeniden kodlanınca eklentiye "https%3A%2F%2F…" gidiyordu ve
+                # httpx "Request URL is missing an 'http://' … protocol" diyordu —
+                # alternatif sağlayıcıların hiçbiri kaynak veremiyordu.
                 found, found_episodes = await _with_budget(
-                    _links_for(name, quote_plus(match), episode, diag), name, "link", diag,
+                    _links_for(name, match, episode, diag), name, "link", diag,
                 ) or ([], [])
                 sources.extend(found)
                 if not episodes and found_episodes:
