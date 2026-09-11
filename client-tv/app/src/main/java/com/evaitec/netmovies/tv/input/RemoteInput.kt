@@ -149,6 +149,19 @@ class RemoteInputController(
     private val pendingSingle = HashMap<Int, Job>()
     private val doubleWindowMs = 300L
 
+    /** Uzun basışla bir eylem ateşlendiyse, o tuşun BIRAKILMA olayı hâlâ buraya aittir.
+     *
+     * OK'i basılı tutmak ayar menüsünü açıyor; menü açılınca tuşlar panele
+     * bırakılıyor ve parmak kalkarken gelen ACTION_UP paneldeki ilk satırı
+     * tıklayıp menüyü anında kapatıyordu (Dean: "basılı tutma ayarları açıp
+     * kapatıyor"). Ekran bu olayı panele iletmeden önce burayı sormalı.
+     */
+    fun consumesPendingUp(e: KeyEvent): Boolean {
+        if (e.action != KeyEvent.ACTION_UP || longFired[e.keyCode] != true) return false
+        longFired[e.keyCode] = false
+        return true
+    }
+
     // true → olay tüketildi (native focus gezinmesi engellenir).
     fun process(e: KeyEvent): Boolean {
         val code = e.keyCode

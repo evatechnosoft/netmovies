@@ -650,6 +650,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                         true
                     }
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
+                    // Uzun basışla açılan panelin, tuş bırakılırken kendi kendini
+                    // kapatmasını engeller — bırakma olayı controller'a aittir.
+                    controller.consumesPendingUp(ke.nativeKeyEvent) -> true
                     // Bölüm seçici de bir modal: tuşlar yutulunca liste hiç hareket
                     // etmiyordu (Dean: "bölüm seçimi açılıyor, hareket etmiyor").
                     showSettings || showSeek || showStartPanel -> false
