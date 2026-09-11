@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "NetMoviesTV"
 include(":app")
+include(":wear")
