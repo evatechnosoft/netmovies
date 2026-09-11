@@ -179,6 +179,10 @@
             <li>
                 <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
                     <i class="fas fa-broadcast-tower"></i><span class="channels-list-title">{{ channel.title }}</span>
+                    {%- if channel.simdi and channel.simdi.program %}
+                    {# Yayın rehberi (EPG): kanal listesinde asıl merak edilen "şu an ne oynuyor". #}
+                    <span class="channels-list-now">▶ {{ channel.simdi.program }}{% if channel.simdi.sonraki %} <span class="channels-list-next">› {{ channel.simdi.sonraki }}</span>{% endif %}</span>
+                    {%- endif %}
                 </a>
             </li>
             {% endfor %}

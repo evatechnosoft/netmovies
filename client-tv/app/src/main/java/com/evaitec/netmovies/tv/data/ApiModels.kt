@@ -31,6 +31,19 @@ data class MediaItem(
     val autoplay: Boolean = false,
     // Telefon belirli bir bölümü seçtiyse (0 tabanlı sıra); -1 = kayıttan/baştan.
     val episode: Int = -1,
+    // Canlı kanallarda yayın rehberi (EPG): "şu an ne oynuyor". Rehberde
+    // olmayan kanalda null gelir — kart yine çizilir, satır boş kalır.
+    val simdi: NowPlaying? = null,
+)
+
+// /api/v1/quick_channels → kanal başına yayın rehberi satırı.
+@Serializable
+data class NowPlaying(
+    val program: String = "",
+    val ozet: String = "",
+    val baslangic: String = "",
+    val bitis: String = "",
+    val sonraki: String = "",
 )
 
 // /api/v1/load_links yanıtı:

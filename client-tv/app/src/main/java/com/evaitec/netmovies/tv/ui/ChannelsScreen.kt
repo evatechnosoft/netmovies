@@ -203,7 +203,19 @@ private fun ChannelRow(channel: MediaItem, modifier: Modifier = Modifier, onClic
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!channel.category.isNullOrBlank()) {
+            // Rehber varsa kategori yerine "şu an ne oynuyor" yazılır: kanal
+            // listesinde asıl merak edilen bu, kategori zaten üstteki sekmede.
+            val simdi = channel.simdi
+            if (simdi != null && simdi.program.isNotBlank()) {
+                Text(
+                    text = "▶ " + simdi.program +
+                        (if (simdi.sonraki.isNotBlank()) "   ›  " + simdi.sonraki else ""),
+                    fontSize = NmType.Caption,
+                    color = NmColor.OnSurfaceMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else if (!channel.category.isNullOrBlank()) {
                 Text(
                     text = channel.category.orEmpty().replace(";", " · "),
                     fontSize = NmType.Caption,

@@ -10,6 +10,7 @@ from CLI  import konsol
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
+from ..Libs import epg
 
 # Ölü yayın sunucuları listeden düşürülür: iptv-org listesi bayatlıyor ve süresi
 # dolmuş domainler (park sayfasına düşen `nord.ayakkabiparti.lol` gibi) kanal
@@ -74,4 +75,15 @@ async def collect_live_channels(check_health: bool = True) -> list[dict[str, str
 @api_v1_router.get("/quick_channels")
 async def quick_channels(request: Request):
     del request
-    return {**api_v1_global_message, "result": await collect_live_channels()}
+    kanallar = await collect_live_channels()
+
+    # Rehber ilk çağrıda indirilir (6 saat tazedir); indirilemezse kanal listesi
+    # yine döner, yalnız "şimdi" alanı boş kalır — canlı TV rehber yüzünden
+    # açılmamazlık etmesin.
+    await epg.tazele()
+    for kanal in kanallar:
+        bilgi = epg.simdi(str(kanal.get("title") or ""))
+        if bilgi:
+            kanal["simdi"] = bilgi
+
+    return {**api_v1_global_message, "result": kanallar}

@@ -340,3 +340,17 @@
   .qn-btn span { font-size: var(--font-size-xs); }
   .qn-sep { display: none; }
 }
+
+/* Yayın rehberi (EPG): kanal adının yanında "şu an ne oynuyor". Rehberde
+   olmayan kanalda hiç basılmaz, satır yüksekliği değişmez. */
+.channels-list-now {
+  margin-left: auto;
+  padding-left: var(--spacing-md);
+  font-size: var(--font-size-xs, 0.78rem);
+  color: var(--text-muted-color, rgba(237, 237, 242, 0.7));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55%;
+}
+.channels-list-next { opacity: 0.6; }
