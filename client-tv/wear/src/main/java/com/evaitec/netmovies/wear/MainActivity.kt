@@ -32,7 +32,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -78,6 +82,10 @@ private fun MiniEkran() {
     var durum by remember { mutableStateOf("") }
     var ogeler by remember { mutableStateOf<List<KatalogOgesi>>(emptyList()) }
     var geriAn by remember { mutableStateOf(0L) }
+    // Döner çerçeve (Galaxy Watch halkası) sarma için: yatay kaydırma zaten yön
+    // tuşu, sarmaya ayrı bir hareket gerekiyordu (Dean: "geri sarmayı halkayla").
+    var halkaBirikim by remember { mutableStateOf(0f) }
+    val halkaOdak = remember { FocusRequester() }
 
     fun titre() {
         runCatching {
@@ -105,6 +113,8 @@ private fun MiniEkran() {
         }
     }
 
+    LaunchedEffect(Unit) { runCatching { halkaOdak.requestFocus() } }
+
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar.
@@ -128,6 +138,20 @@ private fun MiniEkran() {
         Modifier
             .fillMaxSize()
             .background(Zemin)
+            // Halka: her tam adımda 10 saniye. Küçük tıklar birikir, eşiği geçince
+            // tek komut gider — her mikro harekette istek atmak sarmayı titretiyor.
+            .onRotaryScrollEvent { olay ->
+                halkaBirikim += olay.verticalScrollPixels
+                val adim = 60f
+                if (kotlin.math.abs(halkaBirikim) >= adim) {
+                    val yon = if (halkaBirikim > 0) 10 else -10
+                    halkaBirikim = 0f
+                    komut("""{"type":"transport","action":"seek","value":$yon}""")
+                }
+                true
+            }
+            .focusRequester(halkaOdak)
+            .focusable()
             // Ekranın tamamı dokunmatik yüzey: kaydır = yön, dokun = OK.
             .pointerInput(Unit) {
                 detectTapGestures { komut("""{"type":"key","key":"CENTER"}""") }
@@ -177,8 +201,19 @@ private fun MiniEkran() {
 
             Row(
                 Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             ) {
+                // Ana menü: televizyonu ana ekrana döndürür — saatte gezinmek
+                // yerine tek dokunuş (Dean: "ana menü").
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Kart)
+                        .clickable { komut("""{"type":"nav","screen":"home"}""") },
+                    contentAlignment = Alignment.Center,
+                ) { Text("☰", color = Metin, fontSize = 15.sp) }
+
                 Box(
                     Modifier
                         .size(52.dp)

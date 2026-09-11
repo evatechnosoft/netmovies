@@ -4,7 +4,7 @@
 //
 // Sürüm TV'den bağımsız: saat arayüzü ayrı gelişiyor, her TV sürümünde saat APK'sı
 // yeniden yayınlanmasın. OTA `?target=wear` ile bu APK'yı ayırır.
-val wearVersion = "0.1.0"
+val wearVersion = "0.1.1"
 
 plugins {
     id("com.android.application")
