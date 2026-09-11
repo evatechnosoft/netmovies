@@ -14,6 +14,9 @@ from urllib.parse import urljoin
 
 # Ön-yükleme: kaç segment, ve görevlerin GC'ye yem olmaması için referans kümesi.
 PREFETCH_COUNT   = 3
+# Gövdeye bakarak manifest tespiti yapılırken okunacak üst sınır: segmentler
+# megabaytlarca, manifest en fazla birkaç yüz KB (718 segmentlik varyant ~60 KB).
+_MANIFEST_TAVANI = 1_000_000
 _prefetch_tasks  : set[asyncio.Task] = set()
 
 
@@ -99,11 +102,29 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             konsol.print(f"[red]⛔ Upstream {response.status_code}:[/red] {target_url[:110]}")
             return Response(status_code=response.status_code, content=f"Upstream Error: {response.status_code}")
 
-        # 3. HLS Tespiti (URL + Header)
+        # 3. HLS Tespiti (URL + Header + GÖVDE)
         is_hls       = detect_hls_from_url(target_url)
         content_type = response.headers.get("content-type", "").lower()
         if "mpegurl" in content_type or "m3u8" in content_type:
             is_hls = True
+
+        # Son çare gövde: kimi sağlayıcı manifesti uzantısız yolda ve yanlış
+        # content-type ile veriyor (MolyStream: `/embed/<id>/q/1`, `text/html`).
+        # URL kalıbına bakan tespit MASTER'ı tanıyıp ALT playlist'i kaçırıyordu;
+        # alt playlist yeniden yazılmayınca segmentler ham CDN adresiyle
+        # istemciye gidiyor, proxy jetonu o host'u kapsamıyor ve oynatma birkaç
+        # saniye sonra kesiliyordu (Dean: "başlıyor, birkaç sn sonra bulunamadı").
+        # Kalıp listesine her sağlayıcı için satır eklemek kırılgan; `#EXTM3U`
+        # kesin imzadır.
+        onden_okunan: bytes | None = None
+        if not is_hls:
+            uzunluk = response.headers.get("content-length")
+            # Segmentler megabaytlarca; manifest en fazla birkaç yüz KB. Boyut
+            # bilinmiyorsa da okunur — chunked manifest de var.
+            if uzunluk is None or uzunluk.isdigit() and int(uzunluk) <= _MANIFEST_TAVANI:
+                onden_okunan = await response.aread()
+                if onden_okunan.lstrip()[:7] == b"#EXTM3U":
+                    is_hls = True
 
 
         detected_content_type = "application/vnd.apple.mpegurl" if is_hls else None
@@ -122,8 +143,8 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
 
         # HLS manifest ise içeriği yeniden yaz
         if is_hls:
-            # Tüm içeriği oku
-            content = await response.aread()
+            # Gövde tespiti için zaten okunmuşsa ikinci kez okunmaz (stream tükenir).
+            content = onden_okunan if onden_okunan is not None else await response.aread()
             await response.aclose()
 
             # Manifest URL'lerini yeniden yaz
@@ -142,6 +163,18 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
                 status_code = response.status_code,
                 headers     = final_headers,
                 media_type  = final_headers.get("Content-Type")
+            )
+
+        # Gövde tespit için okunmuş ama manifest çıkmamışsa: akış tüketildi,
+        # yeniden okunamaz — elde olan baytlar doğrudan döner.
+        if onden_okunan is not None:
+            await response.aclose()
+            final_headers["Content-Length"] = str(len(onden_okunan))
+            return Response(
+                content     = onden_okunan,
+                status_code = response.status_code,
+                headers     = final_headers,
+                media_type  = final_headers.get("Content-Type"),
             )
 
         # HLS segment ise ve cache'in tekil sınırına sığıyorsa belleğe al, aksi halde stream et
