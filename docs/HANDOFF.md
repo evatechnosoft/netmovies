@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 11 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `1e50123` · temiz, push'lı
-**TV sürümü:** `v0.1.75-poc` — OTA'da hazır, **cihaza kurulmadı**
+**Dal:** `fix/general-stability` @ `f29ae4c` · temiz, push'lı
+**TV sürümü:** `v0.1.76-poc` — OTA'da hazır, **cihaza kurulmadı**
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi ayakta · `smoke.sh` YEŞİL
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** · Yönetim paneli parolası: `ADMIN_PASS=1234` (Basic auth)
@@ -31,6 +31,7 @@
 | **Canlı kanal katmanı** (panelden düzenlenir) | ✔ | Yönetim → Canlı Kanallar · `Ad \| Adres \| Grup` |
 | "TV'ye yaz" ayarının sunucu karşılığı | ✔ | `rc_text_to_tv=false` → uç 	"kapalı" diyor |
 | TV: uzun basışla açılan panel kendini kapatıyordu | ⚠ kod var, **cihazda denenmedi** | `consumesPendingUp` |
+| **Ajanda** — `/ajanda` + `/api/v1/agenda` + TV ekranı | ✔ | hafta 26 kayıt/8 gün · ay 36 kayıt/14 gün (20 dizi + 16 film) |
 
 **Canlı kanal kartı nasıl çalışır:** satır satır `Ad | Adres | Grup`. Adres
 `.m3u8` olabilir ya da yayıncının **resmi YouTube canlı yayını** (M3UPlaylist
@@ -42,17 +43,15 @@ bunlar için başka adres gerekir, listeye konmadı.
 
 ## 0.2 SIRADAKİ İŞ
 
-1. **TV'ye `v0.1.75` kur ve dene** (cihaz işi). Özellikle: OK'i basılı tutunca
-   ayar menüsü AÇIK KALIYOR mu ve D-pad ile geziliyor mu.
-2. **Ajanda sayfası** — plan onaylı, kod yok. TMDB uçları sınandı: `discover/tv`
-   (TR bu hafta 21 dizi), `movie/upcoming` (TR 15 film).
-   `GET /api/v1/agenda?view=week|month` · günde 1 tazeleme · `/ajanda` · TV'de WebView.
-3. **Canlı yayın bilgisi (EPG)** — "şu an ne oynuyor" verisi yok. Kaynak
+1. **TV'ye `v0.1.76` kur ve dene** (cihaz işi). Bakılacaklar: OK'i basılı tutunca
+   ayar menüsü AÇIK KALIYOR mu ve D-pad ile geziliyor mu · ana menüde **Ajanda**
+   açılıyor mu, SAĞ/SOL hafta ↔ ay geçişi çalışıyor mu.
+2. **Canlı yayın bilgisi (EPG)** — "şu an ne oynuyor" verisi yok. Kaynak
    araştırılmadı; YouTube canlı yayınlarda video başlığı zaten program adını
    taşıyor (`Show MAX Canlı Yayın …`), ucuz bir ilk adım olabilir.
-4. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
+3. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
    `docs/mini-widget-taslak.html`. Ayrı Gradle modülü, kendi manifesti.
-5. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
+4. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
 
 **Kapanan sorular:** +18 içerik açıkta değil — katalogda ve aramada yok
 (`adult_providers`), Özel Koleksiyon'da; oraya **logoya 5 hızlı tık veya 3 sn
