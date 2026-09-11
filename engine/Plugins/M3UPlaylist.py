@@ -22,6 +22,8 @@ from KekikStream.Core import (
     ExtractResult,
 )
 
+_YOUTUBE_ADRESI = re.compile(r"(?:youtube\.com|youtu\.be)/", re.I)
+
 # key="value" çiftlerini SIRADAN BAĞIMSIZ yakalar (Gemini taslağındaki
 # sıra-bağımlı tek-regex hatasının düzeltilmiş hali).
 _ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
@@ -112,12 +114,39 @@ class M3UPlaylist(PluginBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._items: list[dict] = []
+        self._damga: dict[str, float] = {}
         self._load_sources()
         # Grupları kategori olarak main_page'e yaz (UI kategori sekmeleri buradan gelir)
         groups = sorted({it["group"] for it in self._items})
         self.main_page = {f"m3u://group/{g}": g for g in groups} or {"m3u://group/Genel": "Genel"}
 
     # ------------------------------------------------------------------ Kaynak yükleme
+    def _tazele(self):
+        """Yerel liste dosyası değiştiyse yeniden okur.
+
+        Yönetim panelindeki "Canlı Kanallar" kartı `/data/lists/ozel.m3u`'yu
+        yazıyor; eklenti listeyi yalnız kurulumda okusaydı her düzenlemeden sonra
+        engine'i yeniden başlatmak gerekirdi.
+        """
+        damga = {}
+        for src in self._yerel_kaynaklar():
+            try:
+                damga[src] = os.path.getmtime(src)
+            except OSError:
+                continue
+        if damga == self._damga:
+            return
+        self._damga = damga
+        self._items = []
+        self._load_sources()
+        gruplar = sorted({it["group"] for it in self._items})
+        self.main_page = {f"m3u://group/{g}": g for g in gruplar} or {"m3u://group/Genel": "Genel"}
+
+    @staticmethod
+    def _yerel_kaynaklar() -> list[str]:
+        raw = os.getenv("M3U_SOURCES", "").strip()
+        return [s.strip() for s in raw.split(",") if s.strip() and not s.strip().startswith(("http://", "https://"))]
+
     def _load_sources(self):
         raw = os.getenv("M3U_SOURCES", "").strip()
         if not raw:
@@ -143,6 +172,7 @@ class M3UPlaylist(PluginBase):
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         if page and page > 1:
             return []
+        self._tazele()
         group = self._group_of(url)
         return [
             MainPageResult(
@@ -157,6 +187,7 @@ class M3UPlaylist(PluginBase):
 
     # ------------------------------------------------------------------ Arama
     async def search(self, query: str) -> list[SearchResult]:
+        self._tazele()
         q = query.casefold().strip()
         return [
             SearchResult(
@@ -170,6 +201,7 @@ class M3UPlaylist(PluginBase):
 
     # ------------------------------------------------------------------ Detay
     async def load_item(self, url: str) -> MovieInfo:
+        self._tazele()
         item = next((it for it in self._items if it["stream_url"] == url), None)
         if not item:
             return MovieInfo(url=url, title=url)
@@ -182,9 +214,34 @@ class M3UPlaylist(PluginBase):
 
     # ------------------------------------------------------------------ Linkler
     async def load_links(self, url: str) -> list[ExtractResult]:
+        self._tazele()
         item = next((it for it in self._items if it["stream_url"] == url), None)
         headers = item["headers"] if item else {}
         title   = item["title"] if item else "M3U"
+
+        # Kanalların bir kısmı yayıncının RESMİ YouTube canlı yayını (ATV, Show TV…).
+        # YouTube adresi doğrudan oynatılamaz: yt-dlp canlı yayının HLS master'ını
+        # üretir (ses ayrı rendition olduğu için `manifest_url` alınır, tek format
+        # değil — DDizi'deki sessiz-video dersiyle aynı).
+        if _YOUTUBE_ADRESI.search(url):
+            from Plugins.__warp_client import ytdlp_info
+
+            info = await ytdlp_info(url, timeout=90.0)
+            master = next(
+                (f["manifest_url"] for f in (info or {}).get("formats") or [] if f.get("manifest_url")),
+                None,
+            )
+            if master:
+                return [
+                    ExtractResult(
+                        name       = f"{self.name} | {title} (canlı)",
+                        url        = master,
+                        referer    = "",
+                        user_agent = headers.get("User-Agent") or "Mozilla/5.0",
+                    )
+                ]
+            return []
+
         return [
             ExtractResult(
                 name          = f"{self.name} | {title}",

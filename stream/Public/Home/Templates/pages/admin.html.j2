@@ -45,6 +45,17 @@
         <label class="admin-check"><input type="checkbox" id="admin-rc-text"> <span><strong>TV'ye yaz</strong> düğmesi görünsün (arama kutusundaki metni televizyonun arama kutusuna yollar)</span></label>
     </section>
 
+    <!-- Canlı Kanallar -->
+    <section class="admin-card">
+        <h2 class="admin-card-title"><i class="fas fa-tv"></i> Canlı Kanallar</h2>
+        <p class="admin-card-sub">Kendi kanal listen. Her satır <code>Ad | Adres | Grup</code> — grup boş bırakılırsa <em>Genel</em> olur. Adres bir <code>.m3u8</code> yayını olabileceği gibi yayıncının <strong>resmi YouTube canlı yayını</strong> da olabilir (ATV, Show TV…); adresi olduğu gibi yapıştır, oynatıcı çözer. Hazır ülke listesi bunun üstüne eklenir, buradaki satırlar onu değiştirmez. Kaydettiğin an geçerli olur, yeniden başlatma gerekmez.</p>
+        <textarea id="admin-kanallar" rows="8" spellcheck="false" placeholder="ATV | https://www.youtube.com/@atv/live | Ulusal&#10;Show TV | https://www.youtube.com/@showtv/live | Ulusal" style="width:100%; font-family:ui-monospace,monospace; font-size:0.85rem;"></textarea>
+        <div class="admin-rating-row">
+            <button type="button" id="admin-kanallar-kaydet" class="button button-secondary">Kanalları Kaydet</button>
+            <span id="admin-kanallar-status" class="admin-muted"></span>
+        </div>
+    </section>
+
     <!-- Siteye giriş PIN'i -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fas fa-lock"></i> Siteye Giriş PIN'i</h2>

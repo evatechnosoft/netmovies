@@ -7,6 +7,9 @@ from .            import home_router, home_template, build_context, fuck_dmca, g
 from ..Libs       import admin_config
 from urllib.parse import unquote_plus
 
+import os
+import re
+
 
 # --------------------------------------------------------------------------- Sayfa
 @home_router.get("/admin", response_class=HTMLResponse)
@@ -176,3 +179,73 @@ async def admin_save_repos(request: Request):
     cfg["custom_repos"] = repos
     admin_config.save_config(cfg)
     return JSONResponse({"ok": True, "custom_repos": cfg["custom_repos"]})
+
+
+# --------------------------------------------------------------------------- Canlı kanallar
+# Kendi kanal listesi. Satır biçimi kasten sade: `Ad | URL | Grup` — M3U yazmak
+# kullanıcıya kalmasın. Adres m3u8 olabileceği gibi yayıncının RESMİ YouTube canlı
+# yayını da olabilir (ATV, Show TV…); eklenti YouTube'u yt-dlp ile çözer.
+#
+# Engine bu dosyayı `/data/lists/ozel.m3u` olarak salt-okunur bağlıyor; stream
+# aynı klasörü `/lists` altında yazılabilir görüyor. Eklenti dosyanın değişme
+# zamanına bakıyor, kaydetmek için yeniden başlatma gerekmiyor.
+_KANAL_DOSYASI = "/lists/ozel.m3u"
+_KANAL_SATIRI  = re.compile(r'^#EXTINF:-1(?P<oz>[^,]*),(?P<ad>.*)$')
+
+
+def _kanallari_oku() -> list[dict[str, str]]:
+    try:
+        with open(_KANAL_DOSYASI, "r", encoding="utf-8") as dosya:
+            satirlar = dosya.read().splitlines()
+    except OSError:
+        return []
+
+    kanallar : list[dict[str, str]] = []
+    bekleyen : dict[str, str] | None = None
+    for satir in satirlar:
+        eslesme = _KANAL_SATIRI.match(satir.strip())
+        if eslesme:
+            grup = re.search(r'group-title="([^"]*)"', eslesme.group("oz"))
+            bekleyen = {"ad": eslesme.group("ad").strip(), "grup": grup.group(1) if grup else "Genel", "url": ""}
+        elif bekleyen and satir.strip() and not satir.startswith("#"):
+            bekleyen["url"] = satir.strip()
+            kanallar.append(bekleyen)
+            bekleyen = None
+    return kanallar
+
+
+@home_router.get("/api/admin/kanallar")
+async def admin_get_kanallar():
+    return JSONResponse({"ok": True, "kanallar": _kanallari_oku()})
+
+
+@home_router.post("/api/admin/kanallar")
+async def admin_save_kanallar(request: Request):
+    body     = await request.json()
+    kanallar = body.get("kanallar")
+    if not isinstance(kanallar, list):
+        return JSONResponse({"ok": False, "hata": "kanallar listesi bekleniyor"}, status_code=400)
+
+    satirlar = ["#EXTM3U"]
+    temiz    : list[dict[str, str]] = []
+    for kanal in kanallar[:200]:
+        if not isinstance(kanal, dict):
+            continue
+        ad  = str(kanal.get("ad") or "").strip()[:80]
+        url = str(kanal.get("url") or "").strip()[:500]
+        # Yalnız http(s): dosya yolu yazılırsa engine kabının içine bakar, kafa karıştırır.
+        if not ad or not url.startswith(("http://", "https://")):
+            continue
+        grup = (str(kanal.get("grup") or "").strip() or "Genel")[:40]
+        satirlar.append(f'#EXTINF:-1 group-title="{grup}",{ad}')
+        satirlar.append(url)
+        temiz.append({"ad": ad, "url": url, "grup": grup})
+
+    try:
+        os.makedirs(os.path.dirname(_KANAL_DOSYASI), exist_ok=True)
+        with open(_KANAL_DOSYASI, "w", encoding="utf-8") as dosya:
+            dosya.write("\n".join(satirlar) + "\n")
+    except OSError as hata:
+        return JSONResponse({"ok": False, "hata": f"yazılamadı: {hata}"}, status_code=500)
+
+    return JSONResponse({"ok": True, "kanallar": temiz})

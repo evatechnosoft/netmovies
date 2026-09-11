@@ -71,3 +71,6 @@ autostart.log
 # Acilis kaynak raporu ciktilari (makineye ozel)
 kaynak-son.txt
 KAYNAK-UYARI.txt
+
+# Yonetim panelinden yazilan kanal listesi (makineye ozel)
+lists/ozel.m3u

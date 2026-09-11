@@ -87,6 +87,14 @@ def build_command(veri: dict) -> dict | str:
         return {"type": "transport", "action": action, "value": deger}
 
     if tur == "text":
+        # Yönetim → Telefon Kumandası → "TV'ye yaz" kapalıysa uç da kapalı olmalı.
+        # Ayar şimdiye kadar yalnız telefondaki düğmeyi gizliyordu; uç metni kabul
+        # etmeye devam ediyordu, yani kapatmanın gerçek bir karşılığı yoktu.
+        from Public.Home.Libs import admin_config
+
+        if not admin_config.load_config().get("rc_text_to_tv", True):
+            return "TV'ye yazma kapalı (Yönetim → Telefon Kumandası)"
+
         # Alan adı bilerek `value` DEĞİL: transport'un `value`'su sayısaldır ve
         # istemci tarafında (Kotlin) aynı ada iki tip sığmaz.
         return {

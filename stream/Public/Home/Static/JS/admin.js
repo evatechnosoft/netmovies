@@ -220,6 +220,7 @@ async function init() {
     renderRemote();
     loadHealth();
     loadRepos();
+    loadKanallar();
 
     $("#admin-min-rating").addEventListener("input", (e) => {
         $("#admin-min-rating-val").textContent = e.target.value;
@@ -227,6 +228,7 @@ async function init() {
     $("#admin-save").addEventListener("click", save);
     $("#admin-health-refresh").addEventListener("click", () => loadHealth(true));
     $("#admin-repo-add")?.addEventListener("click", addRepo);
+    $("#admin-kanallar-kaydet")?.addEventListener("click", saveKanallar);
     $("#admin-gemini-test")?.addEventListener("click", testGemini);
 
     $("#admin-provider-watchbuddy")?.addEventListener("click", () => {
@@ -316,6 +318,47 @@ async function addRepo() {
     CONFIG.custom_repos = currentRepos;
     if (input) input.value = "";
     loadRepos();
+}
+
+// ── Canlı Kanallar ──────────────────────────────────────────────────────────
+// Satır biçimi `Ad | Adres | Grup`; M3U'yu sunucu yazar.
+async function loadKanallar() {
+    const kutu = $("#admin-kanallar");
+    if (!kutu) return;
+    try {
+        const veri = await jget("/api/admin/kanallar");
+        kutu.value = (veri.kanallar || [])
+            .map((k) => `${k.ad} | ${k.url}${k.grup && k.grup !== "Genel" ? " | " + k.grup : ""}`)
+            .join(String.fromCharCode(10));
+    } catch {
+        // Dosya henüz yoksa boş kalır; kaydedince oluşur.
+    }
+}
+
+async function saveKanallar() {
+    const kutu = $("#admin-kanallar");
+    const durum = $("#admin-kanallar-status");
+    if (!kutu) return;
+
+    const kanallar = kutu.value
+        .split(String.fromCharCode(10))
+        .map((satir) => satir.split("|").map((p) => p.trim()))
+        .filter((p) => p.length >= 2 && p[0] && p[1])
+        .map(([ad, url, grup]) => ({ ad, url, grup: grup || "Genel" }));
+
+    if (durum) durum.textContent = "Kaydediliyor…";
+    try {
+        const yanit = await fetch("/api/admin/kanallar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kanallar }),
+        });
+        const veri = await yanit.json();
+        if (!veri.ok) throw new Error(veri.hata || "kaydedilemedi");
+        if (durum) durum.textContent = `${veri.kanallar.length} kanal kaydedildi.`;
+    } catch (e) {
+        if (durum) durum.textContent = `Kaydedilemedi: ${e.message}`;
+    }
 }
 
 init();
