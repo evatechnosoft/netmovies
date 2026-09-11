@@ -31,6 +31,32 @@ def _sade(metin: str) -> str:
     return str(metin or "").translate(_HARFLER).lower()
 
 
+_ARTIKEL  = {"the", "a", "an"}
+_AYRACLAR = (":", " - ", " – ", " — ", "|")
+
+
+def _varyantlar(sorgu: str) -> list[str]:
+    """Giderek kısalan arama varyantları — ilki boş dönerse sıradaki denenir.
+
+    Kaynak sitelerin arama motorları tam ifade eşleştiriyor: "the odyssey" hiçbir
+    kaynakta sonuç vermezken "odyssey" iki kaynakta buluyor; "Örümcek Adam:
+    Yepyeni Bir Gün" bulunmuyor ama "Örümcek Adam" bulunuyor.
+    """
+    varyant = [sorgu]
+
+    for ayrac in _AYRACLAR:
+        if ayrac in sorgu:
+            varyant.append(sorgu.split(ayrac)[0].strip())
+
+    kelimeler = sorgu.split()
+    if len(kelimeler) > 1 and _sade(kelimeler[0]) in _ARTIKEL:
+        varyant.append(" ".join(kelimeler[1:]))
+    if len(kelimeler) > 2:
+        varyant.append(" ".join(kelimeler[:2]))
+
+    return list(dict.fromkeys(v for v in varyant if len(v) >= 3))
+
+
 def _alakali(ogeler: list, sorgu: str) -> list:
     """Sorguyu yok sayan kaynakları eler.
 
@@ -74,20 +100,26 @@ async def search_all(request: Request):
     adlar = await fuck_dmca("/get_plugin_names", client_headers=basliklar)
     adlar = [ad for ad in (adlar or []) if ad not in gizli]
 
+    varyantlar = _varyantlar(sorgu)
+
     async def tek(ad: str) -> list:
-        try:
-            sonuc = await asyncio.wait_for(
-                fuck_dmca("/search", params={"plugin": ad, "query": sorgu}, client_headers=basliklar),
-                timeout = _KAYNAK_TIMEOUT,
-            )
-        except asyncio.TimeoutError:
-            return []
-        except Exception:
-            # Tek kaynağın çökmesi bütün aramayı düşürmemeli — kaynaklar sık sık
-            # ölü domain / WAF 403 döndürüyor, diğerleri yine sonuç verir.
-            return []
-        # Kaynak adı sonuçta taşınmalı: kumanda "TV'de oynat" derken plugin gerekir.
-        return [{**item, "plugin": ad} for item in (sonuc or []) if isinstance(item, dict)]
+        for varyant in varyantlar:
+            try:
+                sonuc = await asyncio.wait_for(
+                    fuck_dmca("/search", params={"plugin": ad, "query": varyant}, client_headers=basliklar),
+                    timeout = _KAYNAK_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                return []
+            except Exception:
+                # Tek kaynağın çökmesi bütün aramayı düşürmemeli — kaynaklar sık sık
+                # ölü domain / WAF 403 döndürüyor, diğerleri yine sonuç verir.
+                return []
+            # Kaynak adı sonuçta taşınmalı: kumanda "TV'de oynat" derken plugin gerekir.
+            ogeler = [{**item, "plugin": ad} for item in (sonuc or []) if isinstance(item, dict)]
+            if ogeler:
+                return ogeler
+        return []
 
     gruplar = await asyncio.gather(*(tek(ad) for ad in adlar), return_exceptions=True)
 

@@ -37,6 +37,11 @@ async def resolve_sources(request: Request):
     )
 
     if isinstance(result, dict):
+        # `fuck_dmca` sonucu 180sn cache'liyor ve AYNI nesneyi döndürüyor. Aşağıdaki
+        # `result["sources"] = ...` ataması doğrudan cache'teki kaydı değiştiriyordu:
+        # ikinci çağrı proxy URL'ini bir kez daha sarıyor, üçüncüsü bir kez daha —
+        # `/proxy/video?url=…/proxy/video?url=…` ve 403. Kopya üzerinde çalışılır.
+        result   = {**result}
         base_url = str(request.base_url).rstrip("/")
         result["sources"] = route_through_proxy(decorate(result.get("sources") or []), base_url)
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"

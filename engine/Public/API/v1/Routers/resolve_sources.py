@@ -20,6 +20,7 @@ from CLI    import konsol
 from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
+from ..Libs.arama_varyant import query_variants
 from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
@@ -34,21 +35,6 @@ ALTERNATIVE_ORDER = _ONCELIKLI + _DIGERLERI
 # Bir alternatif sağlayıcıya ayrılan üst süre. Ölü site (DNS/connect timeout) eskiden
 # httpx'in kendi süresine kadar zinciri bekletiyordu; bütçe aşılırsa o sağlayıcı atlanır.
 ALTERNATIVE_TIMEOUT = 25
-
-# Arama başlığındaki site gürültüsü.
-_NOISE = (
-    "izle", "full hd", "hd", "4k", "1080p", "1080", "720p", "720",
-    "türkçe", "turkce", "dublaj", "altyazılı", "altyazili", "altyazı", "altyazi",
-    "dizisi", "filmi",
-)
-
-
-def clean_title(title: str | None) -> str:
-    text = (title or "").lower()
-    for noise in _NOISE:
-        text = text.replace(noise, " ")
-    return " ".join(text.split()).strip(" -·:")
-
 
 class Diagnostics:
     """İstemciye de dönen teşhis kaydı — 'neden açılmadı' sorusu artık cevaplanabilir."""
@@ -122,26 +108,38 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
     ], episodes
 
 
-async def _search_match(plugin_name: str, query: str, diag: Diagnostics) -> str | None:
-    """Alternatif sağlayıcıda aynı başlığı arar, en olası eşleşmenin URL'ini döner."""
+async def _search_match(plugin_name: str, queries: list[str], diag: Diagnostics) -> str | None:
+    """Alternatif sağlayıcıda aynı başlığı arar, en olası eşleşmenin URL'ini döner.
+
+    `queries` giderek kısalan varyant listesidir; ilki sonuç vermezse sıradaki
+    denenir (bkz. `query_variants`).
+    """
     try:
-        plugin  = plugin_manager.select_plugin(plugin_name)
-        results = await plugin.search(query) or []
+        plugin = plugin_manager.select_plugin(plugin_name)
     except Exception as hata:
         diag.add("fail", "arama", f"{plugin_name} · {type(hata).__name__}: {hata}")
         return None
 
-    if not results:
-        diag.add("warn", "arama", f"{plugin_name} · sonuç yok")
-        return None
+    for query in queries:
+        try:
+            results = await plugin.search(query) or []
+        except Exception as hata:
+            diag.add("fail", "arama", f"{plugin_name} · '{query}' · {type(hata).__name__}: {hata}")
+            continue
 
-    def matches(result) -> bool:
-        title = (getattr(result, "title", "") or "").lower()
-        return query in title or title in query
+        if not results:
+            continue
 
-    chosen = next((r for r in results if matches(r)), results[0])
-    diag.add("info", "arama", f"{plugin_name} · eşleşti: {getattr(chosen, 'title', '?')}")
-    return getattr(chosen, "url", None)
+        def matches(result) -> bool:
+            title = (getattr(result, "title", "") or "").lower()
+            return query in title or title in query
+
+        chosen = next((r for r in results if matches(r)), results[0])
+        diag.add("info", "arama", f"{plugin_name} · '{query}' → eşleşti: {getattr(chosen, 'title', '?')}")
+        return getattr(chosen, "url", None)
+
+    diag.add("warn", "arama", f"{plugin_name} · sonuç yok ({len(queries)} varyant denendi)")
+    return None
 
 
 async def _with_budget(coro, plugin_name: str, stage: str, diag: Diagnostics):
@@ -176,8 +174,8 @@ async def resolve_sources(request: Request):
     sources, episodes = await _links_for(selected, content, episode, diag)
 
     if mode != "fast":
-        query = clean_title(title)
-        if not query:
+        queries = query_variants(title)
+        if not queries:
             diag.add("warn", "arama", "başlık boş — alternatif sağlayıcılar taranamadı")
         else:
             # Sağlıksız kaynak taranmaz: aggregate_new'de zaten uygulanan süzme burada
@@ -197,20 +195,27 @@ async def resolve_sources(request: Request):
                 if name in plugin_names and name != selected and name not in dead
             ]
             matches    = await asyncio.gather(
-                *(_with_budget(_search_match(name, query, diag), name, "arama", diag) for name in candidates),
+                *(_with_budget(_search_match(name, queries, diag), name, "arama", diag) for name in candidates),
                 return_exceptions=True,
             )
-            for name, match in zip(candidates, matches):
-                if isinstance(match, Exception) or not match:
+            # `match` zaten düz URL; `_links_for` de düz URL bekliyor (seçili
+            # sağlayıcı yolunda `encoded_url` çözülmüş halde geliyor). Burada
+            # yeniden kodlanınca eklentiye "https%3A%2F%2F…" gidiyordu ve
+            # httpx "Request URL is missing an 'http://' … protocol" diyordu —
+            # alternatif sağlayıcıların hiçbiri kaynak veremiyordu.
+            #
+            # Link çekme de paralel: seri döngüde 9 sağlayıcı × bütçe, istemcinin
+            # 60sn'lik süresini aşıyordu — sondaki kaynaklar hiç denenmeden
+            # "kaynak bulunamadı" dönüyordu.
+            bulunanlar = [(n, m) for n, m in zip(candidates, matches) if m and not isinstance(m, Exception)]
+            toplanan   = await asyncio.gather(
+                *(_with_budget(_links_for(n, m, episode, diag), n, "link", diag) for n, m in bulunanlar),
+                return_exceptions=True,
+            )
+            for sonuc in toplanan:
+                if isinstance(sonuc, Exception) or not sonuc:
                     continue
-                # `match` zaten düz URL; `_links_for` de düz URL bekliyor (seçili
-                # sağlayıcı yolunda `encoded_url` çözülmüş halde geliyor). Burada
-                # yeniden kodlanınca eklentiye "https%3A%2F%2F…" gidiyordu ve
-                # httpx "Request URL is missing an 'http://' … protocol" diyordu —
-                # alternatif sağlayıcıların hiçbiri kaynak veremiyordu.
-                found, found_episodes = await _with_budget(
-                    _links_for(name, match, episode, diag), name, "link", diag,
-                ) or ([], [])
+                found, found_episodes = sonuc
                 sources.extend(found)
                 if not episodes and found_episodes:
                     episodes = found_episodes
