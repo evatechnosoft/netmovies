@@ -208,7 +208,10 @@ private fun CategoryRows(
     val modalOpen = showSettingsMenu || menuItem != null
     NmBackHandler(enabled = !modalOpen) {
         if (atTop) {
-            onExit()
+            // Ana ekranda tek GERİ artık çıkmıyor; çıkış GERİ'yi BASILI TUTMAK
+            // (MainActivity.dispatchKeyEvent) ya da HOME. Yanlışlıkla bir basış
+            // uygulamayı kapatıyordu (Dean).
+            Unit
         } else {
             scope.launch {
                 // Odak ÖNCE en üste alınır: sırası ters olunca liste 0'a kayıyor,

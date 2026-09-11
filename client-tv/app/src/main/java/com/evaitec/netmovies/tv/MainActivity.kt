@@ -59,16 +59,31 @@ class MainActivity : ComponentActivity() {
     private var selected by mutableStateOf<MediaItem?>(null)
     private var bekleyenUzak by mutableStateOf<MediaItem?>(null)
 
+    /** GERİ basılı tutulup çıkış tetiklendi mi — bırakma olayı ikinci kez işlenmesin. */
+    private var uzunGeriYapildi = false
+
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val bekleyen = bekleyenUzak
         if (bekleyen == null) {
             // GERİ, Compose'un odak sistemine İNMEDEN önce ekranın işleyicisine
             // gider: odak grupları tuşu "ilk öğeye dön" diye yutuyordu.
             if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
-                if (event.action == android.view.KeyEvent.ACTION_UP) {
+                if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    // GERİ'yi BASILI TUTMAK uygulamadan çıkarır. Tek basış artık
+                    // hiçbir yerde çıkmıyor: ana ekranda yanlışlıkla bir basış
+                    // uygulamayı kapatıyordu (Dean: "çıkması için basılı tutma
+                    // koyalım, zaten istediğimde HOME ile çıkıyorum").
+                    if (event.repeatCount > 0) {
+                        if (!uzunGeriYapildi) { uzunGeriYapildi = true; finish() }
+                        return true
+                    }
+                    uzunGeriYapildi = false
+                    if (com.evaitec.netmovies.tv.input.BackBus.varMi()) return true
+                } else if (event.action == android.view.KeyEvent.ACTION_UP) {
+                    // Uzun basış çıkışı tetiklediyse bırakma olayı yutulur, yoksa
+                    // ekran ayrıca bir GERİ daha işler.
+                    if (uzunGeriYapildi) { uzunGeriYapildi = false; return true }
                     if (com.evaitec.netmovies.tv.input.BackBus.geri()) return true
-                } else if (com.evaitec.netmovies.tv.input.BackBus.varMi()) {
-                    return true
                 }
             }
             return super.dispatchKeyEvent(event)
