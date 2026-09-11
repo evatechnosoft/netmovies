@@ -1,0 +1,67 @@
+{#- NetMovies — Ajanda: yayınlanacak bölümler ve vizyona girecek filmler. -#}
+{% extends "_html_taban.html.j2" %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block icerik %}
+
+<style>
+  .ajanda-ust { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .ajanda-sekme { display:flex; gap:8px; }
+  .ajanda-sekme a { padding:6px 16px; border-radius:999px; border:1px solid rgba(255,255,255,.16); font-size:.9rem; text-decoration:none; color:inherit; }
+  .ajanda-sekme a[aria-current="page"] { background:rgba(139,92,246,.22); border-color:rgba(139,92,246,.6); font-weight:600; }
+  .ajanda-gun { margin-bottom:26px; }
+  .ajanda-gun-baslik { display:flex; align-items:baseline; gap:10px; margin:0 0 10px; font-size:1.05rem; }
+  .ajanda-gun-baslik .gun-adi { opacity:.62; font-size:.86rem; font-weight:400; }
+  .ajanda-bugun .ajanda-gun-baslik { color:#a78bfa; }
+  .ajanda-liste { display:grid; gap:10px; }
+  .ajanda-satir { display:flex; gap:12px; align-items:flex-start; padding:10px; border-radius:12px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
+  .ajanda-satir img { width:52px; height:78px; object-fit:cover; border-radius:8px; flex:0 0 auto; background:rgba(255,255,255,.06); }
+  .ajanda-ad { font-weight:600; margin:0 0 3px; }
+  .ajanda-meta { font-size:.83rem; opacity:.72; display:flex; gap:8px; flex-wrap:wrap; }
+  .ajanda-rozet { padding:1px 8px; border-radius:999px; font-size:.74rem; border:1px solid rgba(255,255,255,.16); }
+  .ajanda-rozet.film { background:rgba(56,189,248,.16); border-color:rgba(56,189,248,.45); }
+  .ajanda-rozet.dizi { background:rgba(167,139,250,.16); border-color:rgba(167,139,250,.45); }
+  .ajanda-ozet { font-size:.82rem; opacity:.6; margin:4px 0 0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .ajanda-bos { opacity:.65; padding:30px 0; }
+</style>
+
+<div class="ajanda-ust">
+  <h1 style="margin:0;">Ajanda</h1>
+  <div class="ajanda-sekme">
+    <a href="/ajanda?view=week"  {% if view == 'week'  %}aria-current="page"{% endif %} class="tv-focusable" data-tv-item="link">Bu hafta</a>
+    <a href="/ajanda?view=month" {% if view == 'month' %}aria-current="page"{% endif %} class="tv-focusable" data-tv-item="link">Bu ay</a>
+  </div>
+  <span style="opacity:.55; font-size:.86rem;">{{ toplam }} kayıt</span>
+</div>
+
+{% if not gunler %}
+  <p class="ajanda-bos">Bu aralıkta yayın yok. (Takvim TMDB'den günde bir tazelenir.)</p>
+{% endif %}
+
+{% for gun in gunler %}
+<section class="ajanda-gun{% if loop.first %} ajanda-bugun{% endif %}">
+  <h2 class="ajanda-gun-baslik">
+    {{ gun.tarih }}
+    <span class="gun-adi">{{ gun.ogeler | length }} kayıt</span>
+  </h2>
+  <div class="ajanda-liste">
+    {% for oge in gun.ogeler %}
+    <article class="ajanda-satir">
+      {% if oge.poster %}<img src="{{ oge.poster }}" alt="" loading="lazy">{% else %}<img src="" alt="">{% endif %}
+      <div style="min-width:0;">
+        <p class="ajanda-ad">{{ oge.baslik }}</p>
+        <div class="ajanda-meta">
+          <span class="ajanda-rozet {{ oge.tur }}">{{ 'Film' if oge.tur == 'film' else 'Dizi' }}</span>
+          <span>{{ oge.bolum }}</span>
+          {% if oge.puan %}<span>★ {{ oge.puan }}</span>{% endif %}
+        </div>
+        {% if oge.ozet %}<p class="ajanda-ozet">{{ oge.ozet }}</p>{% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+{% endblock %}

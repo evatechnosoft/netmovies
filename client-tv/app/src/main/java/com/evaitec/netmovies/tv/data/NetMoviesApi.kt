@@ -163,6 +163,10 @@ interface NetMoviesApi {
     @GET("api/v1/following")
     suspend fun following(): FollowingResponse
 
+    // Ajanda: "bu hafta ne var". `view` = week | month.
+    @GET("api/v1/agenda")
+    suspend fun agenda(@Query("view") view: String = "week"): AgendaResponse
+
     @POST("api/v1/lists/toggle")
     suspend fun toggleList(
         @Query("list_name") listName: String,

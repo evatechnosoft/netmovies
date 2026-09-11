@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
                         var showFollowing by remember { mutableStateOf(false) }
+                        var showAgenda by remember { mutableStateOf(false) }
                         var showChannels by remember { mutableStateOf(false) }
 
                         // Aynı APK telefona da kuruluyor (leanback zorunlu değil).
@@ -183,7 +184,7 @@ class MainActivity : ComponentActivity() {
                                             // atardı; kastedilen NetMovies'in ana ekranı.
                                             "HOME" -> {
                                                 selected = null; showBrowse = false; showAdmin = false
-                                                showFollowing = false; showChannels = false; showKeyMap = false
+                                                showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
                                             }
                                             else -> tusGonder(cmd.key)
                                         }
@@ -209,7 +210,7 @@ class MainActivity : ComponentActivity() {
                                         "nav" -> when (cmd.screen) {
                                             "home" -> {
                                                 selected = null; showBrowse = false; showAdmin = false
-                                                showFollowing = false; showChannels = false; showKeyMap = false
+                                                showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
                                             }
                                             "browse" -> { browseVaultMode = false; showBrowse = true }
                                             "following" -> showFollowing = true
@@ -243,6 +244,8 @@ class MainActivity : ComponentActivity() {
                                     onSelect = pick,
                                     onBack = { showChannels = false },
                                 )
+                            showAgenda ->
+                                com.evaitec.netmovies.tv.ui.AgendaScreen(onBack = { showAgenda = false })
                             showFollowing ->
                                 com.evaitec.netmovies.tv.ui.FollowingScreen(
                                     onSelect = pick,
@@ -274,6 +277,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
                                         onOpenFollowing = { showFollowing = true },
+                                        onOpenAgenda = { showAgenda = true },
                                         onOpenChannels = { showChannels = true },
                                         library = library,
                                     )

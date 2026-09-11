@@ -272,3 +272,32 @@ data class AppUpdateInfo(
     val size: Long = 0,
     val name: String = "",
 )
+
+// /api/v1/agenda — yayınlanacak bölümler ve vizyona girecek filmler, gün gün.
+// Sunucu tarihe göre sıralayıp gruplar (TMDB, günde bir tazelenir); istemci çizer.
+@Serializable
+data class AgendaItem(
+    val tur: String = "",          // "dizi" | "film"
+    val baslik: String = "",
+    val tarih: String = "",
+    val poster: String = "",
+    val bolum: String = "",        // "2. sezon 16. bölüm" | "Vizyon"
+    val ozet: String = "",
+    val puan: Double = 0.0,
+)
+
+@Serializable
+data class AgendaDay(
+    val tarih: String = "",
+    val ogeler: List<AgendaItem> = emptyList(),
+)
+
+@Serializable
+data class AgendaResult(
+    val view: String = "week",
+    val toplam: Int = 0,
+    val gunler: List<AgendaDay> = emptyList(),
+)
+
+@Serializable
+data class AgendaResponse(val result: AgendaResult = AgendaResult())

@@ -37,5 +37,6 @@ from . import (
     remote,
     voice,
     following,
+    agenda,
     app_update,
 )

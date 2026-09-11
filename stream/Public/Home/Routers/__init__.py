@@ -39,6 +39,7 @@ from . import (
     icerik,
     ara,
     rc,
+    ajanda,
     giris,
     izle,
     admin,

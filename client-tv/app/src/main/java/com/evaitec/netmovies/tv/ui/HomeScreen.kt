@@ -116,6 +116,7 @@ fun HomeScreen(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenAgenda: () -> Unit,
     onOpenChannels: () -> Unit,
     library: Library,
     onOpenRemote: () -> Unit = {},
@@ -130,14 +131,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels, onOpenRemote)
+                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenChannels, onOpenRemote)
+                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -158,6 +159,7 @@ private fun CategoryRows(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenAgenda: () -> Unit,
     onOpenChannels: () -> Unit,
     onOpenRemote: () -> Unit = {},
 ) {
@@ -288,6 +290,7 @@ private fun CategoryRows(
                 onOpenVault = onOpenVault,
                 onOpenAdmin = onOpenAdmin,
                 onOpenFollowing = onOpenFollowing,
+                onOpenAgenda = onOpenAgenda,
                 onOpenChannels = onOpenChannels,
                 onClose = { showSettingsMenu = false }
             )
@@ -592,6 +595,7 @@ private fun SettingsMenu(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFollowing: () -> Unit,
+    onOpenAgenda: () -> Unit,
     onOpenChannels: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
@@ -627,6 +631,7 @@ private fun SettingsMenu(
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
         MenuRow("📡  Canlı TV", onClick = { onClose(); onOpenChannels() })
         MenuRow("📋  Listem — Takip Ettiklerim", onClick = { onClose(); onOpenFollowing() })
+        MenuRow("🗓  Ajanda — Bu Hafta Ne Var", onClick = { onClose(); onOpenAgenda() })
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })
