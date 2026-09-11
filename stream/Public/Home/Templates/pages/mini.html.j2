@@ -1,0 +1,221 @@
+{#- NetMovies — /mini: küçük ekran kumandası (saat / ana ekran kısayolu).
+
+     Kendi başına duran tek sayfa: site şablonunu MİRAS ALMAZ. Hedef ekran bir
+     saat kadranı ya da telefonun köşesindeki kısayol — başlık, arama çubuğu ve
+     menü burada yer israfı olur.
+
+     `/rc`'den ayrı tutuldu (Dean: "mini orada olmasına gerek yok"): kumanda
+     sayfası iki sekmeli ve klavyeli, mini ise tek ekran — yay üzerinde yuvarlak
+     posterler, yön pad ve iki tuş. Uçlar ortak (`remote/command`, `remote/play`).
+-#}<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0c10">
+<title>NetMovies Mini</title>
+<link rel="manifest" href="/static/home/manifest.webmanifest">
+<style>
+  :root { --bg:#0a0c10; --kart:#161a22; --cizgi:#252b36; --metin:#e8eaf0; --soluk:#8b93a7; --vurgu:#8b5cf6; --yesil:#10b981; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--metin); font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;
+         min-height:100dvh; display:flex; flex-direction:column; gap:10px;
+         padding:calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); overflow:hidden; }
+
+  /* Yay: posterler yatay kayar, merkezden uzaklaştıkça aşağı iner ve küçülür —
+     yarım daire hissi. Dokun = TV'de bilgi yok, doğrudan oynat (küçük ekranda
+     ikinci adım yok); basılı tutma da aynı şeyi yapar, yanlış dokunma affedilir. */
+  .yay { position:relative; height:150px; margin:0 -12px; overflow-x:auto; overflow-y:hidden;
+         scroll-snap-type:x mandatory; scrollbar-width:none; touch-action:pan-x; flex:0 0 auto; }
+  .yay::-webkit-scrollbar { display:none; }
+  .ic-yay { display:flex; align-items:flex-start; height:100%; padding:0 calc(50vw - 42px); gap:14px; }
+  .top { flex:0 0 84px; scroll-snap-align:center; position:relative; border:0; padding:0; background:none;
+         transition:transform .12s linear; }
+  .top img { width:84px; height:84px; border-radius:50%; object-fit:cover; display:block;
+             background:#0a0c10; border:2px solid var(--cizgi); }
+  .top.orta img { border-color:var(--vurgu); }
+  .top.secili img { border-color:var(--yesil); }
+  .top b { display:block; font-size:11px; font-weight:500; color:var(--soluk); margin-top:6px;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px; }
+  .top.orta b { color:var(--metin); }
+
+  .alt { margin-top:auto; display:flex; flex-direction:column; gap:10px; align-items:center; }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:min(260px,72vw); aspect-ratio:1; }
+  .pad button { background:var(--kart); border:1px solid var(--cizgi); border-radius:14px; color:var(--metin); font-size:22px; }
+  .pad button:active { background:var(--vurgu); transform:scale(.96); }
+  .pad .bos { visibility:hidden; }
+  .pad .ok { border-radius:50%; font-size:14px; font-weight:700; }
+  .satir { display:flex; gap:14px; align-items:center; }
+  .satir button { width:60px; height:60px; border-radius:50%; background:var(--kart);
+                  border:1px solid var(--cizgi); color:var(--metin); font-size:13px; font-weight:600; }
+  .satir button.uyari { border-color:var(--vurgu); color:var(--vurgu); }
+  #tp { width:min(260px,72vw); min-height:130px; background:var(--kart); border:1px dashed var(--cizgi);
+        border-radius:16px; touch-action:none; display:flex; align-items:center; justify-content:center;
+        color:var(--soluk); font-size:12px; }
+  #tp.aktif { border-color:var(--yesil); border-style:solid; }
+  body.yuzey .pad { display:none; }
+  body:not(.yuzey) #tp { display:none; }
+  #mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:5px 10px; font-size:11px; }
+  #durum { text-align:center; font-size:11px; color:var(--soluk); min-height:14px; }
+</style>
+</head>
+<body>
+
+<div class="yay" id="yay"><div class="ic-yay"><b style="color:var(--soluk);font-size:12px;padding-top:36px;">yükleniyor…</b></div></div>
+
+<div id="durum"></div>
+
+<div class="alt">
+  <div class="pad">
+    <span class="bos"></span><button data-key="UP" aria-label="Yukarı">▲</button><span class="bos"></span>
+    <button data-key="LEFT" aria-label="Sol">◀</button><button class="ok" data-key="CENTER">OK</button><button data-key="RIGHT" aria-label="Sağ">▶</button>
+    <span class="bos"></span><button data-key="DOWN" aria-label="Aşağı">▼</button><span class="bos"></span>
+  </div>
+  <div id="tp">kaydır: yön · dokun: OK</div>
+  <div class="satir">
+    <button id="geri">GERİ</button>
+    <button id="mod">yüzey</button>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const durum = $('durum');
+  const titre = () => { try { navigator.vibrate && navigator.vibrate(12); } catch (_) {} };
+  const poster = (u, t) => '/proxy/image?url=' + encodeURIComponent(u || '') + '&title=' + encodeURIComponent(t || '');
+
+  async function komut(govde) {
+    titre();
+    try {
+      const r = await fetch('/api/v1/remote/command', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(govde),
+      });
+      const d = await r.json();
+      if (!d?.result?.ok) durum.textContent = d?.result?.error || 'komut reddedildi';
+      return !!d?.result?.ok;
+    } catch (_) { durum.textContent = 'bağlantı yok'; return false; }
+  }
+
+  async function tvdeOynat(o) {
+    titre();
+    const q = new URLSearchParams({ plugin: o.plugin || '', url: o.url || '', title: o.title || '', poster: o.poster || '', episode: '-1' });
+    try {
+      const d = await (await fetch('/api/v1/remote/play?' + q, { method: 'POST' })).json();
+      durum.textContent = d?.result?.ok ? '📺 ' + (o.title || '') : 'gönderilemedi';
+    } catch (_) { durum.textContent = 'gönderilemedi'; }
+  }
+
+  // ---------------------------------------------------------------- yay
+  const yay = $('yay');
+  function yayCiz() {
+    const orta = yay.getBoundingClientRect().left + yay.clientWidth / 2;
+    yay.querySelectorAll('.top').forEach((t) => {
+      const r = t.getBoundingClientRect();
+      const d = (r.left + r.width / 2 - orta) / (yay.clientWidth / 2);   // -1 … 1
+      const k = Math.min(Math.abs(d), 1);
+      t.style.transform = `translateY(${(k * k * 40).toFixed(1)}px) scale(${(1 - k * 0.28).toFixed(3)})`;
+      t.classList.toggle('orta', k < 0.18);
+    });
+  }
+  yay.addEventListener('scroll', () => requestAnimationFrame(yayCiz), { passive: true });
+
+  async function yayDoldur() {
+    const kap = yay.querySelector('.ic-yay');
+    const cek = (u, sec) => fetch(u).then((r) => r.json()).then(sec).catch(() => []);
+    // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar dönüşümlü.
+    const [son, filmler, diziler] = await Promise.all([
+      cek('/api/v1/continue_watching', (d) => (d?.result || []).map((r) => ({ plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster }))),
+      cek('/api/v1/aggregate_new?type=movie', (d) => d?.result?.items || []),
+      cek('/api/v1/aggregate_new?type=serie', (d) => d?.result?.items || []),
+    ]);
+
+    const secilen = [], gorulen = new Set();
+    const ekle = (o) => {
+      const k = (o.title || o.url || '').toLowerCase();
+      if (!o.url || !k || gorulen.has(k) || secilen.length >= 20) return;
+      gorulen.add(k); secilen.push(o);
+    };
+    son.forEach(ekle);
+    for (let i = 0; i < Math.max(filmler.length, diziler.length) && secilen.length < 20; i++) {
+      if (filmler[i]) ekle(filmler[i]);
+      if (diziler[i]) ekle(diziler[i]);
+    }
+
+    kap.innerHTML = '';
+    if (!secilen.length) { kap.innerHTML = '<b style="color:var(--soluk);font-size:12px;padding-top:36px;">liste boş</b>'; return; }
+    secilen.forEach((o) => {
+      const t = document.createElement('button');
+      t.className = 'top';
+      t.innerHTML = '<img loading="lazy" alt=""><b></b>';
+      t.querySelector('img').src = poster(o.poster, o.title);
+      t.querySelector('b').textContent = o.title || '';
+      // Küçük ekranda ikinci adım yok: dokunmak da basılı tutmak da TV'de başlatır.
+      t.addEventListener('click', () => {
+        t.classList.add('secili');
+        setTimeout(() => t.classList.remove('secili'), 400);
+        tvdeOynat(o);
+      });
+      t.addEventListener('contextmenu', (e) => e.preventDefault());
+      kap.appendChild(t);
+    });
+    requestAnimationFrame(yayCiz);
+  }
+
+  // ---------------------------------------------------------------- tuşlar
+  // Basılı tutunca tekrar: uzun menüde tek tek dürtmek yerine kayarak gez.
+  document.querySelectorAll('[data-key]').forEach((btn) => {
+    const gonder = () => komut({ type: 'key', key: btn.dataset.key });
+    let ilk = null, tekrar = null;
+    const dur = () => { clearTimeout(ilk); clearInterval(tekrar); };
+    btn.addEventListener('pointerdown', () => {
+      gonder();
+      ilk = setTimeout(() => { tekrar = setInterval(gonder, 180); }, 420);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((e) => btn.addEventListener(e, dur));
+  });
+
+  // GERİ: önce duraklat (en sık istenen), 2 sn içinde tekrar basılırsa gerçek GERİ.
+  let geriAn = 0;
+  $('geri').addEventListener('click', () => {
+    const btn = $('geri');
+    if (Date.now() - geriAn < 2000) {
+      geriAn = 0; btn.classList.remove('uyari');
+      komut({ type: 'key', key: 'BACK' });
+      return;
+    }
+    geriAn = Date.now();
+    btn.classList.add('uyari');
+    setTimeout(() => btn.classList.remove('uyari'), 2000);
+    komut({ type: 'transport', action: 'play_pause', value: 0 });
+  });
+
+  // ---------------------------------------------------------------- dokunmatik yüzey
+  // Saat kadranında dört ayrı tuşa isabet etmek zor; kaydırma yön, dokunma OK.
+  const tp = $('tp');
+  let bas = null;
+  tp.addEventListener('pointerdown', (e) => { bas = { x: e.clientX, y: e.clientY, t: Date.now() }; tp.classList.add('aktif'); });
+  tp.addEventListener('pointerup', (e) => {
+    tp.classList.remove('aktif');
+    if (!bas) return;
+    const dx = e.clientX - bas.x, dy = e.clientY - bas.y;
+    const uzak = Math.hypot(dx, dy);
+    if (uzak < 24 && Date.now() - bas.t < 400) komut({ type: 'key', key: 'CENTER' });
+    else if (Math.abs(dx) > Math.abs(dy)) komut({ type: 'key', key: dx > 0 ? 'RIGHT' : 'LEFT' });
+    else komut({ type: 'key', key: dy > 0 ? 'DOWN' : 'UP' });
+    bas = null;
+  });
+  tp.addEventListener('pointercancel', () => { bas = null; tp.classList.remove('aktif'); });
+
+  $('mod').addEventListener('click', () => {
+    const acik = document.body.classList.toggle('yuzey');
+    $('mod').textContent = acik ? 'pad' : 'yüzey';
+    try { localStorage.setItem('mini_yuzey', acik ? '1' : '0'); } catch (_) {}
+  });
+  try {
+    if (localStorage.getItem('mini_yuzey') === '1') { document.body.classList.add('yuzey'); $('mod').textContent = 'pad'; }
+  } catch (_) {}
+
+  yayDoldur();
+</script>
+</body>
+</html>

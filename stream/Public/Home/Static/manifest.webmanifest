@@ -35,6 +35,19 @@
           "type": "image/png"
         }
       ]
+    },
+    {
+      "name": "Mini",
+      "short_name": "Mini",
+      "description": "Küçük ekran kumandası — yay üzerinde posterler, yön pad.",
+      "url": "/mini",
+      "icons": [
+        {
+          "src": "/static/home/ico/logo.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

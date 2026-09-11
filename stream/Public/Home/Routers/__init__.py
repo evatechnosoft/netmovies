@@ -40,6 +40,7 @@ from . import (
     ara,
     rc,
     ajanda,
+    mini,
     giris,
     izle,
     admin,
