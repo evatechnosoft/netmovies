@@ -7,12 +7,48 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 11 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `f3a040f` · temiz, push'lı
-**TV sürümü:** `v0.1.77-poc` — OTA'da hazır, **cihaza kurulmadı**
-**Yığın:** doh · engine · stream · **tunnel** · warp — beşi ayakta · `smoke.sh` YEŞİL
-**Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
-**Siteye giriş PIN'i: `1234`** · Yönetim paneli parolası: `ADMIN_PASS=1234` (Basic auth)
+**Son güncelleme:** 11 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `eb5d40f` · temiz, push'lı
+**Sürümler:** TV `v0.1.80-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
+**Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
+**PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 11 Eylül akşamı — saat uygulaması, oynatma kesilmesi, GERİ
+
+| Konu | Durum | Kanıt / not |
+|---|---|---|
+| **Oynatma birkaç sn sonra kesiliyordu** (The Ark) | ✔ kök neden proxy'de | alt playlist manifest sayılmıyordu → segmentler ham CDN'e gidiyordu; artık gövdede `#EXTM3U` aranıyor. 1033 segment sarıldı, ilk segment 1.504.376 bayt |
+| **Saat uygulaması** — `client-tv/wear` | ✔ cihazda ÇALIŞTI | Wear OS 3+, standalone; halka ile sarma (10 sn/adım), ana menü düğmesi |
+| Saat dağıtımı | ✔ | release `netmovies-wear-v0.1.1` + `evaglass-releases/apps.json` → evaitecOTA görüyor |
+| OTA hedef ayrımı | ✔ | `?target=tv\|wear`, dosya adı öneki `NetMovies-TV-` / `NetMovies-Wear-` |
+| Tek GERİ uygulamadan çıkarıyordu | ✔ | çıkış artık GERİ'yi **basılı tutmak**; `dispatchKeyEvent` `repeatCount>0` |
+| Gözat'ta GERİ üç basış sürüyordu | ✔ | ara "en üste kaydır" adımı kaldırıldı: arama → sonuç → tüm kaynaklar → ana ekran |
+| Gözat'ta yıldızlar yoktu | ✔ | puan zenginleştirmesi `get_main_page`'e de eklendi (Gözat o uçtan besleniyor) |
+| Telefondan gelen içerik devam noktasını sormuyordu | ✔ | yarım kayıt varsa `autoplay` atlanıp panel açılıyor |
+
+**Onay kartı tutarsız DEĞİL:** telefondan gelen içerik yalnız TV'de bir şey
+oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
+
+## 0.2 SIRADAKİ İŞ
+
+1. **Saat: liste ve bölüm seçme** (Dean istedi, yapılmadı). Şu an tek ekran:
+   yuvarlak posterler + yüzey + iki düğme. İstenen: başlıklı/alt alta liste,
+   Yeni Eklenenler ayrımı, dizide bölüm seçme. `client-tv/wear/.../MainActivity.kt`.
+2. **Saat: Tile (ana ekran karesi)** — evaglass'ta `ShortcutTileService` örneği var
+   (`androidx.wear.tiles` + `protolayout`). Modül bağımlılıkları henüz eklenmedi.
+3. **Dil rozeti (TR dub/sub) kartlarda** — bilgi sağlayıcıda VAR (FullHDFilmizlesene
+   `span.trz`, FilmMakinesi `poster-lang`) ama katalogda taşınamıyor: `MainPageResult`
+   yalnız `category/title/url/poster` alıyor, fazladan alan `model_dump()`'ta düşüyor
+   (denendi). Eklentiden API'ye ayrı bir taşıma yolu gerekiyor.
+4. **İki ölü kaynak** (`chain_scan --n 1 movie`): FullHDFilmizlesene "Örümcek Adam:
+   Yepyeni Bir Gün"de kaynak vermiyor · JetFilmizle "Menajerimi Arayın!"da
+   `Non-2xx response`.
+5. **Telefon uygulaması** — `/rc` hâlâ web. Wear modülünün deseni artık elde.
+6. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
+
+**Teşhis notu:** oynatma "başlıyor sonra kesiliyor" derse önce **alt playlist'i indirip
+ilk segment satırına bak** — `/proxy/video?` ile başlamıyorsa manifest tespiti kaçmıştır.
 
 ## 0.0 11 Eylül öğleden sonra — kaynak turu, canlı kanal katmanı, oynatma onarımları
 
