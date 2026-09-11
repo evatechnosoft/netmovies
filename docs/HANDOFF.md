@@ -7,19 +7,38 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 10 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `3529746` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.74-poc` — `data/apk/` içinde (yerel OTA), **cihaza kurulmadı**
-**Oturum özeti:** iki kök neden kapandı — (1) `resolve_sources` alternatif
-sağlayıcıları kodlanmış URL ile çağırıyordu, yedek zincirin tamamı ölüydü
-(0 → 2 kaynak · 19 bölüm); (2) TV Material odak grupları GERİ tuşunu yutuyordu,
-`BackBus` ile tek kapıya alındı. Ayarlar artık sunucuda (`/api/v1/prefs`):
-localStorage köken başına ayrı olduğu için her açılışta sıfırlanmış görünüyordu.
-**Ayrıntılı devir:** `.claude/handoffs/latest.md` · **Kalan tek iş:** TV'ye
-`v0.1.74` kurup denemek — bu oturumun TV düzeltmeleri cihazda görülmedi.
+**Son güncelleme:** 11 Eylül 2026 (sabah)
+**Dal:** `fix/general-stability` @ `e6020dd` · temiz, push'lı, origin ile eşit
+**TV sürümü:** `v0.1.74-poc` — `data/apk/` içinde (yerel OTA), **hâlâ cihaza kurulmadı**
+**Oturum özeti:** Dean'in "çoğunu bulamıyor, iki kaynak deniyor kalıyor" şikâyetinin
+üç kök nedeni kapandı: (1) FilmMakinesi domaini VE teması değişmiş, eklenti baştan
+yazıldı; (2) arama sorgusu kaynak sitelere ham gidiyordu — "the odyssey" her yerde 0,
+"odyssey" iki kaynakta var; (3) proxy sarmalaması cache'teki kaydı yerinde değiştirip
+her çağrıda bir kat daha sarıyordu, ikinci tıklama 403 alıyordu.
+**Kalan tek iş (değişmedi):** TV'ye `v0.1.74` kurup denemek.
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
+
+## 0.1 11 Eylül sabahı — kaynak ve zincir onarımı
+
+| Ne | Kanıt |
+|---|---|
+| FilmMakinesi `.to` NXDOMAIN, `.de` SSL EOF → `filmmakinesi.co` | tema de değişti; kart `a.poster`, tür rafı `/<tur>-filmleri-hd-izle/`, arama WP `?s=` |
+| Yeni oynatıcı `oynatloload.top` — JS çalıştırmaya gerek yok | embed'e Referer ile gir → `ultra_embed_auth` çerezi → `/api/video-bilgi/<id>` 1080p+480p + altyazı (çerezsiz `domain_not_allowed`) |
+| Arşivin ilk kartları fragman (vizyona girmemiş) | ayırt eden işaret kartta: `poster-lang` rozeti yoksa oynatıcı yok — 20 kartın 9'u eleniyor |
+| Arama varyantları | `the odyssey` → 0, `odyssey` → 2 · `search_all "The Odyssey"` 0 → **18 sonuç** |
+| Alternatif link toplama paralelleşti | seri döngüde 9 kaynak istemcinin 60sn'sini aşıyordu |
+| Proxy sarması cache'i mutasyona uğratıyordu | 1./2./3. çağrı → 1/2/3 kat sarma → 403. `result = {**result}` ile kopya; üç ardışık çağrıda da tek kat, manifest `#EXTM3U` |
+| Sayılar | movie **222 → 247** (HDFC 124 · KultFilmler 78 · FilmMakinesi 25 · DiziPal 20) |
+| Testler | engine 9/9 · stream 87/87 · `smoke.sh` YEŞİL |
+
+**Yeni testler:** `engine/tests/test_query_variants.py`,
+`stream/tests/test_search_variants.py`, `stream/tests/test_resolve_cache_isolation.py`.
+
+**Tuzak:** `aggregate_new` stream'de 600 sn cache'li ve `type=movie` ile
+`media_type=movie` **ayrı cache anahtarı**. Katalog düzeltmesi yaptıktan sonra
+`smoke.sh` 10 dk daha eski listeyi denemeye devam eder — panikleme, bekle.
 
 ## 0. Bu oturumda ne oldu (tek cümle)
 **9 Eylül:** Film kaynak turu — **KultFilmler** ve **FilmMakinesi** eklendi, movie
