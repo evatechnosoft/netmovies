@@ -389,6 +389,17 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         if (savedMs > 30_000 && (durMs <= 0 || savedMs < durMs * 0.92)) {
             val bolum = row.episode.takeIf { it.isNotBlank() }?.let { "$it · " } ?: ""
             resumeLabel = bolum + fmtTime(savedMs)
+
+            // Telefondan gönderilen içerik onayı atlıyordu (`autoplay`), ama yarım
+            // kalmış bir kayıt varsa atlanacak bir soru VAR: kaldığın yerden mi,
+            // baştan mı (Dean: "direkt The Ark başladı... sorması lazım, bitirdim
+            // belki"). Akış henüz başlamadıysa panel geri açılır; kullanıcı zaten
+            // OYNAT'a basacaksa bir tuş, yanlış yerden başlamak ise geri alınamaz.
+            if (playRequested && exo.currentPosition <= 0L) {
+                playRequested = false
+                exo.playWhenReady = false
+                showStartPanel = true
+            }
         }
     }
 
