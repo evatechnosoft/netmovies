@@ -17,7 +17,7 @@ from Public.Proxy.Libs.proxy_token import issue_proxy_token
 # DiziBox (molystream), Dizilla (pichive) ve DiziMom (hdplayersystem/FirePlayer) de
 # aynı: çıplak istekte manifest 403, kaynağın kendi referer+user_agent'ı ile 200 —
 # istemci bu başlıkları gönderemez.
-_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom"}
+_ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi"}
 
 
 def route_through_proxy(sources: list, base_url: str) -> list:
