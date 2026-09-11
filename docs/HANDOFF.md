@@ -7,18 +7,58 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 11 Eylül 2026 (sabah)
-**Dal:** `fix/general-stability` @ `e6020dd` · temiz, push'lı, origin ile eşit
-**TV sürümü:** `v0.1.74-poc` — `data/apk/` içinde (yerel OTA), **hâlâ cihaza kurulmadı**
-**Oturum özeti:** Dean'in "çoğunu bulamıyor, iki kaynak deniyor kalıyor" şikâyetinin
-üç kök nedeni kapandı: (1) FilmMakinesi domaini VE teması değişmiş, eklenti baştan
-yazıldı; (2) arama sorgusu kaynak sitelere ham gidiyordu — "the odyssey" her yerde 0,
-"odyssey" iki kaynakta var; (3) proxy sarmalaması cache'teki kaydı yerinde değiştirip
-her çağrıda bir kat daha sarıyordu, ikinci tıklama 403 alıyordu.
-**Kalan tek iş (değişmedi):** TV'ye `v0.1.74` kurup denemek.
-**Yığın:** doh · engine · stream · **tunnel** · warp — beşi de ayakta
+**Son güncelleme:** 11 Eylül 2026 (öğleden sonra)
+**Dal:** `fix/general-stability` @ `1e50123` · temiz, push'lı
+**TV sürümü:** `v0.1.75-poc` — OTA'da hazır, **cihaza kurulmadı**
+**Yığın:** doh · engine · stream · **tunnel** · warp — beşi ayakta · `smoke.sh` YEŞİL
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
-**Siteye giriş PIN'i: `1234`** (Yönetim → Siteye Giriş PIN'i'nden değiştirilir)
+**Siteye giriş PIN'i: `1234`** · Yönetim paneli parolası: `ADMIN_PASS=1234` (Basic auth)
+
+## 0.0 11 Eylül öğleden sonra — kaynak turu, canlı kanal katmanı, oynatma onarımları
+
+**Katalog:** movie **222 → 389** · serie **364 → 445** · canlı **179 kanal**
+
+| Konu | Durum | Kanıt |
+|---|---|---|
+| FilmMakinesi `.co`'ya taşındı, eklenti baştan yazıldı | ✔ | oynatıcı `oynatloload.top`, çerez→`/api/video-bilgi` |
+| **Sessiz film** — kalite manifestinde ses yok | ✔ | ses ayrı rendition, yalnız MASTER'da; master seçiliyor |
+| **Çift proxy sarması** (2. tıklamada 403) | ✔ | cache'teki yanıt yerinde değiştiriliyordu; `{**result}` |
+| **Yanlış film** ("örümcek adam" → çizgi film) | ✔ | varyantla ara, doğrulamayı ASIL başlıkla yap; `results[0]` düşüşü kaldırıldı |
+| Arama varyantları ("the odyssey" 0 → 18) | ✔ | `arama_varyant.py` · engine 12/12 test |
+| **DDizi** (77 dizi) | ✔ | bölümler yayıncının resmi YouTube yayını → yt-dlp |
+| **JetFilmizle** (66 film) | ✔ | `film_id` → `/jetplayer` → videopark → worker API |
+| **FullHDFilmizlesene** (76 film) | ✔ | `scx` ROT13+b64 → rapidvid → `av()` ters/kaydırma |
+| **Canlı kanal katmanı** (panelden düzenlenir) | ✔ | Yönetim → Canlı Kanallar · `Ad \| Adres \| Grup` |
+| "TV'ye yaz" ayarının sunucu karşılığı | ✔ | `rc_text_to_tv=false` → uç 	"kapalı" diyor |
+| TV: uzun basışla açılan panel kendini kapatıyordu | ⚠ kod var, **cihazda denenmedi** | `consumesPendingUp` |
+
+**Canlı kanal kartı nasıl çalışır:** satır satır `Ad | Adres | Grup`. Adres
+`.m3u8` olabilir ya da yayıncının **resmi YouTube canlı yayını** (M3UPlaylist
+yt-dlp ile çözer). Engine `./lists`'i salt-okunur, stream `/lists` altında
+yazılabilir görüyor; dosyanın değişme zamanına bakıldığı için **restart gerekmez**.
+Çözülebilen beşi yazılı: Show TV · TRT Haber · NTV · CNN Türk · A Haber.
+**ATV / Kanal D / TRT Çocuk canlı ama yt-dlp format listesi boş** (yayın korumalı) —
+bunlar için başka adres gerekir, listeye konmadı.
+
+## 0.2 SIRADAKİ İŞ
+
+1. **TV'ye `v0.1.75` kur ve dene** (cihaz işi). Özellikle: OK'i basılı tutunca
+   ayar menüsü AÇIK KALIYOR mu ve D-pad ile geziliyor mu.
+2. **Ajanda sayfası** — plan onaylı, kod yok. TMDB uçları sınandı: `discover/tv`
+   (TR bu hafta 21 dizi), `movie/upcoming` (TR 15 film).
+   `GET /api/v1/agenda?view=week|month` · günde 1 tazeleme · `/ajanda` · TV'de WebView.
+3. **Canlı yayın bilgisi (EPG)** — "şu an ne oynuyor" verisi yok. Kaynak
+   araştırılmadı; YouTube canlı yayınlarda video başlığı zaten program adını
+   taşıyor (`Show MAX Canlı Yayın …`), ucuz bir ilk adım olabilir.
+4. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
+   `docs/mini-widget-taslak.html`. Ayrı Gradle modülü, kendi manifesti.
+5. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
+
+**Kapanan sorular:** +18 içerik açıkta değil — katalogda ve aramada yok
+(`adult_providers`), Özel Koleksiyon'da; oraya **logoya 5 hızlı tık veya 3 sn
+basılı tutarak** girilir (`main.js: setupSecretVault`). `vault_pin` boş, PIN
+istenmiyor. Knightfall film rafında çünkü **DiziPal onu `/film/` yolunda
+yayınlamış**; zincir telafi ediyor (4 kaynak + 18 bölüm, dublaj/altyazı ayrı).
 
 ## 0.1 11 Eylül sabahı — kaynak ve zincir onarımı
 
