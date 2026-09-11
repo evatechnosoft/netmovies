@@ -20,7 +20,7 @@ from CLI    import konsol
 from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
-from ..Libs.arama_varyant import query_variants
+from ..Libs.arama_varyant import baslik_uyusuyor, query_variants
 from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
@@ -120,6 +120,11 @@ async def _search_match(plugin_name: str, queries: list[str], diag: Diagnostics)
         diag.add("fail", "arama", f"{plugin_name} · {type(hata).__name__}: {hata}")
         return None
 
+    # Doğrulama her zaman ASIL başlığa karşı yapılır: varyant yalnız aramayı
+    # genişletir, eşleşme kararını gevşetmez. Eşleşmeyen sonuçta "ilkini al"
+    # düşüşü yok — yanlış film açmaktansa o sağlayıcı atlanır.
+    asil = queries[0]
+
     for query in queries:
         try:
             results = await plugin.search(query) or []
@@ -127,14 +132,10 @@ async def _search_match(plugin_name: str, queries: list[str], diag: Diagnostics)
             diag.add("fail", "arama", f"{plugin_name} · '{query}' · {type(hata).__name__}: {hata}")
             continue
 
-        if not results:
+        chosen = next((r for r in results if baslik_uyusuyor(asil, getattr(r, "title", ""))), None)
+        if not chosen:
             continue
 
-        def matches(result) -> bool:
-            title = (getattr(result, "title", "") or "").lower()
-            return query in title or title in query
-
-        chosen = next((r for r in results if matches(r)), results[0])
         diag.add("info", "arama", f"{plugin_name} · '{query}' → eşleşti: {getattr(chosen, 'title', '?')}")
         return getattr(chosen, "url", None)
 

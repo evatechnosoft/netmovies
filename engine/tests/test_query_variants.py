@@ -3,7 +3,7 @@
 
 import unittest
 
-from Public.API.v1.Libs.arama_varyant import query_variants
+from Public.API.v1.Libs.arama_varyant import baslik_uyusuyor, query_variants
 
 
 class QueryVariantsTest(unittest.TestCase):
@@ -29,3 +29,19 @@ class QueryVariantsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BaslikUyusuyorTest(unittest.TestCase):
+    def test_farkli_yapim_elenir(self):
+        # "örümcek adam" varyantıyla bulunan çizgi film kabul edilmemeli.
+        self.assertFalse(baslik_uyusuyor("Örümcek Adam: Yepyeni Bir Gün", "Örümcek Adam: Örümcek Evreninde"))
+        self.assertFalse(baslik_uyusuyor("The Odyssey", "2001: A Space Odyssey"))
+        self.assertFalse(baslik_uyusuyor("The Odyssey", "Doctor Odyssey"))
+
+    def test_noktalama_ve_site_eki_tolere_edilir(self):
+        self.assertTrue(baslik_uyusuyor("Örümcek Adam: Yepyeni Bir Gün", "Örümcek Adam Yepyeni Bir Gün izle"))
+        self.assertTrue(baslik_uyusuyor("Inception", "Başlangıç - Inception Türkçe Dublaj"))
+
+    def test_bos_aday(self):
+        self.assertFalse(baslik_uyusuyor("Inception", ""))
+        self.assertFalse(baslik_uyusuyor("", "Inception"))

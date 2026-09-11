@@ -5,6 +5,11 @@
 
 from __future__ import annotations
 
+import re
+
+# Türkçe'ye duyarlı sadeleştirme: "İNCEPTION".lower() -> "i̇nception" (birleşik nokta).
+_HARFLER = str.maketrans("İIıŞşĞğÜüÖöÇç", "iiissgguuoocc")
+
 # Arama başlığındaki site gürültüsü.
 _NOISE = (
     "izle", "full hd", "hd", "4k", "1080p", "1080", "720p", "720",
@@ -47,3 +52,23 @@ def query_variants(title: str | None) -> list[str]:
         varyant.append(" ".join(kelimeler[:2]))
 
     return list(dict.fromkeys(v for v in varyant if len(v) >= 3))
+
+
+def _anlamli_kelimeler(metin: str) -> set[str]:
+    sade = str(metin or "").translate(_HARFLER).lower()
+    return {k for k in re.sub(r"[^\w\s]", " ", sade).split() if len(k) > 2}
+
+
+def baslik_uyusuyor(aranan: str, aday_baslik: str | None) -> bool:
+    """Kısaltılmış varyantla bulunan sonucu ASIL başlığa karşı doğrular.
+
+    Varyantlar kasten geniş: "Örümcek Adam: Yepyeni Bir Gün" için "örümcek adam"
+    da aranıyor. Sonucu doğrulamadan kabul etmek yanlış film açıyordu (Dean:
+    "örümcek adam açıyorum çizgi film çıkıyor"). Kural: asıl başlığın anlamlı
+    kelimelerinin TAMAMI adayda geçmeli. Noktalama ve site eki ("izle") farkı
+    tolere edilir, farklı yapım elenir.
+    """
+    hedef = _anlamli_kelimeler(aranan)
+    if not hedef:
+        return False
+    return hedef <= _anlamli_kelimeler(clean_title(aday_baslik))

@@ -133,10 +133,15 @@ class FilmMakinesi(PluginBase):
             if not subtitles and veri.get("subtitle"):
                 subtitles = [Subtitle(name="Türkçe", url=self._mutlak(kok, veri["subtitle"]))]
 
-            # `sources` kalite başına ayrı manifest verir; yoksa `src` master HLS.
-            kaynaklar = [(s.get("label") or "", s["file"]) for s in veri.get("sources") or [] if s.get("file")]
-            if not kaynaklar and (veri.get("src") or veri.get("hls_m3u8_path")):
-                kaynaklar = [("", veri.get("src") or veri["hls_m3u8_path"])]
+            # MASTER manifest şart: ses ayrı rendition olarak yalnız orada tanımlı
+            # (`#EXT-X-MEDIA:TYPE=AUDIO ... URI=.../audio_english/index.m3u8`).
+            # `sources` içindeki kalite manifestleri (1080p/480p) sadece video
+            # segmenti taşıyor — onları seçmek filmi SESSİZ açıyordu. Kalite seçimi
+            # zaten master'ın ABR'sinden geliyor.
+            master    = veri.get("src") or veri.get("hls_m3u8_path")
+            kaynaklar = [("", master)] if master else []
+            if not kaynaklar:
+                kaynaklar = [(s.get("label") or "", s["file"]) for s in veri.get("sources") or [] if s.get("file")]
 
             for etiket, dosya in kaynaklar:
                 kalite = f" {etiket}" if etiket else ""
