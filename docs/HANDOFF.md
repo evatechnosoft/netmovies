@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 11 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `f29ae4c` · temiz, push'lı
-**TV sürümü:** `v0.1.76-poc` — OTA'da hazır, **cihaza kurulmadı**
+**Dal:** `fix/general-stability` @ `f3a040f` · temiz, push'lı
+**TV sürümü:** `v0.1.77-poc` — OTA'da hazır, **cihaza kurulmadı**
 **Yığın:** doh · engine · stream · **tunnel** · warp — beşi ayakta · `smoke.sh` YEŞİL
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com` (AÇIK)
 **Siteye giriş PIN'i: `1234`** · Yönetim paneli parolası: `ADMIN_PASS=1234` (Basic auth)
@@ -32,6 +32,8 @@
 | "TV'ye yaz" ayarının sunucu karşılığı | ✔ | `rc_text_to_tv=false` → uç 	"kapalı" diyor |
 | TV: uzun basışla açılan panel kendini kapatıyordu | ⚠ kod var, **cihazda denenmedi** | `consumesPendingUp` |
 | **Ajanda** — `/ajanda` + `/api/v1/agenda` + TV ekranı | ✔ | hafta 26 kayıt/8 gün · ay 36 kayıt/14 gün (20 dizi + 16 film) |
+| **EPG** — "şu an ne oynuyor" web + TV kanal listesinde | ✔ | XMLTV (epgshare01 TR) · 150 kanalın 27'sinde program |
+| **Mini kumanda** — `/mini` (saat / ana ekran kısayolu) | ✔ | yay + yön pad + yüzey modu · PWA kısayolu |
 
 **Canlı kanal kartı nasıl çalışır:** satır satır `Ad | Adres | Grup`. Adres
 `.m3u8` olabilir ya da yayıncının **resmi YouTube canlı yayını** (M3UPlaylist
@@ -43,15 +45,17 @@ bunlar için başka adres gerekir, listeye konmadı.
 
 ## 0.2 SIRADAKİ İŞ
 
-1. **TV'ye `v0.1.76` kur ve dene** (cihaz işi). Bakılacaklar: OK'i basılı tutunca
+1. **TV'ye `v0.1.77` kur ve dene** (cihaz işi). Bakılacaklar: OK'i basılı tutunca
    ayar menüsü AÇIK KALIYOR mu ve D-pad ile geziliyor mu · ana menüde **Ajanda**
-   açılıyor mu, SAĞ/SOL hafta ↔ ay geçişi çalışıyor mu.
-2. **Canlı yayın bilgisi (EPG)** — "şu an ne oynuyor" verisi yok. Kaynak
-   araştırılmadı; YouTube canlı yayınlarda video başlığı zaten program adını
-   taşıyor (`Show MAX Canlı Yayın …`), ucuz bir ilk adım olabilir.
-3. **Ana ekran widget'ı + Samsung saat uygulaması.** Tasarım hazır:
-   `docs/mini-widget-taslak.html`. Ayrı Gradle modülü, kendi manifesti.
-4. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
+   açılıyor mu, SAĞ/SOL hafta ↔ ay geçişi çalışıyor mu · Canlı TV listesinde
+   kanal adının altında program adı görünüyor mu (▶ ...).
+2. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
+3. **Wear OS / Samsung saat NATIVE uygulaması** — yapılmadı. `/mini` sayfası
+   telefon ve ana ekran kısayolu için hazır ama Galaxy Watch'ta tarayıcı yok;
+   saatte çalışması için ayrı Gradle modülü (Wear OS) ve cihazda test gerekir.
+4. **EPG kapsamı** — 150 kanalın 27'si eşleşiyor. Eşleşme kanal ADI üzerinden
+   (`Libs/epg.py: sadelestir`); iptv-org adları ile XMLTV adları tutmayan
+   kanallarda rehber boş kalıyor. Elle eşleme tablosu genişletebilir.
 
 **Kapanan sorular:** +18 içerik açıkta değil — katalogda ve aramada yok
 (`adult_providers`), Özel Koleksiyon'da; oraya **logoya 5 hızlı tık veya 3 sn
