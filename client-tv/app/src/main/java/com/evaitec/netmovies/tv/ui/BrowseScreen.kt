@@ -203,24 +203,24 @@ fun BrowseScreen(
         loading = false
     }
 
-    // GERİ: arama/sonuç açıksa onu kapatır; raflarda aşağıdaysa önce EN ÜSTE döner;
-    // en üstteyken ana ekrana çıkar. Aşağıdayken tek basışta ekrandan atmaz.
+    // GERİ tek yönde ve kısa: arama → sonuç → tüm kaynaklar → ana ekran.
+    //
+    // Araya "önce listeyi en üste kaydır" adımı giriyordu; aşağıdayken GERİ'ye
+    // basınca EKRAN DEĞİŞMİYOR, yalnız odak raflar arasında geziyordu ve çıkmak
+    // üç basış sürüyordu (Dean: "orta bantlarda geziyor... bir geri daha basarsam
+    // döner"). Kaydırma konumunu düzeltmek GERİ'nin işi değil — eklentiden
+    // çıkarken zaten en üste dönülüyor.
     val browseScope = rememberCoroutineScope()
-    val atTop by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
-    }
     NmBackHandler(enabled = true) {
         when {
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
-            // Odak alt raftayken liste "en üstte" görünebiliyor (raf yüksekliği ekrana
-            // sığıyor) → yalnız kaydırma konumuna bakınca GERİ ana ekrana atıyordu.
-            !atTop || focusedShelf > 0 -> {
+            selectedPlugin != null -> {
+                selectedPlugin = null
                 focusedShelf = 0
                 focusResetKey++
-                browseScope.launch { listState.animateScrollToItem(0) }
+                browseScope.launch { listState.scrollToItem(0) }
             }
-            selectedPlugin != null -> selectedPlugin = null
             else            -> onBack()
         }
     }
