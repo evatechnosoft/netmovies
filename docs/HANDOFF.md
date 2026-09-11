@@ -22,6 +22,7 @@
 | **Saat uygulaması** — `client-tv/wear` | ✔ cihazda ÇALIŞTI | Wear OS 3+, standalone; halka ile sarma (10 sn/adım), ana menü düğmesi |
 | Saat dağıtımı | ✔ | release `netmovies-wear-v0.1.1` + `evaglass-releases/apps.json` → evaitecOTA görüyor |
 | Telefon dağıtımı | ✔ | release `netmovies-v0.1.80` + katalogda `netmovies-phone` (aynı APK TV'de de çalışır; telefonda kumanda) |
+| Katalog ikonları | ✔ | `assets/netmovies-phone.svg` · `netmovies-watch.svg` — evaglass renk geçişi (#2DD4BF→#6366F1→#EC4899), simge NetMovies'e özgü |
 | OTA hedef ayrımı | ✔ | `?target=tv\|wear`, dosya adı öneki `NetMovies-TV-` / `NetMovies-Wear-` |
 | Tek GERİ uygulamadan çıkarıyordu | ✔ | çıkış artık GERİ'yi **basılı tutmak**; `dispatchKeyEvent` `repeatCount>0` |
 | Gözat'ta GERİ üç basış sürüyordu | ✔ | ara "en üste kaydır" adımı kaldırıldı: arama → sonuç → tüm kaynaklar → ana ekran |
@@ -50,8 +51,18 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
    düzeni (iki sekme, klavye, sesli komut) native karşılığını beklemiyor.
 6. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
 
+7. **Saate kurulum ve gönderme göstergesi — BU REPODA DEĞİL.** Cihazda iki kusur
+   çıktı, ikisi de yükleyici tarafında: saatte "Kur" düğmesi çalışmıyor
+   (`ACTION_VIEW` Wear'da güvenilir değil, `PackageInstaller` Session API gerekiyor)
+   ve "saate gönder"de aktarım yüzdesi görünmüyor (`ApkSender.onProgress` var,
+   `:ota-mobile` ekranı bağlamıyor). Ayrıntı + kod taslağı:
+   `D:/projects/evaitec-appkit/HANDOFF.md` (commit `af06a85`).
+
 **Teşhis notu:** oynatma "başlıyor sonra kesiliyor" derse önce **alt playlist'i indirip
 ilk segment satırına bak** — `/proxy/video?` ile başlamıyorsa manifest tespiti kaçmıştır.
+
+**Kurulum notu:** saate APK ulaştırmanın evaitecOTA dışındaki kesin yolu
+`adb -s <watch> install -r <apk>`; yükleyici sorunu çözülene kadar bu yol açık.
 
 ## 0.0 11 Eylül öğleden sonra — kaynak turu, canlı kanal katmanı, oynatma onarımları
 
