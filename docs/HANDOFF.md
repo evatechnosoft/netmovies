@@ -21,6 +21,7 @@
 | **Oynatma birkaç sn sonra kesiliyordu** (The Ark) | ✔ kök neden proxy'de | alt playlist manifest sayılmıyordu → segmentler ham CDN'e gidiyordu; artık gövdede `#EXTM3U` aranıyor. 1033 segment sarıldı, ilk segment 1.504.376 bayt |
 | **Saat uygulaması** — `client-tv/wear` | ✔ cihazda ÇALIŞTI | Wear OS 3+, standalone; halka ile sarma (10 sn/adım), ana menü düğmesi |
 | Saat dağıtımı | ✔ | release `netmovies-wear-v0.1.1` + `evaglass-releases/apps.json` → evaitecOTA görüyor |
+| Telefon dağıtımı | ✔ | release `netmovies-v0.1.80` + katalogda `netmovies-phone` (aynı APK TV'de de çalışır; telefonda kumanda) |
 | OTA hedef ayrımı | ✔ | `?target=tv\|wear`, dosya adı öneki `NetMovies-TV-` / `NetMovies-Wear-` |
 | Tek GERİ uygulamadan çıkarıyordu | ✔ | çıkış artık GERİ'yi **basılı tutmak**; `dispatchKeyEvent` `repeatCount>0` |
 | Gözat'ta GERİ üç basış sürüyordu | ✔ | ara "en üste kaydır" adımı kaldırıldı: arama → sonuç → tüm kaynaklar → ana ekran |
@@ -44,7 +45,9 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 4. **İki ölü kaynak** (`chain_scan --n 1 movie`): FullHDFilmizlesene "Örümcek Adam:
    Yepyeni Bir Gün"de kaynak vermiyor · JetFilmizle "Menajerimi Arayın!"da
    `Non-2xx response`.
-5. **Telefon uygulaması** — `/rc` hâlâ web. Wear modülünün deseni artık elde.
+5. **Telefon için AYRI arayüz** — TV APK'sı telefonda kumanda olarak çalışıyor ve
+   katalogda (`netmovies-phone`), ama ekran TV için tasarlandı; `/rc`'deki telefon
+   düzeni (iki sekme, klavye, sesli komut) native karşılığını beklemiyor.
 6. Sesli komut cihazda hâlâ denenmedi (telefon mikrofonu → WAV yolu).
 
 **Teşhis notu:** oynatma "başlıyor sonra kesiliyor" derse önce **alt playlist'i indirip
