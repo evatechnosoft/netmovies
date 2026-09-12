@@ -8,20 +8,21 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `881eeb1` · temiz, push'lı
-**Sürümler:** TV `v0.1.81-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `2605d31` · temiz, push'lı
+**Sürümler:** TV `v0.1.82-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## 0.0 12 Eylül akşamı — Gözat'ta yer koruma, sonraki bölüm, bölüm listesi (TV v0.1.81)
+## 0.0 12 Eylül akşamı — yer koruma, sonraki bölüm, bölüm listesi (TV v0.1.82)
 
 | Konu | Durum | Kanıt / not |
 |---|---|---|
 | **GERİ ile diziden çıkınca başka yere atıyordu** | ✔ kök neden bileşimde | Oynatıcı açılınca `BrowseScreen` bileşimden TAMAMEN çıkıyor, içindeki `remember` ölüyordu: kaynak seçimi (DiziMom), kaydırma ve odak sıfırlanıp "Tümü"nün tepesine düşülüyordu. Durum `ui/BrowseState.kt` olarak MainActivity'ye taşındı — dönüşte aynı kaynak, aynı raf, **aynı poster** |
 | **Sonraki bölüm** | ✔ | Bitmeye 90sn kala sağ altta teklif kartı, **SAĞ ok** kabul eder; pencere dışında SAĞ hâlâ ileri sarma (buton eşlemesi bozulmadı). `STATE_ENDED`'de kendiliğinden geçiş |
 | **Bölüm listesi butonu** | ✔ | Kontrol çubuğunda "Bölümler" (dokunmatik) + kumandada **YUKARI basılı tutma** → yeni `RemoteAction.OPEN_EPISODES` (Buton Eşleme'den değiştirilebilir). Aynı sezon/bölüm paneli oynatmayı kesmeden açılır; orada GERİ yalnız paneli kapatır |
-| Kanıt | ✔ | `assembleDebug` + `testDebugUnitTest` exit 0 · `data/apk/NetMovies-TV-v0.1.81.apk` · `/api/v1/app_update` → `v0.1.81-poc` · indirme ucu `200 20101246` |
+| Kanıt | ✔ | `assembleDebug` + `testDebugUnitTest` exit 0 · `data/apk/NetMovies-TV-v0.1.82.apk` · `/api/v1/app_update` → `v0.1.82-poc` · indirme ucu `200 20101246` |
+| **Ana ekranda da aynı tuzak** | ✔ v0.1.82 | `ui/HomePosition.kt` — aynı sebep, aynı çözüm. GERİ ile "en üste dön" akışı korundu: `position.toTop()` odak isteyicisini ilk postere taşır, yoksa GERİ kullanıcıyı kaldığı rafa geri çekerdi |
 | GitHub release | — | Çıkarılmadı: OTA `v0.1.56`'dan beri **ev sunucusundan** okunuyor, GitHub yolu isteğe bağlı |
 
 **Cihazda denenmedi:** üçü de ekran/odak davranışı — gerçek testi TV'de. Özellikle
@@ -69,8 +70,9 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 
 ## 0.2 SIRADAKİ İŞ
 
-0. **TV'ye `v0.1.81` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
-   DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** · bölüm sonunda SAĞ ok
+0. **TV'ye `v0.1.82` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
+   DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** (aynısı ana ekranda da) ·
+   ana ekranda aşağıdayken GERİ hâlâ en üste dönüyor mu · bölüm sonunda SAĞ ok
    teklifi geliyor mu · kontrol çubuğundaki "Bölümler" ve YUKARI basılı tutma
    bölüm panelini açıyor mu (orada GERİ yalnız paneli kapatmalı).
 1. **Saat: liste ve bölüm seçme** (Dean istedi, yapılmadı). Şu an tek ekran:
