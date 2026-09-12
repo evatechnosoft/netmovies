@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `a643997` · temiz, push'lı
-**Sürümler:** TV `v0.1.88-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `a03a47c` · temiz, push'lı
+**Sürümler:** TV `v0.1.89-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
@@ -36,6 +36,14 @@ modal → odak gidip geliyor, hiçbir satır seçilmiyordu) · telefonda postere
 içeriği ANINDA TV'ye yolluyordu, artık menü açılıyor · panel boşlukları yarıya indi ·
 izleme kaydı dizi başına tutulduğu için 5. bölüm açılırken "7. bölüm · 9:12" deyip o
 dakikaya atlıyordu, artık devam etme yalnız kaydın bölümünde uygulanıyor.
+
+**v0.1.89:** "Takip et / bırak" kör satırdı — menü açılınca `/api/v1/following`
+okunuyor, satır durumu söylüyor ("Takipte ✓ — bırak"), dokununca sunucunun
+döndürdüğü `saved` satıra yazılıyor, menü kapanmıyor; favori satırı da aynı dilde.
+Gözat'ta kaynak seçilince odak hep ikinci banda düşüyordu (raflar paralel çekiliyor,
+önce dolan odağı kapıyordu) → yedek raflar 900ms bekliyor.
+**Listelerin yeri:** favoriler ana ekranda "Favoriler" rafı · takip edilenler
+Ayarlar → "📋 Listem — Takip Ettiklerim" (Ajanda'yı da bu besliyor).
 
 **Ses kesintisi — AÇIK.** Dean'in telefon kaydında iki gerçek kesinti: 4.5–4.9sn
 (~0.4sn) ve 5.2–5.9sn (~0.6sn); seviye −69 dBFS'e (oda tabanı) düşüyor, öncesi/sonrası
