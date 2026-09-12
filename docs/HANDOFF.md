@@ -7,12 +7,25 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 12 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `f7e929c` · temiz, push'lı
-**Sürümler:** TV `v0.1.80-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
+**Son güncelleme:** 12 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `881eeb1` · temiz, push'lı
+**Sürümler:** TV `v0.1.81-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 12 Eylül akşamı — Gözat'ta yer koruma, sonraki bölüm, bölüm listesi (TV v0.1.81)
+
+| Konu | Durum | Kanıt / not |
+|---|---|---|
+| **GERİ ile diziden çıkınca başka yere atıyordu** | ✔ kök neden bileşimde | Oynatıcı açılınca `BrowseScreen` bileşimden TAMAMEN çıkıyor, içindeki `remember` ölüyordu: kaynak seçimi (DiziMom), kaydırma ve odak sıfırlanıp "Tümü"nün tepesine düşülüyordu. Durum `ui/BrowseState.kt` olarak MainActivity'ye taşındı — dönüşte aynı kaynak, aynı raf, **aynı poster** |
+| **Sonraki bölüm** | ✔ | Bitmeye 90sn kala sağ altta teklif kartı, **SAĞ ok** kabul eder; pencere dışında SAĞ hâlâ ileri sarma (buton eşlemesi bozulmadı). `STATE_ENDED`'de kendiliğinden geçiş |
+| **Bölüm listesi butonu** | ✔ | Kontrol çubuğunda "Bölümler" (dokunmatik) + kumandada **YUKARI basılı tutma** → yeni `RemoteAction.OPEN_EPISODES` (Buton Eşleme'den değiştirilebilir). Aynı sezon/bölüm paneli oynatmayı kesmeden açılır; orada GERİ yalnız paneli kapatır |
+| Kanıt | ✔ | `assembleDebug` + `testDebugUnitTest` exit 0 · `data/apk/NetMovies-TV-v0.1.81.apk` · `/api/v1/app_update` → `v0.1.81-poc` · indirme ucu `200 20101246` |
+| GitHub release | — | Çıkarılmadı: OTA `v0.1.56`'dan beri **ev sunucusundan** okunuyor, GitHub yolu isteğe bağlı |
+
+**Cihazda denenmedi:** üçü de ekran/odak davranışı — gerçek testi TV'de. Özellikle
+poster odağının geri verilmesi (raf kısaldıysa sona kırpılır) ve SAĞ ok teklifi.
 
 ## 0.0 12 Eylül — WARP 503'te zincir donuyordu (engine)
 
