@@ -8,7 +8,7 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `v0.1.90` · temiz, push'lı
+**Dal:** `fix/general-stability` @ `5c589f9` · temiz, push'lı
 **Sürümler:** TV `v0.1.90-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
@@ -136,7 +136,11 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 
 ## 0.2 SIRADAKİ İŞ
 
-0. **TV'ye `v0.1.88`, saate `v0.1.2` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
+0. **TV'ye `v0.1.90`, saate `v0.1.2` kur ve dene** — panel ölçüleri CİHAZDA
+   DOĞRULANMADI. Üç sayı ayarlanabilir: genişlik (`PanelWidth` · menüde
+   `DialogWidth * 0.72f`), yükseklik (`fillMaxHeight` 0.92 / 0.70), konum
+   (`CenterEnd` / `BottomEnd`). Dean "çok ince / hâlâ uzun / yukarı alalım"
+   derse tek sayı değişir. (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
    DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** (aynısı ana ekranda da) ·
    ana ekranda aşağıdayken GERİ hâlâ en üste dönüyor mu · bölüm sonunda SAĞ ok
    teklifi geliyor mu · kontrol çubuğundaki "Bölümler" ve YUKARI basılı tutma
