@@ -1440,8 +1440,10 @@ private fun StartPanel(
                 .width(NmDim.PanelWidth * 1.6f)
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .background(NmColor.SurfaceDialog)
-                .padding(horizontal = 26.dp, vertical = NmDim.SafeV),
-            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+                // Açıklama gelince bölüm listesine yer kalmıyordu: panelin iç
+                // boşlukları ve satır araları yarıya indirildi (Dean).
+                .padding(horizontal = 22.dp, vertical = NmDim.SafeV / 2),
+            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2),
         ) {
             Text(
                 text = title,
@@ -1472,7 +1474,7 @@ private fun StartPanel(
                 // Üstte sezon rafı (SOL/SAĞ), altta o sezonun bölümleri adlarıyla (YUKARI/AŞAĞI).
                 if (seasons.size > 1) {
                     SectionTitle("📑 Sezon")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2)) {
                         items(seasons.size, key = { seasons[it] }) { i ->
                             val s = seasons[i]
                             Box(Modifier.width(110.dp)) { SettingRow("S$s", s == season) { season = s } }
@@ -1492,7 +1494,7 @@ private fun StartPanel(
                 SectionTitle("🎬 Bölümler (${secili.size})")
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2),
                 ) {
                     items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
                         val (idx, ep) = secili[i]
@@ -1523,7 +1525,7 @@ private fun SectionTitle(text: String) {
         color = NmColor.Primary,
         fontWeight = FontWeight.Bold,
         fontSize = NmType.RowTitle,
-        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+        modifier = Modifier.padding(top = 6.dp, bottom = 1.dp),
     )
 }
 
@@ -1534,7 +1536,7 @@ private fun MutedRow(text: String) {
         text = text,
         color = NmColor.OnSurfaceFaint,
         fontSize = NmType.Body,
-        modifier = Modifier.padding(vertical = 6.dp),
+        modifier = Modifier.padding(vertical = 3.dp),
     )
 }
 
@@ -1557,7 +1559,7 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
             .nmFocusRing(isFocused, shape)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         Text(
             text = (if (selected) "●  " else "     ") + label,
