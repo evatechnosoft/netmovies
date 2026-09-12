@@ -45,7 +45,7 @@ Gözat'ta kaynak seçilince odak hep ikinci banda düşüyordu (raflar paralel �
 **Listelerin yeri:** favoriler ana ekranda "Favoriler" rafı · takip edilenler
 Ayarlar → "📋 Listem — Takip Ettiklerim" (Ajanda'yı da bu besliyor).
 
-**Ses kesintisi — AÇIK.** Dean'in telefon kaydında iki gerçek kesinti: 4.5–4.9sn
+**Ses kesintisi — İZLEMEDE (Dean: "devam etmiyor, bakarım olursa").** Tekrarlarsa ölçüm yolu hazır: Dean'in telefon kaydında iki gerçek kesinti: 4.5–4.9sn
 (~0.4sn) ve 5.2–5.9sn (~0.6sn); seviye −69 dBFS'e (oda tabanı) düşüyor, öncesi/sonrası
 −50…−53 dBFS, video akmaya devam ediyor. v0.1.83'te `AnalyticsListener` eklendi
 (underrun / AudioSink hatası / ses biçimi değişimi → Ayarlar "Kaynak raporu").
