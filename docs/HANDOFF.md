@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `a03a47c` · temiz, push'lı
-**Sürümler:** TV `v0.1.89-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `v0.1.90` · temiz, push'lı
+**Sürümler:** TV `v0.1.90-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
@@ -42,6 +42,9 @@ okunuyor, satır durumu söylüyor ("Takipte ✓ — bırak"), dokununca sunucun
 döndürdüğü `saved` satıra yazılıyor, menü kapanmıyor; favori satırı da aynı dilde.
 Gözat'ta kaynak seçilince odak hep ikinci banda düşüyordu (raflar paralel çekiliyor,
 önce dolan odağı kapıyordu) → yedek raflar 900ms bekliyor.
+**v0.1.90:** ortadaki geniş paneller ekranı kaplıyordu → oynatıcı paneli sağ kenarda
+ince şerit (arkadaki afiş görünür), poster menüsü ve bölüm seçici sağ altta dar sütun;
+perde `Scrim` yerine `ScrimSoft`.
 **Listelerin yeri:** favoriler ana ekranda "Favoriler" rafı · takip edilenler
 Ayarlar → "📋 Listem — Takip Ettiklerim" (Ajanda'yı da bu besliyor).
 

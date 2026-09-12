@@ -1458,15 +1458,18 @@ private fun StartPanel(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NmColor.Scrim)
+            // Tam perde yerine yumuşak gölge: panel yandayken arkası seçilsin.
+            .background(NmColor.ScrimSoft)
             .onFocusChanged { panelOdakli = it.hasFocus }
             .focusGroup(),
-        contentAlignment = Alignment.Center,
+        // Ortadaki geniş panel ekranı kapatıp "dolu" gösteriyordu (Dean): panel
+        // sağ kenara alındı, arkadaki afiş/video görünür kalıyor.
+        contentAlignment = Alignment.CenterEnd,
     ) {
         Column(
             modifier = Modifier
-                .fillMaxHeight(0.9f)
-                .width(NmDim.PanelWidth * 1.6f)
+                .fillMaxHeight(0.92f)
+                .width(NmDim.PanelWidth)
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .background(NmColor.SurfaceDialog)
                 // Açıklama gelince bölüm listesine yer kalmıyordu: panelin iç

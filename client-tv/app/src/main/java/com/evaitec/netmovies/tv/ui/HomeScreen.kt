@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -573,28 +576,32 @@ private fun ModalCard(title: String, onClose: () -> Unit, content: @Composable (
     NmBackHandler(enabled = true) { onClose() }
 
     Box(
-        Modifier.fillMaxSize().background(NmColor.Scrim),
-        contentAlignment = Alignment.Center,
+        // Ortadaki kutu ekranı kaplıyordu: menü ve bölüm listesi sağ alta,
+        // dar bir sütuna alındı; arkadaki raflar görünür kalır (Dean).
+        Modifier.fillMaxSize().background(NmColor.ScrimSoft).padding(NmDim.SafeArea),
+        contentAlignment = Alignment.BottomEnd,
     ) {
         Column(
             modifier = Modifier
-                .width(NmDim.DialogWidth)
+                .width(NmDim.DialogWidth * 0.72f)
+                .fillMaxHeight(0.7f)
+                .verticalScroll(rememberScrollState())
                 .clip(shape)
                 .background(NmColor.SurfaceDialog)
                 .nmFocusRing(false, shape)
                 .focusRequester(panelFocus)
                 .focusGroup()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
-                fontSize = NmType.ScreenTitle,
+                fontSize = NmType.RowTitle,
                 color = NmColor.Primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(bottom = 10.dp),
+                modifier = Modifier.padding(bottom = 6.dp),
             )
             content()
         }
