@@ -64,16 +64,40 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             diag.add("fail", "link", f"{plugin_name} · {type(hata).__name__}: {hata}")
             return []
 
+    async def _episode_objects() -> list:
+        try:
+            info = await plugin.load_item(target)
+            return getattr(info, "episodes", None) or []
+        except Exception as hata:
+            diag.add("fail", "bölüm", f"{plugin_name} · {type(hata).__name__}: {hata}")
+            return []
+
+    # Kullanıcı BELİRLİ bir bölüm seçtiyse listeyi ÖNCE çöz. Kart bir bölüm
+    # sayfası olabiliyor (DiziMom "Son Bölümler" böyle veriyor); o sayfa tek
+    # başına oynatılabilir olduğu için aşağıdaki ilk deneme tutuyor ve seçilen
+    # bölüm hiç dikkate alınmıyordu — hangi bölüme basılsa karttaki (son) bölüm
+    # açılıyordu. index 0 "seçim yok"tur: fazladan istek atılmaz, eski yol işler.
+    if episode_index > 0:
+        secilenler = await _episode_objects()
+        if secilenler:
+            episodes = [
+                {
+                    "title"  : getattr(ep, "title", None),
+                    "url"    : quote_plus(getattr(ep, "url", "") or ""),
+                    "season" : getattr(ep, "season", None),
+                    "episode": getattr(ep, "episode", None),
+                }
+                for ep in secilenler
+            ]
+            if episode_index < len(secilenler):
+                target = getattr(secilenler[episode_index], "url", "") or target
+                diag.add("info", "bölüm", f"{plugin_name} · seçilen bölüm {episode_index + 1}/{len(secilenler)}")
+
     links = await _load(target)
 
     if not links:
         # Dizi ana sayfası olabilir: bölüm listesini çöz, seçili bölümü dene.
-        try:
-            info     = await plugin.load_item(target)
-            episode_objects = getattr(info, "episodes", None) or []
-        except Exception as hata:
-            diag.add("fail", "bölüm", f"{plugin_name} · {type(hata).__name__}: {hata}")
-            episode_objects = []
+        episode_objects = await _episode_objects()
 
         if episode_objects:
             episodes = [
