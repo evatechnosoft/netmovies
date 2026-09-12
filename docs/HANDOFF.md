@@ -69,6 +69,10 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 
 ## 0.2 SIRADAKİ İŞ
 
+0. **TV'ye `v0.1.81` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
+   DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** · bölüm sonunda SAĞ ok
+   teklifi geliyor mu · kontrol çubuğundaki "Bölümler" ve YUKARI basılı tutma
+   bölüm panelini açıyor mu (orada GERİ yalnız paneli kapatmalı).
 1. **Saat: liste ve bölüm seçme** (Dean istedi, yapılmadı). Şu an tek ekran:
    yuvarlak posterler + yüzey + iki düğme. İstenen: başlıklı/alt alta liste,
    Yeni Eklenenler ayrımı, dizide bölüm seçme. `client-tv/wear/.../MainActivity.kt`.
