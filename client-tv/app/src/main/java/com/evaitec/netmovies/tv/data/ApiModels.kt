@@ -195,6 +195,9 @@ data class ProgressListResponse(val result: List<ProgressRow> = emptyList())
 data class OkResult(
     val ok: Boolean = false,
     @SerialName("is_favorite") val isFavorite: Boolean = false,
+    // lists/toggle sonrası yeni durum: true = listede. Menü satırı bunu gösterir,
+    // yoksa takip et/bırak kör bir düğmeydi.
+    val saved: Boolean = false,
 )
 
 @Serializable

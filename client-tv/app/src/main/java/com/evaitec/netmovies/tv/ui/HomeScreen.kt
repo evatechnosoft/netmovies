@@ -491,26 +491,43 @@ private fun PosterMenu(
         return
     }
     // Takip: sunucudaki "takip" listesi (Listem ekranı bunu takvimle birleştirir).
-    // Durum sorgulanmaz, uç zaten toggle — istek gidince satır kapanır.
+    // Durum menü açılınca okunur: kör bir "takip et / bırak" satırı içeriğin
+    // listede olup olmadığını göstermiyordu (Dean).
     val scope = rememberCoroutineScope()
+    var takipte by remember(item.url) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(item.url) {
+        takipte = runCatching {
+            val liste = Network.api.following().result
+            (liste.turkish + liste.foreign).any { it.title.equals(item.title.orEmpty(), ignoreCase = true) }
+        }.getOrNull()
+    }
     ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
         MenuRow("▶  Oynat", onPlay)
         if (bolumler.isNotEmpty()) MenuRow("📑  Bölüm seç (${bolumler.size})") { bolumSeciyor = true }
-        MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
-        MenuRow("📋  Takip et / bırak", onClick = {
-            scope.launch {
-                runCatching {
-                    Network.api.toggleList(
-                        listName = "takip",
-                        title = item.title.orEmpty(),
-                        plugin = item.plugin,
-                        poster = item.poster.orEmpty(),
-                        contentUrl = com.evaitec.netmovies.tv.data.rawUrl(item.url),
-                    )
+        MenuRow(if (isFavorite) "★  Favoride ✓ — çıkar" else "☆  Favorilere ekle", onToggleFavorite)
+        MenuRow(
+            when (takipte) {
+                true  -> "📋  Takipte ✓ — bırak"
+                false -> "📋  Takip et"
+                null  -> "📋  Takip durumu okunuyor…"
+            },
+            onClick = {
+                scope.launch {
+                    // Sunucu yeni durumu döndürüyor: satır kapanmadan güncellenir,
+                    // kullanıcı ne olduğunu görür.
+                    val yeni = runCatching {
+                        Network.api.toggleList(
+                            listName = "takip",
+                            title = item.title.orEmpty(),
+                            plugin = item.plugin,
+                            poster = item.poster.orEmpty(),
+                            contentUrl = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                        ).result.saved
+                    }.getOrNull()
+                    if (yeni != null) takipte = yeni
                 }
-            }
-            onClose()
-        })
+            },
+        )
         MenuRow("Kapat", onClose)
     }
 }

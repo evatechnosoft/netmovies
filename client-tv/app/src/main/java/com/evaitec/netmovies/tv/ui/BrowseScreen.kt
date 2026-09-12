@@ -496,9 +496,14 @@ private fun ShelfList(
                 started = started,
                 // Hedef raf boş çıkarsa (kaynak ölü) odak sonraki dolu rafa düşsün.
                 autoFocus = pendingFocus && index >= focusedShelf,
+                // Hedef raf mı, yoksa onun altındaki bir yedek mi? Kaynak seçilince
+                // ilk raf ("Son Bölümler") hep atlanıp ikinciye düşülüyordu: raflar
+                // paralel çekildiği için hangisi ÖNCE dolarsa odağı kapıyordu. Yedek
+                // raflar kısa süre bekler, hedef dolarsa o kazanır (Dean).
                 // Kart da geri verilir: dönüşte raf doğru ama poster ilk sıradaysa
                 // kullanıcı hangi diziden çıktığını yine bulamıyor. Yalnız ASIL rafa
                 // dönüldüğünde; alt rafa kayıldıysa baştan başlanır.
+                oncelikli = index == focusedShelf,
                 restoreCard = if (index == focusedShelf) focusedCard else 0,
                 onFocusConsumed = { pendingFocus = false },
                 onFocused = { onShelfFocused(index) },
@@ -516,6 +521,7 @@ private fun ShelfRow(
     cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
     started: MutableSet<String>,
     autoFocus: Boolean,
+    oncelikli: Boolean,
     restoreCard: Int,
     onFocusConsumed: () -> Unit,
     onFocused: () -> Unit,
@@ -546,6 +552,9 @@ private fun ShelfRow(
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(autoFocus, items) {
         if (autoFocus && !items.isNullOrEmpty()) {
+            // Yedek raf: hedefe zaman tanı. Hedef bu arada dolarsa odağı o alır ve
+            // `autoFocus` düşer, bu efekt de sessizce iptal olur.
+            if (!oncelikli) kotlinx.coroutines.delay(900)
             if (targetCard > 0) runCatching { rowState.scrollToItem(targetCard) }
             runCatching { firstFocus.requestFocus() }.onSuccess { onFocusConsumed() }
         }
