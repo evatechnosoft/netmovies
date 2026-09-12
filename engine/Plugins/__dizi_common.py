@@ -14,6 +14,7 @@ from KekikStream.Core import ExtractResult, HTMLHelper, Subtitle
 _WARP_PROXY = os.getenv("WARP_PROXY", "http://warp:8080")
 _DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 _warp_client: httpx.AsyncClient | None = None
+_plain_client: httpx.AsyncClient | None = None
 
 
 def get_warp_client() -> httpx.AsyncClient | None:
@@ -29,6 +30,18 @@ def get_warp_client() -> httpx.AsyncClient | None:
         except Exception:
             _warp_client = None
     return _warp_client
+
+
+def get_plain_client() -> httpx.AsyncClient:
+    """WARP'sız doğrudan istemci — WARP proxy 503 verdiğinde son çare."""
+    global _plain_client
+    if _plain_client is None:
+        _plain_client = httpx.AsyncClient(
+            headers={"User-Agent": _DEFAULT_UA},
+            timeout=12.0,
+            follow_redirects=True,
+        )
+    return _plain_client
 
 
 def decode_body(resp: httpx.Response, encoding: str | None) -> str:
@@ -49,30 +62,36 @@ async def fetch_html(
     cookies: dict | None = None,
     encoding: str | None = None,
 ) -> str:
-    """Fetch HTML with automatic WARP proxy fallback on SNI/SSL/Connection block."""
+    """Fetch HTML, her denemede FARKLI bir yol dener: verilen istemci → WARP → doğrudan.
+
+    Eskiden WARP fallback'i `client`in doğrudan istemci olduğunu varsayıyordu.
+    DiziPal zaten WARP istemcisini geçiyor; WARP proxy 503 verdiğinde üç deneme de
+    aynı bozuk yoldan gidip ~18sn donuyor ve gateway 30sn'de 504 veriyordu.
+    """
     h = dict(headers or {})
     if "User-Agent" not in h and "user-agent" not in h:
         h["User-Agent"] = _DEFAULT_UA
 
-    try:
-        resp = await client.get(url, headers=h, cookies=cookies, timeout=7.0)
+    attempts = [client]
+    for alternative in (get_warp_client(), get_plain_client()):
+        if alternative is not None and alternative not in attempts:
+            attempts.append(alternative)
+
+    last_response: httpx.Response | None = None
+    last_error: Exception | None = None
+    for attempt in attempts:
+        try:
+            resp = await attempt.get(url, headers=h, cookies=cookies, timeout=7.0)
+        except Exception as error:
+            last_error = error
+            continue
+        last_response = resp
         if resp.status_code == 200 and len(resp.content) > 300:
             return decode_body(resp, encoding)
-    except Exception:
-        pass
 
-    warp = get_warp_client()
-    if warp:
-        try:
-            resp = await warp.get(url, headers=h, cookies=cookies, timeout=12.0)
-            if resp.status_code == 200 or len(resp.content) > 300:
-                return decode_body(resp, encoding)
-        except Exception:
-            pass
-
-    # Fallback to direct client
-    resp = await client.get(url, headers=h, cookies=cookies)
-    return decode_body(resp, encoding)
+    if last_response is not None:
+        return decode_body(last_response, encoding)
+    raise last_error if last_error else RuntimeError(f"fetch_html: yanıt yok — {url}")
 
 
 def normalize_url(url: str, base_url: str) -> str:
