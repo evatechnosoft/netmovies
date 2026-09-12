@@ -134,7 +134,10 @@ class DiziMom(PluginBase):
                 results.extend(extract_embedded_sources(iframe_html, iframe_url, self.name))
                 # Embed'ler (hdplayersystem, hdstreamable) FirePlayer: link packed JS
                 # ardında, regex bulamıyor — getVideo JSON'undan imzalı master gelir.
-                if "/video/" in iframe_url:
+                # İki adres biçimi var: `/video/<id>` ve `/embed/<id>`. Yalnız ilki
+                # denendiği için 1. sezon bölümleri (embed veren sayfalar) hiç
+                # kaynak vermiyordu — oysa aynı çözücü orada da çalışıyor.
+                if "/video/" in iframe_url or "/embed/" in iframe_url:
                     try:
                         results.extend(await fireplayer_sources(self.httpx, iframe_url, f"{self.name} | Kaynak", f"{self.main_url}/"))
                     except Exception:

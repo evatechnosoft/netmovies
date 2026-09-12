@@ -194,6 +194,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Panelin OYNAT satırı için "nereden devam" bilgisi. Kayıt sunucuda; panel
     // çözümlemeyi beklemeden gösterilebilsin diye ayrıca burada okunuyor.
     var resumeLabel by remember(item.url) { mutableStateOf<String?>(null) }
+    // Kaydın HANGİ bölüme ait olduğu. İzleme kaydı dizi başına tutuluyor (anahtar
+    // tür-agnostik); bölüm bilgisi kaydın içinde. Bu olmadan 5. bölümü açarken
+    // "7. bölüm 9. dk" yazıyor ve o konuma atlıyordu.
+    var resumeEpisode by remember(item.url) { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(item.url) {
         details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
@@ -491,7 +495,12 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         val savedMs = (row.positionSeconds * 1000).toLong()
         val durMs   = (row.durationSeconds * 1000).toLong()
         if (savedMs > 30_000 && (durMs <= 0 || savedMs < durMs * 0.92)) {
-            val bolum = row.episode.takeIf { it.isNotBlank() }?.let { "$it · " } ?: ""
+            resumeEpisode = row.episode.toIntOrNull()
+            val bolum = resumeEpisode
+                ?.let { episodes.getOrNull(it) }
+                ?.let { episodeLabel(it, resumeEpisode ?: 0) + " · " }
+                ?: row.episode.takeIf { it.isNotBlank() }?.let { "$it. bölüm · " }
+                ?: ""
             resumeLabel = bolum + fmtTime(savedMs)
 
             // Telefondan gönderilen içerik onayı atlıyordu (`autoplay`), ama yarım
@@ -686,6 +695,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         resumeApplied = true
         val row = library.loadProgress(item.title.orEmpty(), episodes.isNotEmpty())
             ?: return@LaunchedEffect
+        // Kayıt başka bir bölüme aitse konuma ATLAMA: 5. bölümü açarken 7. bölümün
+        // dakikasına gitmek içeriği ortadan başlatır.
+        if ((row.episode.toIntOrNull() ?: 0) != currentEpIndex) return@LaunchedEffect
         val savedMs = (row.positionSeconds * 1000).toLong()
         val dur = exo.duration
         if (savedMs > 30_000 && (dur <= 0 || savedMs < dur * 0.92)) {
@@ -888,13 +900,30 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 // Bölüme basmak DOĞRUDAN başlatır: seçtikten sonra panelin
                 // tepesindeki OYNAT'a dönmek fazladan bir yolculuktu (Dean).
                 onSelect = { idx ->
+                    // Bölüm seçildi: kayıt başka bölüme aitse "devam et" etiketi
+                    // artık yanıltıcı, düşer.
+                    if (resumeEpisode != null && resumeEpisode != idx) resumeLabel = null
                     currentEpIndex = idx
                     playRequested = true
                     showStartPanel = false
+                    panelAsList = false
                     exo.playWhenReady = true
                 },
                 onSelectLink = { idx -> currentLinkIndex = idx },
-                onPlay = { playRequested = true; showStartPanel = false; exo.playWhenReady = true },
+                onPlay = {
+                    // "Devam et" kayıtlı bölümü kastediyor: farklı bölümdeysek önce
+                    // ona geçilir, devam etme o zaman uygulanır.
+                    val kayit = resumeEpisode
+                    if (resumeLabel != null && kayit != null && kayit != currentEpIndex &&
+                        kayit in episodes.indices
+                    ) {
+                        currentEpIndex = kayit
+                    }
+                    playRequested = true
+                    showStartPanel = false
+                    panelAsList = false
+                    exo.playWhenReady = true
+                },
                 onOpenSettings = { showStartPanel = false; panelGeriGelsin = true; showSettings = true },
             )
         }
