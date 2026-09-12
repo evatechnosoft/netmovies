@@ -156,6 +156,9 @@ class MainActivity : ComponentActivity() {
                         // GERİ ile çıkınca aynı kaynakta, aynı rafta, aynı posterde
                         // kalınır (Dean: "geri çıkınca taa başka yere atıyor").
                         val browseState = remember { com.evaitec.netmovies.tv.ui.BrowseState() }
+                        // Ana ekran için aynısı: içerikten GERİ ile çıkınca raf ve
+                        // poster odağı korunur.
+                        val homePosition = remember { com.evaitec.netmovies.tv.ui.HomePosition() }
                         // Telefondan gelen metin: Gözat ekranının arama kutusuna düşer.
                         var kumandaMetni by remember { mutableStateOf<String?>(null) }
 
@@ -287,6 +290,7 @@ class MainActivity : ComponentActivity() {
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
                                     UpdateBanner()   // güncelleme varsa üstte şerit
                                     HomeScreen(
+                                        position = homePosition,
                                         onSelect = pick,
                                         // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).

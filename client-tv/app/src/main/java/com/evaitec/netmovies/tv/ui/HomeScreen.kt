@@ -109,6 +109,9 @@ fun TvTopBarButton(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    // Ekranın yeri (kaydırma, raf ve poster odağı) — oynatıcıdan GERİ ile
+    // dönüldüğünde aynı posterde kalınsın diye DIŞARIDA tutulur.
+    position: HomePosition,
     onSelect: (MediaItem) -> Unit,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
@@ -131,14 +134,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -150,6 +153,7 @@ private const val MIN_ROW_ITEMS = 4
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryRows(
+    position: HomePosition,
     items: List<MediaItem>,
     library: Library,
     onSelect: (MediaItem) -> Unit,
@@ -190,17 +194,25 @@ private fun CategoryRows(
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
 
-    // İlk poster karta başlangıç focus'u ver — yoksa D-pad'de hiçbir şey seçilemiyor.
+    // Başlangıç odağı — yoksa D-pad'de hiçbir şey seçilemiyor. Hedef ilk poster
+    // DEĞİL, son kalınan poster: oynatıcıdan dönüşte kullanıcı çıktığı içeriği
+    // bulmalı. Liste kısaldıysa (katalog tazelendi) sona kırpılır.
     val firstFocus = remember { FocusRequester() }
+    val listState = position.listState
+    val targetRow = position.row.coerceIn(0, (sections.size - 1).coerceAtLeast(0))
+    val targetCard = position.card.coerceAtLeast(0)
     val firstKey = sections.firstOrNull()?.first
-    LaunchedEffect(firstKey) {
-        runCatching { firstFocus.requestFocus() }
+    LaunchedEffect(firstKey, sections.size) {
+        if (targetRow > 0) runCatching { listState.scrollToItem(targetRow + 1) }  // 0 = TopBar
+        repeat(6) {
+            if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            withFrameNanos {}
+        }
     }
 
     // GERİ tuşu: listede aşağıdayken uygulamadan ATMAZ — önce en üste döner.
     // TV alışkanlığı bu; kullanıcı rafların arasında gezerken yanlışlıkla çıkmasın.
     // En üstteyken ikinci GERİ çıkışa gider.
-    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
@@ -213,6 +225,7 @@ private fun CategoryRows(
             // uygulamayı kapatıyordu (Dean).
             Unit
         } else {
+            position.toTop()   // odak isteyicisi ilk postere taşınsın
             scope.launch {
                 // Odak ÖNCE en üste alınır: sırası ters olunca liste 0'a kayıyor,
                 // odak hâlâ aşağıdaki rafta kaldığı için Compose hemen geri
@@ -244,6 +257,14 @@ private fun CategoryRows(
                 // alt raflara geçemiyor ve liste ortada takılıyordu (Dean: "gerilim
                 // kalıyor ama oraya kadar inmiyor").
                 item(key = "raf-$title") {
+                    // Yatay kaydırma da geri verilir: odak uzaktaki bir karttaysa
+                    // raf o karta kaydırılmazsa odak ekran dışında kalır.
+                    val rowState = rememberLazyListState()
+                    LaunchedEffect(list.size) {
+                        if (sIndex == targetRow && targetCard > 0) {
+                            runCatching { rowState.scrollToItem(targetCard.coerceAtMost(list.lastIndex)) }
+                        }
+                    }
                     Column {
                         Text(
                             text = title,
@@ -254,14 +275,18 @@ private fun CategoryRows(
                         )
                         LazyRow(
                             modifier = Modifier.focusGroup(),
+                            state = rowState,
                             contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
                             horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                         ) {
                             // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
                             itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
-                                val cardModifier =
-                                    if (sIndex == 0 && index == 0) Modifier.focusRequester(firstFocus)
-                                    else Modifier
+                                val hedef = sIndex == targetRow &&
+                                    index == targetCard.coerceAtMost(list.lastIndex)
+                                val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
+                                    .onFocusChanged {
+                                        if (it.isFocused) { position.row = sIndex; position.card = index }
+                                    }
                                 PosterCard(
                                     item = item,
                                     isFavorite = library.isFavorite(item),
