@@ -8,11 +8,29 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `2605d31` · temiz, push'lı
-**Sürümler:** TV `v0.1.82-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `3f68da4` · temiz, push'lı
+**Sürümler:** TV `v0.1.85-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 12 Eylül gecesi — arama, bölüm seçimi, ses teşhisi (TV v0.1.85 · saat v0.1.2)
+
+| Konu | Durum | Kanıt / not |
+|---|---|---|
+| **Arama alakasız sonuç veriyordu** | ✔ kök neden istemcide | Gözat eklenti eklenti `/search` çağırıyordu; o uç HAM liste döner. "walking dead city" için DDizi 45 alakasız dizi, xHamster/HQPorner 46'şar sonuç döndürüyor. Süzme + varyant + Özel Koleksiyon elemesi zaten `/search_all`'daydı — istemci artık onu çağırıyor (`/search_all` aynı sorguda 39 sonuç, ilk 10'u Walking Dead) |
+| **DiziMom kartı = BÖLÜM sayfası** | ✔ | "Son Bölümler" ve arama `...-3-sezon-7-bolum-izle/` veriyor; o sayfada bölüm listesi yok, kart açılınca doğrudan o bölüm oynuyordu. `load_item` artık dizinin sayfasına (`/diziler/...`) geçiyor — dublaj/altyazı ayrımı tıklanan bölüme göre. Tıklanan bölümün sırası istemcide adresten bulunuyor, yoksa zincir 1. bölümü açardı |
+| **Bölüm seçimi üç cihazda** | ✔ | TV/telefon: poster uzun-bas → "📑 Bölüm seç (n)" · telefon `remote/play`'e `episode` ekledi · saat: poster'a dokununca dizi ise bölüm ekranı (film ise doğrudan gider) |
+| Telefondan gelen dizi | ✔ | `episode < 0` ise TV'de başlangıç paneli açılıyor; panelde "⏭ Son bölüm" satırı. Bölüm listesi zinciri beklemiyor, `load_item`tan geliyor |
+| **Ses kısa kısa kesiliyor** | ⚠ teşhis kondu, SEBEP AÇIK DEĞİL | Dean'in kaydında iki gerçek kesinti: 4.5–4.9sn (~0.4sn) ve 5.2–5.9sn (~0.6sn), seviye −69 dBFS'e (oda tabanı) düşüyor; öncesi/sonrası −50…−53 dBFS. Video akmaya devam ediyor. v0.1.83'te `AnalyticsListener` eklendi: underrun / AudioSink hatası / ses biçimi değişimi → Ayarlar "Kaynak raporu". **Sunucu logu bu belirtiyi göremez** — segmentler doğrudan CDN'den çekiliyor |
+| Kanıt | ✔ | engine 14/14 · `assembleDebug` + `:wear:assembleDebug` + `testDebugUnitTest` exit 0 · `/api/v1/app_update` → `v0.1.85-poc`, `?target=wear` → `v0.1.2-poc` · `load_item` (DiziMom bölüm adresi) → 33 bölüm |
+
+**Teşhis notu:** bir kaynakta "bölüm seçimi yok" deniyorsa önce **kartın ne olduğuna**
+bak — dizi sayfası mı, bölüm sayfası mı. Katalog "son bölümler" besliyorsa kart bölümdür.
+
+**Cache tuzağı:** `load_item` yanıtı ağ geçidinde 180 sn cache'lenir (`fuck_dmca`).
+Eklenti düzeltmesini test ederken aynı adres eski sonucu döndürebilir — başka bir
+adresle ya da doğrudan motordan doğrula.
 
 ## 0.0 12 Eylül akşamı — yer koruma, sonraki bölüm, bölüm listesi (TV v0.1.82)
 
@@ -70,7 +88,7 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 
 ## 0.2 SIRADAKİ İŞ
 
-0. **TV'ye `v0.1.82` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
+0. **TV'ye `v0.1.85`, saate `v0.1.2` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
    DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** (aynısı ana ekranda da) ·
    ana ekranda aşağıdayken GERİ hâlâ en üste dönüyor mu · bölüm sonunda SAĞ ok
    teklifi geliyor mu · kontrol çubuğundaki "Bölümler" ve YUKARI basılı tutma
