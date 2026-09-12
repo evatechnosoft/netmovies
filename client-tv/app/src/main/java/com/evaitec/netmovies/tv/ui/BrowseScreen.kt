@@ -104,6 +104,9 @@ private suspend fun fetchShelf(shelf: Shelf, page: Int = 1): List<MediaItem> =
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun BrowseScreen(
+    // Ekranın yeri (kaynak, kaydırma, odak, raf önbelleği). Oynatıcıdan GERİ ile
+    // dönüldüğünde aynı yere düşülsün diye DIŞARIDA tutulur.
+    state: BrowseState,
     showVault: Boolean = false,
     vaultMode: Boolean = false,
     onSelect: (MediaItem) -> Unit,
@@ -148,7 +151,9 @@ fun BrowseScreen(
     // Tek kaynak seçilebilir: tüm eklentilerin kategorileri alt alta dizilince
     // ekranda 40+ raf oluyordu ve aşağıdan yukarı dönmek işkenceydi.
     // null = "Tümü" (eski davranış).
-    var selectedPlugin by remember { mutableStateOf<String?>(null) }
+    // Özel Koleksiyon'a geçilince normal listedeki seçim geçersiz kalır (o eklenti
+    // burada yok) — yoksa ekran boş görünürdü.
+    val selectedPlugin = state.plugin?.takeIf { name -> plugins.any { it.name == name } }
 
     val shelves = remember(plugins, selectedPlugin) {
         plugins.filter { selectedPlugin == null || it.name == selectedPlugin }
@@ -158,9 +163,9 @@ fun BrowseScreen(
     }
 
     // Raf içerikleri: ekran boyunca yaşar → yukarı/aşağı gezinirken tekrar çekilmez.
-    val shelfCache = remember { mutableStateMapOf<String, List<MediaItem>>() }
+    val shelfCache = state.cache
     // Aynı rafı hem önyükleme hem de satırın kendisi çekmesin.
-    val started = remember { mutableSetOf<String>() }
+    val started = state.started
 
     // İlk raflar ekrana girmeyi beklemeden PARALEL çekilir; sunucu tarafı 30 dk
     // cache'lediği için sonraki açılışlar anında gelir (Dean: "çok geç yükleniyor").
@@ -174,8 +179,8 @@ fun BrowseScreen(
 
     // Kaydırma konumu ve son odaklı raf ekran seviyesinde tutulur; arama sonucuna
     // girip çıkınca liste en üstten başlamasın (Dean: "en üstten başlıyor, olmuyor").
-    val listState = rememberLazyListState()
-    var focusedShelf by remember { mutableStateOf(0) }
+    val listState = state.listState
+    val focusedShelf = state.shelf
     // GERİ ile "en üste dön": listeyi kaydırmak yetmiyor, odak alt rafta kalınca ilk
     // D-pad basışı listeyi geri aşağı çekiyordu → odak da ilk rafa taşınır.
     var focusResetKey by remember { mutableStateOf(0) }
@@ -216,8 +221,8 @@ fun BrowseScreen(
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
             selectedPlugin != null -> {
-                selectedPlugin = null
-                focusedShelf = 0
+                state.plugin = null
+                state.shelf = 0
                 focusResetKey++
                 browseScope.launch { listState.scrollToItem(0) }
             }
@@ -275,8 +280,8 @@ fun BrowseScreen(
                 names = plugins.map { it.name },
                 selected = selectedPlugin,
                 onSelect = { name ->
-                    selectedPlugin = name
-                    focusedShelf = 0
+                    state.plugin = name
+                    state.shelf = 0
                     browseScope.launch { listState.scrollToItem(0) }
                 },
             )
@@ -307,8 +312,10 @@ fun BrowseScreen(
                     started = started,
                     listState = listState,
                     focusedShelf = focusedShelf,
+                    focusedCard = state.card,
                     focusResetKey = focusResetKey,
-                    onShelfFocused = { focusedShelf = it },
+                    onShelfFocused = { state.shelf = it },
+                    onCardFocused = { state.card = it },
                     onSelect = onSelect,
                 )
             }
@@ -456,8 +463,10 @@ private fun ShelfList(
     started: MutableSet<String>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     focusedShelf: Int,
+    focusedCard: Int,
     focusResetKey: Int,
     onShelfFocused: (Int) -> Unit,
+    onCardFocused: (Int) -> Unit,
     onSelect: (MediaItem) -> Unit,
 ) {
     // Bu liste her ekrana dönüşte yeniden oluşur; odağı SON kalınan rafa geri ver
@@ -478,8 +487,13 @@ private fun ShelfList(
                 started = started,
                 // Hedef raf boş çıkarsa (kaynak ölü) odak sonraki dolu rafa düşsün.
                 autoFocus = pendingFocus && index >= focusedShelf,
+                // Kart da geri verilir: dönüşte raf doğru ama poster ilk sıradaysa
+                // kullanıcı hangi diziden çıktığını yine bulamıyor. Yalnız ASIL rafa
+                // dönüldüğünde; alt rafa kayıldıysa baştan başlanır.
+                restoreCard = if (index == focusedShelf) focusedCard else 0,
                 onFocusConsumed = { pendingFocus = false },
                 onFocused = { onShelfFocused(index) },
+                onCardFocused = onCardFocused,
                 onSelect = onSelect,
             )
         }
@@ -493,8 +507,10 @@ private fun ShelfRow(
     cache: androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<MediaItem>>,
     started: MutableSet<String>,
     autoFocus: Boolean,
+    restoreCard: Int,
     onFocusConsumed: () -> Unit,
     onFocused: () -> Unit,
+    onCardFocused: (Int) -> Unit,
     onSelect: (MediaItem) -> Unit,
 ) {
     val items = cache[shelf.key]
@@ -514,9 +530,14 @@ private fun ShelfRow(
     var exhausted by remember(shelf.key) { mutableStateOf(false) }
     var loadingMore by remember(shelf.key) { mutableStateOf(false) }
 
+    // Odak geri verilecek kart. Liste kısaldıysa (kaynak farklı sayfa döndü) sona
+    // kırpılır; yatay kaydırma da oraya taşınır, yoksa odak ekran dışında kalır.
+    val targetCard = if (items.isNullOrEmpty()) 0 else restoreCard.coerceIn(0, items.lastIndex)
+    val rowState = rememberLazyListState()
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(autoFocus, items) {
         if (autoFocus && !items.isNullOrEmpty()) {
+            if (targetCard > 0) runCatching { rowState.scrollToItem(targetCard) }
             runCatching { firstFocus.requestFocus() }.onSuccess { onFocusConsumed() }
         }
     }
@@ -534,6 +555,7 @@ private fun ShelfRow(
         } else {
             LazyRow(
                 modifier = Modifier.focusGroup(),
+                state = rowState,
                 contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
@@ -557,7 +579,8 @@ private fun ShelfRow(
                     }
                     val mod = Modifier
                         .width(NmDim.PosterWidth)
-                        .then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                        .then(if (i == targetCard) Modifier.focusRequester(firstFocus) else Modifier)
+                        .onFocusChanged { if (it.isFocused) onCardFocused(i) }
                     BrowsePoster(item, modifier = mod) { onSelect(item) }
                 }
             }

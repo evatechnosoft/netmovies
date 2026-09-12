@@ -183,6 +183,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
     // OYNAT'a basmadan akış başlamaz — yanlış içeriğe girip izlemeye başlamak yok.
     var showStartPanel by remember(item.url) { mutableStateOf(!item.autoplay) }
+    // Aynı panel iki işi görür: içerik açılırken "başlangıç", oynarken "bölüm listesi".
+    // Ayrımı GERİ belirler — başlangıçta içerikten çıkar, listede yalnız paneli kapatır.
+    var panelAsList by remember(item.url) { mutableStateOf(false) }
     // OYNAT'a panel açıkken basıldıysa: kaynak henüz yokken de kabul edilir,
     // hazır olduğu anda başlar.
     var playRequested by remember(item.url) { mutableStateOf(item.autoplay) }
@@ -227,6 +230,19 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             flashControls()
         }
     }
+    // Sıradaki bölüm: dizide ve son bölümde değilsek var.
+    val nextEpIndex = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
+
+    fun goToEpisode(idx: Int) {
+        carryOverMs = 0L
+        currentEpIndex = idx        // çözümleme efektinin anahtarı → yeni kaynak zinciri
+        playRequested = true
+        showStartPanel = false
+        panelAsList = false
+        showControls = false
+        exo.playWhenReady = true
+    }
+
     fun dispatch(a: RemoteAction) {
         when (a) {
             RemoteAction.NONE -> Unit
@@ -238,6 +254,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             RemoteAction.SEEK_HOLD_FWD -> seekBy(8_000)
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-8_000)
             RemoteAction.OPEN_SETTINGS -> showSettings = true
+            // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
+            RemoteAction.OPEN_EPISODES ->
+                if (episodes.isEmpty()) showSettings = true
+                else { panelAsList = true; showStartPanel = true; showControls = false }
             RemoteAction.SHOW_CONTROLS -> flashControls()
             RemoteAction.TOGGLE_SCRUB -> enterScrub()
             RemoteAction.BACK -> onBack()
@@ -285,8 +305,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         when {
             scrubMode -> scrubMode = false
             // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki
-            // ilk adım, kapatıp boş ekranda kalmanın anlamı yok.
-            showStartPanel -> onBack()
+            // ilk adım, kapatıp boş ekranda kalmanın anlamı yok. Oynarken açılan
+            // bölüm listesinde ise arkada film var — GERİ yalnız listeyi kapatır.
+            showStartPanel -> if (panelAsList) { showStartPanel = false; panelAsList = false } else onBack()
             showSettings -> showSettings = false
             showControls -> showControls = false
             else -> onBack()
@@ -303,6 +324,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 // Kaynak gerçekten açılınca bant kalkar; yoksa "sıradaki deneniyor"
                 // yazısı film oynarken ekranda asılı kalıyordu.
                 if (state == Player.STATE_READY) { ready = true; status = null }
+                // Bölüm bitti → sıradakine kendiliğinden geç. Değer burada yeniden
+                // hesaplanır: dinleyici bir kez kurulur, dışarıdaki anlık kopya bayatlar.
+                if (state == Player.STATE_ENDED) {
+                    val sonraki = (currentEpIndex + 1)
+                        .takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
+                    if (sonraki != null) goToEpisode(sonraki)
+                }
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
@@ -629,6 +657,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         }
     }
 
+    // Bölüm sonu teklifi: bitmeye az kala köşede "sonraki bölüm" kartı çıkar ve
+    // SAĞ ok onu açar. Pencere dışında SAĞ hâlâ ileri sarmadır — buton eşlemesi
+    // bozulmaz, kullanıcı yeni bir tuş öğrenmez.
+    val sonrakiTeklif = nextEpIndex != null && duration > 0 &&
+        (duration - position) in 0..NEXT_EPISODE_WINDOW_MS &&
+        !showStartPanel && !showSettings && !showSeek && !scrubMode
+
     Box(
         Modifier
             .fillMaxSize()
@@ -645,7 +680,9 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 if (!showStartPanel || ke.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                     return@onPreviewKeyEvent false
                 }
-                if (ke.nativeKeyEvent.action == KeyEvent.ACTION_UP) onBack()
+                if (ke.nativeKeyEvent.action == KeyEvent.ACTION_UP) {
+                    if (panelAsList) { showStartPanel = false; panelAsList = false } else onBack()
+                }
                 true
             }
             .onKeyEvent { ke ->
@@ -658,6 +695,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     // bu yüzden buton eşlemesine değil doğrudan buraya bağlı.
                     ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_MENU -> {
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) showSettings = true
+                        true
+                    }
+                    // Teklif penceresinde SAĞ ok = sonraki bölüm.
+                    sonrakiTeklif && ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
                         true
                     }
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
@@ -722,6 +764,19 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 onOpenSettings = { showSettings = true },
                 onScrub = { enterScrub() },
                 onSeekToFraction = { seekToFraction(it) },
+                // Dizide bölüm listesi tek tuş uzakta olsun: kontrol çubuğundaki
+                // "Bölümler" aynı sezon/bölüm panelini oynatmayı kesmeden açar.
+                onOpenList = if (episodes.isEmpty()) null else {
+                    { panelAsList = true; showStartPanel = true; showControls = false }
+                },
+            )
+        }
+
+        // Bölüm sonu: "sonraki bölüm" teklifi. Dokunmatikte tıklanır, kumandada SAĞ ok.
+        if (sonrakiTeklif && nextEpIndex != null) {
+            NextEpisodeCard(
+                label = episodeLabel(episodes[nextEpIndex], nextEpIndex),
+                onPlay = { goToEpisode(nextEpIndex) },
             )
         }
 
@@ -860,6 +915,8 @@ private fun ControlsOverlay(
     onOpenSettings: () -> Unit,
     onScrub: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
+    /** null = film (bölüm listesi yok). */
+    onOpenList: (() -> Unit)? = null,
 ) {
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
@@ -870,6 +927,7 @@ private fun ControlsOverlay(
                 .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            onOpenList?.let { TextPill("Bölümler", it) }
             TextPill("Önizleme", onScrub)
             TextPill("Ayarlar", onOpenSettings)
         }
@@ -961,6 +1019,39 @@ private fun TextPill(label: String, onTap: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(label, color = NmColor.OnSurface, fontSize = NmType.Caption, fontWeight = FontWeight.Medium)
+    }
+}
+
+// Bölüm bitmeye bu kadar kala "sonraki bölüm" teklif edilir.
+private const val NEXT_EPISODE_WINDOW_MS = 90_000L
+
+// Bölüm sonu teklifi — sağ altta, oynatmayı kesmeden. Kumandada SAĞ ok kabul eder
+// (tuş işleme oynatıcıda; kart odak almaz ki D-pad sarma/kontrol akışı bozulmasın),
+// dokunmatikte karta dokunmak yeter. Cevap verilmezse bölüm bitince kendiliğinden
+// sıradakine geçilir.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun NextEpisodeCard(label: String, onPlay: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(NmDim.PanelRadius))
+                .background(NmColor.SurfaceDialog)
+                .pointerInput(Unit) { detectTapGestures { onPlay() } }
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Sıradaki bölüm", color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
+            Text(
+                text = label,
+                color = NmColor.OnSurface,
+                fontSize = NmType.Label,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("▶  SAĞ ok ile geç", color = NmColor.Primary, fontSize = NmType.Caption)
+        }
     }
 }
 

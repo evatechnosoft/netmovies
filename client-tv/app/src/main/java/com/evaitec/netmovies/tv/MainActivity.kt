@@ -152,6 +152,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         var browseVaultMode by remember { mutableStateOf(false) }
+                        // Gözat'ın yeri oynatıcıdan bağımsız yaşar: bir diziye girip
+                        // GERİ ile çıkınca aynı kaynakta, aynı rafta, aynı posterde
+                        // kalınır (Dean: "geri çıkınca taa başka yere atıyor").
+                        val browseState = remember { com.evaitec.netmovies.tv.ui.BrowseState() }
                         // Telefondan gelen metin: Gözat ekranının arama kutusuna düşer.
                         var kumandaMetni by remember { mutableStateOf<String?>(null) }
 
@@ -268,6 +272,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             showBrowse ->
                                 BrowseScreen(
+                                    state = browseState,
                                     // Yetiskin kaynaklar NORMAL Gozat'ta hic gorunmez;
                                     // yalnizca Ozel Koleksiyon ekraninda listelenir.
                                     showVault = false,
