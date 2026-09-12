@@ -199,6 +199,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         val bolumler = details?.episodes.orEmpty()
         if (bolumler.isNotEmpty() && episodes.isEmpty()) episodes = bolumler
 
+        // Kart BÖLÜM sayfası olabilir (DiziMom "Son Bölümler" ve araması böyle
+        // veriyor): sunucu o adresten dizinin tamamını döndürür, ama listede
+        // kaçıncı bölüme tıklandığı yalnız adresten anlaşılır. Eşleşmezse zincir
+        // 1. bölümü açardı — tıklanan S3B7 değil.
+        if (item.episode < 0 && bolumler.isNotEmpty()) {
+            val acilan = com.evaitec.netmovies.tv.data.rawUrl(item.url).trimEnd('/')
+            val sira = bolumler.indexOfFirst { it.url.trimEnd('/') == acilan }
+            if (sira >= 0) currentEpIndex = sira
+        }
+
         // Telefondan gönderilen DİZİ doğrudan 1. bölümden başlıyordu. Telefon
         // belirli bir bölüm seçmediyse (episode < 0) karar TV'de verilir: panel
         // açılır, kullanıcı son bölümü ya da istediğini seçer.

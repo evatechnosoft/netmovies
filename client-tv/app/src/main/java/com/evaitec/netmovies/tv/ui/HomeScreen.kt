@@ -113,6 +113,9 @@ fun HomeScreen(
     // dönüldüğünde aynı posterde kalınsın diye DIŞARIDA tutulur.
     position: HomePosition,
     onSelect: (MediaItem) -> Unit,
+    // Uzun-bas menüsünden bölüm seçildi: TV'de o bölüm açılır, telefonda TV'ye
+    // o bölümle gönderilir.
+    onSelectEpisode: (MediaItem, Int) -> Unit,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
@@ -134,14 +137,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(position, emptyList(), library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(position, s.items, library, onSelect, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -157,6 +160,7 @@ private fun CategoryRows(
     items: List<MediaItem>,
     library: Library,
     onSelect: (MediaItem) -> Unit,
+    onSelectEpisode: (MediaItem, Int) -> Unit,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
@@ -307,6 +311,7 @@ private fun CategoryRows(
                 item = item,
                 isFavorite = library.isFavorite(item),
                 onPlay = { menuItem = null; onSelect(item) },
+                onPlayEpisode = { idx -> menuItem = null; onSelectEpisode(item, idx) },
                 onToggleFavorite = { library.toggleFavorite(item); menuItem = null },
                 onClose = { menuItem = null },
             )
@@ -460,14 +465,32 @@ private fun PosterMenu(
     item: MediaItem,
     isFavorite: Boolean,
     onPlay: () -> Unit,
+    onPlayEpisode: (Int) -> Unit,
     onToggleFavorite: () -> Unit,
     onClose: () -> Unit,
 ) {
+    // Bölüm listesi menü açılınca TEK istekle gelir (`load_item`). Film ise boş
+    // döner ve satır hiç çizilmez — "bölüm seç" deyip boş liste açmak yok.
+    var bolumler by remember(item.url) { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
+    var bolumSeciyor by remember(item.url) { mutableStateOf(false) }
+    LaunchedEffect(item.url) {
+        bolumler = runCatching { Network.api.loadItem(item.plugin, item.url).result?.episodes.orEmpty() }
+            .getOrDefault(emptyList())
+    }
+    if (bolumSeciyor) {
+        EpisodePickerModal(
+            episodes = bolumler,
+            onPick = onPlayEpisode,
+            onClose = { bolumSeciyor = false },
+        )
+        return
+    }
     // Takip: sunucudaki "takip" listesi (Listem ekranı bunu takvimle birleştirir).
     // Durum sorgulanmaz, uç zaten toggle — istek gidince satır kapanır.
     val scope = rememberCoroutineScope()
     ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
         MenuRow("▶  Oynat", onPlay)
+        if (bolumler.isNotEmpty()) MenuRow("📑  Bölüm seç (${bolumler.size})") { bolumSeciyor = true }
         MenuRow(if (isFavorite) "★  Favorilerden çıkar" else "☆  Favorilere ekle", onToggleFavorite)
         MenuRow("📋  Takip et / bırak", onClick = {
             scope.launch {
@@ -483,6 +506,26 @@ private fun PosterMenu(
             }
             onClose()
         })
+        MenuRow("Kapat", onClose)
+    }
+}
+
+// Bölüm seçici — uzun-bas menüsünün ikinci adımı. Sezon ayrımı yok: liste
+// kaynaktan geldiği sırada, etiketinde sezon/bölüm zaten yazıyor.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun EpisodePickerModal(
+    episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
+    onPick: (Int) -> Unit,
+    onClose: () -> Unit,
+) {
+    ModalCard(title = "Bölüm seç (${episodes.size})", onClose = onClose) {
+        // Uzun listede kaydırma: modal zaten kendi içinde kaydırılabilir kabuk.
+        episodes.forEachIndexed { idx, ep ->
+            val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${idx + 1}"
+            val ad = ep.title?.takeIf { it.isNotBlank() }
+            MenuRow(if (ad != null) "$numara · $ad" else numara) { onPick(idx) }
+        }
         MenuRow("Kapat", onClose)
     }
 }

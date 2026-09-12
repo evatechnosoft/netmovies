@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, season_episode
@@ -62,9 +63,39 @@ class DiziMom(PluginBase):
                 results.append(SearchResult(title=item.title, url=item.url, poster=item.poster))
         return results
 
+    @staticmethod
+    def _series_link(html: str, episode_url: str) -> str | None:
+        """Bölüm sayfasındaki dizi sayfası (`/diziler/...`) bağlantısı.
+
+        DiziMom'un "Son Bölümler" kategorisi ve araması BÖLÜM sayfası veriyor
+        ("...-3-sezon-7-bolum-izle/"); o sayfada bölüm listesi yok, dolayısıyla
+        kullanıcıya bölüm seçimi sunulamıyordu. Dizinin kendi sayfası aynı HTML'de
+        bağlı duruyor.
+
+        Aynı dizinin dublaj ve altyazılı olmak üzere İKİ sayfası olabiliyor;
+        tıklanan bölüm hangisiyse o seçilir, yoksa dil sessizce değişir.
+        """
+        adaylar = re.findall(r'href="([^"]*/diziler/[^"]+)"', html)
+        if not adaylar:
+            return None
+        dublaj = "turkce-dublaj" in episode_url
+        for aday in adaylar:
+            if ("turkce-dublaj" in aday) == dublaj:
+                return aday
+        return adaylar[0]
+
     async def load_item(self, url: str) -> SeriesInfo:
         target = normalize_url(url, self.main_url)
-        selector = HTMLHelper(await fetch_html(self.httpx, target))
+        html = await fetch_html(self.httpx, target)
+        # Bölüm sayfası: bölüm listesi taşımaz, dizinin sayfasına geçilir.
+        if "div.bolumust" not in html and 'class="bolumust' not in html:
+            seri = self._series_link(html, target)
+            if seri:
+                seri_url = absolute(self.main_url, seri) or seri
+                if seri_url != target:
+                    target = seri_url
+                    html = await fetch_html(self.httpx, target)
+        selector = HTMLHelper(html)
         title = (first_text(selector, ("div.title h1", "h1")) or "").split(" izle")[0].strip()
         poster = absolute(self.main_url, first_attr(selector, ("div.category_image img", "img"), "src"))
         description = first_text(selector, ("div.category_desc",))
@@ -76,7 +107,9 @@ class DiziMom(PluginBase):
                 continue
             season, episode = season_episode(ep_title)
             episodes.append(Episode(season=season, episode=episode, title=ep_title, url=ep_url))
-        return SeriesInfo(url=url, title=title, poster=poster, description=description, episodes=episodes)
+        # url: ARTIK dizinin sayfası (bölümden gelindiyse) — zincir bölümü
+        # `episodes[index]` ile seçtiği için tutarlı olmalı.
+        return SeriesInfo(url=target, title=title, poster=poster, description=description, episodes=episodes)
 
     async def load_links(self, url: str) -> list[ExtractResult]:
         target = normalize_url(url, self.main_url)

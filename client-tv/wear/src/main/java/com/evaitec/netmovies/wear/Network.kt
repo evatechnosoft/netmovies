@@ -88,3 +88,18 @@ data class KatalogGovde(val items: List<KatalogOgesi> = emptyList())
 
 @Serializable
 data class KatalogYaniti(val result: KatalogGovde = KatalogGovde())
+
+// load_item → dizi bilgisi. Saat yalnız bölüm listesini kullanıyor: poster'a
+// dokunulunca dizi mi film mi olduğu buradan anlaşılır.
+@Serializable
+data class BolumOgesi(
+    val season: Int = 1,
+    val episode: Int? = null,
+    val title: String? = null,
+)
+
+@Serializable
+data class BilgiGovde(val episodes: List<BolumOgesi> = emptyList())
+
+@Serializable
+data class BilgiYaniti(val result: BilgiGovde? = null)

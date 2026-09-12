@@ -151,6 +151,32 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        // Bölüm seçilerek açma: TV'de doğrudan o bölüm, telefonda
+                        // TV'ye o bölümle komut. `pick` ile aynı yol, tek farkı
+                        // bölüm sırasının taşınması.
+                        val pickEpisode: (MediaItem, Int) -> Unit = { item, idx ->
+                            if (isTv) {
+                                selected = item.copy(episode = idx, autoplay = true)
+                            } else {
+                                scope.launch {
+                                    val ok = runCatching {
+                                        com.evaitec.netmovies.tv.data.Network.api.remotePlay(
+                                            plugin = item.plugin,
+                                            url = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                                            title = item.title.orEmpty(),
+                                            poster = item.poster.orEmpty(),
+                                            episode = idx,
+                                        ).result.ok
+                                    }.getOrDefault(false)
+                                    android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        if (ok) "📺 TV'ye gönderildi: ${item.title.orEmpty()} · ${idx + 1}. bölüm"
+                                        else "TV'ye gönderilemedi — sunucuya ulaşılamadı",
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        }
                         var browseVaultMode by remember { mutableStateOf(false) }
                         // Gözat'ın yeri oynatıcıdan bağımsız yaşar: bir diziye girip
                         // GERİ ile çıkınca aynı kaynakta, aynı rafta, aynı posterde
@@ -292,6 +318,7 @@ class MainActivity : ComponentActivity() {
                                     HomeScreen(
                                         position = homePosition,
                                         onSelect = pick,
+                                        onSelectEpisode = pickEpisode,
                                         // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).
                                         onExit = { finish() },

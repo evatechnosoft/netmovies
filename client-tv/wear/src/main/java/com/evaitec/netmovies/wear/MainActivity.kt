@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,6 +86,9 @@ private fun MiniEkran() {
     // Döner çerçeve (Galaxy Watch halkası) sarma için: yatay kaydırma zaten yön
     // tuşu, sarmaya ayrı bir hareket gerekiyordu (Dean: "geri sarmayı halkayla").
     var halkaBirikim by remember { mutableStateOf(0f) }
+    // Bölüm seçimi açık mı: dolu ise ekran bölüm listesine döner.
+    var seciliDizi by remember { mutableStateOf<KatalogOgesi?>(null) }
+    var seciliBolumler by remember { mutableStateOf<List<BolumOgesi>>(emptyList()) }
     val halkaOdak = remember { FocusRequester() }
 
     fun titre() {
@@ -102,20 +106,37 @@ private fun MiniEkran() {
         }
     }
 
-    fun oynat(oge: KatalogOgesi) {
+    fun gonder(oge: KatalogOgesi, bolum: Int) {
         titre()
         kapsam.launch(Dispatchers.IO) {
             fun kacis(d: String) = URLEncoder.encode(d, "UTF-8")
             val sorgu = "plugin=${kacis(oge.plugin)}&url=${kacis(oge.url)}" +
-                "&title=${kacis(oge.title)}&poster=${kacis(oge.poster)}&episode=-1"
+                "&title=${kacis(oge.title)}&poster=${kacis(oge.poster)}&episode=$bolum"
             val ok = Sunucu.post("/api/v1/remote/play?$sorgu")
             withContext(Dispatchers.Main) { durum = if (ok) "📺 ${oge.title}" else "gönderilemedi" }
+        }
+    }
+
+    // Poster'a dokununca: dizi ise bölüm listesi açılır, film ise doğrudan gider.
+    // Bölüm sırası TV'ye taşınır (`episode`), yoksa TV 1. bölümü açıyordu.
+    fun oynat(oge: KatalogOgesi) {
+        titre()
+        kapsam.launch(Dispatchers.IO) {
+            val yanit = Sunucu.get("/api/v1/load_item?plugin=" + URLEncoder.encode(oge.plugin, "UTF-8") +
+                "&encoded_url=" + oge.url)
+            val bolumler = yanit
+                ?.let { runCatching { Sunucu.json.decodeFromString<BilgiYaniti>(it).result?.episodes }.getOrNull() }
+                .orEmpty()
+            withContext(Dispatchers.Main) {
+                if (bolumler.isEmpty()) gonder(oge, -1) else { seciliDizi = oge; seciliBolumler = bolumler }
+            }
         }
     }
 
     LaunchedEffect(Unit) { runCatching { halkaOdak.requestFocus() } }
 
     LaunchedEffect(Unit) {
+        if (ogeler.isNotEmpty()) return@LaunchedEffect   // bölüm ekranından dönüldü
         withContext(Dispatchers.IO) {
             // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar.
             val devam = Sunucu.get("/api/v1/continue_watching")
@@ -132,6 +153,17 @@ private fun MiniEkran() {
                 if (secilen.isEmpty()) durum = "sunucu bulunamadı"
             }
         }
+    }
+
+    val dizi = seciliDizi
+    if (dizi != null) {
+        BolumListesi(
+            baslik   = dizi.title,
+            bolumler = seciliBolumler,
+            onSec    = { sira -> seciliDizi = null; gonder(dizi, sira) },
+            onKapat  = { seciliDizi = null },
+        )
+        return
     }
 
     Box(
@@ -269,5 +301,65 @@ private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
             modifier = Modifier.size(width = 56.dp, height = 12.dp),
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+// Bölüm listesi — poster'a dokununca dizi ise açılır. Ana ekranın "her yer
+// dokunmatik yüzey" davranışı burada YOK: bu ekranda dokunuş bölüm seçer.
+@Composable
+private fun BolumListesi(
+    baslik: String,
+    bolumler: List<BolumOgesi>,
+    onSec: (Int) -> Unit,
+    onKapat: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxSize().background(Zemin).padding(horizontal = 10.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = baslik,
+            color = Metin,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        LazyColumn(
+            Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(bolumler.size) { i ->
+                val ep = bolumler[i]
+                val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "${i + 1}. Bölüm"
+                val ad = ep.title?.takeIf { it.isNotBlank() }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Kart)
+                        .clickable { onSec(i) }
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = if (ad != null) "$numara · $ad" else numara,
+                        color = Metin,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Kart)
+                .clickable { onKapat() },
+            contentAlignment = Alignment.Center,
+        ) { Text("✕", color = Soluk, fontSize = 13.sp) }
     }
 }

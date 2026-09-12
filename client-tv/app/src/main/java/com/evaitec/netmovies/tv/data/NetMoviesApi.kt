@@ -139,6 +139,9 @@ interface NetMoviesApi {
         @Query("url") url: String,
         @Query("title") title: String = "",
         @Query("poster") poster: String = "",
+        // Telefonda bölüm seçildiyse 0 tabanlı sıra; -1 = TV karar versin
+        // (dizide başlangıç paneli açılır).
+        @Query("episode") episode: Int = -1,
     ): OkResponse
 
     // Televizyon oynatırken birkaç saniyede bir bildirir: telefon kumandasındaki
