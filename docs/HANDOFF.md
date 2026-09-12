@@ -7,12 +7,34 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 11 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `eb5d40f` · temiz, push'lı
+**Son güncelleme:** 12 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `f7e929c` · temiz, push'lı
 **Sürümler:** TV `v0.1.80-poc` · **Saat `v0.1.1-poc`** — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 12 Eylül — WARP 503'te zincir donuyordu (engine)
+
+| Konu | Durum | Kanıt / not |
+|---|---|---|
+| **Zincir 30sn donup 504 veriyordu** (DiziPal) | ✔ kök neden `__dizi_common.fetch_html` | "önce doğrudan, olmazsa WARP" varsayıyordu; DiziPal `_client()` ile **zaten WARP istemcisini** geçiyor → üç deneme de aynı bozuk yoldan (7+12+12sn). Aynı adres doğrudan `curl` ile 200. Artık her deneme farklı istemciyle: verilen → WARP → doğrudan |
+| WARP 503'ün kaynağı | bilgi | `gost`, WARP tüneli anlık koparken dial edemeyince 503 döner ([gost#591]). Konteyner 15sn'de bir kendini yokluyor, 3 hatada yeniden başlıyor → kısa boşluklar YAPISAL, yedek yol şart. `httpx` `retries` ayarı proxy yolunda zaten çalışmıyor ([httpx#2988]) |
+| Kanıt | ✔ | engine 14/14 · `smoke.sh` YEŞİL (movie 395 · serie 445 · canlı 151 · manifest `#EXTM3U`) · yeni test `engine/tests/test_fetch_html_fallback.py` |
+| İstemci tarafı | — | APK'da değişiklik YOK; TV/telefon/saat hiçbir şey indirmeden faydalanır, yeni OTA sürümü çıkarılmadı |
+
+[gost#591]: https://github.com/ginuerzh/gost/issues/591
+[httpx#2988]: https://github.com/encode/httpx/discussions/2988
+
+**Teşhis notu:** bir sağlayıcı "uzun süre donup sonra kaynak vermedi" diyorsa önce
+**hangi istemcinin geçtiğine** bak — aynı istemciyle üç kez denemek yedek yol değil,
+3× timeout demektir.
+
+**Ortam tuzağı:** Docker Desktop'ın `docker-desktop` WSL dağıtımı düşünce `docker`
+komutları `500 Internal Server Error ... dockerDesktopLinuxEngine` verir ve yığın
+komple kapanır (`localhost:3310` yanıtsız). `wsl -l -v` ile teşhis, Docker Desktop'ı
+yeniden başlatmak çözer. Engine içindeki çalışma dizini `/usr/src/KekikStreamAPI`
+(`KekikStream` değil).
 
 ## 0.0 11 Eylül akşamı — saat uygulaması, oynatma kesilmesi, GERİ
 
