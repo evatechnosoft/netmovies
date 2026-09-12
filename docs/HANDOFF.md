@@ -8,11 +8,48 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `3f68da4` · temiz, push'lı
-**Sürümler:** TV `v0.1.85-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `a643997` · temiz, push'lı
+**Sürümler:** TV `v0.1.88-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 12 Eylül gece yarısı — bölüm seçimi gerçekten çalışıyor (TV v0.1.88)
+
+Bir akşamda dört ayrı katmanda aynı belirti çıktı: "bölüm seçemiyorum / hep aynı
+bölüm açılıyor". Dördü de ayrı sebepti, sırayla:
+
+| Katman | Neydi | Kanıt |
+|---|---|---|
+| **Eklenti** | DiziMom kartı DİZİ değil BÖLÜM sayfası (`...-3-sezon-7-bolum-izle/`) — o sayfada bölüm listesi yok | `load_item` artık `/diziler/...` sayfasına geçiyor → 20 bölüm |
+| **Ağ geçidi cache** | `/load_item` **1 saat** cache'li; eklenti düzeltilse de TV eski (boş) yanıtı görüyordu — motor 20 bölüm verirken ağ geçidi 0 | Boş bölüm listesi artık cache'lenmiyor (`_cacheable`); ağ geçidi 20 bölüm |
+| **Zincir** | `_links_for` ÖNCE karttaki adresi deniyordu; kart zaten tek bölüm olduğu için hep tutuyor ve seçilen bölüm hiç kullanılmıyordu | `episode=14` ve `episode=19` artık FARKLI master.m3u8 (önce üçü de aynıydı) |
+| **Oynatıcı** | `/embed/<id>` iframe'i FirePlayer'a hiç verilmiyordu (yalnız `/video/<id>`) → 1. sezonun tamamı kaynaksız | S1B3 0 → 1 kaynak |
+
+**Arama:** Gözat eklenti eklenti `/search` çağırıyordu — o uç HAM liste döner
+(DDizi "walking dead city" için 45 alakasız dizi, xHamster/HQPorner 46'şar).
+Süzme + varyant + Özel Koleksiyon elemesi zaten `/search_all`'daydı; istemci artık
+onu çağırıyor (39 sonuç, ilk 10'u Walking Dead).
+
+**Diğer düzeltmeler:** ayarlar paneli başlangıç panelinin ÜSTÜNE açılıyordu (iki
+modal → odak gidip geliyor, hiçbir satır seçilmiyordu) · telefonda postere dokunmak
+içeriği ANINDA TV'ye yolluyordu, artık menü açılıyor · panel boşlukları yarıya indi ·
+izleme kaydı dizi başına tutulduğu için 5. bölüm açılırken "7. bölüm · 9:12" deyip o
+dakikaya atlıyordu, artık devam etme yalnız kaydın bölümünde uygulanıyor.
+
+**Ses kesintisi — AÇIK.** Dean'in telefon kaydında iki gerçek kesinti: 4.5–4.9sn
+(~0.4sn) ve 5.2–5.9sn (~0.6sn); seviye −69 dBFS'e (oda tabanı) düşüyor, öncesi/sonrası
+−50…−53 dBFS, video akmaya devam ediyor. v0.1.83'te `AnalyticsListener` eklendi
+(underrun / AudioSink hatası / ses biçimi değişimi → Ayarlar "Kaynak raporu").
+**Cihazda okunmadı.** Sunucu logu bu belirtiyi göremez: segmentler doğrudan CDN'den.
+
+**Tuzaklar (bu oturumda yakıldı):**
+- `/load_item` ağ geçidinde 1 saat, `/get_main_page` 30 dk cache'li. Eklenti
+  düzeltmesini test ederken **başka bir adresle** ya da doğrudan motordan doğrula.
+- `docker exec -w /usr/src/...` Git Bash'te `Cwd must be an absolute path` verir →
+  PowerShell'den koş. Bu yüzden bir commit mesajı koşmamış teste "14/14" dedi.
+- Bir kaynakta "bölüm seçimi yok" deniyorsa önce **kartın ne olduğuna** bak: katalog
+  "son bölümler" besliyorsa kart dizi değil bölümdür.
 
 ## 0.0 12 Eylül gecesi — arama, bölüm seçimi, ses teşhisi (TV v0.1.85 · saat v0.1.2)
 
@@ -88,7 +125,7 @@ oynarken sorar, boş ekranda doğrudan açar (kasıtlı).
 
 ## 0.2 SIRADAKİ İŞ
 
-0. **TV'ye `v0.1.85`, saate `v0.1.2` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
+0. **TV'ye `v0.1.88`, saate `v0.1.2` kur ve dene** (cihaz işi, ilk sıradaki). Bakılacaklar: Gözat →
    DiziMom → bir dizi → GERİ **aynı posterde mi kalıyor** (aynısı ana ekranda da) ·
    ana ekranda aşağıdayken GERİ hâlâ en üste dönüyor mu · bölüm sonunda SAĞ ok
    teklifi geliyor mu · kontrol çubuğundaki "Bölümler" ve YUKARI basılı tutma
