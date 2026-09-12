@@ -90,6 +90,13 @@ def _cacheable(endpoint: str, result) -> bool:
     # "çalışan kaynak yok" görür, oysa ikinci deneme çoğu zaman tutuyor.
     if endpoint == "/resolve_sources":
         return bool(result and result.get("sources"))
+    # load_item BİR SAAT cache'leniyor. Bölüm listesi boş dönen bir yanıt (kaynak
+    # o an bölümleri veremedi ya da eklenti yeni düzeltildi) bir saat boyunca
+    # "bu dizide bölüm yok" diye asılı kalıyordu — eklenti düzeltilse bile TV
+    # eskisini görüyordu. Boş liste taze denensin; dolu yanıt cache'lenir.
+    # Film sayfasında `episodes` zaten yok, o yüzden alanın VARLIĞINA bakılır.
+    if endpoint == "/load_item":
+        return bool(result) and (result.get("episodes") or "episodes" not in result)
     return True
 
 def _prune(cache: dict, max_entries: int):

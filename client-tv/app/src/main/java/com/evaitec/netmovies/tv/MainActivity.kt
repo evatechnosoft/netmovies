@@ -319,6 +319,7 @@ class MainActivity : ComponentActivity() {
                                         position = homePosition,
                                         onSelect = pick,
                                         onSelectEpisode = pickEpisode,
+                                        menuOnTap = !isTv,
                                         // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).
                                         onExit = { finish() },

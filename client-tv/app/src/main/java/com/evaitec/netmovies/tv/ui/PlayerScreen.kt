@@ -183,6 +183,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Aynı panel iki işi görür: içerik açılırken "başlangıç", oynarken "bölüm listesi".
     // Ayrımı GERİ belirler — başlangıçta içerikten çıkar, listede yalnız paneli kapatır.
     var panelAsList by remember(item.url) { mutableStateOf(false) }
+    // Ayarlar başlangıç panelinin ÜSTÜNE açılıyordu: iki modal üst üste kalınca
+    // odak ikisi arasında gidip geliyor ve hiçbir satır seçilemiyordu (Dean:
+    // "2 popup açık olunca seçmiyor"). Ayarlar açılırken panel kapanır, ayarlar
+    // kapanınca geri gelir.
+    var panelGeriGelsin by remember(item.url) { mutableStateOf(false) }
     // OYNAT'a panel açıkken basıldıysa: kaynak henüz yokken de kabul edilir,
     // hazır olduğu anda başlar.
     var playRequested by remember(item.url) { mutableStateOf(item.autoplay) }
@@ -335,7 +340,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             // ilk adım, kapatıp boş ekranda kalmanın anlamı yok. Oynarken açılan
             // bölüm listesinde ise arkada film var — GERİ yalnız listeyi kapatır.
             showStartPanel -> if (panelAsList) { showStartPanel = false; panelAsList = false } else onBack()
-            showSettings -> showSettings = false
+            showSettings -> {
+                showSettings = false
+                if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
+            }
             showControls -> showControls = false
             else -> onBack()
         }
@@ -887,7 +895,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 },
                 onSelectLink = { idx -> currentLinkIndex = idx },
                 onPlay = { playRequested = true; showStartPanel = false; exo.playWhenReady = true },
-                onOpenSettings = { showSettings = true },
+                onOpenSettings = { showStartPanel = false; panelGeriGelsin = true; showSettings = true },
             )
         }
 
@@ -902,8 +910,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 panelFocus = panelFocus,
                 isFavorite = library.isFavorite(item),
                 onToggleFavorite = { library.toggleFavorite(item) },
-                onSelectSource = { idx -> currentLinkIndex = idx; showSettings = false },
-                onSelectEpisode = { epIdx -> currentEpIndex = epIdx; showSettings = false },
+                onSelectSource = { idx ->
+                    currentLinkIndex = idx
+                    showSettings = false
+                    if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
+                },
+                onSelectEpisode = { epIdx ->
+                    currentEpIndex = epIdx
+                    showSettings = false
+                    panelGeriGelsin = false
+                },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
                         .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
@@ -920,7 +936,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
                     }
                 },
-                onOpenSeek = { showSettings = false; showSeek = true },
+                onOpenSeek = { showSettings = false; panelGeriGelsin = false; showSeek = true },
                 qualityAuto = qualityAuto,
                 onSelectQuality = { group, trackIndex ->
                     qualityAuto = group == null
@@ -937,7 +953,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
                 showReport = showReport,
                 onToggleReport = { showReport = !showReport },
-                onClose = { showSettings = false },
+                onClose = {
+                    showSettings = false
+                    if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
+                },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }

@@ -116,6 +116,10 @@ fun HomeScreen(
     // Uzun-bas menüsünden bölüm seçildi: TV'de o bölüm açılır, telefonda TV'ye
     // o bölümle gönderilir.
     onSelectEpisode: (MediaItem, Int) -> Unit,
+    // Telefonda kart TV'ye komut gönderir: tek dokunuşta gitmesin, önce menü
+    // açılsın (Dean: "çok hızlı TV'ye yolluyor, kaydırmak için basmamla birlikte").
+    // Televizyonda dokunuş zaten içeriği açar, menü uzun basışta.
+    menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
@@ -137,14 +141,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -161,6 +165,7 @@ private fun CategoryRows(
     library: Library,
     onSelect: (MediaItem) -> Unit,
     onSelectEpisode: (MediaItem, Int) -> Unit,
+    menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenKeyMap: () -> Unit,
@@ -295,7 +300,7 @@ private fun CategoryRows(
                                     item = item,
                                     isFavorite = library.isFavorite(item),
                                     progress = library.progress[item.url] ?: 0f,
-                                    onClick = { onSelect(item) },
+                                    onClick = { if (menuOnTap) menuItem = item else onSelect(item) },
                                     onLongPress = { menuItem = item },
                                     modifier = cardModifier,
                                 )
