@@ -239,17 +239,26 @@ fun BrowseScreen(
         results = emptyList()
         resultsLoading = true
         scope.launch {
-            val names = plugins.map { it.name }
-            results = if (names.isEmpty()) emptyList() else coroutineScope {
-                names.map { n ->
-                    async {
-                        // Yavaş kaynak (12s) tüm aramayı kilitlemesin → o kaynak boş sayılır.
-                        withTimeoutOrNull(12_000) {
-                            runCatching { Network.api.search(n, term).result.map { it.copy(plugin = n) } }
-                                .getOrDefault(emptyList())
-                        } ?: emptyList()
-                    }
-                }.awaitAll().flatten()
+            // Tek istek: birleştirme, süzme ve varyantlar sunucuda (`/search_all`).
+            // Eklenti eklenti çağırmak ham liste getiriyordu — sorguyu yok sayan
+            // kaynak (DDizi 45 alakasız dizi) ve Özel Koleksiyon sonuçları
+            // doğrudan ekrana düşüyordu.
+            results = if (vaultMode) {
+                // Özel Koleksiyon sunucunun genel aramasından BİLEREK dışarıda;
+                // burada kaynaklar tek tek sorulur (ekranda zaten yalnız onlar var).
+                val names = plugins.map { it.name }
+                coroutineScope {
+                    names.map { n ->
+                        async {
+                            withTimeoutOrNull(12_000) {
+                                runCatching { Network.api.search(n, term).result.map { it.copy(plugin = n) } }
+                                    .getOrDefault(emptyList())
+                            } ?: emptyList()
+                        }
+                    }.awaitAll().flatten()
+                }
+            } else {
+                runCatching { Network.api.searchAll(term).result }.getOrDefault(emptyList())
             }
             resultsLoading = false
         }

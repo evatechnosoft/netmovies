@@ -176,10 +176,6 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var currentEpIndex by remember(item.url) { mutableIntStateOf(item.episode.coerceAtLeast(0)) }
     // Başlangıç paneli bilgi alanı (özet, yıl, tür, puan) — load_item'dan, tek istek.
     var details by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
-    LaunchedEffect(item.url) {
-        details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
-    }
-
     // Başlangıç paneli: içerik açılır açılmaz gelir ve çözümleme bitene kadar
     // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
     // OYNAT'a basmadan akış başlamaz — yanlış içeriğe girip izlemeye başlamak yok.
@@ -193,6 +189,26 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Panelin OYNAT satırı için "nereden devam" bilgisi. Kayıt sunucuda; panel
     // çözümlemeyi beklemeden gösterilebilsin diye ayrıca burada okunuyor.
     var resumeLabel by remember(item.url) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(item.url) {
+        details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
+        // Bölüm listesi zincirden ÖNCE gelir: load_item tek istek, resolve_sources
+        // ise sağlayıcı taraması. Panel böylece bölümleri anında gösterir ve
+        // sıralama da uyumlu — sunucu bölümü aynı listeden indeksliyor
+        // (resolve_sources: `info.episodes[episode_index]`).
+        val bolumler = details?.episodes.orEmpty()
+        if (bolumler.isNotEmpty() && episodes.isEmpty()) episodes = bolumler
+
+        // Telefondan gönderilen DİZİ doğrudan 1. bölümden başlıyordu. Telefon
+        // belirli bir bölüm seçmediyse (episode < 0) karar TV'de verilir: panel
+        // açılır, kullanıcı son bölümü ya da istediğini seçer.
+        if (bolumler.isNotEmpty() && item.autoplay && item.episode < 0 && exo.currentPosition <= 0L) {
+            playRequested = false
+            exo.playWhenReady = false
+            showStartPanel = true
+        }
+    }
+
 
     // Scrub / önizleme modu.
     var scrubMode by remember { mutableStateOf(false) }
@@ -1435,6 +1451,15 @@ private fun StartPanel(
                     }
                 }
                 val secili = episodes.withIndex().filter { it.value.season == season }
+                // Süregelen dizide en çok istenen "son bölüm" — listenin sonuna
+                // kaydırmadan tek satırda. Tek bölümlük listede anlamsız, gizlenir.
+                if (episodes.size > 1) {
+                    val sonIdx = episodes.lastIndex
+                    SettingRow(
+                        "⏭  Son bölüm — ${episodeLabel(episodes[sonIdx], sonIdx)}",
+                        sonIdx == currentEpIndex,
+                    ) { onSelect(sonIdx) }
+                }
                 SectionTitle("🎬 Bölümler (${secili.size})")
                 LazyColumn(
                     modifier = Modifier.weight(1f),

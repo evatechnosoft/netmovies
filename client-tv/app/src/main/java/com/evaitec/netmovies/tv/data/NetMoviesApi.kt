@@ -55,7 +55,14 @@ interface NetMoviesApi {
         @Query("encoded_category", encoded = true) encodedCategory: String,
     ): MainPageResponse
 
-    // Tek eklentide arama. Gözat çoklu eklentide paralel çağırıp birleştirir.
+    // TÜM kaynaklarda tek istekle arama. Süzme (sorguyu yok sayan kaynağı eleme),
+    // arama varyantları ve Özel Koleksiyon'u dışarıda tutma SUNUCUDA yapılır —
+    // istemci eklenti eklenti `/search` çağırdığında bunların hiçbiri uygulanmıyor,
+    // "walking dead city" araması alakasız dizi listesi döndürüyordu.
+    @GET("api/v1/search_all")
+    suspend fun searchAll(@Query("query") query: String): MainPageResponse
+
+    // Tek eklentide arama — ham liste, süzme YOK. Yeni yerde kullanma.
     @GET("api/v1/search")
     suspend fun search(
         @Query("plugin") plugin: String,
