@@ -74,6 +74,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
@@ -365,7 +366,47 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
         }
+        // Ses kesilmesi teşhisi. Video akarken sesin kısa kısa gitmesi üç ayrı
+        // şeyden olur ve ancak burada ayrışır: ses tamponu boşalması (underrun),
+        // ses çıkışı hatası (sink) ve akış ortasında ses biçiminin değişmesi
+        // (kod çözücü yeniden kurulur, arada boşluk duyulur). Üçü de Ayarlar →
+        // "Kaynak raporu"na düşer; oynatmaya dokunmaz.
+        val sesDinleyici = object : AnalyticsListener {
+            override fun onAudioUnderrun(
+                eventTime: AnalyticsListener.EventTime,
+                bufferSize: Int,
+                bufferSizeMs: Long,
+                elapsedSinceLastFeedMs: Long,
+            ) {
+                PlaybackLog.warn(
+                    "ses",
+                    "tampon boşaldı · ${bufferSizeMs}ms tampon · son beslemeden ${elapsedSinceLastFeedMs}ms",
+                )
+            }
+
+            override fun onAudioSinkError(
+                eventTime: AnalyticsListener.EventTime,
+                audioSinkError: Exception,
+            ) {
+                PlaybackLog.fail("ses", "çıkış hatası", audioSinkError)
+            }
+
+            override fun onAudioInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) {
+                PlaybackLog.info(
+                    "ses",
+                    "biçim: ${format.sampleMimeType ?: "?"} · ${format.bitrate}bps · " +
+                        "${format.channelCount}ch · ${format.sampleRate}Hz · " +
+                        "kod çözücü ${if (decoderReuseEvaluation?.result == 0) "yeniden kuruldu" else "korundu"}",
+                )
+            }
+        }
+
         exo.addListener(listener)
+        exo.addAnalyticsListener(sesDinleyici)
         onDispose {
             // Konumu release'den ÖNCE al: sonrasında currentPosition sıfırlanır.
             library.saveProgress(
@@ -379,6 +420,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             // yoksa ana ekran izlemeden önceki hâlini gösteriyordu.
             library.sync()
             exo.removeListener(listener)
+            exo.removeAnalyticsListener(sesDinleyici)
             exo.release()
         }
     }
