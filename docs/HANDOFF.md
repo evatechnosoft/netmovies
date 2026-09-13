@@ -36,6 +36,8 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 
 ## Dean'e sorulan, cevap bekleyen
 
+> Kapandı: üst bardaki sekme adı **"Listem"** kalacak (Dean onayladı).
+
 - **Ses parmak izi başlasın mı?** "Açılışı Atla" kodda hazır ama işaret gelmiyor:
   açılışın altyazıdaki tek izi `♪`, ölçülen bölümde sıfır tane (DiziYou/One Piece
   `tr.vtt`, 620 cue). Bedeli: `ffmpeg` iki imajda da kapalı
@@ -43,8 +45,6 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
   indirme+analiz, ilk bölümde çalışmaz. **Önerim: 2. adım doğrulanmadan başlamamak.**
   Ucuz alternatif (Dean bir kez işaretler, sezon boyu) reddedilmedi.
 - **Kaynak-yok çıkışı 2.5 sn yeter mi?** (`KAYNAK_YOK_CIKIS_MS`, PlayerScreen.kt)
-- **Üst bardaki sekme adı "Listem" mi "Favoriler" mi?** Ekranın kendi adı "Listem —
-  Takip Ettiklerim"; favoriler ana sayfada raf.
 - **Canlı kanalda "Dakikaya git" kalsın mı?** Canlıda o dakika DVR penceresinin
   dakikası, programın değil — kafa karıştırıyor. Yerine yalnız ⏮/⏭ bırakılabilir.
 
