@@ -27,6 +27,10 @@ _POSTER  = re.compile(r'data-src="([^"]+)"')
 _LISTE   = re.compile(r'<li><a href="(https?://[^"]*/diziler/\d+/[^"]+)"[^>]*>([^<]{2,60})</a>')
 _BOLUM   = re.compile(r'href="(https?://[^"]*/izle/\d+/[^"]+\.htm)"')
 _BOLUM_N = re.compile(r"-(\d+)-bolum")
+# Bölüm listesi sayfalanmış: `/diziler/<id>/<slug>-son-bolum-izle/sayfa-<n>`.
+_SAYFA   = re.compile(r'href="(https?://[^"]*/sayfa-\d+)"')
+# Uzun dizide onlarca sayfa olabilir; her biri ayrı istek — üst sınır konur.
+_MAX_SAYFA = 6
 _YOUTUBE = re.compile(r'youtube\.php\?id=([A-Za-z0-9_-]{6,})')
 
 # Adresin son parçasından dizi slug'ını çıkarır; bölüm ve dizi adresleri aynı
@@ -115,11 +119,25 @@ class DDizi(PluginBase):
         etiket = re.search(r"<title[^>]*>([^<]+)", html)
         title  = re.sub(r"\s*(son bölüm\s*)?izle.*$", "", (etiket.group(1) if etiket else "").split("|")[0], flags=re.I).strip()
 
+        # Bölümler SAYFALANMIŞ: dizi sayfası yalnız son ~10 bölümü gösteriyor,
+        # gerisi `/sayfa-0`, `/sayfa-1` altında. Yalnız ilk sayfa okununca
+        # "Fırtınaya Doğru" 3. bölümden başlıyordu — 1 ve 2 hiç görünmüyordu,
+        # yani diziye baştan başlamak mümkün değildi.
+        sayfalar = [html]
+        for ek in list(dict.fromkeys(_SAYFA.findall(html)))[:_MAX_SAYFA]:
+            try:
+                sayfalar.append((await self.httpx.get(ek, headers={"User-Agent": _UA})).text)
+            except Exception:
+                continue    # bir sayfa düşerse diğerleri yine listeye girsin
+
         adaylar: list[tuple[int, str]] = []
-        for href in dict.fromkeys(_BOLUM.findall(html)):
-            no = _BOLUM_N.search(href)
-            if no:
-                adaylar.append((int(no.group(1)), href))
+        for sayfa in sayfalar:
+            for href in _BOLUM.findall(sayfa):
+                no = _BOLUM_N.search(href)
+                if no:
+                    adaylar.append((int(no.group(1)), href))
+        # Sayfalar örtüşüyor (son bölümler her sayfada tekrar edebiliyor).
+        adaylar = list(dict.fromkeys(adaylar))
 
         # Dizi sayfasının kenar çubuğunda BAŞKA dizilerin bölümleri de duruyor ve
         # hepsi aynı `/izle/<id>/...-<n>-bolum-...htm` kalıbında. Mercan Köşk'te

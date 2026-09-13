@@ -48,7 +48,7 @@ class Diagnostics:
         konsol.log(f"{mark} resolve: {stage} — {message}")
 
 
-async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics) -> tuple[list[dict], list[dict]]:
+async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None) -> tuple[list[dict], list[dict]]:
     """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır.
 
     `content_url` DÜZ url'dir (kodlanmış değil): eklentiler httpx'e doğrudan verir.
@@ -77,7 +77,7 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
     # başına oynatılabilir olduğu için aşağıdaki ilk deneme tutuyor ve seçilen
     # bölüm hiç dikkate alınmıyordu — hangi bölüme basılsa karttaki (son) bölüm
     # açılıyordu. index 0 "seçim yok"tur: fazladan istek atılmaz, eski yol işler.
-    if episode_index > 0:
+    if episode_index > 0 or episode_no is not None:
         secilenler = await _episode_objects()
         if secilenler:
             episodes = [
@@ -89,9 +89,23 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
                 }
                 for ep in secilenler
             ]
-            if episode_index < len(secilenler):
-                target = getattr(secilenler[episode_index], "url", "") or target
-                diag.add("info", "bölüm", f"{plugin_name} · seçilen bölüm {episode_index + 1}/{len(secilenler)}")
+            # Sağlayıcılar aynı diziyi FARKLI kapsamda veriyor: DDizi bölümleri
+            # sayfaladığı için listesi 3. bölümden başlarken DiziMom 1'den
+            # başlıyordu. Sıra numarasıyla eşleştirmek alternatif sağlayıcıda
+            # BAŞKA bölümü açar — kullanıcı 3. bölüme basıp 5. bölümü izler.
+            # Önce gerçek bölüm numarası aranır, bulunamazsa sıraya düşülür.
+            sira = None
+            if episode_no is not None:
+                sira = next(
+                    (i for i, ep in enumerate(secilenler) if getattr(ep, "episode", None) == episode_no),
+                    None,
+                )
+            if sira is None and episode_index < len(secilenler):
+                sira = episode_index
+            if sira is not None and sira < len(secilenler):
+                target = getattr(secilenler[sira], "url", "") or target
+                etiket = f" · bölüm no {episode_no}" if episode_no is not None else ""
+                diag.add("info", "bölüm", f"{plugin_name} · seçilen bölüm {sira + 1}/{len(secilenler)}{etiket}")
 
     links = await _load(target)
 
@@ -110,7 +124,16 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
                 for ep in episode_objects
             ]
             diag.add("info", "bölüm", f"{plugin_name} · {len(episodes)} bölüm")
-            chosen = episode_objects[episode_index] if 0 <= episode_index < len(episode_objects) else episode_objects[0]
+            # Burada da numara sıraya yeğdir (yukarıdaki gerekçe).
+            sira = None
+            if episode_no is not None:
+                sira = next(
+                    (i for i, ep in enumerate(episode_objects) if getattr(ep, "episode", None) == episode_no),
+                    None,
+                )
+            if sira is None:
+                sira = episode_index if 0 <= episode_index < len(episode_objects) else 0
+            chosen = episode_objects[sira]
             links  = await _load(getattr(chosen, "url", "") or "")
 
     if not links:
@@ -198,6 +221,13 @@ async def resolve_sources(request: Request):
 
     sources, episodes = await _links_for(selected, content, episode, diag)
 
+    # Seçili sağlayıcının listesindeki GERÇEK bölüm numarası: alternatif
+    # sağlayıcılarda sıra değil bu aranır, listeler farklı bölümden başlayabiliyor.
+    secili_no: int | None = None
+    if episodes and 0 <= episode < len(episodes):
+        ham = episodes[episode].get("episode")
+        secili_no = ham if isinstance(ham, int) else None
+
     if mode != "fast":
         queries = query_variants(title)
         if not queries:
@@ -234,7 +264,7 @@ async def resolve_sources(request: Request):
             # "kaynak bulunamadı" dönüyordu.
             bulunanlar = [(n, m) for n, m in zip(candidates, matches) if m and not isinstance(m, Exception)]
             toplanan   = await asyncio.gather(
-                *(_with_budget(_links_for(n, m, episode, diag), n, "link", diag) for n, m in bulunanlar),
+                *(_with_budget(_links_for(n, m, episode, diag, secili_no), n, "link", diag) for n, m in bulunanlar),
                 return_exceptions=True,
             )
             for sonuc in toplanan:
