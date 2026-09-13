@@ -91,8 +91,10 @@ import com.evaitec.netmovies.tv.data.loggedOrNull
 import com.evaitec.netmovies.tv.data.StreamLink
 import com.evaitec.netmovies.tv.data.guessSubtitleLang
 import com.evaitec.netmovies.tv.input.KeyBindings
+import com.evaitec.netmovies.tv.input.PressType
 import com.evaitec.netmovies.tv.input.RemoteAction
 import com.evaitec.netmovies.tv.input.RemoteInputController
+import com.evaitec.netmovies.tv.input.RemoteKey
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -181,6 +183,17 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var duration by remember { mutableLongStateOf(0L) }
     var seekHint by remember { mutableStateOf<String?>(null) }
     var hintTick by remember { mutableIntStateOf(0) }
+
+    // Tuş göstergesi: basılan tuşun ADI ve oynatıcıdaki karşılığı köşede görünür.
+    // Kumandada hangi tuşun ne ürettiği (özellikle ⏪⏩ gibi medya tuşları) başka
+    // türlü bilinmiyordu — logcat'e bakmadan, televizyonun kendisinde.
+    // Tercih buton eşlemesiyle aynı dosyada tutulur; oynatıcıdan çıkınca kaybolmasın.
+    val keyPrefs = remember {
+        context.getSharedPreferences("netmovies_keymap", android.content.Context.MODE_PRIVATE)
+    }
+    var showKeys by remember { mutableStateOf(keyPrefs.getBoolean("show_keys", true)) }
+    var keyHint by remember { mutableStateOf<String?>(null) }
+    var keyTick by remember { mutableIntStateOf(0) }
 
     // Bölüm durumu: onDispose içindeki ilerleme kaydı da okuduğu için oynatıcı
     // kurulumundan ÖNCE tanımlı olmalı.
@@ -768,6 +781,10 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     LaunchedEffect(hintTick) {
         if (seekHint != null) { delay(900); seekHint = null }
     }
+    // Tuş göstergesi otomatik gizleme.
+    LaunchedEffect(keyTick) {
+        if (keyHint != null) { delay(2500); keyHint = null }
+    }
 
     // Odak sahipliği: kök kutu odaklı değilse D-pad tuşları controller'a HİÇ gelmez —
     // ilk basış odağı taşımakla harcanıyor, kullanıcı "iki kere basınca giriyor" diyordu.
@@ -802,6 +819,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             // onPreviewKeyEvent kökten aşağı ilk çalışan yoldur.
             // Yalnız bu durum ele alınır; diğer panellerin kendi işleyicileri var.
             .onPreviewKeyEvent { ke ->
+                // Tuş göstergesi buradan beslenir: kökten aşağı İLK yol, yani
+                // hangi panel açık olursa olsun her tuş buraya uğrar.
+                if (showKeys &&
+                    ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                    ke.nativeKeyEvent.repeatCount == 0
+                ) {
+                    keyHint = keyLabel(ke.nativeKeyEvent.keyCode, bindings)
+                    keyTick++
+                }
                 if (!showStartPanel || ke.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                     return@onPreviewKeyEvent false
                 }
@@ -1045,6 +1071,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
                 showReport = showReport,
                 onToggleReport = { showReport = !showReport },
+                showKeys = showKeys,
+                onToggleKeys = {
+                    showKeys = !showKeys
+                    keyPrefs.edit().putBoolean("show_keys", showKeys).apply()
+                },
                 onClose = {
                     showSettings = false
                     if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
@@ -1059,6 +1090,63 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         when {
             !ready && !showSettings -> Overlay(status ?: "Yükleniyor…")
             status != null && !showSettings -> StatusBanner(status!!)
+        }
+
+        // Tuş göstergesi EN ÜSTTE çizilir: paneller açıkken de görünsün, çünkü
+        // asıl merak edilen "bu tuş bir şey yapıyor mu" sorusu orada da geçerli.
+        keyHint?.let { KeyHintChip(it) }
+    }
+}
+
+// Basılan tuşun ekranda görünen karşılığı: "MEDIA_FAST_FORWARD (90) → +30 sn".
+// Kod numarası da yazar — kumandanın ürettiği tuş bilinmeyen bir şeyse eşleme
+// ekranında aranacak değer budur.
+private fun keyLabel(code: Int, bindings: KeyBindings): String {
+    val ad = KeyEvent.keyCodeToString(code).removePrefix("KEYCODE_")
+    val karsilik = when {
+        RemoteKey.from(code) != null -> {
+            val tek  = bindings.get(code, PressType.SINGLE)
+            val cift = bindings.get(code, PressType.DOUBLE)
+            val uzun = bindings.get(code, PressType.LONG)
+            listOfNotNull(
+                tek.takeIf { it != RemoteAction.NONE }?.let { "tek: ${it.label}" },
+                cift.takeIf { it != RemoteAction.NONE }?.let { "çift: ${it.label}" },
+                uzun.takeIf { it != RemoteAction.NONE }?.let { "basılı: ${it.label}" },
+            ).joinToString(" · ").ifBlank { "eşlenmemiş" }
+        }
+        code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "+30 sn"
+        code == KeyEvent.KEYCODE_MEDIA_REWIND       -> "−30 sn"
+        code == KeyEvent.KEYCODE_MEDIA_NEXT         -> "sonraki bölüm (filmde +1 dk)"
+        code == KeyEvent.KEYCODE_MEDIA_PREVIOUS     -> "önceki bölüm (filmde −1 dk)"
+        code == KeyEvent.KEYCODE_MEDIA_PLAY         -> "oynat"
+        code == KeyEvent.KEYCODE_MEDIA_PAUSE        -> "duraklat"
+        code == KeyEvent.KEYCODE_MEDIA_STOP         -> "çık"
+        code in MEDIA_KEYS                          -> "oynat / duraklat"
+        code == KeyEvent.KEYCODE_MENU               -> "ayarlar"
+        code == KeyEvent.KEYCODE_BACK               -> "geri"
+        else                                        -> "bağlı değil"
+    }
+    return "$ad ($code) → $karsilik"
+}
+
+// Sol üstte küçük şerit. TV güvenli alanı içinde, video akışını kapatmayacak kadar dar.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun KeyHintChip(text: String) {
+    Box(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
+        Box(
+            Modifier
+                .align(Alignment.TopStart)
+                .clip(RoundedCornerShape(NmDim.PillRadius))
+                .background(NmColor.Scrim)
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+        ) {
+            Text(
+                text = "⌨  $text",
+                fontSize = NmType.Caption,
+                fontWeight = FontWeight.Medium,
+                color = NmColor.OnSurface,
+            )
         }
     }
 }
@@ -1332,6 +1420,8 @@ private fun SettingsPanel(
     onSelectSpeed: (Float) -> Unit,
     showReport: Boolean,
     onToggleReport: () -> Unit,
+    showKeys: Boolean,
+    onToggleKeys: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1383,6 +1473,13 @@ private fun SettingsPanel(
 
             SectionTitle("🧭 Gezinme")
             SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+
+            SectionTitle("⌨ Tuş göstergesi")
+            SettingRow(
+                if (showKeys) "Açık — basılan tuş sol üstte görünür" else "Kapalı",
+                showKeys,
+                onToggleKeys,
+            )
 
             SectionTitle("🩺 Kaynak raporu")
             SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
