@@ -7,9 +7,9 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 13 Eylül 2026 (sabah)
-**Dal:** `fix/general-stability` · temiz, push'lı
-**Sürümler:** TV `v0.1.91-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Son güncelleme:** 13 Eylül 2026 (öğle)
+**Dal:** `fix/general-stability` @ `c309342` · temiz (0 dirty), push'lı
+**Sürümler:** TV `v0.1.94-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
@@ -29,8 +29,58 @@ Dördü de "TV'de kumandadan yapılamıyor" ailesinden, hepsi ayrı sebep:
 `POST/GET /api/v1/client_log` gidiş-dönüş doğrulandı · APK `data/apk/NetMovies-TV-v0.1.91.apk`
 (versionCode 191) OTA'da · tünel 303 (stream recreate sonrası cloudflared yeniden kuruldu).
 
-**Cihazda doğrulanmadı:** kumanda medya tuşlarının gerçek Mi Box kumandasında hangi
-keycode'u ürettiği (kumandada ⏪⏩ yoksa karşılığı çıkmaz) ve dublaj/altyazı davranışı.
+## 0.1 13 Eylül — kumanda tek basışa indi (TV v0.1.92 → v0.1.94)
+
+Dean çift basış / basılı tutma öğrenmek istemiyor; kumandasında keymapper ile
+boşta duran düğmeler (Netflix/Prime) var. Karar: **her şey tek basış + ekranda düğme.**
+
+- **Tuş göstergesi (v0.1.92):** kök `onPreviewKeyEvent`'te her tuş yakalanır, sol üstte
+  2,5 sn `AD (kod) → karşılık` şeridi. Kumandanın hangi keycode'u ürettiği ancak böyle
+  görülüyordu. Ayarlar → Tuş göstergesi ile kapanır (`netmovies_keymap/show_keys`).
+- **Hızlı pad (v0.1.93):** `padAcarMi()` — **başka bir işe bağlı olmayan her tuş** sağ
+  altta pad açar/kapar (ses/güç/home/geri/menü/medya hariç). İçinde ±30sn/±5dk, oynat,
+  önceki/sonraki bölüm, bölümler, dakikaya git, ayarlar, ana sayfa. Böylece hangi tuşa
+  atandığını uygulamanın bilmesi gerekmiyor.
+- **Durum yazıları sağ alta (v0.1.93):** ortadaki büyük kutu kalktı; yükleniyor/aranıyor/
+  tazeleniyor ve sarma göstergesi tek biçimde sağ altta. Yükleme animasyonu `NmLoader`:
+  uçları açık iki halka, ters yönde döner, mavi→yeşil.
+- **MENÜ + ana sayfa (v0.1.94):** MENÜ tek basış ayarlar (ACTION_UP'ta), basılı tutma
+  tüketilmez → sisteme kalır. Ana sayfa sıfırlaması `MainActivity.anaSayfa` olarak tek
+  yere toplandı (telefon kumandası HOME/nav-home + pad aynı lambda).
+
+**HOME tuşu yakalanamaz** — Android `KEYCODE_HOME`'u launcher'a verir, normal uygulamaya
+hiç dağıtmaz. Çözüm değil, gerçek: ana sayfa pad'de düğme. Keymapper'da Home'u boş bir
+keycode'a alırsan o tuş zaten pad'i açar.
+
+**Kanıt:** `assembleDebug` + `testDebugUnitTest` BUILD SUCCESSFUL (versionCode 194) ·
+`smoke.sh` YEŞİL · `/api/v1/app_update?target=tv` → `v0.1.94-poc` · tünel 303.
+
+## Sıradaki iş — hepsi CİHAZDA doğrulama (kod tarafı bitti)
+
+TV'de v0.1.94'e güncelle, bir dizi aç ve sırayla bak:
+
+1. **Pad hangi tuşla açılıyor?** Keymapper'daki Netflix/Prime düğmesine bas; sol üstteki
+   şeritte `... → hızlı pad (aç/kapa)` yazmalı. Yazmıyorsa şeritteki **keycode numarasını**
+   al → `PlayerScreen.kt: PAD_DISI` / `padAcarMi()` ayarlanır.
+2. **Medya tuşları** (⏪⏩⏮⏭) kumandada fiziken var mı, hangi kodu üretiyor.
+3. **Dublaj + altyazı:** DiziMom'da Türkçe dublaj bir bölüm — altyazı KAPALI açılmalı
+   (`isDubbed`, `language.rank == 0`).
+4. **Ses kesintisi:** tekrarlarsa telefondan `http://192.168.1.185:3310/api/v1/client_log`
+   aç; TV 30 sn'de bir yolluyor, `ses — tampon boşaldı / çıkış hatası / biçim` satırlarına bak.
+5. **Halkalar ve sağ alt yazılar** TV ekranında okunur mu, pad 340dp genişlikle taşıyor mu.
+
+Bulgu çıkarsa kök neden → düzelt → `appVersion` (`client-tv/app/build.gradle.kts:4`) artır →
+`./gradlew assembleDebug` → APK'yı `data/apk/NetMovies-TV-v<sürüm>.apk` olarak kopyala.
+
+**Doğrulama:**
+```bash
+git rev-parse --short HEAD                  # c309342 bekleniyor
+bash scripts/smoke.sh                       # kapı YEŞİL
+curl -s "http://localhost:3310/api/v1/app_update?target=tv"   # v0.1.94-poc
+curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/   # 303
+```
+**Not:** `docker compose up -d --build stream` tüneli düşürür (cloudflared netns'i
+stream'e pinli) → ardından `docker compose --profile tunnel up -d --force-recreate cloudflared`.
 
 ## 0.0 12 Eylül gece yarısı — bölüm seçimi gerçekten çalışıyor (TV v0.1.88)
 
