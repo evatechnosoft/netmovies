@@ -7,19 +7,19 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 14 Eylül 2026 (gece yarısı)
-**Dal:** `fix/general-stability` @ `8dcd749` · temiz, push'lı
-**Sürümler:** TV `v0.2.1-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Son güncelleme:** 14 Eylül 2026 (gece)
+**Dal:** `fix/general-stability` @ `2e6b605` · temiz, push'lı
+**Sürümler:** TV `v0.2.2-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–v0.2.1)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–v0.2.2)
 
 Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.3, 0.4).
-**v0.1.98 → v0.2.1 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
+**v0.1.98 → v0.2.2 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
 
-1. TV'ye OTA'dan **v0.2.1**'i kur (`/api/v1/app_update?target=tv`).
+1. TV'ye OTA'dan **v0.2.2**'yi kur (`/api/v1/app_update?target=tv`).
 2. **Jenerik geri sayımı — v0.1.95'ten beri hiç doğrulanmadı.** Bir dizi bölümünü
    sonuna kadar izle: jenerikte sağ altta "Sıradaki bölüm · 10" çıkmalı, GERİ
    durdurmalı, SAĞ ok geçmeli. Çıkmazsa:
@@ -30,7 +30,10 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
    çalışıyor mu, arama büyüteci yeterli mi.
 4. Canlı TV: kanal **panelsiz** açılmalı; oynarken ⏮ tamponun başına, ⏭ canlıya
    gitmeli. Kanal favorisi SAĞ ok, uygulamayı kapat-aç kalıcı mı (`prefs` →
-   `fav_channels`).
+   `fav_channels`). Favoriler hem Canlı TV'de başta hem **Listem**'in tepesinde
+   ("📡 Favori Kanallar"), kendi aralarında alfabetik olmalı.
+   Bir kanal izleyip çık: **Devam Et rafına DÜŞMEMELİ** (v0.2.2) — eskiden düşüyor
+   ve orada yanlış ad/poster gösteriyordu.
 5. Ajanda: satır OK ile Gözat aramasına düşmeli; odaktaki satır tam metni göstermeli.
 6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
 
@@ -65,6 +68,21 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 içinde. Etiketler iptv-org `group-title`'dan geliyor, biz üretmiyoruz. Tek kanallık
 kategoriler artık çip olarak gösterilmiyor. Düzgün gruplama istenirse kendi eşleme
 tablomuz gerekir — yapılmadı.
+
+## 0.5 14 Eylül gecesi — canlı yayın kaydedilmiyor, favori kanallar Listem'de (TV v0.2.2)
+
+**Show TV izlerken Devam Et'te "Catfish" film afişi çıkıyordu.** Kök neden: canlı
+kanal da ilerleme kaydı yazıyordu. Kanalın "kaldığın yeri" yok, akış akıp gidiyor;
+kayıt hem rafı dolduruyor hem yanlış eşleşiyordu — `quick_channels` kaydında
+`poster: null` (kanalın kendi afişi yok), raf da başlığa göre eşleştirme yapıyor.
+Artık `exo.isCurrentMediaItemLive` ile hem periyodik kayıt hem çıkıştaki kayıt
+atlanıyor. İki şikâyet (rafa düşmesin + yanlış poster) tek düzeltmeyle kapandı.
+
+**Favori kanallar Listem'de** ayrı bölüm olarak, en üstte. Kaynak aynı
+(`prefs` → `fav_channels`), ikinci liste tutulmuyor. Satır sade: kanalda bölüm/tarih
+yok, adı ve varsa "şu an ne oynuyor" yazıyor; OK ile panelsiz açılıyor.
+**Favoriler kendi aralarında alfabetik** (Türkçe `Collator`) — ekleme sırası rastgele
+görünüyor, sabit kanalı gözle aramak gerekiyordu.
 
 ## 0.4 14 Eylül gece yarısı — arayüz gezinmesi ve canlı yayın (TV v0.1.99 → v0.2.1)
 
