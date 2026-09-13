@@ -245,6 +245,21 @@ fun PlayerScreen(
     // "7. bölüm 9. dk" yazıyor ve o konuma atlıyordu.
     var resumeEpisode by remember(item.url) { mutableStateOf<Int?>(null) }
 
+    // Bölüm işaretleri: açılış şarkısı ve jenerik başlangıcı (sunucu altyazıdan
+    // çıkarır — /api/v1/markers). Bulunamazsa null kalır ve hiçbir şey gösterilmez;
+    // o zaman eski davranış (son 90 sn teklifi) sürer.
+    // Anahtarda BÖLÜM de var: sonraki bölüme geçildiğinde item.url değişmez, ama
+    // işaretler ve iptal kararı o bölüme aittir — taşınırsa yeni bölümün jeneriği
+    // eski bölümün dakikasında aranır.
+    var markers by remember(item.url, currentEpIndex) { mutableStateOf<com.evaitec.netmovies.tv.data.Markers?>(null) }
+    // Jenerikte başlayan otomatik geçiş geri sayımı. null = sayım yok.
+    var geriSayim by remember(item.url, currentEpIndex) { mutableStateOf<Int?>(null) }
+    // Kullanıcı GERİ ile sayımı durdurdu: bu bölümde bir daha başlamaz — jeneriği
+    // izlemek isteyen kişiyi her saniye yeniden uyarmanın anlamı yok.
+    var otoGecisIptal by remember(item.url, currentEpIndex) { mutableStateOf(false) }
+    // Akış STATE_ENDED'e ulaştı: jenerik işareti olmayan bölümde sayım buradan başlar.
+    var akisBitti by remember(item.url, currentEpIndex) { mutableStateOf(false) }
+
     LaunchedEffect(item.url) {
         details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
         // Bölüm listesi zincirden ÖNCE gelir: load_item tek istek, resolve_sources
@@ -386,6 +401,9 @@ fun PlayerScreen(
     // bir hata kutusu yok.
     NmBackHandler(enabled = true) {
         when {
+            // Geri sayım sürerken GERİ = "geçme, jeneriği izliyorum". Bölümden
+            // çıkarmaz; bu bölümde sayım bir daha başlamaz.
+            geriSayim != null -> otoGecisIptal = true
             scrubMode -> scrubMode = false
             showPad -> showPad = false
             // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki
@@ -411,13 +429,12 @@ fun PlayerScreen(
                 // Kaynak gerçekten açılınca bant kalkar; yoksa "sıradaki deneniyor"
                 // yazısı film oynarken ekranda asılı kalıyordu.
                 if (state == Player.STATE_READY) { ready = true; status = null }
-                // Bölüm bitti → sıradakine kendiliğinden geç. Değer burada yeniden
-                // hesaplanır: dinleyici bir kez kurulur, dışarıdaki anlık kopya bayatlar.
-                if (state == Player.STATE_ENDED) {
-                    val sonraki = (currentEpIndex + 1)
-                        .takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
-                    if (sonraki != null) goToEpisode(sonraki)
-                }
+                // Bölüm bitti. ESKİDEN buradan ANINDA sıradakine geçiliyordu ve son
+                // sahneyi kaçıran kullanıcı kendini yeni bölümde buluyordu. Artık
+                // yalnız işaret konur: geri sayım kartı (aşağıdaki efekt) devreye
+                // girer, GERİ ile durdurulabilir. Jenerik işareti bulunan bölümde
+                // sayım zaten daha önce, jenerik başlarken başlamıştır.
+                if (state == Player.STATE_ENDED) akisBitti = true
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
@@ -820,12 +837,60 @@ fun PlayerScreen(
         }
     }
 
+    // İşaretleri çek: süre öğrenilir öğrenilmez, kaynağın altyazısından. Anahtarda
+    // `duration > 0` var — süre 500ms'de bir tazelenir, her değerinde istek atmasın.
+    LaunchedEffect(currentLinkUrl, currentEpIndex, duration > 0) {
+        if (duration <= 0) return@LaunchedEffect
+        val altyazi = links.getOrNull(currentLinkIndex)?.subtitles
+            ?.firstOrNull { it.url.isNotBlank() } ?: return@LaunchedEffect
+        markers = runCatching {
+            Network.api.markers(altyazi.url, duration / 1000.0).result
+        }.onFailure {
+            PlaybackLog.warn("isaret", "işaret alınamadı: ${it.message ?: "-"}")
+        }.getOrNull()
+        markers?.let {
+            PlaybackLog.info(
+                "isaret",
+                "açılış=${it.introStart?.toInt() ?: "-"}–${it.introEnd?.toInt() ?: "-"} " +
+                    "jenerik=${it.creditsStart?.toInt() ?: "-"} (${it.source ?: "-"})",
+            )
+        }
+    }
+
+    // Açılış aralığı ve jenerik başlangıcı — milisaniye, oynatıcı biriminde.
+    val introBas = markers?.introStart?.let { (it * 1000).toLong() }
+    val introBit = markers?.introEnd?.let { (it * 1000).toLong() }
+    val jenerikBas = markers?.creditsStart?.let { (it * 1000).toLong() }
+
+    val panelAcik = showStartPanel || showSettings || showSeek || scrubMode
+
+    // "Açılışı atla": yalnız açılış şarkısı çalarken görünür. Bittiği yere atlar.
+    val acilisAtlanabilir = introBas != null && introBit != null &&
+        position in introBas..introBit && !panelAcik
+
+    // Geri sayım: jenerik başladığında (işaret varsa) ya da akış bittiğinde
+    // (işaret yoksa). İptal edilmişse bir daha başlamaz.
+    val jenerikte = jenerikBas != null && duration > 0 && position >= jenerikBas
+    val sayimBaslasin = nextEpIndex != null && !otoGecisIptal && (jenerikte || akisBitti)
+
+    LaunchedEffect(sayimBaslasin, nextEpIndex) {
+        if (!sayimBaslasin || nextEpIndex == null) { geriSayim = null; return@LaunchedEffect }
+        for (kalan in NEXT_COUNTDOWN_SEC downTo 1) {
+            geriSayim = kalan
+            delay(1000)
+        }
+        geriSayim = null
+        goToEpisode(nextEpIndex)
+    }
+
     // Bölüm sonu teklifi: bitmeye az kala köşede "sonraki bölüm" kartı çıkar ve
     // SAĞ ok onu açar. Pencere dışında SAĞ hâlâ ileri sarmadır — buton eşlemesi
     // bozulmaz, kullanıcı yeni bir tuş öğrenmez.
-    val sonrakiTeklif = nextEpIndex != null && duration > 0 &&
-        (duration - position) in 0..NEXT_EPISODE_WINDOW_MS &&
-        !showStartPanel && !showSettings && !showSeek && !scrubMode
+    // Jenerik işareti VARSA bu kart hiç çıkmaz: sabit 90 sn penceresi jeneriğin
+    // nerede başladığını bilmiyordu, işaret biliyor — ikisi üst üste binmesin.
+    val sonrakiTeklif = nextEpIndex != null && duration > 0 && jenerikBas == null &&
+        geriSayim == null &&
+        (duration - position) in 0..NEXT_EPISODE_WINDOW_MS && !panelAcik
 
     Box(
         Modifier
@@ -913,6 +978,23 @@ fun PlayerScreen(
                         }
                         true
                     }
+                    // Açılış şarkısı çalarken SAĞ ok = açılışı atla. Pencere dışında
+                    // SAĞ hâlâ ileri sarmadır; teklif kartındaki desenin aynısı, yeni
+                    // tuş öğrenilmiyor.
+                    acilisAtlanabilir && ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && introBit != null) {
+                            exo.seekTo(introBit)
+                            position = introBit
+                            seekHint = "⏭ Açılış atlandı"
+                            hintTick++
+                        }
+                        true
+                    }
+                    // Geri sayım sürerken SAĞ ok = beklemeden geç.
+                    geriSayim != null && ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
+                        true
+                    }
                     // Teklif penceresinde SAĞ ok = sonraki bölüm.
                     sonrakiTeklif && ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
@@ -988,13 +1070,35 @@ fun PlayerScreen(
                 onOpenList = if (episodes.isEmpty()) null else {
                     { panelAsList = true; showStartPanel = true; showControls = false }
                 },
+                introRange = if (introBas != null && introBit != null) introBas to introBit else null,
+                creditsStart = jenerikBas,
             )
         }
 
-        // Bölüm sonu: "sonraki bölüm" teklifi. Dokunmatikte tıklanır, kumandada SAĞ ok.
-        if (sonrakiTeklif && nextEpIndex != null) {
+        // Açılışı atla — yalnız açılış şarkısı çalarken, sağ altta.
+        if (acilisAtlanabilir && introBit != null && !showControls) {
+            SkipIntroCard(
+                onSkip = {
+                    exo.seekTo(introBit)
+                    position = introBit
+                    seekHint = "⏭ Açılış atlandı"
+                    hintTick++
+                },
+            )
+        }
+
+        // Jenerikte (ya da bölüm bitince) geri sayımlı geçiş kartı.
+        if (geriSayim != null && nextEpIndex != null) {
             NextEpisodeCard(
                 label = episodeLabel(episodes[nextEpIndex], nextEpIndex),
+                countdown = geriSayim,
+                onPlay = { goToEpisode(nextEpIndex) },
+            )
+        } else if (sonrakiTeklif && nextEpIndex != null) {
+            // İşaretsiz bölümde eski davranış: son 90 sn'de teklif, otomatik geçiş yok.
+            NextEpisodeCard(
+                label = episodeLabel(episodes[nextEpIndex], nextEpIndex),
+                countdown = null,
                 onPlay = { goToEpisode(nextEpIndex) },
             )
         }
@@ -1373,6 +1477,10 @@ private fun ControlsOverlay(
     onSeekToFraction: (Float) -> Unit,
     /** null = film (bölüm listesi yok). */
     onOpenList: (() -> Unit)? = null,
+    /** Açılış şarkısı aralığı (ms) — çubukta soluk blok. null = işaret yok. */
+    introRange: Pair<Long, Long>? = null,
+    /** Jenerik başlangıcı (ms) — çubukta ince çizgi. null = işaret yok. */
+    creditsStart: Long? = null,
 ) {
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
@@ -1413,6 +1521,20 @@ private fun ControlsOverlay(
                     Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
                         .background(NmColor.TrackIdle),
                 ) {
+                    // Belirteçler DOLGUNUN ALTINDA çizilir: açılış bloğu soluk, jenerik
+                    // çizgisi ince. İzlenen kısım üstlerinden geçer, konum okunur kalır.
+                    if (duration > 0) {
+                        introRange?.let { (bas, bit) ->
+                            MarkerBand(
+                                start = (bas.toFloat() / duration).coerceIn(0f, 1f),
+                                end   = (bit.toFloat() / duration).coerceIn(0f, 1f),
+                            )
+                        }
+                        creditsStart?.let {
+                            val f = (it.toFloat() / duration).coerceIn(0f, 1f)
+                            MarkerBand(start = f, end = (f + 0.004f).coerceAtMost(1f))
+                        }
+                    }
                     Box(
                         Modifier.fillMaxWidth(fraction).height(5.dp).clip(RoundedCornerShape(3.dp))
                             .background(NmColor.Primary),
@@ -1447,6 +1569,20 @@ private fun ControlsOverlay(
     }
 }
 
+// İlerleme çubuğunda bir belirteç: [start, end] oranı arası soluk bant.
+// Konumlandırma weight'li Spacer ile — yüzde offset Compose'da ölçüm gerektirir,
+// üç Spacer'lık Row aynı işi ölçümsüz görür.
+@Composable
+private fun MarkerBand(start: Float, end: Float) {
+    val genislik = (end - start).coerceAtLeast(0.003f)
+    Row(Modifier.fillMaxWidth().height(5.dp)) {
+        if (start > 0.001f) Spacer(Modifier.weight(start))
+        Spacer(Modifier.weight(genislik).fillMaxHeight().background(NmColor.OnSurfaceMuted))
+        val kalan = 1f - start - genislik
+        if (kalan > 0.001f) Spacer(Modifier.weight(kalan))
+    }
+}
+
 // Küçük yuvarlak ikon buton (vektör; renk tint → emoji/sarı yok). pointerInput tap →
 // D-pad focus'unu bozmaz. accent=true → dolu mor (oynat/duraklat).
 @Composable
@@ -1478,16 +1614,21 @@ private fun TextPill(label: String, onTap: () -> Unit) {
     }
 }
 
-// Bölüm bitmeye bu kadar kala "sonraki bölüm" teklif edilir.
+// Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 private const val NEXT_EPISODE_WINDOW_MS = 90_000L
 
-// Bölüm sonu teklifi — sağ altta, oynatmayı kesmeden. Kumandada SAĞ ok kabul eder
+// Jenerik başlayınca sonraki bölüme geçmeden önce beklenen süre. Son sahneyi
+// kaçırmamak için var: GERİ basan kişi jeneriği sonuna kadar izler.
+private const val NEXT_COUNTDOWN_SEC = 10
+
+// Bölüm sonu kartı — sağ altta, oynatmayı kesmeden. Kumandada SAĞ ok kabul eder
 // (tuş işleme oynatıcıda; kart odak almaz ki D-pad sarma/kontrol akışı bozulmasın),
-// dokunmatikte karta dokunmak yeter. Cevap verilmezse bölüm bitince kendiliğinden
-// sıradakine geçilir.
+// dokunmatikte karta dokunmak yeter.
+// countdown != null → geri sayım sürüyor, süre dolunca kendiliğinden geçilir;
+// GERİ sayımı durdurur. countdown == null → yalnız teklif, kendiliğinden geçiş yok.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun NextEpisodeCard(label: String, onPlay: () -> Unit) {
+private fun NextEpisodeCard(label: String, countdown: Int?, onPlay: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
         Column(
             modifier = Modifier
@@ -1497,7 +1638,11 @@ private fun NextEpisodeCard(label: String, onPlay: () -> Unit) {
                 .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text("Sıradaki bölüm", color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
+            Text(
+                text = if (countdown != null) "Sıradaki bölüm · $countdown" else "Sıradaki bölüm",
+                color = NmColor.OnSurfaceMuted,
+                fontSize = NmType.Caption,
+            )
             Text(
                 text = label,
                 color = NmColor.OnSurface,
@@ -1506,7 +1651,32 @@ private fun NextEpisodeCard(label: String, onPlay: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text("▶  SAĞ ok ile geç", color = NmColor.Primary, fontSize = NmType.Caption)
+            Text(
+                text = if (countdown != null) "▶  SAĞ ok geç  ·  GERİ kal" else "▶  SAĞ ok ile geç",
+                color = NmColor.Primary,
+                fontSize = NmType.Caption,
+            )
+        }
+    }
+}
+
+// "Açılışı atla" — açılış şarkısı çalarken sağ altta. Aynı desen: kart odak almaz,
+// kumandada SAĞ ok, dokunmatikte dokunuş.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SkipIntroCard(onSkip: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(NmDim.PillRadius))
+                .background(NmColor.SurfaceDialog)
+                .pointerInput(Unit) { detectTapGestures { onSkip() } }
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Açılışı Atla", color = NmColor.OnSurface, fontSize = NmType.Label, fontWeight = FontWeight.SemiBold)
+            Text("SAĞ ok", color = NmColor.Primary, fontSize = NmType.Caption)
         }
     }
 }

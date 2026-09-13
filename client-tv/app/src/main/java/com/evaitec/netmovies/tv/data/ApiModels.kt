@@ -71,6 +71,21 @@ data class Subtitle(
     val url: String = "",
 )
 
+// /api/v1/markers yanıtı: bölümün açılış/jenerik işaretleri (saniye).
+// Bulunamayan işaret null gelir — oynatıcı o özelliği hiç göstermez.
+@Serializable
+data class MarkersResponse(
+    val result: Markers = Markers(),
+)
+
+@Serializable
+data class Markers(
+    @SerialName("intro_start") val introStart: Double? = null,
+    @SerialName("intro_end") val introEnd: Double? = null,
+    @SerialName("credits_start") val creditsStart: Double? = null,
+    val source: String? = null,
+)
+
 // /api/v1/get_all_plugins yanıtı: eklenti listesi + her birinin kategori haritası.
 @Serializable
 data class PluginsResponse(

@@ -41,6 +41,14 @@ interface NetMoviesApi {
         @Query("encoded_url", encoded = true) encodedUrl: String,
     ): LinksResponse
 
+    // Bölüm işaretleri: açılış şarkısı ve jenerik başlangıcı. Altyazı sunucuda
+    // ayrıştırılır, TV'ye yalnız üç sayı gelir.
+    @GET("api/v1/markers")
+    suspend fun markers(
+        @Query("url") subtitleUrl: String,
+        @Query("duration") durationSeconds: Double,
+    ): MarkersResponse
+
     // Eklenti/kategori tarayıcı: tüm eklentiler + kategori haritaları.
     @GET("api/v1/get_all_plugins")
     suspend fun getAllPlugins(): PluginsResponse

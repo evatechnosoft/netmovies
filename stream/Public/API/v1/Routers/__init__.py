@@ -32,6 +32,7 @@ from . import (
     extract,
     ytdlp_extract,
     watch,
+    markers,
     prefs,
     client_config,
     client_log,
