@@ -43,6 +43,8 @@ object NmColor {
     val ScrimSoft       = Color(0x99000000)   // overlay pill zemini
     val TrackIdle       = Color(0x40FFFFFF)   // ilerleme çubuğu boş kısmı
     val Star            = Color(0xFFFFC107)
+    val LoaderBlue      = Color(0xFF3B82F6)   // yükleniyor halkası — dış
+    val LoaderGreen     = Color(0xFF22C55E)   // yükleniyor halkası — iç
     val BannerBg        = Color(0xFF2A2140)
 }
 

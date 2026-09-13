@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward10
@@ -194,6 +195,16 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     var showKeys by remember { mutableStateOf(keyPrefs.getBoolean("show_keys", true)) }
     var keyHint by remember { mutableStateOf<String?>(null) }
     var keyTick by remember { mutableIntStateOf(0) }
+
+    // Hızlı pad: sağ altta açılan kumanda kutusu. Çift basış / basılı tutma
+    // öğrenmek yerine her şey tek OK ile bir düğmede (Dean: "4'lü pad açılır,
+    // ileri geri sarma, bölüm seçme, hepsi orada"). Kumandada boşta duran bir
+    // tuş (Netflix/Prime) açar — hangi tuş olduğunu uygulama bilmek zorunda değil,
+    // BAŞKA BİR İŞE BAĞLI OLMAYAN her tuş açar.
+    var showPad by remember { mutableStateOf(false) }
+    // Pad'i açan tuşun BIRAKILMA olayı pad'e ait değil: yoksa parmak kalkarken
+    // odaktaki düğmeye basmış oluyor (aynı tuzak uzun basışta yaşanmıştı).
+    var padKey by remember { mutableIntStateOf(-1) }
 
     // Bölüm durumu: onDispose içindeki ilerleme kaydı da okuduğu için oynatıcı
     // kurulumundan ÖNCE tanımlı olmalı.
@@ -367,6 +378,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     NmBackHandler(enabled = true) {
         when {
             scrubMode -> scrubMode = false
+            showPad -> showPad = false
             // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki
             // ilk adım, kapatıp boş ekranda kalmanın anlamı yok. Oynarken açılan
             // bölüm listesinde ise arkada film var — GERİ yalnız listeyi kapatır.
@@ -790,8 +802,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // ilk basış odağı taşımakla harcanıyor, kullanıcı "iki kere basınca giriyor" diyordu.
     // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
     // oluyordu (ModalCard'da aynı sorun kare kare denemeyle çözülmüştü).
-    LaunchedEffect(showSettings, showSeek, scrubMode, ready) {
-        if (showSeek) return@LaunchedEffect   // gezinme ekranı odağı kendi alır
+    LaunchedEffect(showSettings, showSeek, showPad, scrubMode, ready) {
+        if (showSeek || showPad) return@LaunchedEffect   // bu ekranlar odağı kendi alır
         repeat(10) {
             val target = if (showSettings) panelFocus else rootFocus
             if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
@@ -827,6 +839,21 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 ) {
                     keyHint = keyLabel(ke.nativeKeyEvent.keyCode, bindings)
                     keyTick++
+                }
+                // Boşta duran tuş → hızlı pad (aç/kapa). Tuşun bırakılması da
+                // buraya ait: pad'deki düğmeye kazara basılmasın.
+                if (padAcarMi(ke.nativeKeyEvent.keyCode)) {
+                    // Başka bir panel açıkken pad açılmaz: iki modal üst üste
+                    // gelince odak ikisi arasında kayboluyor.
+                    val baskaPanel = showSettings || showSeek || showStartPanel || scrubMode
+                    when (ke.nativeKeyEvent.action) {
+                        KeyEvent.ACTION_DOWN -> if (ke.nativeKeyEvent.repeatCount == 0 && !baskaPanel) {
+                            showPad = !showPad
+                            padKey = ke.nativeKeyEvent.keyCode
+                        }
+                        KeyEvent.ACTION_UP -> if (padKey == ke.nativeKeyEvent.keyCode) padKey = -1
+                    }
+                    return@onPreviewKeyEvent true
                 }
                 if (!showStartPanel || ke.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                     return@onPreviewKeyEvent false
@@ -879,7 +906,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     controller.consumesPendingUp(ke.nativeKeyEvent) -> true
                     // Bölüm seçici de bir modal: tuşlar yutulunca liste hiç hareket
                     // etmiyordu (Dean: "bölüm seçimi açılıyor, hareket etmiyor").
-                    showSettings || showSeek || showStartPanel -> false
+                    showSettings || showSeek || showStartPanel || showPad -> false
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
@@ -906,17 +933,20 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Sarma göstergesi (ortada, geçici).
+        // Sarma göstergesi — o da sağ altta (ortadaki büyük kutu kalktı).
         seekHint?.let {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.fillMaxSize().padding(NmDim.SafeArea),
+                contentAlignment = Alignment.BottomEnd,
+            ) {
                 Box(
-                    Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.Scrim)
-                        .padding(horizontal = 28.dp, vertical = 16.dp),
+                    Modifier.clip(RoundedCornerShape(NmDim.PillRadius)).background(NmColor.Scrim)
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
                 ) {
                     Text(
                         text = it,
                         fontWeight = FontWeight.Bold,
-                        fontSize = NmType.ScreenTitle,
+                        fontSize = NmType.Body,
                         color = NmColor.OnSurface,
                     )
                 }
@@ -954,6 +984,23 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         // Scrub / önizleme overlay'i (thumbnail = preview oynatıcı karesi).
         if (scrubMode) {
             ScrubOverlay(previewExo = previewExo, scrubPos = scrubPos, duration = duration)
+        }
+
+        if (showPad) {
+            QuickPad(
+                isPlaying = isPlaying,
+                prevEpisodeLabel = prevEpIndex?.let { episodeLabel(episodes[it], it) },
+                nextEpisodeLabel = nextEpIndex?.let { episodeLabel(episodes[it], it) },
+                hasEpisodes = episodes.isNotEmpty(),
+                onSeekBy = { seekBy(it) },
+                onPlayPause = { if (exo.isPlaying) exo.pause() else exo.play() },
+                onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) }; showPad = false },
+                onNextEpisode = { nextEpIndex?.let { goToEpisode(it) }; showPad = false },
+                onOpenEpisodes = { showPad = false; panelAsList = true; showStartPanel = true },
+                onOpenSeek = { showPad = false; showSeek = true },
+                onOpenSettings = { showPad = false; showSettings = true },
+                onClose = { showPad = false },
+            )
         }
 
         if (showSeek) {
@@ -1098,6 +1145,122 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
 }
 
+// Hızlı pad'i AÇMAYACAK tuşlar: sistemin kendi işleri ve zaten bir işi olanlar.
+private val PAD_DISI = setOf(
+    KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE,
+    KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_TV_POWER, KeyEvent.KEYCODE_SLEEP,
+    KeyEvent.KEYCODE_WAKEUP, KeyEvent.KEYCODE_SOFT_SLEEP,
+    KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_APP_SWITCH,
+    KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_MENU,
+    KeyEvent.KEYCODE_UNKNOWN,
+)
+
+/** Başka bir işe bağlı OLMAYAN her tuş hızlı pad'i açar (kumandadaki Netflix/Prime gibi). */
+private fun padAcarMi(code: Int): Boolean =
+    RemoteKey.from(code) == null && code !in MEDIA_KEYS && code !in PAD_DISI
+
+// Sağ altta açılan hızlı kumanda kutusu. Tek basış mantığı: her şey bir düğme,
+// D-pad düğmeler arasında gezer, OK uygular, GERİ kapatır.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun QuickPad(
+    isPlaying: Boolean,
+    prevEpisodeLabel: String?,
+    nextEpisodeLabel: String?,
+    hasEpisodes: Boolean,
+    onSeekBy: (Long) -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevEpisode: () -> Unit,
+    onNextEpisode: () -> Unit,
+    onOpenEpisodes: () -> Unit,
+    onOpenSeek: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val ilkOdak = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(10) {
+            withFrameNanos {}
+            if (runCatching { ilkOdak.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .clip(RoundedCornerShape(NmDim.PanelRadius))
+                .background(NmColor.SurfaceDialog)
+                .focusGroup()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PadBtn("−5dk", Modifier.weight(1f)) { onSeekBy(-300_000) }
+                PadBtn("−30sn", Modifier.weight(1f)) { onSeekBy(-30_000) }
+                PadBtn(
+                    label = if (isPlaying) "⏸" else "▶",
+                    modifier = Modifier.weight(1f).focusRequester(ilkOdak),
+                    accent = true,
+                ) { onPlayPause() }
+                PadBtn("+30sn", Modifier.weight(1f)) { onSeekBy(30_000) }
+                PadBtn("+5dk", Modifier.weight(1f)) { onSeekBy(300_000) }
+            }
+
+            if (prevEpisodeLabel != null || nextEpisodeLabel != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    prevEpisodeLabel?.let { PadBtn("⏮ Önceki", Modifier.weight(1f)) { onPrevEpisode() } }
+                    nextEpisodeLabel?.let { PadBtn("⏭ Sonraki", Modifier.weight(1f)) { onNextEpisode() } }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasEpisodes) PadBtn("📑 Bölümler", Modifier.weight(1f)) { onOpenEpisodes() }
+                PadBtn("🧭 Dakika", Modifier.weight(1f)) { onOpenSeek() }
+                PadBtn("⚙ Ayarlar", Modifier.weight(1f)) { onOpenSettings() }
+                PadBtn("✕", Modifier.width(46.dp)) { onClose() }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PadBtn(
+    label: String,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    onClick: () -> Unit,
+) {
+    var odakli by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(
+                when {
+                    odakli -> NmColor.Primary
+                    accent -> NmColor.PrimarySelected
+                    else   -> NmColor.Surface
+                }
+            )
+            .nmFocusRing(odakli, shape)
+            .onFocusChanged { odakli = it.isFocused }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontSize = NmType.Caption,
+            fontWeight = if (odakli) FontWeight.Bold else FontWeight.Medium,
+            color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 // Basılan tuşun ekranda görünen karşılığı: "MEDIA_FAST_FORWARD (90) → +30 sn".
 // Kod numarası da yazar — kumandanın ürettiği tuş bilinmeyen bir şeyse eşleme
 // ekranında aranacak değer budur.
@@ -1124,6 +1287,7 @@ private fun keyLabel(code: Int, bindings: KeyBindings): String {
         code in MEDIA_KEYS                          -> "oynat / duraklat"
         code == KeyEvent.KEYCODE_MENU               -> "ayarlar"
         code == KeyEvent.KEYCODE_BACK               -> "geri"
+        padAcarMi(code)                             -> "hızlı pad (aç/kapa)"
         else                                        -> "bağlı değil"
     }
     return "$ad ($code) → $karsilik"
@@ -1791,28 +1955,38 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+// Durum yazıları (yükleniyor / kaynak aranıyor / tazeleniyor) EKRANIN ORTASINDA
+// duruyordu — film üstünde kocaman bir kutu (Dean: "ortada çok çirkin"). Hepsi
+// sağ alta, tek biçimde: dönen halkalar + kısa metin.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Overlay(message: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Box(
-            Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.ScrimSoft)
-                .padding(horizontal = 26.dp, vertical = 14.dp),
-        ) {
-            Text(message, fontSize = NmType.Body, color = NmColor.OnSurface)
-        }
-    }
-}
+private fun Overlay(message: String) = CornerStatus(message, loader = true)
 
-// Oynatma sürerken alt köşede görünen küçük durum satırı (kaynak geçişi vb.).
+// Oynatma sürerken görünen küçük durum satırı (kaynak geçişi vb.).
 @Composable
-private fun StatusBanner(message: String) {
-    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomStart) {
-        Box(
-            Modifier.clip(RoundedCornerShape(NmDim.PanelRadius)).background(NmColor.ScrimSoft)
-                .padding(horizontal = 20.dp, vertical = 10.dp),
+private fun StatusBanner(message: String) = CornerStatus(message, loader = true)
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CornerStatus(message: String, loader: Boolean) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(NmDim.PanelRadius))
+                .background(NmColor.ScrimSoft)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(message, fontSize = NmType.Label, color = NmColor.OnSurface)
+            if (loader) NmLoader(size = 26.dp)
+            Text(
+                text = message,
+                fontSize = NmType.Label,
+                color = NmColor.OnSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 420.dp),
+            )
         }
     }
 }
