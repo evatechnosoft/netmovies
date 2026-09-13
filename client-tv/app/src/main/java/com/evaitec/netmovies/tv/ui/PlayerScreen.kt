@@ -126,7 +126,14 @@ private val MEDIA_KEYS = setOf(
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBack: () -> Unit) {
+fun PlayerScreen(
+    item: MediaItem,
+    bindings: KeyBindings,
+    library: Library,
+    onBack: () -> Unit,
+    /** Uygulamanın ana ekranına dön (sistemin HOME tuşu değil — o uygulamaya gelmez). */
+    onHome: () -> Unit = onBack,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val exo = remember {
@@ -205,6 +212,8 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     // Pad'i açan tuşun BIRAKILMA olayı pad'e ait değil: yoksa parmak kalkarken
     // odaktaki düğmeye basmış oluyor (aynı tuzak uzun basışta yaşanmıştı).
     var padKey by remember { mutableIntStateOf(-1) }
+    // MENÜ basılı mı tutuldu: tek basış ayarları açar, basılı tutma sisteme kalır.
+    var menuUzun by remember { mutableStateOf(false) }
 
     // Bölüm durumu: onDispose içindeki ilerleme kaydı da okuduğu için oynatıcı
     // kurulumundan ÖNCE tanımlı olmalı.
@@ -871,9 +880,18 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     // Telefon kumandasındaki "Menü": oynatıcı ayarlarını (altyazı,
                     // kalite, kaynak) açar. TV kumandalarının çoğunda bu tuş yok,
                     // bu yüzden buton eşlemesine değil doğrudan buraya bağlı.
-                    ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_MENU -> {
-                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) showSettings = true
-                        true
+                    // MENÜ: TEK basış uygulamanın işini yapar (oynatıcı ayarları),
+                    // BASILI TUTMA uygulamaya ait değildir — olay tüketilmez, tuşun
+                    // kendi/sistem işlevi neyse o çalışır.
+                    ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_MENU -> when {
+                        ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                            ke.nativeKeyEvent.repeatCount == 0 -> { menuUzun = false; true }
+                        ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN -> { menuUzun = true; false }
+                        ke.nativeKeyEvent.action == KeyEvent.ACTION_UP && !menuUzun -> {
+                            showSettings = true
+                            true
+                        }
+                        else -> false
                     }
                     // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
                     // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
@@ -999,6 +1017,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 onOpenEpisodes = { showPad = false; panelAsList = true; showStartPanel = true },
                 onOpenSeek = { showPad = false; showSeek = true },
                 onOpenSettings = { showPad = false; showSettings = true },
+                onHome = { showPad = false; onHome() },
                 onClose = { showPad = false },
             )
         }
@@ -1175,6 +1194,7 @@ private fun QuickPad(
     onOpenEpisodes: () -> Unit,
     onOpenSeek: () -> Unit,
     onOpenSettings: () -> Unit,
+    onHome: () -> Unit,
     onClose: () -> Unit,
 ) {
     val ilkOdak = remember { FocusRequester() }
@@ -1218,7 +1238,11 @@ private fun QuickPad(
                 if (hasEpisodes) PadBtn("📑 Bölümler", Modifier.weight(1f)) { onOpenEpisodes() }
                 PadBtn("🧭 Dakika", Modifier.weight(1f)) { onOpenSeek() }
                 PadBtn("⚙ Ayarlar", Modifier.weight(1f)) { onOpenSettings() }
-                PadBtn("✕", Modifier.width(46.dp)) { onClose() }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Sistemin HOME tuşu uygulamaya gelmiyor; "ana sayfa" burada bir düğme.
+                PadBtn("🏠 Ana sayfa", Modifier.weight(1f)) { onHome() }
+                PadBtn("✕ Kapat", Modifier.weight(1f)) { onClose() }
             }
         }
     }
@@ -1285,8 +1309,9 @@ private fun keyLabel(code: Int, bindings: KeyBindings): String {
         code == KeyEvent.KEYCODE_MEDIA_PAUSE        -> "duraklat"
         code == KeyEvent.KEYCODE_MEDIA_STOP         -> "çık"
         code in MEDIA_KEYS                          -> "oynat / duraklat"
-        code == KeyEvent.KEYCODE_MENU               -> "ayarlar"
+        code == KeyEvent.KEYCODE_MENU               -> "tek: ayarlar · basılı: sistem"
         code == KeyEvent.KEYCODE_BACK               -> "geri"
+        code == KeyEvent.KEYCODE_HOME               -> "sistem (uygulama yakalayamaz)"
         padAcarMi(code)                             -> "hızlı pad (aç/kapa)"
         else                                        -> "bağlı değil"
     }

@@ -188,6 +188,15 @@ class MainActivity : ComponentActivity() {
                         // Telefondan gelen metin: Gözat ekranının arama kutusuna düşer.
                         var kumandaMetni by remember { mutableStateOf<String?>(null) }
 
+                        // "Ana sayfa": tüm ekranları kapat, uygulamanın ana ekranına dön.
+                        // Üç yerden çağrılır — telefon kumandası (key HOME / nav home) ve
+                        // oynatıcıdaki hızlı pad. Sistemin HOME tuşu DEĞİL: o tuş uygulamaya
+                        // hiç gelmez (Android onu launcher'a verir), uygulamayı arka plana atar.
+                        val anaSayfa = {
+                            selected = null; showBrowse = false; showAdmin = false
+                            showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
+                        }
+
                         // ---------------------------------------------------- TELEFON KUMANDASI
                         // TEK yoklama döngüsü. Uzun-yoklama (wait=25) sayesinde komut sunucuya
                         // düşer düşmez gelir; 4 sn'lik turlarda her tuş ortalama iki saniye
@@ -230,10 +239,7 @@ class MainActivity : ComponentActivity() {
                                         "key" -> when (cmd.key) {
                                             // HOME'u tuş olarak yollamak uygulamayı arka plana
                                             // atardı; kastedilen NetMovies'in ana ekranı.
-                                            "HOME" -> {
-                                                selected = null; showBrowse = false; showAdmin = false
-                                                showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
-                                            }
+                                            "HOME" -> anaSayfa()
                                             else -> tusGonder(cmd.key)
                                         }
 
@@ -256,10 +262,7 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         "nav" -> when (cmd.screen) {
-                                            "home" -> {
-                                                selected = null; showBrowse = false; showAdmin = false
-                                                showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
-                                            }
+                                            "home" -> anaSayfa()
                                             "browse" -> { browseVaultMode = false; showBrowse = true }
                                             "following" -> showFollowing = true
                                             "channels" -> showChannels = true
@@ -277,7 +280,13 @@ class MainActivity : ComponentActivity() {
                         val current = selected
                         when {
                             current != null ->
-                                PlayerScreen(item = current, bindings = bindings, library = library, onBack = { selected = null })
+                                PlayerScreen(
+                                    item = current,
+                                    bindings = bindings,
+                                    library = library,
+                                    onBack = { selected = null },
+                                    onHome = anaSayfa,
+                                )
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showRemote ->
