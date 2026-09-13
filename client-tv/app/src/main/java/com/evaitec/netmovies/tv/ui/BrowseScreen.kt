@@ -223,6 +223,10 @@ fun BrowseScreen(
             selectedPlugin != null -> {
                 state.plugin = null
                 state.shelf = 0
+                // Kart indeksi de sıfırlanmalı: yalnız raf sıfırlanınca liste
+                // başa dönüyor ama odak o raftaki ESKİ karta düşüyordu — üstte
+                // sağlayıcı yazıyor, ekran ortalardaki bir posterde duruyordu.
+                state.card = 0
                 focusResetKey++
                 browseScope.launch { listState.scrollToItem(0) }
             }
@@ -291,6 +295,7 @@ fun BrowseScreen(
                 onSelect = { name ->
                     state.plugin = name
                     state.shelf = 0
+                    state.card = 0          // yalnız raf sıfırlanırsa odak eski kartta kalır
                     browseScope.launch { listState.scrollToItem(0) }
                 },
             )
