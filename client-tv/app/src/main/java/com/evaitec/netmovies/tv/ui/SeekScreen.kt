@@ -56,6 +56,10 @@ fun SeekScreen(
     onPrevEpisode: () -> Unit,
     onNextEpisode: () -> Unit,
     onOpenEpisodes: (() -> Unit)?,
+    /** Canlı kanal mı — DVR tamponu var, "baştan izle" ve "canlıya dön" anlamlı. */
+    canliYayin: Boolean = false,
+    onTamponBasina: () -> Unit = {},
+    onCanliyaDon: () -> Unit = {},
     onClose: () -> Unit,
 ) {
     var minuteInput by remember { mutableStateOf("") }
@@ -127,6 +131,15 @@ fun SeekScreen(
                         onClose()
                     }
                 }
+            }
+
+            // Canlı kanalda tampon (DVR) penceresi var: Show TV'de ~59 dk geriye
+            // inilebiliyor, ama 10-30 sn'lik adımlarla. Pencerenin ucuna tek
+            // hamlede gitmek gerekiyordu.
+            if (canliYayin) {
+                SectionLabel("Canlı yayın")
+                EpisodeRow("⏮  Baştan izle — tamponun başı", false) { onTamponBasina(); onClose() }
+                EpisodeRow("⏭  Canlıya dön", false) { onCanliyaDon(); onClose() }
             }
 
             // Bölümler: burada düz liste vardı (3 sezon = 30 satır kaydırma).

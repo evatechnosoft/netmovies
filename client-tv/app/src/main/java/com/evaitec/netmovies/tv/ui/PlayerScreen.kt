@@ -311,6 +311,25 @@ fun PlayerScreen(
         hintTick++
         flashControls()
     }
+    // CANLI yayın: kanal akışı geriye doğru bir tampon (DVR penceresi) taşıyor —
+    // Show TV'de ~59 dk. 10-30 sn'lik adımlarla oraya inmek işkenceydi
+    // (Dean: "geri almak yavaş yavaş sorun, tampon başına gidebilir").
+    // Tamponun başı = pencerenin en eski noktası, yayının "baştan" izlenebilecek yeri.
+    val canliYayin = exo.isCurrentMediaItemLive
+    fun tamponBasina() {
+        exo.seekTo(0)
+        position = 0
+        seekHint = "⏮ Tamponun başı"
+        hintTick++
+        flashControls()
+    }
+    fun canliyaDon() {
+        exo.seekToDefaultPosition()
+        position = exo.currentPosition
+        seekHint = "⏭ Canlı"
+        hintTick++
+        flashControls()
+    }
     fun enterScrub() {
         scrubPos = exo.currentPosition
         scrubMode = true
@@ -977,8 +996,14 @@ fun PlayerScreen(
                                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seekBy(30_000)
                                 KeyEvent.KEYCODE_MEDIA_REWIND       -> seekBy(-30_000)
                                 // Dizide bölüm atlar, filmde 1 dakika sarar.
-                                KeyEvent.KEYCODE_MEDIA_NEXT     -> nextEpIndex?.let { goToEpisode(it) } ?: seekBy(60_000)
-                                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> prevEpIndex?.let { goToEpisode(it) } ?: seekBy(-60_000)
+                                // Dizide bölüm atlar; CANLI yayında tamponun başına /
+                                // canlıya gider; filmde ±1 dk sarar.
+                                KeyEvent.KEYCODE_MEDIA_NEXT ->
+                                    nextEpIndex?.let { goToEpisode(it) }
+                                        ?: if (canliYayin) canliyaDon() else seekBy(60_000)
+                                KeyEvent.KEYCODE_MEDIA_PREVIOUS ->
+                                    prevEpIndex?.let { goToEpisode(it) }
+                                        ?: if (canliYayin) tamponBasina() else seekBy(-60_000)
                                 KeyEvent.KEYCODE_MEDIA_PLAY     -> { exo.play(); flashControls() }
                                 KeyEvent.KEYCODE_MEDIA_PAUSE    -> { exo.pause(); flashControls() }
                                 KeyEvent.KEYCODE_MEDIA_STOP     -> onBack()
@@ -1147,6 +1172,9 @@ fun PlayerScreen(
                 onOpenEpisodes = if (episodes.isEmpty()) null else {
                     { panelAsList = true; showStartPanel = true }
                 },
+                canliYayin = canliYayin,
+                onTamponBasina = { tamponBasina() },
+                onCanliyaDon = { canliyaDon() },
                 onClose = { showSeek = false },
             )
         }
