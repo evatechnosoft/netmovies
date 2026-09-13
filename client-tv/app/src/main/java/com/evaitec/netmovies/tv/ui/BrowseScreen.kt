@@ -276,7 +276,7 @@ fun BrowseScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        BrowseTopBar(
+        NmSearchHeader(
             title = if (vaultMode) "🗂 Özel Koleksiyon" else "Gözat",
             open = searchOpen,
             query = query,
@@ -334,9 +334,11 @@ fun BrowseScreen(
 
 // --------------------------------------------------------------------- Üst bar
 // Kapalıyken sadece büyüteç düğmesi; OK'a basınca metin alanı açılır (Dean: "çok kaba").
+// Canlı TV ekranı da aynı barı kullanıyor — arama kutusu iki yerde ayrı ayrı
+// yazılmasın diye paylaşıldı.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun BrowseTopBar(
+internal fun NmSearchHeader(
     title: String,
     open: Boolean,
     query: String,
