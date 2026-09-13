@@ -7,12 +7,105 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 13 Eylül 2026 (öğle)
-**Dal:** `fix/general-stability` @ `c309342` · temiz (0 dirty), push'lı
-**Sürümler:** TV `v0.1.94-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
+**Son güncelleme:** 13 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `05ae1aa` · temiz (0 dirty), push'lı
+**Sürümler:** TV `v0.1.97-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17 · stream testleri geçti
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–97 hiç TV'de denenmedi)
+
+Üç sürümlük iş kod ve sunucu tarafında doğrulandı, **hiçbiri televizyonda
+çalışırken görülmedi**. Sıra buna geldi; yeni özellik eklemeden önce yapılmalı,
+çünkü sonraki iş (ses parmak izi) aynı zincire bağlanacak.
+
+1. TV'de OTA'dan **v0.1.97**'yi kur (`/api/v1/app_update?target=tv` →
+   `v0.1.97-poc`, 20183166 bayt). Bir dizi bölümü aç ve sonuna kadar izle:
+   jenerik başlayınca sağ altta **"Sıradaki bölüm · 10"** geri sayımı çıkmalı,
+   GERİ sayımı durdurmalı, SAĞ ok beklemeden geçmeli.
+   Çıkmazsa teşhis: `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log`
+   → oynatıcı `isaret` satırını yazıyor (`açılış=… jenerik=… (subtitle)`).
+   İşaret `-` ise o kaynağın altyazısı yok ya da desen tutmamış.
+2. Canlı TV'de 7-8 kanalı **SAĞ ok** ile favorile, uygulamayı kapat-aç: favoriler
+   durmalı (kayıt sunucuda, `prefs` → `fav_channels`).
+3. Kanal aramasını dene (büyüteç düğmesi) — yerinde süzüyor, sunucuya gitmiyor.
+
+## Bekleyen karar — açılışı atla (Dean'e soruldu, cevap bekliyor)
+
+"Açılışı Atla" düğmesi kodda hazır ama **pratikte çoğu dizide çıkmıyor**: açılışı
+altyazıdan bulmanın tek işareti `♪`, ölçtüğüm bölümde sıfır tane
+(DiziYou/One Piece `tr.vtt`, 620 cue, müzik işareti yok). Jenerik tarafı çalışıyor,
+açılış tarafı sinyalsiz.
+
+Dean **ses parmak izini** seçti (bölümler arası ortak ses parçası = açılış). Bedeli:
+`ffmpeg` iki imajda da kapalı (`engine/Dockerfile:20`, `stream/Dockerfile:20`),
+dizi başına bir kerelik ~3-5 dk indirme+analiz, ilk bölümde çalışmaz. Önerim:
+1. adım bitmeden başlamamak. Ucuz alternatif (kullanıcı bir kez işaretler, sezon
+boyu geçerli) Dean tarafından reddedilmedi, ikinci seçenek olarak duruyor.
+
+## Çözülemeyen — "Evlilik Güzeldir / MGM logolu film" açıldı
+
+Dean alakasız bir içeriğin açıldığını bildirdi. Büyük ihtimalle DDizi bölüm
+sızıntısıydı (aşağıda 0.2) ve düzeldi, ama **kanıtlanamadı**: TV günlüğü stream
+yeniden başlatılınca bellekten uçmuştu. Tekrarlarsa önce `client_log` okunmalı —
+`resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>` satırı hangi
+sağlayıcının neyi seçtiğini söyler.
+
+## 0.2 13 Eylül akşamı — jenerik işaretleri, DDizi sızıntısı, kanal favorileri (v0.1.95 → v0.1.97)
+
+**Bölüm bitince ANINDA sıradakine geçiliyordu** (`STATE_ENDED → goToEpisode`): son
+sahneyi kaçıran kişi kendini yeni bölümde buluyordu. "Sonraki bölüm" kartı da sabit
+90 sn penceresine bağlıydı, jeneriğin nerede başladığıyla ilgisi yoktu.
+
+Kaynaklar chapter metadata vermiyor, ffmpeg imajlarda kapalı — **altyazı** iki
+bilgiyi de bedava taşıyor. Sunucu tarafı: `GET /api/v1/markers` (Libs/markers.py
+saf ayrıştırma + Routers/markers.py). Jenerik tespitinde iki tuzak ölçülerek çözüldü
+(DiziYou/One Piece, 63 dk):
+
+| Tuzak | Gerçek |
+|---|---|
+| "Son replikten sonrası jeneriktir" | Jeneriğin ARDINDAN tanıtım cue'su geliyor ("TÜM BÖLÜMLERİ ŞİMDİ İZLEYİN") — son replik jeneriğin BİTTİĞİ yeri işaretliyor |
+| "En erken uzun boşluk jeneriktir" | Son çeyrekte 75 ve 89 sn'lik sessiz SAHNELER var; jenerik 160 sn'lik boşluk → **en uzun** kazanır |
+
+Uçtan uca doğrulandı: `credits_start=3555.3` = **59:15**, jeneriğin tam yeri.
+
+Oynatıcıda: jenerikte (işaret yoksa bölüm bitince) 10 sn geri sayımlı kart, GERİ
+durdurur ve o bölümde bir daha başlamaz; ilerleme çubuğunda açılış/jenerik
+belirteçleri.
+
+**DDizi başka dizilerin bölümlerini listeliyordu.** Dizi sayfasının kenar çubuğundaki
+bölümler de aynı `/izle/<id>/...-<n>-bolum-...htm` kalıbında; Mercan Köşk listesine
+"daha-17-16-bolum" ve "masterchef-2026-88-bolum" giriyordu (Dean: "1 bölüm
+yayınlanmasına rağmen 16 88 gibi sayılar"). Artık slug eşleşmesi şart. Gizli tuzak:
+dizi adresinde bölüm numarası slug'ın İÇİNDE kalıyor (`gonul-dagi-171-son-bolum-izle`
+→ `gonul-dagi-171`), bölüm adreslerinde kalmıyor — sondaki sayı atılmazsa **filtre
+sessizce devre dışı kalıyor**. Gönül Dağı'nda ölçülerek yakalandı.
+Kanıt: Mercan Köşk 4→2 `[1,2]`, Gönül Dağı 12→10 `[213..222]`.
+
+> Ölçüm sırasında `/load_item` bir kez 200 (4 bölüm) döndü: **ağ geçidi cache'i**
+> (1 saat) eski sonucu veriyordu — eklenti düzeltmesini sınarken `docker compose
+> restart stream` şart. Motor 500 de verdi, site kaynaklı geçiciydi (3 denemede 200).
+
+**Durum kutusu** sağ alttaydı, başlangıç paneliyle ve bölüm sonu kartlarıyla üst üste
+biniyordu → sol alt köşeye alındı. **Kaynak bulunamayınca** dönen halka dönmeye devam
+ediyor ve kullanıcı boş ekranda bekletiliyordu; arama bittiğine göre halka yerine ✕,
+ve 2.5 sn sonra kendiliğinden çıkılıyor (geç kaynak gelirse çıkış iptal).
+
+**Canlı TV'de favori + arama** (v0.1.97): 170+ kanalda hep aynı 7-8 kanal izleniyor.
+Liste dikey olduğu için **SAĞ ok** boştaydı → favori aç/kapat (oynatıcıdaki "boşta
+duran tuşu kullan" deseni). Favoriler listenin başında + `★ Favoriler (N)` çipi.
+Kayıt sunucuda (`prefs` → `fav_channels`), yeni tablo/uç açılmadı. Arama Gözat'ın
+barını paylaşıyor (`BrowseTopBar` → `NmSearchHeader`), sorgu sunucuya gitmiyor.
+Türkçe küçültme `Locale("tr")` ile: varsayılan `lowercase()` "İ"yi birleşik noktalı
+i'ye çeviriyor, "İZLE" araması "izle" ile eşleşmiyordu.
+
+**Araştırıldı, uygulanmadı:** Shorebird (kod değişimini APK'sız göndermek) yalnız
+Flutter için — TV istemcisi Kotlin/Compose, kullanılamaz; zaten mantığın çoğu
+sunucuda olduğu için bugünkü DDizi düzeltmesi APK gerektirmedi. iptv-org zaten bağlı
+(`M3U_SOURCES` varsayılanı, `countries/tr.m3u` 174 kanal); `languages/tur.m3u`
+eklemenin net kazancı **+15 kanal**, Dean istemedi. Bird IPTV ücretli ($11-16/ay),
+M3U bağlantısı `M3U_SOURCES`'a eklenir, kod değişikliği gerekmez.
 
 ## 0.0 13 Eylül — kumandayla okunmayan rapor, 30 satırlık bölüm listesi (TV v0.1.91)
 
