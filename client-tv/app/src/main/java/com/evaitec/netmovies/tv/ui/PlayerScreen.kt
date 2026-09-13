@@ -464,7 +464,7 @@ fun PlayerScreen(
                     PlaybackLog.warn("kuyruk", "kaynak kalmadı · otomatik tazeleme $autoRefresh/$MAX_AUTO_REFRESH")
                     retryKey++
                 } else {
-                    status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+                    status = KAYNAK_YOK
                 }
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
@@ -667,7 +667,7 @@ fun PlayerScreen(
         searching = false
         if (links.isEmpty()) {
             PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir kaynak vermedi")
-            status = "Bu içerik için çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+            status = KAYNAK_YOK
         } else {
             if (status != null) status = null
             PlaybackLog.info("sonuç", "${links.size} kaynak hazır · oynatılan: ${languageLabel(links[currentLinkIndex])}")
@@ -835,6 +835,15 @@ fun PlayerScreen(
             if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
             withFrameNanos { }
         }
+    }
+
+    // Kaynak bulunamadı → mesajı okuyacak kadar bekle ve çık. Kullanıcı boş ekranda
+    // tutulmaz. Bu arada kaynak gelirse (geç dönen sağlayıcı) çıkış iptal olur:
+    // efektin anahtarı status, status null olunca yeniden kurulur ve çıkış düşer.
+    LaunchedEffect(status) {
+        if (status != KAYNAK_YOK) return@LaunchedEffect
+        delay(KAYNAK_YOK_CIKIS_MS)
+        onBack()
     }
 
     // İşaretleri çek: süre öğrenilir öğrenilmez, kaynağın altyazısından. Anahtarda
@@ -1257,9 +1266,11 @@ fun PlayerScreen(
         // Hata kutusu yok: kullanıcı ekranda kalır, ne olduğunu okur, çıkmak
         // isterse GERİ tuşuna kendisi basar. "Tekrar dene" düğmesi gerekmiyor —
         // sıradaki kaynağa geçiş kendiliğinden yapılıyor.
+        // Kaynak bulunamadıysa dönen halka yanlış bilgi verir: arama BİTTİ, dönecek
+        // bir şey yok. O durumda halka yerine ✕.
         when {
-            !ready && !showSettings -> Overlay(status ?: "Yükleniyor…")
-            status != null && !showSettings -> StatusBanner(status!!)
+            !ready && !showSettings -> CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK)
+            status != null && !showSettings -> CornerStatus(status!!, loader = status != KAYNAK_YOK)
         }
 
         // Tuş göstergesi EN ÜSTTE çizilir: paneller açıkken de görünsün, çünkü
@@ -1613,6 +1624,15 @@ private fun TextPill(label: String, onTap: () -> Unit) {
         Text(label, color = NmColor.OnSurface, fontSize = NmType.Caption, fontWeight = FontWeight.Medium)
     }
 }
+
+// Kaynak aramasının SONUÇSUZ bittiğini söyleyen tek mesaj. Sabit olmasının sebebi
+// görünüm: bu durumda dönen halka değil ✕ gösterilir ve ekran kendiliğinden kapanır.
+private const val KAYNAK_YOK = "Çalışan kaynak bulunamadı — kapanıyor…"
+
+// Mesaj okunacak kadar durur, sonra içerikten çıkılır. Kullanıcıyı boş ekranda
+// GERİ'ye basmayı beklemek anlamsız: yapacak bir şey yok (Dean: "geri kendi atsın,
+// bulamadığında bekletme").
+private const val KAYNAK_YOK_CIKIS_MS = 2500L
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 private const val NEXT_EPISODE_WINDOW_MS = 90_000L
@@ -2152,19 +2172,15 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
 
 // Durum yazıları (yükleniyor / kaynak aranıyor / tazeleniyor) EKRANIN ORTASINDA
 // duruyordu — film üstünde kocaman bir kutu (Dean: "ortada çok çirkin"). Hepsi
-// sağ alta, tek biçimde: dönen halkalar + kısa metin.
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun Overlay(message: String) = CornerStatus(message, loader = true)
-
-// Oynatma sürerken görünen küçük durum satırı (kaynak geçişi vb.).
-@Composable
-private fun StatusBanner(message: String) = CornerStatus(message, loader = true)
-
+// tek biçimde bir köşe kutusunda: gösterge + kısa metin.
+//
+// Köşe SOL alt: sağ altta başlangıç paneliyle ve bölüm sonu kartlarıyla üst üste
+// biniyordu (Dean: "menünün üstüne geliyor, sola dayayalım").
+// loader=false → arama bitmiş ve sonuç yok; dönen halka yerine ✕.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CornerStatus(message: String, loader: Boolean) {
-    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomStart) {
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
@@ -2173,7 +2189,11 @@ private fun CornerStatus(message: String, loader: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (loader) NmLoader(size = 26.dp)
+            if (loader) {
+                NmLoader(size = 26.dp)
+            } else {
+                Text("✕", fontSize = NmType.Label, fontWeight = FontWeight.Bold, color = NmColor.Primary)
+            }
             Text(
                 text = message,
                 fontSize = NmType.Label,

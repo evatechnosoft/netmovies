@@ -29,6 +29,34 @@ _BOLUM   = re.compile(r'href="(https?://[^"]*/izle/\d+/[^"]+\.htm)"')
 _BOLUM_N = re.compile(r"-(\d+)-bolum")
 _YOUTUBE = re.compile(r'youtube\.php\?id=([A-Za-z0-9_-]{6,})')
 
+# Adresin son parçasından dizi slug'ını çıkarır; bölüm ve dizi adresleri aynı
+# slug'a iner:
+#   /diziler/2178/mercan-kosk-son-bolum-izle         -> mercan-kosk
+#   /izle/91664/mercan-kosk-1-bolum-izle-hd1.htm     -> mercan-kosk
+#   /diziler/1838/gonul-dagi-171-son-bolum-izle      -> gonul-dagi
+#   /izle/.../gonul-dagi-213-bolum-izle-hd6.htm      -> gonul-dagi
+#   /izle/91705/masterchef-2026-88-bolum-izle-*.htm  -> masterchef
+_KUYRUK = (
+    re.compile(r"-\d+-bolum.*$"),
+    re.compile(r"-son-bolum.*$"),
+    re.compile(r"-izle.*$"),
+)
+# Dizi sayfasının adresinde bölüm numarası slug'ın İÇİNDE kalıyor
+# ("gonul-dagi-171-son-bolum-izle" -> "gonul-dagi-171"), bölüm adreslerinde
+# kalmıyor. Sondaki sayı atılmazsa hiçbir bölüm diziyle eşleşmiyor ve filtre
+# sessizce devre dışı kalıyordu.
+_SON_SAYI = re.compile(r"-\d+$")
+
+
+def _slug(adres: str) -> str:
+    parca = re.sub(r"\.html?$", "", adres.rstrip("/").split("/")[-1])
+    for kural in _KUYRUK:
+        yeni = kural.sub("", parca)
+        if yeni != parca:
+            parca = yeni
+            break
+    return _SON_SAYI.sub("", parca)
+
 
 class DDizi(PluginBase):
     name        = "DDizi"
@@ -87,14 +115,29 @@ class DDizi(PluginBase):
         etiket = re.search(r"<title[^>]*>([^<]+)", html)
         title  = re.sub(r"\s*(son bölüm\s*)?izle.*$", "", (etiket.group(1) if etiket else "").split("|")[0], flags=re.I).strip()
 
-        bolumler: list[Episode] = []
+        adaylar: list[tuple[int, str]] = []
         for href in dict.fromkeys(_BOLUM.findall(html)):
             no = _BOLUM_N.search(href)
-            if not no:
-                continue
-            numara = int(no.group(1))
-            # Sezon bilgisi sitede yok; tek sezon varsayılır, sıra bölüm numarası.
-            bolumler.append(Episode(season=1, episode=numara, title=f"{numara}. Bölüm", url=self.fix_url(href)))
+            if no:
+                adaylar.append((int(no.group(1)), href))
+
+        # Dizi sayfasının kenar çubuğunda BAŞKA dizilerin bölümleri de duruyor ve
+        # hepsi aynı `/izle/<id>/...-<n>-bolum-...htm` kalıbında. Mercan Köşk'te
+        # (1 bölüm yayınlanmış) listeye "daha-17-16-bolum" ve
+        # "masterchef-2026-88-bolum" giriyor, kullanıcı 16 ve 88 numaralı bölümler
+        # görüyordu. Bölümün slug'ı dizininkiyle aynı olmalı.
+        dizi_slug = _slug(url)
+        ayni      = [(n, h) for n, h in adaylar if _slug(h) == dizi_slug]
+        # Hiç eşleşme yoksa slug şablonu değişmiştir; liste boş kalmasın diye
+        # filtre uygulanmaz — eski davranış.
+        if ayni:
+            adaylar = ayni
+
+        # Sezon bilgisi sitede yok; tek sezon varsayılır, sıra bölüm numarası.
+        bolumler = [
+            Episode(season=1, episode=n, title=f"{n}. Bölüm", url=self.fix_url(h))
+            for n, h in adaylar
+        ]
         bolumler.sort(key=lambda e: e.episode)
 
         poster = re.search(r'<meta property="og:image" content="([^"]+)"', html)
