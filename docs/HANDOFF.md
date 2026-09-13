@@ -7,50 +7,86 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 13 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `05ae1aa` · temiz (0 dirty), push'lı
-**Sürümler:** TV `v0.1.97-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Son güncelleme:** 13 Eylül 2026 (gece)
+**Dal:** `fix/general-stability` @ `6298107` · temiz (0 dirty), push'lı
+**Sürümler:** TV `v0.1.98-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17 · stream testleri geçti
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–97 hiç TV'de denenmedi)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–98 TV'de denenmedi)
 
-Üç sürümlük iş kod ve sunucu tarafında doğrulandı, **hiçbiri televizyonda
-çalışırken görülmedi**. Sıra buna geldi; yeni özellik eklemeden önce yapılmalı,
-çünkü sonraki iş (ses parmak izi) aynı zincire bağlanacak.
+Dört sürümlük iş kod ve sunucu tarafında doğrulandı; Dean yalnız **v0.1.97'ye kadarını**
+TV'de gördü ve oradan üç bulgu geldi (hepsi düzeltildi, aşağıda 0.3). v0.1.98 hiç
+denenmedi. Yeni özellik eklemeden önce bunlar cihazda görülmeli.
 
-1. TV'de OTA'dan **v0.1.97**'yi kur (`/api/v1/app_update?target=tv` →
-   `v0.1.97-poc`, 20183166 bayt). Bir dizi bölümü aç ve sonuna kadar izle:
-   jenerik başlayınca sağ altta **"Sıradaki bölüm · 10"** geri sayımı çıkmalı,
-   GERİ sayımı durdurmalı, SAĞ ok beklemeden geçmeli.
-   Çıkmazsa teşhis: `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log`
-   → oynatıcı `isaret` satırını yazıyor (`açılış=… jenerik=… (subtitle)`).
-   İşaret `-` ise o kaynağın altyazısı yok ya da desen tutmamış.
-2. Canlı TV'de 7-8 kanalı **SAĞ ok** ile favorile, uygulamayı kapat-aç: favoriler
-   durmalı (kayıt sunucuda, `prefs` → `fav_channels`).
-3. Kanal aramasını dene (büyüteç düğmesi) — yerinde süzüyor, sunucuya gitmiyor.
+1. TV'ye OTA'dan **v0.1.98**'i kur (`/api/v1/app_update?target=tv` → `v0.1.98-poc`).
+2. Bir dizi bölümünü sonuna kadar izle: jenerik başlayınca sağ altta
+   **"Sıradaki bölüm · 10"** geri sayımı çıkmalı, GERİ durdurmalı, SAĞ ok geçmeli.
+   **Bu hiç doğrulanmadı** — v0.1.95'ten beri bekliyor.
+   Çıkmazsa: `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log` →
+   oynatıcının `isaret` satırı (`açılış=… jenerik=… (subtitle)`). Değer `-` ise o
+   kaynağın altyazısı yok ya da desen tutmamış.
+3. Gözat'ta kaynak değiştir: liste başa dönmeli ve odak İLK posterde olmalı
+   (v0.1.98 düzeltmesi).
+4. Canlı TV'de 7-8 kanalı **SAĞ ok** ile favorile, uygulamayı kapat-aç: favoriler
+   durmalı (`prefs` → `fav_channels`). Arama: büyüteç düğmesi, yerinde süzer.
 
-## Bekleyen karar — açılışı atla (Dean'e soruldu, cevap bekliyor)
+## Dean'e sorulan, cevap bekleyen
 
-"Açılışı Atla" düğmesi kodda hazır ama **pratikte çoğu dizide çıkmıyor**: açılışı
-altyazıdan bulmanın tek işareti `♪`, ölçtüğüm bölümde sıfır tane
-(DiziYou/One Piece `tr.vtt`, 620 cue, müzik işareti yok). Jenerik tarafı çalışıyor,
-açılış tarafı sinyalsiz.
+- **Kaynak yok çıkışı 2.5 sn yeter mi?** Kaynak bulunamayınca sol altta
+  `✕ Çalışan kaynak bulunamadı — kapanıyor…` çıkıp içerikten çıkılıyor. Dean çıkışı
+  gördü ama sebebini fark etmedi — süre uzatılsın mı diye soruldu
+  (`KAYNAK_YOK_CIKIS_MS`, PlayerScreen.kt).
+- **Ses parmak izi başlasın mı?** "Açılışı Atla" kodda hazır ama çoğu dizide işaret
+  gelmiyor: açılışın altyazıdaki tek izi `♪` ve ölçülen bölümde sıfır tane
+  (DiziYou/One Piece `tr.vtt`, 620 cue). Jenerik çalışıyor, açılış sinyalsiz.
+  Dean ses parmak izini seçti; bedeli `ffmpeg` iki imajda da kapalı
+  (`engine/Dockerfile:20`, `stream/Dockerfile:20`), dizi başına bir kerelik ~3-5 dk
+  indirme+analiz, ilk bölümde çalışmaz. **Önerim: 2. adım doğrulanmadan başlamamak** —
+  aynı işaret zincirine bağlanacak. Ucuz alternatif (Dean bir kez işaretler, sezon
+  boyu geçerli) reddedilmedi, ikinci seçenek.
 
-Dean **ses parmak izini** seçti (bölümler arası ortak ses parçası = açılış). Bedeli:
-`ffmpeg` iki imajda da kapalı (`engine/Dockerfile:20`, `stream/Dockerfile:20`),
-dizi başına bir kerelik ~3-5 dk indirme+analiz, ilk bölümde çalışmaz. Önerim:
-1. adım bitmeden başlamamak. Ucuz alternatif (kullanıcı bir kez işaretler, sezon
-boyu geçerli) Dean tarafından reddedilmedi, ikinci seçenek olarak duruyor.
+## Çözülemeyen iki gözlem
 
-## Çözülemeyen — "Evlilik Güzeldir / MGM logolu film" açıldı
+- **"İkinci girişte 12. bölümü son bölüm gibi gösterdi"** (Fırtınaya Doğru). Paneldeki
+  `⏭ Son bölüm — S1B<n>` satırı normalde hep var; Dean'in gördüğü o olabilir, ama
+  `▶` oynat satırının yanlış bölümü göstermesi başka bir hata olur. Tekrarında
+  ekran görüntüsü lazım — `▶` satırında hangi bölüm yazıyor?
+- **"Evlilik Güzeldir / MGM logolu film" açıldı.** Büyük ihtimalle DDizi bölüm
+  sızıntısı + sıra-bazlı bölüm eşleştirmesiydi (ikisi de düzeldi: 0.2 ve 0.3), ama
+  kanıtlanamadı — TV günlüğü stream restart'ında bellekten uçmuştu. Tekrarlarsa önce
+  `client_log`: `resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>` satırı
+  hangi sağlayıcının neyi seçtiğini söyler.
 
-Dean alakasız bir içeriğin açıldığını bildirdi. Büyük ihtimalle DDizi bölüm
-sızıntısıydı (aşağıda 0.2) ve düzeldi, ama **kanıtlanamadı**: TV günlüğü stream
-yeniden başlatılınca bellekten uçmuştu. Tekrarlarsa önce `client_log` okunmalı —
-`resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>` satırı hangi
-sağlayıcının neyi seçtiğini söyler.
+## 0.3 13 Eylül gecesi — bölüm listesi eksikti, yanlış bölüm açılıyordu (engine + TV v0.1.98)
+
+Dean TV'de v0.1.97'yi denedi; üç bulgu geldi, üçü de ayrı kök nedendi.
+
+**"1 ve 2. bölüm yok"** (Fırtınaya Doğru, liste 3'ten başlıyordu). Slug filtresi
+(0.2) suçsuzdu — sayfada o linkler zaten yoktu. **DDizi bölümleri sayfalıyor**
+(`/sayfa-0`, `/sayfa-1`) ve eklenti yalnız ilk sayfayı okuyordu, o da son ~10 bölümü
+gösteriyor. Diziye baştan başlamak mümkün değildi. Artık sayfa bağlantıları
+izleniyor (`_SAYFA`, en çok `_MAX_SAYFA`=6; bir sayfa düşerse diğerleri yine girer).
+Kanıt: Fırtınaya Doğru 10→12 `[1..12]` · Gönül Dağı 10→60 `[163..222]` · Mercan Köşk 2.
+
+**"3. bölüme basınca geri attı"** — iki sebep üst üste binmiş:
+- Alternatif sağlayıcıda bölüm **sırayla** eşleştiriliyordu
+  (`episodes[episode_index]`, resolve_sources.py). Sağlayıcılar aynı diziyi farklı
+  kapsamda veriyor: DDizi listesi 3'ten başlarken DiziMom 1'den başlıyor, yani
+  "3. bölüm"e basmak alternatifte BAŞKA bölümü açıyordu. Artık seçili sağlayıcının
+  listesindeki **gerçek bölüm numarası** alternatiflere taşınıyor (`episode_no`),
+  orada numaraya göre aranıyor, bulunamazsa sıraya düşülüyor.
+  Kanıt: `resolve: bölüm — DiziMom · seçilen bölüm 3/12 · bölüm no 3`.
+- Diğer sebep beklenen davranıştı: kaynak bulunamayınca otomatik çıkış (0.2).
+  Dean çıkışı gördü, sebebini fark etmedi — süre sorusu yukarıda.
+
+> Bu ikisi **sunucu tarafı**: istemci değişmedi, düzeltme APK'sız canlı.
+
+**"Sağlayıcı üst bantta ama ortalarda bir posterde duruyor"** — Gözat'ta kaynak
+seçilince `state.shelf` ve dikey kaydırma sıfırlanıyor ama `state.card`
+sıfırlanmıyordu: liste başa dönüyor, odak o raftaki ESKİ kart indeksinde kalıyordu.
+İki yerde (kaynak seçimi + "Tümü"ne dönüş) `state.card = 0` eklendi.
 
 ## 0.2 13 Eylül akşamı — jenerik işaretleri, DDizi sızıntısı, kanal favorileri (v0.1.95 → v0.1.97)
 
