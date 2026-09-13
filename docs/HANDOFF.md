@@ -7,57 +7,99 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 13 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `6298107` · temiz (0 dirty), push'lı
-**Sürümler:** TV `v0.1.98-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17 · stream testleri geçti
+**Son güncelleme:** 14 Eylül 2026 (gece yarısı)
+**Dal:** `fix/general-stability` @ `8dcd749` · temiz, push'lı
+**Sürümler:** TV `v0.2.1-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–98 TV'de denenmedi)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–v0.2.1)
 
-Dört sürümlük iş kod ve sunucu tarafında doğrulandı; Dean yalnız **v0.1.97'ye kadarını**
-TV'de gördü ve oradan üç bulgu geldi (hepsi düzeltildi, aşağıda 0.3). v0.1.98 hiç
-denenmedi. Yeni özellik eklemeden önce bunlar cihazda görülmeli.
+Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.3, 0.4).
+**v0.1.98 → v0.2.1 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
 
-1. TV'ye OTA'dan **v0.1.98**'i kur (`/api/v1/app_update?target=tv` → `v0.1.98-poc`).
-2. Bir dizi bölümünü sonuna kadar izle: jenerik başlayınca sağ altta
-   **"Sıradaki bölüm · 10"** geri sayımı çıkmalı, GERİ durdurmalı, SAĞ ok geçmeli.
-   **Bu hiç doğrulanmadı** — v0.1.95'ten beri bekliyor.
-   Çıkmazsa: `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log` →
-   oynatıcının `isaret` satırı (`açılış=… jenerik=… (subtitle)`). Değer `-` ise o
-   kaynağın altyazısı yok ya da desen tutmamış.
-3. Gözat'ta kaynak değiştir: liste başa dönmeli ve odak İLK posterde olmalı
-   (v0.1.98 düzeltmesi).
-4. Canlı TV'de 7-8 kanalı **SAĞ ok** ile favorile, uygulamayı kapat-aç: favoriler
-   durmalı (`prefs` → `fav_channels`). Arama: büyüteç düğmesi, yerinde süzer.
+1. TV'ye OTA'dan **v0.2.1**'i kur (`/api/v1/app_update?target=tv`).
+2. **Jenerik geri sayımı — v0.1.95'ten beri hiç doğrulanmadı.** Bir dizi bölümünü
+   sonuna kadar izle: jenerikte sağ altta "Sıradaki bölüm · 10" çıkmalı, GERİ
+   durdurmalı, SAĞ ok geçmeli. Çıkmazsa:
+   `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log` → oynatıcının
+   `isaret` satırı (`açılış=… jenerik=… (subtitle)`); `-` ise o kaynakta altyazı
+   yok ya da desen tutmamış.
+3. Üst bar: NetMovies · 📡 Canlı TV · 🗓 Ajanda · ★ Listem · 🔎 · 📱 · ⚙ — sekmeler
+   çalışıyor mu, arama büyüteci yeterli mi.
+4. Canlı TV: kanal **panelsiz** açılmalı; oynarken ⏮ tamponun başına, ⏭ canlıya
+   gitmeli. Kanal favorisi SAĞ ok, uygulamayı kapat-aç kalıcı mı (`prefs` →
+   `fav_channels`).
+5. Ajanda: satır OK ile Gözat aramasına düşmeli; odaktaki satır tam metni göstermeli.
+6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
 
 ## Dean'e sorulan, cevap bekleyen
 
-- **Kaynak yok çıkışı 2.5 sn yeter mi?** Kaynak bulunamayınca sol altta
-  `✕ Çalışan kaynak bulunamadı — kapanıyor…` çıkıp içerikten çıkılıyor. Dean çıkışı
-  gördü ama sebebini fark etmedi — süre uzatılsın mı diye soruldu
-  (`KAYNAK_YOK_CIKIS_MS`, PlayerScreen.kt).
-- **Ses parmak izi başlasın mı?** "Açılışı Atla" kodda hazır ama çoğu dizide işaret
-  gelmiyor: açılışın altyazıdaki tek izi `♪` ve ölçülen bölümde sıfır tane
-  (DiziYou/One Piece `tr.vtt`, 620 cue). Jenerik çalışıyor, açılış sinyalsiz.
-  Dean ses parmak izini seçti; bedeli `ffmpeg` iki imajda da kapalı
+- **Ses parmak izi başlasın mı?** "Açılışı Atla" kodda hazır ama işaret gelmiyor:
+  açılışın altyazıdaki tek izi `♪`, ölçülen bölümde sıfır tane (DiziYou/One Piece
+  `tr.vtt`, 620 cue). Bedeli: `ffmpeg` iki imajda da kapalı
   (`engine/Dockerfile:20`, `stream/Dockerfile:20`), dizi başına bir kerelik ~3-5 dk
-  indirme+analiz, ilk bölümde çalışmaz. **Önerim: 2. adım doğrulanmadan başlamamak** —
-  aynı işaret zincirine bağlanacak. Ucuz alternatif (Dean bir kez işaretler, sezon
-  boyu geçerli) reddedilmedi, ikinci seçenek.
+  indirme+analiz, ilk bölümde çalışmaz. **Önerim: 2. adım doğrulanmadan başlamamak.**
+  Ucuz alternatif (Dean bir kez işaretler, sezon boyu) reddedilmedi.
+- **Kaynak-yok çıkışı 2.5 sn yeter mi?** (`KAYNAK_YOK_CIKIS_MS`, PlayerScreen.kt)
+- **Üst bardaki sekme adı "Listem" mi "Favoriler" mi?** Ekranın kendi adı "Listem —
+  Takip Ettiklerim"; favoriler ana sayfada raf.
+- **Canlı kanalda "Dakikaya git" kalsın mı?** Canlıda o dakika DVR penceresinin
+  dakikası, programın değil — kafa karıştırıyor. Yerine yalnız ⏮/⏭ bırakılabilir.
 
 ## Çözülemeyen iki gözlem
 
-- **"İkinci girişte 12. bölümü son bölüm gibi gösterdi"** (Fırtınaya Doğru). Paneldeki
-  `⏭ Son bölüm — S1B<n>` satırı normalde hep var; Dean'in gördüğü o olabilir, ama
-  `▶` oynat satırının yanlış bölümü göstermesi başka bir hata olur. Tekrarında
-  ekran görüntüsü lazım — `▶` satırında hangi bölüm yazıyor?
-- **"Evlilik Güzeldir / MGM logolu film" açıldı.** Büyük ihtimalle DDizi bölüm
-  sızıntısı + sıra-bazlı bölüm eşleştirmesiydi (ikisi de düzeldi: 0.2 ve 0.3), ama
-  kanıtlanamadı — TV günlüğü stream restart'ında bellekten uçmuştu. Tekrarlarsa önce
-  `client_log`: `resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>` satırı
-  hangi sağlayıcının neyi seçtiğini söyler.
+- **"Ajandada hafta 5 ay 4 gösteriyor."** Sunucu doğru: `view=week` 7 gün/25 kayıt,
+  `view=month` 12 gün/35 kayıt (parametrenin adı `view`, `range` değil). Cihazda
+  başlıkta hangi sayıların yazdığı sorulacak.
+- **"İkinci girişte 12. bölümü son bölüm gibi gösterdi"** (Fırtınaya Doğru) ve
+  **"Evlilik Güzeldir / MGM logolu film açıldı"**. İkisi de kanıtsız; ilki paneldeki
+  normal `⏭ Son bölüm` satırı olabilir. İkincisi büyük ihtimalle DDizi sızıntısı +
+  sıra-bazlı eşleştirmeydi (ikisi de düzeldi). Tekrarlarında `client_log`:
+  `resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>`.
+
+## Bilinen sınır — ulusal kanallar
+
+158 kanalda "Ulusal" etiketi YALNIZ Show TV'de; TRT/ATV/Kanal D "Genel"in (76)
+içinde. Etiketler iptv-org `group-title`'dan geliyor, biz üretmiyoruz. Tek kanallık
+kategoriler artık çip olarak gösterilmiyor. Düzgün gruplama istenirse kendi eşleme
+tablomuz gerekir — yapılmadı.
+
+## 0.4 14 Eylül gece yarısı — arayüz gezinmesi ve canlı yayın (TV v0.1.99 → v0.2.1)
+
+Dean'in TV'de gördükleri üzerine, hepsi arayüz:
+
+**Üst bar gezinme çubuğu oldu** (v0.1.99). Canlı TV, Ajanda ve Listem Ayarlar
+menüsüne gömülüydü — en çok kullanılan ekranlar iki adım uzaktaydı. Arama tam
+genişlikte bir çubuktu ve bandın tamamını yiyordu. Yeni düzen:
+`NetMovies · 📡 Canlı TV · 🗓 Ajanda · ★ Listem · … · 🔎 📱 ⚙`. Ayarlar menüsündeki
+girişler kapatılmadı (ikinci yol dursun).
+
+**Ajanda satırları açılabiliyor** (v0.1.99). Kayıtlar TMDB takviminden geliyor,
+öğede oynatma adresi YOK — bu yüzden OK doğrudan oynatmıyor, başlığı telefon
+kumandasıyla aynı kanaldan (`remoteQuery`) Gözat'ın aramasına düşürüyor. Metinler
+tek satıra kırpılıyordu; odaktaki satır tam metni gösteriyor (başlık 2, özet 6),
+diğerleri kısa kalıyor ki liste taranabilsin. Kayan yazı tercih edilmedi — TV'de
+okumayı zorlaştırır.
+
+**Gezinme paneli sadeleşti** (v0.2.0). Sarma çipleri (±5dk ±1dk ±10sn) kaldırıldı:
+sarma zaten SAĞ/SOL ve ⏪⏩'de, panel kendini tekrar ediyordu (Dean: "çok abartı
+olmuş"). Panelde kumandadan yapılamayan iki iş kaldı: dakikaya gitmek, bölüm
+değiştirmek. `JUMPS`/`onSeekBy` silindi; sarma satırı gidince `firstFocus` sahipsiz
+kaldığı için ilk odak ilk rakama bağlandı.
+
+**Kanal panelsiz açılıyor** (v0.2.0): kanalda seçilecek bölüm/kaynak yok, başlangıç
+paneli boşuna bir adımdı → `autoplay = true`.
+
+**Canlı yayında DVR** (v0.2.1). Kanal akışı geriye doğru tampon taşıyor (Show TV
+~59 dk) ama oraya inmenin yolu 10-30 sn'lik adımlardı. ⏮ tamponun başına, ⏭ canlıya
+— yalnız canlı içerikte (`exo.isCurrentMediaItemLive`); dizide bölüm atlama, filmde
+±1 dk sarma davranışı korundu. Aynı ikisi Gezinme panelinde satır olarak da var.
+
+> Canlıda "geçen/kalan" süre programın değil **DVR penceresinin** süresidir:
+> "5. dakikaya git" o pencerenin 5. dakikasıdır, izlenen bölümün değil. Dean'in
+> "5. dk'ya geçti ama sahne farklıydı" gözlemi bu.
 
 ## 0.3 13 Eylül gecesi — bölüm listesi eksikti, yanlış bölüm açılıyordu (engine + TV v0.1.98)
 
