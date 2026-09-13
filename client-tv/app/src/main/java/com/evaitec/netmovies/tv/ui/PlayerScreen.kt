@@ -531,13 +531,19 @@ fun PlayerScreen(
         exo.addAnalyticsListener(sesDinleyici)
         onDispose {
             // Konumu release'den ÖNCE al: sonrasında currentPosition sıfırlanır.
-            library.saveProgress(
-                item,
-                exo.currentPosition / 1000.0,
-                exo.duration.coerceAtLeast(0) / 1000.0,
-                currentEpIndex,
-                isSerie = episodes.isNotEmpty(),
-            )
+            // CANLI yayın kaydedilmez: "kaldığın yer" diye bir şey yok, kanal akıp
+            // gidiyor. Devam Et rafını dolduruyor ve orada yanlış ad/poster
+            // gösteriyordu (Show TV kaydı "Catfish" film afişiyle çıkıyordu) —
+            // kanalın kendi posteri yok, raf başlığa göre eşleştirme yapıyor.
+            if (!exo.isCurrentMediaItemLive) {
+                library.saveProgress(
+                    item,
+                    exo.currentPosition / 1000.0,
+                    exo.duration.coerceAtLeast(0) / 1000.0,
+                    currentEpIndex,
+                    isSerie = episodes.isNotEmpty(),
+                )
+            }
             // Devam Et rafı ve ilerleme çubuğu ancak sunucudan tazelenince güncellenir;
             // yoksa ana ekran izlemeden önceki hâlini gösteriyordu.
             library.sync()
@@ -820,6 +826,7 @@ fun PlayerScreen(
         if (!ready) return@LaunchedEffect
         while (true) {
             delay(15_000)
+            if (exo.isCurrentMediaItemLive) continue    // canlı yayının "kaldığı yer" olmaz
             library.saveProgress(
                 item,
                 exo.currentPosition / 1000.0,

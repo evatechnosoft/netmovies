@@ -3,6 +3,7 @@ package com.evaitec.netmovies.tv.ui
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,10 +61,22 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
 
     NmBackHandler { onBack() }
 
+    // Favori kanallar burada da görünür: "Listem" kişinin sabitlerinin yeri, canlı
+    // kanal da bir sabit. Kaynak aynı (prefs → fav_channels); ikinci bir liste
+    // tutulmuyor, Canlı TV ekranında yıldızlanan kanal burada da çıkıyor.
+    var favKanallar by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+
     LaunchedEffect(Unit) {
         runCatching { Network.api.following().result }
             .onSuccess { turkish = it.turkish; foreign = it.foreign }
             .onFailure { error = it.message ?: "Liste alınamadı" }
+        favKanallar = runCatching {
+            val secilen = okuFavoriler(Network.api.prefsGet().result)
+            val trSira = java.text.Collator.getInstance(java.util.Locale("tr", "TR"))
+            Network.api.quickChannels().result
+                .filter { it.url in secilen }
+                .sortedWith { a, b -> trSira.compare(a.title.orEmpty(), b.title.orEmpty()) }
+        }.getOrDefault(emptyList())
         loading = false
     }
 
@@ -84,7 +97,7 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
         when {
             loading -> Center("Yükleniyor…")
             error != null -> Center(error!!)
-            turkish.isEmpty() && foreign.isEmpty() -> Center(
+            turkish.isEmpty() && foreign.isEmpty() && favKanallar.isEmpty() -> Center(
                 "Henüz takip ettiğin dizi yok — bir dizinin posterini uzun basıp \"Takip et\" de.",
             )
             else -> LazyColumn(
@@ -92,6 +105,16 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
                 contentPadding = PaddingValues(bottom = NmDim.SafeV),
                 verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
             ) {
+                if (favKanallar.isNotEmpty()) {
+                    item { GroupTitle("📡 Favori Kanallar (${favKanallar.size})") }
+                    items(favKanallar.size) { i ->
+                        val k = favKanallar[i]
+                        KanalSatiri(k) {
+                            // quick_channels HAM url veriyor; zincir kodlu bekliyor.
+                            onSelect(k.copy(url = encodedUrl(k.url), autoplay = true))
+                        }
+                    }
+                }
                 if (turkish.isNotEmpty()) {
                     item { GroupTitle("Türkçe Diziler (${turkish.size})") }
                     itemsIndexedShows(turkish, firstRow, onSelect, firstFocusable = true)
@@ -126,6 +149,50 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShows(
                 )
             },
         )
+    }
+}
+
+// Favori kanal satırı — dizi satırlarından sade: kanalda bölüm/tarih yok, adı ve
+// varsa "şu an ne oynuyor" yeter.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun KanalSatiri(kanal: MediaItem, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (focused) NmColor.SurfaceHigh else NmColor.Surface)
+            .nmFocusRing(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() }
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(NmColor.SurfaceHigh)) {
+            PosterImage(poster = kanal.poster, title = kanal.title)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = kanal.title.orEmpty(),
+                fontSize = NmType.Body,
+                fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
+                color = NmColor.OnSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            kanal.simdi?.program?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = "▶ $it",
+                    fontSize = NmType.Caption,
+                    color = NmColor.OnSurfaceMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

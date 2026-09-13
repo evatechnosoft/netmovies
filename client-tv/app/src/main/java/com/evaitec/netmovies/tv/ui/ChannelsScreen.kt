@@ -94,7 +94,13 @@ fun ChannelsScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
         val q = trNormal(query.trim())
         val suzulmus = if (q.isEmpty()) sonuc else sonuc.filter { trNormal(it.title.orEmpty()).contains(q) }
         // Favoriler listenin başında: sabit izlenen kanallar en üstte olsun.
-        if (c == FAV_KATEGORI) suzulmus else suzulmus.sortedByDescending { it.url in favUrls }
+        // Favoriler hem BAŞTA hem kendi aralarında alfabetik: ekleme sırası
+        // rastgele görünüyordu, sabit kanalı aramak gerekiyordu.
+        val trSira = java.text.Collator.getInstance(java.util.Locale("tr", "TR"))
+        suzulmus.sortedWith(
+            compareByDescending<MediaItem> { it.url in favUrls }
+                .thenComparator { a, b -> trSira.compare(a.title.orEmpty(), b.title.orEmpty()) },
+        )
     }
 
     val listState = rememberLazyListState()
@@ -305,11 +311,11 @@ private fun ChannelRow(
 }
 
 // prefs'teki favori kanal kaydı: satır başına bir kanal adresi.
-private const val FAV_ANAHTAR = "fav_channels"
+internal const val FAV_ANAHTAR = "fav_channels"
 // Kategori çipi için ayrılmış değer; gerçek bir tür adı olamaz.
 private const val FAV_KATEGORI = "@@favoriler"
 
-private fun okuFavoriler(prefs: Map<String, kotlinx.serialization.json.JsonElement>): Set<String> {
+internal fun okuFavoriler(prefs: Map<String, kotlinx.serialization.json.JsonElement>): Set<String> {
     val ham = prefs[FAV_ANAHTAR] ?: return emptySet()
     val metin = (ham as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return emptySet()
     return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }.toSet()
