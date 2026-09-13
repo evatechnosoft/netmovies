@@ -39,18 +39,10 @@ import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 
-// Gezinme ekranı: sarma, belirli dakikaya atlama, bölüm seçme — hepsi TAM EKRANDA.
+// Gezinme ekranı: belirli dakikaya atlama ve bölüm seçme — TAM EKRANDA.
 // Oynatıcının üstündeki küçük yarı saydam katmanda bunlar okunmuyordu; kalan süre
 // hiç yazmıyordu ve dakikaya atlamanın yolu yoktu (yalnız 10sn/60sn adımlar vardı).
 
-private val JUMPS = listOf(
-    -300_000L to "−5 dk",
-    -60_000L to "−1 dk",
-    -10_000L to "−10 sn",
-    10_000L to "+10 sn",
-    60_000L to "+1 dk",
-    300_000L to "+5 dk",
-)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -60,7 +52,6 @@ fun SeekScreen(
     /** null = dizi değil ya da o yönde bölüm yok. */
     prevEpisodeLabel: String?,
     nextEpisodeLabel: String?,
-    onSeekBy: (Long) -> Unit,
     onSeekTo: (Long) -> Unit,
     onPrevEpisode: () -> Unit,
     onNextEpisode: () -> Unit,
@@ -102,16 +93,11 @@ fun SeekScreen(
             }
             ProgressBar(position, duration)
 
-            SectionLabel("Sarma")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                JUMPS.forEachIndexed { i, (delta, label) ->
-                    Chip(
-                        label = label,
-                        modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
-                    ) { onSeekBy(delta) }
-                }
-            }
-
+            // Sarma çipleri (±5dk ±1dk ±10sn) KALDIRILDI: sarma zaten SAĞ/SOL ok ve
+            // ⏪⏩ tuşlarında, panelin yarısını tekrar için harcıyordu (Dean: "çok
+            // abartı olmuş, gerek yok, zaten sağ solla gidiyoruz"). Panelde yalnız
+            // kumandadan yapılamayan iki iş kalıyor: belirli dakikaya gitmek ve
+            // bölüm değiştirmek.
             SectionLabel("Dakikaya git")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -121,8 +107,13 @@ fun SeekScreen(
                     color = NmColor.OnSurface,
                     modifier = Modifier.padding(end = 6.dp),
                 )
-                ('0'..'9').forEach { ch ->
-                    Digit(ch.toString()) { if (minuteInput.length < 3) minuteInput += ch }
+                // İlk odak buraya: sarma satırı kalkınca `firstFocus` sahipsiz
+                // kalıyordu ve panel açıldığında hiçbir şey odaklanmıyordu.
+                ('0'..'9').forEachIndexed { i, ch ->
+                    Digit(
+                        ch.toString(),
+                        modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                    ) { if (minuteInput.length < 3) minuteInput += ch }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -215,11 +206,11 @@ private fun Chip(label: String, modifier: Modifier = Modifier, onClick: () -> Un
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Digit(label: String, onClick: () -> Unit) {
+private fun Digit(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(42.dp)
             .clip(shape)
             .background(if (focused) NmColor.Primary else NmColor.Surface)

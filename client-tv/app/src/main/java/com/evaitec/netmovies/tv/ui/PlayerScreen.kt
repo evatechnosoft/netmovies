@@ -1141,7 +1141,6 @@ fun PlayerScreen(
                 duration = duration,
                 prevEpisodeLabel = prevEpIndex?.let { episodeLabel(episodes[it], it) },
                 nextEpisodeLabel = nextEpIndex?.let { episodeLabel(episodes[it], it) },
-                onSeekBy = { delta -> seekBy(delta) },
                 onSeekTo = { target -> exo.seekTo(target); position = target },
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) } },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) } },

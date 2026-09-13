@@ -72,12 +72,17 @@ fun ChannelsScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
     }
 
     // Kaynak "Animation;Kids" gibi çoklu tür veriyor; her parça ayrı süzgeç olur.
+    // Kategori etiketleri kaynaktan (iptv-org `group-title`) geliyor ve tutarsız:
+    // 158 kanalda "Ulusal" yalnız Show TV'de, TRT/ATV/Kanal D ise "Genel"in (76)
+    // içinde. Tek kanallık etiket çip olarak sadece gürültü — o kanal "Tümü"de ve
+    // aramada zaten bulunur.
     val categories = remember(all) {
         all.flatMap { it.category.orEmpty().split(";") }
             .map { it.trim() }
             .filter { it.isNotBlank() }
-            .distinct()
-            .sorted()
+            .groupingBy { it }.eachCount()
+            .filterValues { it >= 2 }
+            .keys.sorted()
     }
     val shown = remember(all, category, query, favUrls) {
         val c = category
@@ -176,7 +181,10 @@ fun ChannelsScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
                         onToggleFavori = { favoriDegistir(ch) },
                     ) {
                         // quick_channels HAM url veriyor; oynatma zinciri kodlu bekliyor.
-                        onSelect(ch.copy(url = encodedUrl(ch.url)))
+                        // autoplay: kanalda seçilecek bölüm/kaynak yok, başlangıç
+                        // paneli boşuna bir adım ekliyordu (Dean: "TV gibi direkt
+                        // başlasın, içerikte bir şey seçilemediği için").
+                        onSelect(ch.copy(url = encodedUrl(ch.url), autoplay = true))
                     }
                 }
             }
