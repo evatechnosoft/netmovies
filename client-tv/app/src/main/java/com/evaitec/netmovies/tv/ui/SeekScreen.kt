@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import com.evaitec.netmovies.tv.data.EpisodeItem
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -58,11 +57,14 @@ private val JUMPS = listOf(
 fun SeekScreen(
     position: Long,
     duration: Long,
-    episodes: List<EpisodeItem>,
-    currentEpIndex: Int,
+    /** null = dizi değil ya da o yönde bölüm yok. */
+    prevEpisodeLabel: String?,
+    nextEpisodeLabel: String?,
     onSeekBy: (Long) -> Unit,
     onSeekTo: (Long) -> Unit,
-    onSelectEpisode: (Int) -> Unit,
+    onPrevEpisode: () -> Unit,
+    onNextEpisode: () -> Unit,
+    onOpenEpisodes: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     var minuteInput by remember { mutableStateOf("") }
@@ -136,13 +138,18 @@ fun SeekScreen(
                 }
             }
 
-            if (episodes.isNotEmpty()) {
-                SectionLabel("Bölümler (${episodes.size})")
-                episodes.forEachIndexed { idx, ep ->
-                    EpisodeRow(
-                        label = ep.title ?: "Bölüm ${idx + 1}",
-                        selected = idx == currentEpIndex,
-                    ) { onSelectEpisode(idx); onClose() }
+            // Bölümler: burada düz liste vardı (3 sezon = 30 satır kaydırma).
+            // En çok kullanılan ikisi satır olarak, tamamı sezon rafı olan panelde.
+            if (prevEpisodeLabel != null || nextEpisodeLabel != null || onOpenEpisodes != null) {
+                SectionLabel("Bölüm")
+                prevEpisodeLabel?.let {
+                    EpisodeRow("⏮  Önceki bölüm — $it", false) { onPrevEpisode(); onClose() }
+                }
+                nextEpisodeLabel?.let {
+                    EpisodeRow("⏭  Sonraki bölüm — $it", false) { onNextEpisode(); onClose() }
+                }
+                onOpenEpisodes?.let {
+                    EpisodeRow("📑  Tüm bölümler (sezon seç)", false) { it(); onClose() }
                 }
             }
 

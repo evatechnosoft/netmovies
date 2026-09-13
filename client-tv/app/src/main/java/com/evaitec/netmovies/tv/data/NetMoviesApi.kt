@@ -165,6 +165,11 @@ interface NetMoviesApi {
     @POST("api/v1/prefs")
     suspend fun prefsPost(@Body body: Map<String, String>): OkResponse
 
+    // Oynatma günlüğü sunucuya: kumandayla satır satır gezilemeyen rapor
+    // tarayıcıdan okunur (GET /api/v1/client_log → düz metin).
+    @POST("api/v1/client_log")
+    suspend fun clientLog(@Body body: Map<String, List<String>>): OkResponse
+
     // Canlı kanallar — tek uç, 170+ kanal (M3U listeleri).
     @GET("api/v1/quick_channels")
     suspend fun quickChannels(): ChannelsResponse

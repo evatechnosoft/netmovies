@@ -108,6 +108,19 @@ import androidx.compose.foundation.lazy.items
 // Oynatma hızı seçenekleri (çark → Hız).
 private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
+// Kumandanın oynatma tuşları — D-pad'den ayrı, eşlemeye girmez, oynatıcıda sabit.
+private val MEDIA_KEYS = setOf(
+    KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_REWIND,
+    KeyEvent.KEYCODE_MEDIA_NEXT,
+    KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+    KeyEvent.KEYCODE_MEDIA_PLAY,
+    KeyEvent.KEYCODE_MEDIA_PAUSE,
+    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+    KeyEvent.KEYCODE_MEDIA_STOP,
+    KeyEvent.KEYCODE_HEADSETHOOK,
+)
+
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBack: () -> Unit) {
@@ -268,6 +281,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
     }
     // Sıradaki bölüm: dizide ve son bölümde değilsek var.
     val nextEpIndex = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
+    val prevEpIndex = (currentEpIndex - 1).takeIf { episodes.isNotEmpty() && it >= 0 }
 
     fun goToEpisode(idx: Int) {
         carryOverMs = 0L
@@ -486,6 +500,22 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
         }
     }
 
+    // Oynatma günlüğü SUNUCUYA. Rapor televizyonda satır satır gezilemediği için
+    // (kumanda listenin başına/sonuna atlıyor) teşhis telefondan/PC'den okunur:
+    // http://<sunucu>:3310/api/v1/client_log — düz metin, en yeni üstte.
+    LaunchedEffect(item.url) {
+        var sonKayit: String? = null
+        while (true) {
+            delay(30_000)
+            val satirlar = PlaybackLog.snapshot().map { it.format() }
+            // Tampon dolunca satır sayısı sabit kalır; değişimi EN YENİ kayıt söyler.
+            if (satirlar.isNotEmpty() && satirlar.first() != sonKayit) {
+                sonKayit = satirlar.first()
+                runCatching { Network.api.clientLog(mapOf("lines" to satirlar)) }
+            }
+        }
+    }
+
     // Devam bilgisi paneli beklemez: çözümleme sürerken okunur, 30sn–%92 aralığı
     // oynatıcıdaki devam kuralıyla aynı — panelde "devam" yazıp sonra baştan
     // başlaması olmasın.
@@ -645,6 +675,13 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             // (playRequested) akış zaten buffer'lanmış olur, bekleme kısalır.
             exo.playWhenReady = playRequested
             exo.setPlaybackSpeed(speed)
+            // Türkçe DUBLAJ kaynakta altyazı kapalı başlar. Cihaz dili Türkçe olduğu
+            // için ExoPlayer "tr" altyazıyı kendiliğinden seçiyor ve dublajlı filmin
+            // üstünde altyazı akıyordu (DiziMom). Altyazılı kaynakta dokunulmaz;
+            // her iki yönde de Ayarlar → Altyazı son sözü söyler.
+            exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, com.evaitec.netmovies.tv.data.isDubbed(link))
+                .build()
 
             // Preview oynatıcısı: aynı kaynak (ayrı MediaSource örneği), en düşük kalite.
             val previewHls = HlsMediaSource.Factory(dataSourceFactory)
@@ -785,6 +822,26 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) showSettings = true
                         true
                     }
+                    // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
+                    // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
+                    // basınca hiçbir şey olmuyordu (useController=false → ExoPlayer de
+                    // dinlemiyor). Sarma ve bölüm değiştirme doğrudan burada.
+                    ke.nativeKeyEvent.keyCode in MEDIA_KEYS -> {
+                        if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                            when (ke.nativeKeyEvent.keyCode) {
+                                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seekBy(30_000)
+                                KeyEvent.KEYCODE_MEDIA_REWIND       -> seekBy(-30_000)
+                                // Dizide bölüm atlar, filmde 1 dakika sarar.
+                                KeyEvent.KEYCODE_MEDIA_NEXT     -> nextEpIndex?.let { goToEpisode(it) } ?: seekBy(60_000)
+                                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> prevEpIndex?.let { goToEpisode(it) } ?: seekBy(-60_000)
+                                KeyEvent.KEYCODE_MEDIA_PLAY     -> { exo.play(); flashControls() }
+                                KeyEvent.KEYCODE_MEDIA_PAUSE    -> { exo.pause(); flashControls() }
+                                KeyEvent.KEYCODE_MEDIA_STOP     -> onBack()
+                                else                            -> dispatch(RemoteAction.PLAY_PAUSE)
+                            }
+                        }
+                        true
+                    }
                     // Teklif penceresinde SAĞ ok = sonraki bölüm.
                     sonrakiTeklif && ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
@@ -877,11 +934,15 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
             SeekScreen(
                 position = position,
                 duration = duration,
-                episodes = episodes,
-                currentEpIndex = currentEpIndex,
+                prevEpisodeLabel = prevEpIndex?.let { episodeLabel(episodes[it], it) },
+                nextEpisodeLabel = nextEpIndex?.let { episodeLabel(episodes[it], it) },
                 onSeekBy = { delta -> seekBy(delta) },
                 onSeekTo = { target -> exo.seekTo(target); position = target },
-                onSelectEpisode = { idx -> currentEpIndex = idx },
+                onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) } },
+                onNextEpisode = { nextEpIndex?.let { goToEpisode(it) } },
+                onOpenEpisodes = if (episodes.isEmpty()) null else {
+                    { panelAsList = true; showStartPanel = true }
+                },
                 onClose = { showSeek = false },
             )
         }
@@ -897,6 +958,7 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                 currentLinkIndex = currentLinkIndex,
                 resumeLabel = resumeLabel,
                 hazir = links.isNotEmpty(),
+                listeModu = panelAsList,
                 // Bölüme basmak DOĞRUDAN başlatır: seçtikten sonra panelin
                 // tepesindeki OYNAT'a dönmek fazladan bir yolculuktu (Dean).
                 onSelect = { idx ->
@@ -944,10 +1006,11 @@ fun PlayerScreen(item: MediaItem, bindings: KeyBindings, library: Library, onBac
                     showSettings = false
                     if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
                 },
-                onSelectEpisode = { epIdx ->
-                    currentEpIndex = epIdx
+                onOpenEpisodes = {
                     showSettings = false
                     panelGeriGelsin = false
+                    panelAsList = true
+                    showStartPanel = true
                 },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
@@ -1260,7 +1323,7 @@ private fun SettingsPanel(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onSelectSource: (Int) -> Unit,
-    onSelectEpisode: (Int) -> Unit = {},
+    onOpenEpisodes: () -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
     qualityAuto: Boolean,
@@ -1307,10 +1370,14 @@ private fun SettingsPanel(
                 SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
             }
 
+            // Bölümlerin DÜZ listesi buradan kalktı: 3 sezonluk dizide 30 satır
+            // oluyor ve kumandayla sezonu bulmak kaydırmakla geçiyordu. Sezon rafı
+            // olan panel tek satır uzakta.
             if (episodes.isNotEmpty()) {
                 SectionTitle("📑 Bölümler (${episodes.size})")
-                episodes.forEachIndexed { idx, ep ->
-                    SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelectEpisode(idx) }
+                val simdiki = episodes.getOrNull(currentEpIndex)?.let { episodeLabel(it, currentEpIndex) }
+                SettingRow("Sezon · bölüm seç" + (simdiki?.let { " — şu an $it" } ?: ""), false) {
+                    onOpenEpisodes()
                 }
             }
 
@@ -1320,9 +1387,13 @@ private fun SettingsPanel(
             SectionTitle("🩺 Kaynak raporu")
             SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
             if (showReport) {
+                // Satırlar ODAK ALIR: metin olarak çizildiklerinde kumanda aradan
+                // atlıyor, liste başa/sona sıçrıyor ve ortadaki kayıtlar hiç
+                // okunmuyordu. Tıklama işlevi yok, yalnız satır satır gezinme.
+                MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
                 val report = PlaybackLog.snapshot()
                 if (report.isEmpty()) MutedRow("Kayıt yok")
-                report.take(40).forEach { entry -> MutedRow(entry.format()) }
+                report.take(40).forEach { entry -> SettingRow(entry.format(), false) {} }
             }
 
             if (videoTrackCount > 0) {
@@ -1411,6 +1482,8 @@ private fun StartPanel(
     currentLinkIndex: Int,
     resumeLabel: String?,
     hazir: Boolean,
+    /** true = panel oynarken "bölüm listesi" olarak açıldı → odak doğrudan listede. */
+    listeModu: Boolean,
     onSelect: (Int) -> Unit,
     onSelectLink: (Int) -> Unit,
     onPlay: () -> Unit,
@@ -1427,22 +1500,29 @@ private fun StartPanel(
         (details?.ratingText?.takeIf { it.isNotBlank() } ?: rating?.let { "%.1f".format(it) })?.let { "★ $it" },
     ).joinToString("  ·  ")
     val playFocus = remember { FocusRequester() }
+    // Bölüm listesi olarak açıldığında odak OYNAT'ta değil, OYNAYAN BÖLÜMDE olmalı:
+    // aksi hâlde listeye inmek ve o bölümü bulmak kaydırmakla geçiyordu
+    // (Dean: "direkt bölümlere girmiyor").
+    val epFocus = remember { FocusRequester() }
     // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
-    LaunchedEffect(Unit) {
+    LaunchedEffect(listeModu) {
         repeat(6) {
             withFrameNanos {}
-            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            val hedef = if (listeModu && episodes.isNotEmpty()) epFocus else playFocus
+            if (runCatching { hedef.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
     // Odak nöbeti: liste yeniden oluşunca (bölümler geç gelir, sezon değişir) odak
     // hiçbir satırda kalmıyor ve D-pad ölüyordu (Dean: "cursor kayboluyor, bir daha
     // bir şey seçmiyor"). Panelin tamamı odaksız kalırsa OYNAT'a geri alınır.
     var panelOdakli by remember { mutableStateOf(false) }
-    LaunchedEffect(panelOdakli, episodes.size, season) {
+    LaunchedEffect(panelOdakli, episodes.size, season, listeModu) {
         if (panelOdakli) return@LaunchedEffect
         repeat(8) {
             withFrameNanos {}
             if (panelOdakli) return@LaunchedEffect
+            // Liste modunda nöbet de bölüme bakar; yoksa OYNAT'a düşer.
+            if (listeModu && runCatching { epFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
@@ -1524,13 +1604,25 @@ private fun StartPanel(
                     ) { onSelect(sonIdx) }
                 }
                 SectionTitle("🎬 Bölümler (${secili.size})")
+                // Liste OYNAYAN bölümden açılır: uzaktaki satır hiç çizilmezse odak
+                // isteği düşer ve panel yine OYNAT'ta kalırdı.
+                val seciliSira = secili.indexOfFirst { it.index == currentEpIndex }.coerceAtLeast(0)
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+                    initialFirstVisibleItemIndex = seciliSira,
+                )
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2),
                 ) {
                     items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
                         val (idx, ep) = secili[i]
-                        SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
+                        // Oynayan bölüm odağı alır (listeModu) — Compose odaklanan
+                        // satırı kendiliğinden görünür alana kaydırır.
+                        val odak = if (idx == currentEpIndex) Modifier.focusRequester(epFocus) else Modifier
+                        Box(odak) {
+                            SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
+                        }
                     }
                 }
             } else {

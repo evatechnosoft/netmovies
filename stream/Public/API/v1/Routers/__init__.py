@@ -34,6 +34,7 @@ from . import (
     watch,
     prefs,
     client_config,
+    client_log,
     remote,
     voice,
     following,

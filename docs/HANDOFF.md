@@ -7,12 +7,30 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 12 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `5c589f9` · temiz, push'lı
-**Sürümler:** TV `v0.1.90-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Son güncelleme:** 13 Eylül 2026 (sabah)
+**Dal:** `fix/general-stability` · temiz, push'lı
+**Sürümler:** TV `v0.1.91-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · stream 93/93
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## 0.0 13 Eylül — kumandayla okunmayan rapor, 30 satırlık bölüm listesi (TV v0.1.91)
+
+Dördü de "TV'de kumandadan yapılamıyor" ailesinden, hepsi ayrı sebep:
+
+| Belirti | Kök neden | Ne yapıldı |
+|---|---|---|
+| Kaynak raporu okunmuyor, liste başa/sona sıçrıyor | Satırlar `MutedRow` (düz metin) — odak almıyor, D-pad aradan atlıyor | Satırlar odak alır oldu **+** günlük sunucuya gider: `GET /api/v1/client_log` düz metin (telefondan/PC'den okunur), TV 30 sn'de bir yollar |
+| 3 sezonluk dizide 30 satır kaydırma, "direkt bölümlere girmiyor" | Ayarlar ve Gezinme ekranı bölümleri **düz** listeliyordu; sezon rafı yalnız başlangıç panelinde | İki düz liste kaldırıldı → tek satır sezon panelini açıyor; panel liste modunda açılınca odak **oynayan bölümde** başlıyor |
+| Dublajlı filmde altyazı akıyor (DiziMom) | Cihaz dili Türkçe → ExoPlayer `tr` altyazıyı kendiliğinden seçiyordu | Kaynak `language.rank == 0` (dublaj) ise altyazı kapalı başlar (`isDubbed`) |
+| Kumandanın ⏪ ⏩ ⏮ ⏭ tuşları ölü | Medya tuşları D-pad değil → buton eşlemesine girmiyor, `useController=false` olduğu için ExoPlayer de dinlemiyor | Oynatıcıda sabit: ⏪⏩ ±30 sn · ⏮⏭ önceki/sonraki bölüm (filmde ±1 dk) · ⏯/⏹. Ayrıca Gezinme ekranında "Önceki/Sonraki bölüm" satırları |
+
+**Kanıt:** `assembleDebug` + `testDebugUnitTest` BUILD SUCCESSFUL · `smoke.sh` YEŞİL ·
+`POST/GET /api/v1/client_log` gidiş-dönüş doğrulandı · APK `data/apk/NetMovies-TV-v0.1.91.apk`
+(versionCode 191) OTA'da · tünel 303 (stream recreate sonrası cloudflared yeniden kuruldu).
+
+**Cihazda doğrulanmadı:** kumanda medya tuşlarının gerçek Mi Box kumandasında hangi
+keycode'u ürettiği (kumandada ⏪⏩ yoksa karşılığı çıkmaz) ve dublaj/altyazı davranışı.
 
 ## 0.0 12 Eylül gece yarısı — bölüm seçimi gerçekten çalışıyor (TV v0.1.88)
 
