@@ -1,6 +1,7 @@
 package com.evaitec.netmovies.tv.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.KeyEvent as ComposeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
@@ -40,6 +42,7 @@ import com.evaitec.netmovies.tv.input.NmBackHandler
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import android.view.KeyEvent
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -51,12 +54,13 @@ import java.util.Locale
 // bileşen her Android TV'de aynı davranmıyor (bkz. AdminScreen). Veri zaten
 // `/api/v1/agenda`'da hazır — gruplama ve sıralama sunucuda, burada yalnız çizim.
 //
-// Satırlar tıklanabilir değil: kayıtlar TMDB'den geliyor, katalogda karşılığı
-// olmayabilir. "Ne zaman" sorusunu cevaplar, oynatma yolu Gözat'tan geçer.
+// Kayıtlar TMDB'den geliyor: öğede oynatma adresi YOK, katalogda karşılığı da
+// olmayabilir. Bu yüzden satıra basmak doğrudan oynatmaz, başlığı Gözat'ın
+// aramasına düşürür — kaynağı zincir orada bulur.
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun AgendaScreen(onBack: () -> Unit) {
+fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     var gunler by remember { mutableStateOf<List<AgendaDay>>(emptyList()) }
     var toplam by remember { mutableStateOf(0) }
     var aylik by remember { mutableStateOf(false) }
@@ -106,7 +110,7 @@ fun AgendaScreen(onBack: () -> Unit) {
         Text(
             // Aralık değiştirmek için ayrı bir odak hedefi açmak yerine, zaten elde
             // olan SAĞ/SOL tuşu kullanılır: liste dikey kayıyor, yatay boşta.
-            text = "SAĞ/SOL: hafta ↔ ay",
+            text = "SAĞ/SOL: hafta ↔ ay  ·  OK: Gözat'ta ara",
             fontSize = NmType.Caption,
             color = NmColor.OnSurfaceMuted,
             modifier = Modifier.padding(bottom = 10.dp),
@@ -123,7 +127,10 @@ fun AgendaScreen(onBack: () -> Unit) {
             ) {
                 gunler.forEach { gun ->
                     item { GunBasligi(gun.tarih, gun.ogeler.size) }
-                    items(gun.ogeler.size) { i -> AjandaSatiri(gun.ogeler[i]) }
+                    items(gun.ogeler.size) { i ->
+                        val oge = gun.ogeler[i]
+                        AjandaSatiri(oge) { onAra(oge.baslik) }
+                    }
                 }
             }
         }
@@ -154,12 +161,21 @@ private fun GunBasligi(tarih: String, adet: Int) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun AjandaSatiri(oge: AgendaItem) {
+private fun AjandaSatiri(oge: AgendaItem, onAc: () -> Unit) {
+    // Satır ODAK ALIR ve OK ile açılır: ajanda "ne var" listesiydi, gördüğün
+    // bölüme gitmenin yolu yoktu (Dean: "bastın mı gidilebilecek şekilde olabilir").
+    // Ajanda TMDB takviminden geliyor, öğede oynatma adresi YOK — bu yüzden OK
+    // başlığı Gözat'ın aramasına düşürür, zincir kaynağı orada bulur.
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.CardRadius)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(NmDim.CardRadius))
-            .background(NmColor.Surface)
+            .clip(shape)
+            .background(if (focused) NmColor.SurfaceHigh else NmColor.Surface)
+            .nmFocusRing(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onAc() }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -167,13 +183,15 @@ private fun AjandaSatiri(oge: AgendaItem) {
         Box(Modifier.width(46.dp).height(68.dp).clip(RoundedCornerShape(6.dp))) {
             PosterImage(poster = oge.poster, title = oge.baslik, modifier = Modifier.fillMaxSize())
         }
+        // TV ekranı geniş; başlık ve özet tek satıra kırpılıyordu. Odaktaki satır
+        // tam metni gösterir, diğerleri kısa kalır — liste yine taranabilir olsun.
         Column(Modifier.weight(1f)) {
             Text(
                 text = oge.baslik,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = NmType.Label,
                 color = NmColor.OnSurface,
-                maxLines = 1,
+                maxLines = if (focused) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -192,7 +210,7 @@ private fun AjandaSatiri(oge: AgendaItem) {
                     text = oge.ozet,
                     fontSize = NmType.Caption,
                     color = NmColor.OnSurfaceMuted,
-                    maxLines = 2,
+                    maxLines = if (focused) 6 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

@@ -262,7 +262,16 @@ private fun CategoryRows(
             contentPadding = PaddingValues(top = NmDim.SafeV, bottom = NmDim.SafeV + 16.dp),
             verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
         ) {
-            item { TopBar(onOpenBrowse, onOpenRemote = onOpenRemote) { showSettingsMenu = true } }
+            item {
+                TopBar(
+                    onOpenBrowse = onOpenBrowse,
+                    onOpenRemote = onOpenRemote,
+                    onOpenChannels = onOpenChannels,
+                    onOpenAgenda = onOpenAgenda,
+                    onOpenFollowing = onOpenFollowing,
+                    onOpenSettings = { showSettingsMenu = true },
+                )
+            }
 
             sections.forEachIndexed { sIndex, (title, list) ->
                 // Başlık ve raf TEK öğe: ayrı öğelerken odak, henüz oluşturulmamış
@@ -339,13 +348,19 @@ private fun CategoryRows(
     }
 }
 
-// Sade üst bar: marka + tam genişlik arama + 📱 kumanda + ⚙ ayarlar (ikisi yazısız,
-// dar — "⚙ Ayarlar" yazısı aramadan yer çalıyordu). Tek odak grubu.
+// Üst bar bir GEZİNME çubuğudur: marka (ana sayfa) + Canlı TV · Ajanda · Listem.
+// Bu üçü Ayarlar menüsünün içine gömülüydü; en çok kullanılan ekranlar iki adım
+// uzaktaydı (Dean: "üstünde gezebilelim, yanına diğerlerini koyalım").
+// Arama tam genişlikte bir çubuktu ve bandın tamamını yiyordu — küçük bir büyüteç
+// düğmesine indi, sekmelere yer açtı.
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun TopBar(
     onOpenBrowse: () -> Unit,
     onOpenRemote: () -> Unit,
+    onOpenChannels: () -> Unit,
+    onOpenAgenda: () -> Unit,
+    onOpenFollowing: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
@@ -363,10 +378,11 @@ private fun TopBar(
             color = NmColor.Primary,
             modifier = Modifier.padding(end = 4.dp),
         )
-        HomeSearchBarButton(
-            modifier = Modifier.weight(1f),
-            onClick = onOpenBrowse,
-        )
+        TvTopBarButton("📡  Canlı TV", onClick = onOpenChannels)
+        TvTopBarButton("🗓  Ajanda", onClick = onOpenAgenda)
+        TvTopBarButton("★  Listem", onClick = onOpenFollowing)
+        Spacer(Modifier.weight(1f))
+        TvTopBarButton("🔎", onClick = onOpenBrowse, compact = true)
         TvTopBarButton("📱", onClick = onOpenRemote, compact = true)
         TvTopBarButton("⚙", onClick = onOpenSettings, compact = true)
     }

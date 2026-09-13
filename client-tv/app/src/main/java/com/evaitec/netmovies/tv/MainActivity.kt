@@ -302,7 +302,17 @@ class MainActivity : ComponentActivity() {
                                     onBack = { showChannels = false },
                                 )
                             showAgenda ->
-                                com.evaitec.netmovies.tv.ui.AgendaScreen(onBack = { showAgenda = false })
+                                com.evaitec.netmovies.tv.ui.AgendaScreen(
+                                    onBack = { showAgenda = false },
+                                    // Ajandadaki satır oynatma adresi taşımıyor;
+                                    // başlık telefon kumandasıyla aynı kanaldan
+                                    // (remoteQuery) Gözat'ın aramasına düşer.
+                                    onAra = { baslik ->
+                                        kumandaMetni = baslik
+                                        showAgenda = false
+                                        showBrowse = true
+                                    },
+                                )
                             showFollowing ->
                                 com.evaitec.netmovies.tv.ui.FollowingScreen(
                                     onSelect = pick,
