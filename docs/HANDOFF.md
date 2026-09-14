@@ -7,14 +7,19 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `2e6b605` · temiz, push'lı
+**Son güncelleme:** 14 Eylül 2026 (öğleden sonra)
+**Dal:** `fix/general-stability` @ `7054083` · temiz, push'lı
 **Sürümler:** TV `v0.2.2-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 17/17
+**Yığın:** doh · engine · stream · warp · `smoke.sh` YEŞİL · engine 25/25
+> Tünel (`cloudflared`) şu an AYAKTA DEĞİL — `--profile tunnel` ile kalkmadı,
+> yani `w.evaitec.com` dışarıdan cevap vermez. Yerel adres çalışıyor.
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
 ## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–v0.2.2)
+
+> Not: 14 Eylül öğleden sonra motor tarafında üç düzeltme girdi (0.6) — TV
+> istemcisine dokunulmadı, aşağıdaki cihaz doğrulama listesi aynen geçerli.
 
 Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.3, 0.4).
 **v0.1.98 → v0.2.2 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
@@ -68,6 +73,46 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 içinde. Etiketler iptv-org `group-title`'dan geliyor, biz üretmiyoruz. Tek kanallık
 kategoriler artık çip olarak gösterilmiyor. Düzgün gruplama istenirse kendi eşleme
 tablomuz gerekir — yapılmadı.
+
+## 0.6 14 Eylül öğleden sonra — ölü sağlayıcı, kirli katalog, yeni kanallar (engine)
+
+**FullHDFilmizlesene hiçbir filmde kaynak vermiyordu** — denenen dört filmin
+dördünde de sıfır. Kök neden `rapidvid`: `av('<şifre>')` çağrısını bırakıp aynı
+şifreyi `window._p8` değişkenine taşımış, çözülen yük de düz adres yerine JSON
+olmuş (akış `cm`/`tm`, altyazılar `ct`). Şifreleme zinciri değişmedi — ters →
+base64 → "K9L" kaydırması → base64 — yalnız taşıyıcı ve yük biçimi değişti; iki
+biçim de destekleniyor. Yan kazanç: sağlayıcının kendi Türkçe altyazısı artık
+`ExtractResult`'a giriyor, jenerik geri sayımı bunu okuyor.
+
+**Dizilla katalogunda 12 kaydın 7'si dizi değildi:** "Forum", "Gizlilik
+Politikası", "İletişim", "Dizi Önerileri", site kökü. `div.grid a` seçicisi
+altbilgi ızgarasını da yakalıyordu. Dizi adresi her zaman `/dizi/<slug>`;
+kalıba uymayan kart eleniyor. Katalog 12 → 5 gerçek dizi.
+
+**Canlı kanal süzgeci akış adresi başına çalışıyor**, host başına değil: sunucu
+ayakta olduğu hâlde tek kanalın yolu 404 dönebiliyor (ATV ve Beyaz TV böyle
+ölüydü, host süzgeci ikisini de canlı sayıyordu). İlk hâli fazla katıydı —
+tek kötü deneme ATV'yi yarım gün düşürdü; önbellek asimetrik yapıldı: canlı
+6 saat, ölü 15 dakika, yoklama zaman aşımı 6 → 12 sn.
+
+**Kanal kaynakları genişledi** (159 → ~173): yurtdışı Türkçe kanallar
+(`languages/tur`) ve 7/24 Türkçe film/dizi kanalları (`categories/movies|series`
+— beIN Box Office 1-3, beIN Movies Turk/Stars). Kategori listeleri dünya çapında
+olduğu için `liste.m3u#tr` ülke soneki eklendi (tvg-id son ekinden okunur) ve
+aynı akış birden çok listede geçtiği için URL bazlı tekilleştirme geldi. Aynı
+ADLI farklı adres bilerek kalıyor — biri ölürse diğeri kanalı ayakta tutuyor.
+
+**Araştırılıp eklenMEyenler** (tekrar araştırmaya gerek yok):
+- Pluto TV · Samsung TV Plus · Plex · Roku: `i.mjh.nz` artık yalnız EPG XML
+  yayınlıyor, playlist'ler kaldırılmış (`all.m3u8` → 404, WARP'la da). Üstelik
+  TR'de geo-bloklu.
+- Tubi · Freevee · Kanopy: resmî uç yok, TR'ye kapalı.
+- Archive.org public domain: erişilebilir ama Türkçe içerik/altyazı yok.
+
+**Bilerek dokunulmayan:** `chain_scan --n 2` sonucunda 12 ölü kaynaktan 6'sı
+`ABStream` (SezonlukDizi'nin bir sunucusu) — jetonlu adresleri 403 veriyor, dış
+sunucu politikası. Aynı içerikte 13 kaynak çıkıyor ve oynatıcı ilk çalışanı
+seçiyor; kaynak başına ön yoklama her çözümlemeye 13 istek ekler, getirisi yok.
 
 ## 0.5 14 Eylül gecesi — canlı yayın kaydedilmiyor, favori kanallar Listem'de (TV v0.2.2)
 
