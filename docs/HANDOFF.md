@@ -8,9 +8,10 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `b7857fd` · temiz, push'lı
-**Sürümler:** TV `v0.2.6-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33 · stream 108/108
+**Dal:** `fix/general-stability` @ `df37c0d` · temiz, push'lı
+**Sürümler:** TV `v0.2.6-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.4`
+**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone 0.2.6 (vc 206), evaitecOTA 0.1.4 (vc 5)
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 34/34 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
 > ağ ad alanı stream'e pinli, o zaman `docker compose --profile tunnel up -d`.
@@ -82,6 +83,20 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.11 14 Eylül gecesi — Dizilla sezonları, evaitecOTA listesi
+
+**Reacher'da bölüm listesi 124 satırdı, hepsi "1. sezon".** Seçici
+`a[href*='-sezon']` `-sezon` geçen her bağlantıyı sezon sayfası sanıyordu; bölüm
+adresleri de `-1-sezon-3-bolum` kalıbında olduğu için her bölüm ayrı bir sezon
+sayfası sanılıp içindeki bölümler tekrar tekrar toplanıyordu. Artık adres
+`-<n>-sezon` ile bitmeli; sezon numarası o adresten, bölüm numarası bölüm
+adresinden okunuyor (bölüm adı sayfada yalnız sıra numarası, `season_episode`
+metinde "1. Sezon" arayıp bulamıyordu). **124 → 31 bölüm, {1:8, 2:8, 3:8, 4:7}.**
+
+**evaitecOTA listesi sıkılaştı (0.1.4):** kartlar küçüldü, tanıtım satırı yalnız
+odaktaki kartta açılıyor — katalog dokuz uygulamayı geçince ekrana üç kart
+sığıyordu.
 
 ## 0.10 14 Eylül gecesi — dağıtım zinciri ve üst bar (TV v0.2.6, evaitecOTA 0.1.3)
 
