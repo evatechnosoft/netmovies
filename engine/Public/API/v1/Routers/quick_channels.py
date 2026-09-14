@@ -30,19 +30,26 @@ _stream_cache: dict[str, tuple[float, bool]] = {}
 # Aynı anda açılan bağlantı tavanı — liste büyüdükçe (kategori listeleri yüzlerce
 # kanal getirebilir) engine'i kendi sağlık taramasıyla boğmamak için.
 _ESZAMANLI   = 40
+# ...ve HOST başına tek istek: bir yayıncının tüm kanalları aynı CDN'de duruyor
+# (Turkuvaz'ın ATV/A Haber/A Spor'u gibi). Toplu tarama o sunucuya aynı anda
+# onlarca istek atınca kanallar zaman aşımına düşüp "ölü" sayılıyordu — tek tek
+# denendiğinde hepsi 200 veriyor. Tarama kendi sonucunu bozmasın.
+_host_kapilari: dict[str, asyncio.Semaphore] = {}
 
 
 async def _stream_ok(client: httpx.AsyncClient, url: str, kapi: asyncio.Semaphore) -> bool:
-    if not urlsplit(url).netloc:
+    host = urlsplit(url).netloc
+    if not host:
         return False
 
     hit = _stream_cache.get(url)
     if hit and time.monotonic() - hit[0] < (_CANLI_TTL if hit[1] else _OLU_TTL):
         return hit[1]
 
+    host_kapi = _host_kapilari.setdefault(host, asyncio.Semaphore(1))
     ok = False
     try:
-        async with kapi:
+        async with kapi, host_kapi:
             # Akışın kendisi indirilmez: bağlantı kurulup ilk yanıt başlığı yeter.
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             ok   = resp.status_code < 400

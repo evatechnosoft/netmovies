@@ -73,3 +73,44 @@ class KaynakBirlestirme(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GrupEslemesi(unittest.TestCase):
+    """Ulusal/Bölgesel ayrımı — iptv-org bu etiketleri vermiyor, tablo bizim."""
+
+    def test_ana_yayin_kanallari_ulusala_gider(self):
+        from Plugins.M3UPlaylist import _normalize_group
+
+        for ad in ("TRT 1", "ATV", "Kanal D", "Star TV", "Show TV", "TV 8", "NOW TV"):
+            self.assertEqual(_normalize_group("General", ad), "Ulusal", ad)
+
+    def test_sehir_yayinlari_bolgesele_ayrilir(self):
+        from Plugins.M3UPlaylist import _normalize_group
+
+        for ad in ("ETV Kayseri", "Kocaeli TV", "Erzurum Web TV", "ATV Alanya", "KANAL 58", "TV 52"):
+            self.assertEqual(_normalize_group("General", ad), "Bölgesel", ad)
+
+    def test_ulusal_adlar_plaka_kalibina_yenilmez(self):
+        from Plugins.M3UPlaylist import _normalize_group
+
+        # "Kanal 7" 07 Antalya plakasıyla, "TV 8" 08 Artvin'le çakışıyor.
+        self.assertEqual(_normalize_group("General", "Kanal 7"), "Ulusal")
+        self.assertEqual(_normalize_group("General", "TV 8"), "Ulusal")
+
+    def test_tematik_gruplara_dokunulmaz(self):
+        from Plugins.M3UPlaylist import _normalize_group
+
+        # Haber/Spor kendi grubunda kalır; bölgesel ayrımı yalnız Genel'e uygulanır.
+        self.assertEqual(_normalize_group("News", "Bursa AS TV"), "Haber")
+        self.assertEqual(_normalize_group("Sports", "A Spor"), "Spor")
+
+
+class BaslikEkleri(unittest.TestCase):
+    """iptv-org başlıkları kalite/not eki taşır; eşleme bunlara takılmamalı."""
+
+    def test_kalite_ve_yayin_notu_eslemeyi_bozmaz(self):
+        from Plugins.M3UPlaylist import _normalize_group
+
+        self.assertEqual(_normalize_group("General", "ATV (1080p)"), "Ulusal")
+        self.assertEqual(_normalize_group("General", "TRT 1 (1440p)"), "Ulusal")
+        self.assertEqual(_normalize_group("General", "KANAL 58 (720p) [Not 24/7]"), "Bölgesel")

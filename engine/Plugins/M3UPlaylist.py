@@ -42,12 +42,84 @@ _GROUP_TR = {
 }
 
 
-def _normalize_group(raw: str | None) -> str:
-    """Ham `group-title` → tek, Türkçe, anlamlı grup adı."""
-    ilk = (raw or "").split(";")[0].strip()
-    if not ilk:
-        return "Genel"
-    return _GROUP_TR.get(ilk.lower(), ilk)
+# iptv-org "Ulusal" diye bir etiket vermiyor: TRT, ATV, Kanal D hepsi `general`
+# altında, 79 kanallık bir yığının içinde kayboluyordu. Ayrım bizim tablomuz.
+#
+# ULUSAL — genel izleyiciye yayın yapan ana kanallar. Haber/spor/çocuk gibi
+# tematik kanallar KASITLI olarak dışarıda: onların kendi grubu zaten çalışıyor.
+_ULUSAL = {
+    "trt 1", "trt1", "trt 2", "trt2", "trt 3", "trt3",
+    "trt turk", "trt türk", "trt avaz", "trt kurdi", "trt kurdî",
+    "atv", "kanal d", "star tv", "show tv", "now tv", "fox tv",
+    "tv 8", "tv8", "kanal 7", "beyaz tv", "teve2", "tv 360", "360 tv",
+}
+
+# BÖLGESEL — şehir/ilçe yayını. İki işaretten biri yeter: adın içinde bir il adı
+# geçiyor, ya da ad sadece "Kanal/TV + plaka kodu" kalıbında (Kanal 58 = Sivas,
+# TV 52 = Ordu). Plaka kalıbı ulusal adlarla çakışıyor (Kanal 7 = Antalya
+# plakası ama ulusal kanal) — bu yüzden ULUSAL tablosu ÖNCE bakılır.
+_ILLER = {
+    "adana", "adiyaman", "adıyaman", "afyon", "agri", "ağrı", "aksaray", "amasya",
+    "ankara", "antalya", "ardahan", "artvin", "aydin", "aydın", "balikesir",
+    "balıkesir", "bartin", "bartın", "batman", "bayburt", "bilecik", "bingol",
+    "bingöl", "bitlis", "bolu", "burdur", "bursa", "canakkale", "çanakkale",
+    "cankiri", "çankırı", "corum", "çorum", "denizli", "diyarbakir", "diyarbakır",
+    "duzce", "düzce", "edirne", "elazig", "elazığ", "erzincan", "erzurum",
+    "eskisehir", "eskişehir", "gaziantep", "giresun", "gumushane", "gümüşhane",
+    "hakkari", "hakkâri", "hatay", "igdir", "ığdır", "isparta", "istanbul",
+    "izmir", "kahramanmaras", "kahramanmaraş", "karabuk", "karabük", "karaman",
+    "kars", "kastamonu", "kayseri", "kilis", "kirikkale", "kırıkkale",
+    "kirklareli", "kırklareli", "kirsehir", "kırşehir", "kocaeli", "konya",
+    "kutahya", "kütahya", "malatya", "manisa", "mardin", "mersin", "mugla",
+    "muğla", "mus", "muş", "nevsehir", "nevşehir", "nigde", "niğde", "ordu",
+    "osmaniye", "rize", "sakarya", "samsun", "sanliurfa", "şanlıurfa", "urfa",
+    "siirt", "sinop", "sivas", "sirnak", "şırnak", "tekirdag", "tekirdağ",
+    "tokat", "trabzon", "tunceli", "usak", "uşak", "van", "yalova", "yozgat",
+    "zonguldak", "alanya", "icel", "içel", "karadeniz",
+}
+
+# Adında şehir geçmeyen ama yerel yayın yapan kanallar — elle doğrulandı.
+_BOLGESEL_ADLAR = {"kay tv", "es tv", "kanal firat", "kanal fırat", "mavikaradeniz", "icel tv"}
+
+IL_KALIBI = r"\b%s\b"
+_PLAKA_KALIBI = re.compile(r"^(?:kanal|tv|tivi|televizyon)\s*(\d{1,2})(?:\s*tv)?$", re.I)
+
+
+def _sade(ad: str) -> str:
+    """Eşleme için sadeleştirilmiş ad.
+
+    iptv-org başlıkları kalite ve yayın notu taşıyor: "ATV (1080p)",
+    "KANAL 58 (720p) [Not 24/7]". Ekler atılmazsa tablodaki hiçbir ad tutmaz.
+    """
+    govde = re.split("[([]", ad or "", maxsplit=1)[0]
+    return re.sub("[ 	]+", " ", govde.strip()).casefold()
+
+
+def _bolgesel_mi(ad: str) -> bool:
+    sade = _sade(ad)
+    if sade in _BOLGESEL_ADLAR:
+        return True
+    if any(re.search(IL_KALIBI % il, sade) for il in _ILLER):
+        return True
+    esle = _PLAKA_KALIBI.match(sade)
+    return bool(esle and 1 <= int(esle.group(1)) <= 81)
+
+
+def _normalize_group(raw: str | None, title: str = "") -> str:
+    """Ham `group-title` → tek, Türkçe, anlamlı grup adı.
+
+    Kanal adı önce kendi tablomuzdan geçer: ana yayın kanalları "Ulusal"a,
+    şehir yayınları "Bölgesel"e ayrılır. Tematik gruplara (Haber, Spor, Çocuk…)
+    dokunulmaz — ayrım yalnız `general` yığınına uygulanır.
+    """
+    ilk  = (raw or "").split(";")[0].strip()
+    grup = _GROUP_TR.get(ilk.lower(), ilk) if ilk else "Genel"
+
+    if _sade(title) in _ULUSAL:
+        return "Ulusal"
+    if grup == "Genel" and _bolgesel_mi(title):
+        return "Bölgesel"
+    return grup
 
 
 def _tvg_ulke(tvg_id: str) -> str:
@@ -72,7 +144,7 @@ def _parse_m3u(content: str) -> list[dict]:
             title = line.rsplit(",", 1)[-1].strip()
             meta = {
                 "title":  title or attrs.get("tvg-name", "Bilinmeyen"),
-                "group":  _normalize_group(attrs.get("group-title")),
+                "group":  _normalize_group(attrs.get("group-title"), title or attrs.get("tvg-name", "")),
                 "poster": attrs.get("tvg-logo", ""),
                 "tvg_id": attrs.get("tvg-id", ""),
             }
