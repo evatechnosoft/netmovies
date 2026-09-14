@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `b2dec7c` · temiz, push'lı
-**Sürümler:** TV `v0.2.5-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `b7857fd` · temiz, push'lı
+**Sürümler:** TV `v0.2.6-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
@@ -17,61 +17,27 @@
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.2.5)
+## SIRADAKİ İŞ — oynatıcı ve kart aksiyonları (Dean'in 14 Eylül gece listesi)
 
-Dean v0.2.2'yi TV'de gezdi; ajandadan gelen beş bulgu düzeltilip **v0.2.3**
-çıkarıldı (bkz. 0.7). Motor tarafındaki üç düzeltme de aynı turda görülebilir
-(0.6). **v0.1.98 → v0.2.2 arasındaki maddeler hâlâ denenmedi.**
+Hiçbiri başlanmadı. Dean'in kendi cümleleriyle, sırayla:
 
-1. TV'ye OTA'dan **v0.2.5**'i kur (`/api/v1/app_update?target=tv`).
-2. **Güncelleme (v0.2.5 — yeni):** güncelle → indir → kurulum ekranını KAPAT →
-   tekrar güncelle: APK **yeniden inmemeli**, doğrudan kuruluma gitmeli.
-   Dosya `Android/data/com.evaitec.netmovies.tv/files/update-<tag>.apk`.
-3. **Arama (v0.2.4):** üst barın SOL BAŞINDAKİ büyüteç kendi arama
-   ekranını açmalı (Gözat'ı değil; Gözat artık ayrı düğme). Bir şey ara → GERİ:
-   sonuç listesinden arama geçmişine, oradan ana ekrana dönmeli. Tekrar girince
-   **aynı sonuçlar durmalı**. Son aramalar: üstte 6 satır + "Hepsini göster" +
-   "Geçmişi temizle"; uygulamayı kapat-aç, geçmiş kalmalı.
-4. **Canlı TV'de kanal gezme (v0.2.4):** bir kanal aç, YUKARI sonraki /
-   AŞAĞI önceki kanala geçmeli — ekrandan çıkmadan. Dizi/filmde bu iki tuş eski
-   işini yapmalı (YUKARI scrub, AŞAĞI ayarlar).
-5. **Ajanda (v0.2.3–v0.2.4):**
-   - Hafta/ay artık SAĞ/SOL değil, başlığın altındaki **iki düğme**.
-   - Izgarada aşağı inerken liste **başa sıçramamalı**.
-   - Ekran poster **ızgarası** olmalı, tek satırlık liste değil; gün başlığı tam
-     satır, altında kartlar.
-   - Odak ilk kartta başlamalı, AŞAĞI/YUKARI ızgarada gezmeli (eskiden odak
-     kapsayıcıda takılıydı, yalnız en üstteki seçiliyordu).
-   - Bir karta OK: dizi **doğrudan açılmalı**. Birden çok eşleşme varsa arama
-     listesi kalır (kasıtlı — yanlış diziyi açmaktansa seçtirmek).
-   - Oradan GERİ: **ajandaya dönmeli**, ana ekrana değil.
-   - Başlıktaki sayı ile gün sayıları tutarlı olmalı; hafta artık ayın alt kümesi
-     (aynı gün ikisinde de aynı adet).
-3. **Jenerik geri sayımı — v0.1.95'ten beri hiç doğrulanmadı, en eski açık.**
-   Bir dizi bölümünü sonuna kadar izle: jenerikte sağ altta "Sıradaki bölüm · 10"
-   çıkmalı, GERİ durdurmalı, SAĞ ok geçmeli. Çıkmazsa:
-   `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log` → oynatıcının
-   `isaret` satırı (`açılış=… jenerik=… (subtitle)`); `-` ise o kaynakta altyazı
-   yok ya da desen tutmamış.
-4. Üst bar: NetMovies · 📡 Canlı TV · 🗓 Ajanda · ★ Listem · 🔎 · 📱 · ⚙ — sekmeler
-   çalışıyor mu, arama büyüteci yeterli mi.
-5. Canlı TV: kanal **panelsiz** açılmalı; oynarken ⏮ tamponun başına, ⏭ canlıya
-   gitmeli. Kanal favorisi SAĞ ok, uygulamayı kapat-aç kalıcı mı (`prefs` →
-   `fav_channels`). Favoriler hem Canlı TV'de başta hem **Listem**'in tepesinde
-   ("📡 Favori Kanallar"), kendi aralarında alfabetik olmalı.
-   Bir kanal izleyip çık: **Devam Et rafına DÜŞMEMELİ** (v0.2.2) — eskiden düşüyor
-   ve orada yanlış ad/poster gösteriyordu.
-6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
-7. **Motor tarafı (0.6) — cihazda görülecekler:**
-   - Canlı TV grupları: **Ulusal** (7) · **Yabancı Film** (29) · **Bölgesel** (26)
-     · Film (7, Türkçe beIN'ler) · Genel (47). Toplam ~200 kanal.
-     Ulusal'da TRT 2/3/Türk/Avaz/Kurdî **yok** — Dean favorilerine alıyor.
-   - Yeni film kanalları: beIN Box Office 1-3, beIN Movies Turk/Stars ve yabancı
-     tarafta AMC, HBO Movies, Cinemax, Paramount, Pluto TV kuşakları.
-   - Gözat → Dizilla: "Forum", "İletişim", "Gizlilik Politikası" posterleri
-     GİTMİŞ olmalı, 5 gerçek dizi kalmalı.
-   - Gözat → FullHDFilmizlesene: bir film aç, oynamalı (bu sağlayıcı tamamen
-     ölüydü). Kaynak listesinde "Türkçe Altyazı" görünüyorsa altyazı da geldi.
+1. **"Sonraki/önceki bölüm player'da yok sanırım, dolaşamıyorum."** Oynatıcıda
+   bölüm atlama görünür bir kontrol değil; bölüm listesi yalnız YUKARI basılı
+   tutma (`OPEN_EPISODES`) ile açılıyor. Kontrol çubuğunda ⏮/⏭ bölüm düğmesi
+   olmalı ve D-pad ile erişilebilmeli. `PlayerScreen.kt` · `nextEpIndex`,
+   `panelAsList`, `sonrakiTeklif` çevresi.
+2. **"Buton kartta; sadece D-pad ile gezip seçebilmeliyim."** Kart üzerindeki
+   aksiyonlar kumandayla dolaşılabilir olmalı.
+3. **"Takip/favori gibi butonlar dışarda ya da rahat ulaşılabilsin."** Şu an
+   yalnız uzun basma menüsünde (`HomeScreen.kt:318-319`, `menuItem` + ModalCard).
+4. **"TV kanalları gibi sağ kaydırda yazısız ikon olsun."** Kanal ekranındaki
+   sağa-kaydır deseni poster kartlarına da gelsin, etiketsiz ikonlarla.
+5. **"Poster üstü 4'lü buton açılımı basılı tutma ile geri gelsin."** Uzun basma
+   menüsü kodda DURUYOR (`onLongPress = { menuItem = item }`) — cihazda neden
+   gelmediği doğrulanmadı; önce bu kontrol edilmeli, sonra 4'lü düzene geçilmeli.
+
+> Not: 2-5 aynı bileşeni (poster kartı) konuşuyor; tek tasarım kararıyla
+> çözülmeli — kart odakta iken üstünde ikon şeridi, uzun basmada tam menü.
 
 ## Dean'e sorulan, cevap bekleyen
 
@@ -116,6 +82,37 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.10 14 Eylül gecesi — dağıtım zinciri ve üst bar (TV v0.2.6, evaitecOTA 0.1.3)
+
+**evaitecOTA TV Mi Box'a kurulmuyordu:** `minSdk 30` (Android 11) istiyordu,
+hiçbir Mi Box Android 10'u geçmiyor. minSdk 26'ya indirildi; tek engel
+`PackageInfo.getLongVersionCode` (API 28) idi, eski cihazlarda deprecated
+`versionCode` alanına düşüyor. Kaynak: `/d/projects/evaitec-appkit/ota-tv`.
+
+**"Kurdu ama Aç yok":** OTA kartı, uygulama kurulu ve güncelken düğmesiz
+kalıyordu. Artık açılabilir giriş varsa "Aç" gösteriliyor — TV'de
+LEANBACK_LAUNCHER, telefonda normal launcher. TV + mobil **0.1.3**.
+
+**Katalog (`evaglass-releases/apps.json`) bayattı:** `netmovies-tv` ve
+`netmovies-phone` 0.1.80'de (11 Eylül) duruyordu — Dean'in "eski gözüküyor,
+telefona yüklenmiyor" dediği bu; telefonda daha yeni sürüm kuruluyken katalog
+eskiyi verince Android downgrade'i reddediyor. İkisi de 0.2.6'ya çekildi.
+Ayrıca girdideki `versionCode` 20005 yazılmıştı, APK'daki gerçek değer 205 —
+düzeltildi (sürüm şeması: major*10000 + minor*100 + patch).
+
+**Üst bar yalnız ikon** (v0.2.6): metinli düğmeler dar ekranda satır sarıp
+"Aja/nda" gibi kırpılıyordu. Sıra: 🔎 ▦ 📡 🗓 ★ · 📱 ⚙ — Gözat aramanın yanında.
+
+**Morphe Manager (üçüncü parti) incelendi, katalogdan çıkarıldı.** Dean "Android
+11 istiyor" diyordu; APK'da öyle bir engel YOK: minSdk 26, TV launcher tanımlı,
+imza eski API'lerde geçerli. "Android 11" metni yalnız bir ayarın açıklaması
+(`settings_system_process_runtime_description_not_available`). Açılıştaki
+takılmanın sebebi doğrulanmadı — cihazdan `adb logcat` gerekiyor.
+
+> Dağıtım artık üç yerde birden: `data/apk/` (uygulama içi OTA) ·
+> `evaglass-releases` release'leri · `apps.json` (evaitecOTA). Yeni TV sürümünde
+> üçünü de güncelle, yoksa katalog bayat kalıyor.
 
 ## 0.9 14 Eylül gecesi — güncelleme önbelleği ve katalog (TV v0.2.5)
 
