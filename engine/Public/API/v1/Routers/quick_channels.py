@@ -17,9 +17,15 @@ from ..Libs import epg
 #
 # Kontrol AKIŞ ADRESİ başına yapılır, host başına değil: sunucu ayakta olduğu
 # hâlde tek bir kanalın yolu 404 dönebiliyor — ATV ve Beyaz TV tam olarak böyle
-# ölüydü, host süzgeci ikisini de canlı sayıyordu. Sonuç 6 saat önbellekli,
-# istekler paralel; maliyet liste tazelenirken bir kez ödenir.
-_HOST_TTL    = 6 * 3600
+# ölüydü, host süzgeci ikisini de canlı sayıyordu. İstekler paralel; maliyet
+# liste tazelenirken bir kez ödenir.
+#
+# Önbellek ASİMETRİK: "canlı" uzun, "ölü" kısa yaşar. Yayın sunucuları anlık
+# tökezliyor (tek yavaş yanıt = timeout) ve simetrik önbellekte ATV gibi ana bir
+# kanal tek kötü denemeyle yarım gün listeden düşüyordu. Ölü sonucu kısa tutmak
+# kanala bir sonraki tazelemede yeniden şans verir.
+_CANLI_TTL   = 6 * 3600
+_OLU_TTL     = 15 * 60
 _stream_cache: dict[str, tuple[float, bool]] = {}
 # Aynı anda açılan bağlantı tavanı — liste büyüdükçe (kategori listeleri yüzlerce
 # kanal getirebilir) engine'i kendi sağlık taramasıyla boğmamak için.
@@ -31,7 +37,7 @@ async def _stream_ok(client: httpx.AsyncClient, url: str, kapi: asyncio.Semaphor
         return False
 
     hit = _stream_cache.get(url)
-    if hit and time.monotonic() - hit[0] < _HOST_TTL:
+    if hit and time.monotonic() - hit[0] < (_CANLI_TTL if hit[1] else _OLU_TTL):
         return hit[1]
 
     ok = False
@@ -68,7 +74,7 @@ async def collect_live_channels(check_health: bool = True) -> list[dict[str, str
 
     adresler = sorted({c["url"] or "" for c in channels})
     kapi     = asyncio.Semaphore(_ESZAMANLI)
-    async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
         sonuc = await asyncio.gather(*(_stream_ok(client, url, kapi) for url in adresler))
     canli = {url for url, ok in zip(adresler, sonuc) if ok}
 

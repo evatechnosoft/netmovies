@@ -98,6 +98,11 @@ class Dizilla(PluginBase):
         poster = absolute(base_url, first_attr(node, ("img",), "data-src")) or absolute(base_url, first_attr(node, ("img",), "src"))
         if not title or not href:
             return None
+        # `div.grid a` sayfanın altbilgi ızgarasını da yakalıyor: "Forum",
+        # "Gizlilik Politikası", "İletişim" ve site kökü katalogda dizi diye
+        # poster oluyordu. Dizi adresi her zaman /dizi/<slug>.
+        if "/dizi/" not in href:
+            return None
         return MainPageResult(category=category, title=title, url=normalize_url(href, base_url), poster=poster)
 
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
