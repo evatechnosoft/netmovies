@@ -2,7 +2,9 @@ package com.evaitec.netmovies.tv.ui
 
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -495,7 +497,7 @@ private fun SourceChips(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun SourceChip(
     label: String,
@@ -509,17 +511,7 @@ private fun SourceChip(
     Box(
         modifier = Modifier
             .clip(shape)
-            .onKeyEvent { ke ->
-                val sagOk = ke.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-                if (onFavori != null && focused && sagOk &&
-                    ke.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP
-                ) {
-                    onFavori()
-                    true
-                } else {
-                    false
-                }
-            }
+
             .background(
                 when {
                     focused -> NmColor.Primary
@@ -529,7 +521,10 @@ private fun SourceChip(
             )
             .nmFocusRing(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
+            // Yıldız SAĞ ok ile değil, OK'a BASILI TUTARAK: çip şeridi yatay,
+            // SAĞ/SOL zaten çipler arasında geziniyor. Kanal listesi dikey
+            // olduğu için orada SAĞ ok boştaydı, burada değil.
+            .combinedClickable(onClick = onClick, onLongClick = { onFavori?.invoke() })
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
