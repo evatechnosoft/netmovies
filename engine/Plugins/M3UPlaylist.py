@@ -50,6 +50,12 @@ def _normalize_group(raw: str | None) -> str:
     return _GROUP_TR.get(ilk.lower(), ilk)
 
 
+def _tvg_ulke(tvg_id: str) -> str:
+    """`beINMoviesTurk.tr@SD` → `tr`. Ülke kodu yoksa boş döner."""
+    kok = (tvg_id or "").split("@")[0]
+    return kok.rsplit(".", 1)[-1].lower() if "." in kok else ""
+
+
 def _parse_m3u(content: str) -> list[dict]:
     """Bir M3U/M3U8 metnini normalize edilmiş öğe listesine çevirir."""
     items: list[dict] = []
@@ -95,6 +101,7 @@ def _parse_m3u(content: str) -> list[dict]:
                 "title":      meta["title"],
                 "group":      meta["group"],
                 "poster":     meta["poster"],
+                "tvg_id":     meta["tvg_id"],
                 "stream_url": line,
                 "headers":    dict(headers),
             })
@@ -151,7 +158,10 @@ class M3UPlaylist(PluginBase):
         raw = os.getenv("M3U_SOURCES", "").strip()
         if not raw:
             return
-        for src in (s.strip() for s in raw.split(",") if s.strip()):
+        gorulen = {it["stream_url"] for it in self._items}
+        for ham in (s.strip() for s in raw.split(",") if s.strip()):
+            src, _, ulke = ham.partition("#")
+            src, ulke = src.strip(), ulke.strip().lower()
             try:
                 if src.startswith(("http://", "https://")):
                     req = urllib.request.Request(src, headers={"User-Agent": "Mozilla/5.0"})
@@ -160,10 +170,23 @@ class M3UPlaylist(PluginBase):
                 else:
                     with open(src, "r", encoding="utf-8", errors="ignore") as fh:
                         content = fh.read()
-                self._items.extend(_parse_m3u(content))
             except Exception:
                 # Bir kaynak hatalıysa diğerlerini düşürme
                 continue
+
+            for it in _parse_m3u(content):
+                # `liste.m3u#tr` → yalnız o ülkenin kanalları. iptv-org kategori
+                # listeleri dünya çapında (749 film kanalı); süzgeçsiz eklemek
+                # listeyi Dean'in hiç açmayacağı kanallarla dolduruyor.
+                if ulke and _tvg_ulke(it["tvg_id"]) != ulke:
+                    continue
+                # Aynı akış birden çok listede geçiyor (tr.m3u ∩ tur.m3u): URL
+                # anahtarıyla tekilleştirilir. Aynı ADLI farklı URL bilerek kalır —
+                # biri ölürse diğeri kanalı ayakta tutar.
+                if it["stream_url"] in gorulen:
+                    continue
+                gorulen.add(it["stream_url"])
+                self._items.append(it)
 
     def _group_of(self, url: str) -> str:
         return url.split("m3u://group/", 1)[-1] if url.startswith("m3u://group/") else url

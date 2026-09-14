@@ -83,7 +83,13 @@ services:
       # (b.prectvNN.sbs) tamamen NXDOMAIN olduğu için Canlı TV bu listeden gelir.
       # `ozel.m3u` Yönetim panelinden yazılır (yoksa sessizce atlanır): yayıncının
       # resmi YouTube canlı yayınları da buraya eklenebilir, eklenti çözer.
-      M3U_SOURCES: ${M3U_SOURCES:-https://iptv-org.github.io/iptv/countries/tr.m3u,/data/lists/ozel.m3u}
+      # Canlı TV kaynakları. `#tr` soneki = yalnız o ülkenin kanalları (iptv-org
+      # kategori listeleri dünya çapında; süzgeçsiz eklemek listeyi çöpe çevirir).
+      # Aynı akış birden çok listede geçerse eklenti URL bazında tekilleştirir.
+      #   countries/tr    → Türkiye kanalları (asıl gövde)
+      #   languages/tur   → yurtdışındaki Türkçe kanallar (Kanal D Drama, Timeless Dizi…)
+      #   categories/movies#tr → 7/24 Türkçe film kanalları (beIN Box Office, MovieSmart…)
+      M3U_SOURCES: ${M3U_SOURCES:-https://iptv-org.github.io/iptv/countries/tr.m3u,https://iptv-org.github.io/iptv/languages/tur.m3u,https://iptv-org.github.io/iptv/categories/movies.m3u#tr,https://iptv-org.github.io/iptv/categories/series.m3u#tr,/data/lists/ozel.m3u}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
       # Aşağıdakiler yalnızca elle SABİTLEMEK istersen; boşsa otomatik çalışır.
       RECTV_URL: ${RECTV_URL:-}

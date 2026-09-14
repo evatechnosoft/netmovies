@@ -3,8 +3,10 @@
 # Oynatma zinciri iki kat şifreli; ikisi de sayfanın kendi JS'inden okundu:
 #   1. Film sayfasında `var scx = {"<kaynak>":{"tt":<b64 ad>,"sx":{"t":["<şifre>"]}}}`.
 #      Şifre ROT13 + base64 → embed adresi (`https://rapidvid.net/vod/<id>`).
-#   2. Embed sayfasında `av('<şifre>')`: ters çevir → base64 → "K9L" döngüsüne göre
-#      karakter kaydırma (1,3,2) → base64 → akış adresi.
+#   2. Embed sayfasında şifreli yük: ters çevir → base64 → "K9L" döngüsüne göre
+#      karakter kaydırma (1,3,2) → base64. Yük iki biçimde olabilir:
+#        · eski `av('<şifre>')`      → doğrudan akış adresi
+#        · yeni `window._p8='<şifre>'` → JSON; akış `cm`/`tm`, altyazılar `ct`
 #
 # Kart yapısı listede ve aramada aynı: `li.film` içinde `a.tt`, `span.trz` (dil
 # rozeti), `span.film-yil`, `span.imdb`, poster `picture > source[data-srcset]`.
@@ -15,7 +17,7 @@ import base64
 import json
 import re
 
-from KekikStream.Core import ExtractResult, MainPageResult, MovieInfo, PluginBase, SearchResult
+from KekikStream.Core import ExtractResult, MainPageResult, MovieInfo, PluginBase, SearchResult, Subtitle
 from Plugins.__kekik_domain import discover_main_url
 
 _MAIN_URL = discover_main_url(
@@ -33,6 +35,9 @@ _YIL    = re.compile(r'<span class="film-yil">(\d{4})</span>')
 _DIL    = re.compile(r'<span class="trz[^"]*"[^>]*title="([^"]*)"')
 _SCX    = re.compile(r"var\s+scx\s*=\s*(\{.*?\});", re.S)
 _AV     = re.compile(r"av\(['\"]([A-Za-z0-9+/=]{20,})['\"]\)")
+# rapidvid 2026-09'da `av(...)` çağrısını bıraktı, aynı şifreyi `window._p8`
+# değişkenine taşıdı. Şema aynı, taşıyıcı değişti; ikisi de destekleniyor.
+_P8     = re.compile(r"window\._p8\s*=\s*['\"]([A-Za-z0-9+/=]{20,})['\"]")
 
 # `av()` içindeki kaydırma anahtarı: "K9L" → (75%5)+1, (57%5)+1, (76%5)+1
 _KAYDIRMA = [ord(harf) % 5 + 1 for harf in "K9L"]
@@ -113,14 +118,42 @@ class FullHDFilmizlesene(PluginBase):
             return None
 
     @staticmethod
-    def _akis_adresi(sifreli: str) -> str | None:
-        """`av()` girdisi: ters → base64 → "K9L" kaydırması → base64."""
+    def _yuku_coz(sifreli: str) -> str | None:
+        """Embed şifresi: ters → base64 → "K9L" kaydırması → base64."""
         try:
             ara = _b64(sifreli[::-1]).decode("latin-1")
-            duz = "".join(chr(ord(ch) - _KAYDIRMA[i % 3]) for i, ch in enumerate(ara))
+            duz = "".join(chr((ord(ch) - _KAYDIRMA[i % 3]) % 256) for i, ch in enumerate(ara))
             return _b64(duz).decode("utf-8")
         except Exception:
             return None
+
+    @classmethod
+    def _akis_ve_altyazi(cls, frame_html: str) -> tuple[str | None, list[Subtitle]]:
+        """Embed sayfasından akış adresini ve varsa altyazıları çıkarır."""
+        esle = _AV.search(frame_html) or _P8.search(frame_html)
+        if not esle:
+            return None, []
+
+        cozulen = cls._yuku_coz(esle.group(1))
+        if not cozulen:
+            return None, []
+
+        # Eski biçim düz adres döndürüyordu; yeni biçim JSON.
+        if not cozulen.lstrip().startswith("{"):
+            return cozulen, []
+
+        try:
+            yuk = json.loads(cozulen)
+        except ValueError:
+            return None, []
+
+        akis = yuk.get("cm") or yuk.get("tm")
+        altyazilar = [
+            Subtitle(name=(iz.get("label") or "Altyazı").strip(), url=iz["file"])
+            for iz in (yuk.get("ct") or [])
+            if iz.get("file")
+        ]
+        return akis, altyazilar
 
     async def load_links(self, url: str) -> list[ExtractResult]:
         page = await self.httpx.get(url, headers={"User-Agent": _UA})
@@ -144,9 +177,8 @@ class FullHDFilmizlesene(PluginBase):
                 if not embed:
                     continue
 
-                frame = await self.httpx.get(embed, headers={"User-Agent": _UA, "Referer": f"{self.main_url}/"})
-                av    = _AV.search(frame.text)
-                akis  = self._akis_adresi(av.group(1)) if av else None
+                frame            = await self.httpx.get(embed, headers={"User-Agent": _UA, "Referer": f"{self.main_url}/"})
+                akis, altyazilar = self._akis_ve_altyazi(frame.text)
                 if not akis:
                     continue
 
@@ -157,7 +189,7 @@ class FullHDFilmizlesene(PluginBase):
                         url        = akis,
                         referer    = embed,
                         user_agent = _UA,
-                        subtitles  = [],
+                        subtitles  = altyazilar,
                     )
                 )
         return self.deduplicate(results)

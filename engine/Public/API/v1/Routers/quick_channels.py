@@ -12,32 +12,38 @@ from .    import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 from ..Libs import epg
 
-# Ölü yayın sunucuları listeden düşürülür: iptv-org listesi bayatlıyor ve süresi
-# dolmuş domainler (park sayfasına düşen `nord.ayakkabiparti.lol` gibi) kanal
-# kanal denenip "açılmıyor" olarak yaşanıyordu. Kontrol HOST başına yapılır —
-# tek domain onlarca kanalı taşıyor, kanal başına istek gereksiz.
-_HOST_TTL   = 6 * 3600
-_host_cache: dict[str, tuple[float, bool]] = {}
+# Ölü yayınlar listeden düşürülür: iptv-org listesi bayatlıyor ve süresi dolmuş
+# adresler kanal kanal denenip "açılmıyor" olarak yaşanıyordu.
+#
+# Kontrol AKIŞ ADRESİ başına yapılır, host başına değil: sunucu ayakta olduğu
+# hâlde tek bir kanalın yolu 404 dönebiliyor — ATV ve Beyaz TV tam olarak böyle
+# ölüydü, host süzgeci ikisini de canlı sayıyordu. Sonuç 6 saat önbellekli,
+# istekler paralel; maliyet liste tazelenirken bir kez ödenir.
+_HOST_TTL    = 6 * 3600
+_stream_cache: dict[str, tuple[float, bool]] = {}
+# Aynı anda açılan bağlantı tavanı — liste büyüdükçe (kategori listeleri yüzlerce
+# kanal getirebilir) engine'i kendi sağlık taramasıyla boğmamak için.
+_ESZAMANLI   = 40
 
 
-async def _host_ok(client: httpx.AsyncClient, url: str) -> bool:
-    host = urlsplit(url).netloc
-    if not host:
+async def _stream_ok(client: httpx.AsyncClient, url: str, kapi: asyncio.Semaphore) -> bool:
+    if not urlsplit(url).netloc:
         return False
 
-    hit = _host_cache.get(host)
+    hit = _stream_cache.get(url)
     if hit and time.monotonic() - hit[0] < _HOST_TTL:
         return hit[1]
 
     ok = False
     try:
-        # Akışın kendisi indirilmez: bağlantı kurulup ilk yanıt başlığı yeter.
-        resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        ok   = resp.status_code < 400
+        async with kapi:
+            # Akışın kendisi indirilmez: bağlantı kurulup ilk yanıt başlığı yeter.
+            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            ok   = resp.status_code < 400
     except Exception:
         ok = False
 
-    _host_cache[host] = (time.monotonic(), ok)
+    _stream_cache[url] = (time.monotonic(), ok)
     return ok
 
 
@@ -60,16 +66,17 @@ async def collect_live_channels(check_health: bool = True) -> list[dict[str, str
     if not check_health or not channels:
         return channels
 
-    hosts = {urlsplit(c["url"] or "").netloc: (c["url"] or "") for c in channels}
+    adresler = sorted({c["url"] or "" for c in channels})
+    kapi     = asyncio.Semaphore(_ESZAMANLI)
     async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
-        sonuc = await asyncio.gather(*(_host_ok(client, url) for url in hosts.values()))
-    canli = {host for host, ok in zip(hosts, sonuc) if ok}
+        sonuc = await asyncio.gather(*(_stream_ok(client, url, kapi) for url in adresler))
+    canli = {url for url, ok in zip(adresler, sonuc) if ok}
 
-    elenen = [c for c in channels if urlsplit(c["url"] or "").netloc not in canli]
+    elenen = [c for c in channels if (c["url"] or "") not in canli]
     if elenen:
-        konsol.log(f"[yellow]∅ canlı:[/] {len(elenen)} kanal elendi · ölü sunucu: {sorted({urlsplit(c['url'] or '').netloc for c in elenen})}")
+        konsol.log(f"[yellow]∅ canlı:[/] {len(elenen)} kanal elendi · ölü: {sorted({str(c['title']) for c in elenen})[:20]}")
 
-    return [c for c in channels if urlsplit(c["url"] or "").netloc in canli]
+    return [c for c in channels if (c["url"] or "") in canli]
 
 
 @api_v1_router.get("/quick_channels")
