@@ -114,6 +114,11 @@ fun BrowseScreen(
     // için arama terimi telefondan gelir; geldiğinde doğrudan aranır.
     remoteQuery: String? = null,
     onRemoteQueryUsed: () -> Unit = {},
+    // Ajandadan gelen başlıkta arama sonucu listede bırakılmaz: tek eşleşme
+    // varsa doğrudan açılır (Dean: "onu da aramaya atıyor, direk diziye
+    // gitmiyor"). Birden çok sonuçta liste kalır — yanlış diziyi açmaktansa
+    // seçtirmek doğru.
+    otomatikAc: Boolean = false,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -198,6 +203,7 @@ fun BrowseScreen(
     var results by remember { mutableStateOf<List<MediaItem>?>(null) }
     var resultsTitle by remember { mutableStateOf("") }
     var resultsLoading by remember { mutableStateOf(false) }
+    var acilacakBaslik by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         try {
@@ -274,8 +280,21 @@ fun BrowseScreen(
         val metin = remoteQuery?.trim().orEmpty()
         if (metin.isNotEmpty() && plugins.isNotEmpty()) {
             query = metin
+            acilacakBaslik = if (otomatikAc) metin else null
             doSearch(metin)
             onRemoteQueryUsed()
+        }
+    }
+
+    // Arama bitince: tek sonuç ya da başlığı birebir tutan tek kayıt varsa aç.
+    LaunchedEffect(results, resultsLoading) {
+        val hedef = acilacakBaslik
+        val liste = results
+        if (hedef != null && liste != null && !resultsLoading) {
+            acilacakBaslik = null
+            val tam = liste.filter { it.title.equals(hedef, ignoreCase = true) }
+            val acilacak = tam.singleOrNull() ?: liste.singleOrNull()
+            if (acilacak != null) onSelect(acilacak)
         }
     }
 

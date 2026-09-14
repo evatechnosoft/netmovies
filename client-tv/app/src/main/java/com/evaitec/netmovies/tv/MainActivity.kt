@@ -115,6 +115,9 @@ class MainActivity : ComponentActivity() {
                         var showAdmin by remember { mutableStateOf(false) }
                         var showFollowing by remember { mutableStateOf(false) }
                         var showAgenda by remember { mutableStateOf(false) }
+                        // Gözat'a ajandadan mı girildi: GERİ oraya dönsün, arama
+                        // sonucu tek eşleşmeyse dizi doğrudan açılsın.
+                        var ajandadanGeldi by remember { mutableStateOf(false) }
                         var showChannels by remember { mutableStateOf(false) }
 
                         // Aynı APK telefona da kuruluyor (leanback zorunlu değil).
@@ -309,6 +312,7 @@ class MainActivity : ComponentActivity() {
                                     // (remoteQuery) Gözat'ın aramasına düşer.
                                     onAra = { baslik ->
                                         kumandaMetni = baslik
+                                        ajandadanGeldi = true
                                         showAgenda = false
                                         showBrowse = true
                                     },
@@ -329,7 +333,18 @@ class MainActivity : ComponentActivity() {
                                     // Telefondan yazılan metin: geldiğinde arama kutusuna düşer.
                                     remoteQuery = kumandaMetni,
                                     onRemoteQueryUsed = { kumandaMetni = null },
-                                    onBack = { showBrowse = false; browseVaultMode = false }
+                                    // Ajandadan gelen başlıkta tek eşleşme doğrudan açılır.
+                                    otomatikAc = ajandadanGeldi,
+                                    // ...ve GERİ, gelinen yere döner: ajandadan girip
+                                    // ana ekrana düşmek "teker teker dönmek" oluyordu.
+                                    onBack = {
+                                        showBrowse = false
+                                        browseVaultMode = false
+                                        if (ajandadanGeldi) {
+                                            ajandadanGeldi = false
+                                            showAgenda = true
+                                        }
+                                    }
                                 )
                             else ->
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {

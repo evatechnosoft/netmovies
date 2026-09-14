@@ -26,7 +26,7 @@ import httpx
 
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
-from ..Libs.ajanda_grup import gunlere_bol
+from ..Libs.ajanda_grup import aralikla, gunlere_bol
 
 _API_KEY   = os.getenv("TMDB_API_KEY", "").strip()
 _DISCOVER  = "https://api.themoviedb.org/3/discover/tv"
@@ -39,8 +39,9 @@ _CACHE_TTL = 24 * 60 * 60
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
 # Detay çekilecek dizi adayı sayısı: `discover` popülerlik sırasıyla döndüğü için
-# ilk sayfa yeter, ama her aday bir istek demek — üst sınır konur.
-_ADAY_SINIRI = 20
+# baştan almak yeter, ama her aday bir istek demek — üst sınır konur. Aylık
+# aralık haftalıktan geniş olduğu için sınır iki sayfaya çıkarıldı.
+_ADAY_SINIRI = 40
 
 _client = httpx.AsyncClient(
     timeout = httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=5.0),
@@ -89,14 +90,21 @@ async def _dizi_bolumu(dizi_id: int, bas: datetime.date, son: datetime.date) -> 
 
 
 async def _diziler(bas: datetime.date, son: datetime.date) -> list[dict]:
-    liste = await _json(_DISCOVER, {
-        "language"           : "tr-TR",
-        "with_origin_country": "TR",
-        "air_date.gte"       : str(bas),
-        "air_date.lte"       : str(son),
-        "sort_by"            : "popularity.desc",
-    })
-    adaylar = [x.get("id") for x in (liste.get("results") or [])[:_ADAY_SINIRI] if x.get("id")]
+    # `discover` sayfa başına 20 kayıt veriyor; tek sayfa aylık aralığa yetmiyordu
+    # (aynı gün haftada görünen dizi ayda listeden düşüyordu). İki sayfa çekilir.
+    sayfalar = await asyncio.gather(*(
+        _json(_DISCOVER, {
+            "language"           : "tr-TR",
+            "with_origin_country": "TR",
+            "air_date.gte"       : str(bas),
+            "air_date.lte"       : str(son),
+            "sort_by"            : "popularity.desc",
+            "page"               : sayfa,
+        })
+        for sayfa in (1, 2)
+    ))
+    kayitlar = [x for liste in sayfalar for x in (liste.get("results") or [])]
+    adaylar  = list(dict.fromkeys(x["id"] for x in kayitlar if x.get("id")))[:_ADAY_SINIRI]
     satirlar = await asyncio.gather(*(_dizi_bolumu(i, bas, son) for i in adaylar), return_exceptions=True)
     return [s for s in satirlar if isinstance(s, dict)]
 
@@ -137,14 +145,21 @@ async def agenda_verisi(view: str) -> dict:
     if not _API_KEY:
         return {"view": view, "toplam": 0, "gunler": [], "hata": "TMDB_API_KEY yok"}
 
-    onbellek = _cache.get(view)
+    # HER İKİ görünüm de AYLIK turdan beslenir, hafta ondan süzülür. Ayrı sorgu
+    # atıldığında `discover` iki aralık için farklı "ilk 20 popüler" listesi
+    # döndürüyordu: aynı gün haftada 6, ayda 5 satır görünüyor, ay haftanın alt
+    # kümesi olmuyordu. Tek tur hem bunu keser hem TMDB isteğini yarıya indirir.
+    onbellek = _cache.get("month")
     if onbellek and onbellek[0] > time.monotonic():
         satirlar = onbellek[1]
     else:
-        bas, son = _aralik(view)
+        bas, son = _aralik("month")
         diziler, filmler = await asyncio.gather(_diziler(bas, son), _filmler(bas, son))
         satirlar = sorted(diziler + filmler, key=lambda s: (s["tarih"], s["baslik"]))
-        _cache[view] = (time.monotonic() + _CACHE_TTL, satirlar)
+        _cache["month"] = (time.monotonic() + _CACHE_TTL, satirlar)
+
+    if view == "week":
+        satirlar = aralikla(satirlar, str(_aralik("week")[1]))
 
     return {"view": view, "toplam": len(satirlar), "gunler": gunlere_bol(satirlar)}
 

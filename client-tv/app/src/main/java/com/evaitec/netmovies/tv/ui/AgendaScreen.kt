@@ -7,13 +7,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,12 +28,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.KeyEvent as ComposeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.AgendaDay
@@ -42,7 +43,10 @@ import com.evaitec.netmovies.tv.input.NmBackHandler
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
-import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
+import com.evaitec.netmovies.tv.ui.theme.nmBottomScrim
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRingOnly
+import com.evaitec.netmovies.tv.ui.theme.nmFocusScale
+import com.evaitec.netmovies.tv.ui.theme.nmScale
 import android.view.KeyEvent
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -54,9 +58,9 @@ import java.util.Locale
 // bileşen her Android TV'de aynı davranmıyor (bkz. AdminScreen). Veri zaten
 // `/api/v1/agenda`'da hazır — gruplama ve sıralama sunucuda, burada yalnız çizim.
 //
-// Kayıtlar TMDB'den geliyor: öğede oynatma adresi YOK, katalogda karşılığı da
-// olmayabilir. Bu yüzden satıra basmak doğrudan oynatmaz, başlığı Gözat'ın
-// aramasına düşürür — kaynağı zincir orada bulur.
+// Yerleşim Gözat ile AYNI: gün başlığı tam satır, altında poster ızgarası.
+// Liste biçimindeyken uygulamanın geri kalanından ayrı duruyordu (Dean:
+// "gününde gösterim farklılığı, liste ve grid").
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -69,10 +73,13 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
 
     NmBackHandler { onBack() }
 
-    // Aralık için ayrı bir odak hedefi açmak yerine yatay tuşlar kullanılır:
-    // liste dikey kayıyor, SAĞ/SOL boşta duruyordu.
-    val kok = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { kok.requestFocus() } }
+    // Odak doğrudan İLK KARTA gider. Önceki sürümde dış Column `focusable()`
+    // olduğu için odak orada takılı kalıyor, D-pad ızgaraya inemiyordu (Dean:
+    // "listeye basamıyoruz, sadece en üsttekini seçiyor").
+    val ilkKart = remember { FocusRequester() }
+    LaunchedEffect(gunler) {
+        if (gunler.isNotEmpty()) runCatching { ilkKart.requestFocus() }
+    }
 
     LaunchedEffect(aylik) {
         loading = true
@@ -87,8 +94,10 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
         Modifier
             .fillMaxSize()
             .padding(horizontal = NmDim.SafeH)
-            .focusRequester(kok)
-            .focusable()
+            // Aralık için ayrı bir odak hedefi açmak yerine yatay tuşlar kullanılır:
+            // ızgara dikey kayıyor, SAĞ/SOL yalnız satır sonunda boşta kalıyor.
+            // Olay odaktaki karttan buraya kabarır; kapsayıcının odağı olması
+            // gerekmez.
             .onKeyEvent { ke: ComposeKeyEvent ->
                 val kod = ke.nativeKeyEvent.keyCode
                 val yatay = kod == KeyEvent.KEYCODE_DPAD_LEFT || kod == KeyEvent.KEYCODE_DPAD_RIGHT
@@ -96,7 +105,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
                     aylik = !aylik
                     true
                 } else {
-                    yatay
+                    false
                 }
             },
     ) {
@@ -108,9 +117,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             modifier = Modifier.padding(top = NmDim.SafeV, bottom = 4.dp),
         )
         Text(
-            // Aralık değiştirmek için ayrı bir odak hedefi açmak yerine, zaten elde
-            // olan SAĞ/SOL tuşu kullanılır: liste dikey kayıyor, yatay boşta.
-            text = "SAĞ/SOL: hafta ↔ ay  ·  OK: Gözat'ta ara",
+            text = "SAĞ/SOL: hafta ↔ ay  ·  OK: diziyi aç",
             fontSize = NmType.Caption,
             color = NmColor.OnSurfaceMuted,
             modifier = Modifier.padding(bottom = 10.dp),
@@ -120,16 +127,28 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             loading -> AjandaBos("Yükleniyor…")
             error != null -> AjandaBos(error!!)
             gunler.isEmpty() -> AjandaBos("Bu aralıkta yayın yok.")
-            else -> LazyColumn(
+            else -> LazyVerticalGrid(
                 modifier = Modifier.fillMaxSize().focusGroup(),
+                columns = GridCells.Adaptive(minSize = NmDim.GridPosterMin),
                 contentPadding = PaddingValues(bottom = NmDim.SafeV),
-                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+                horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
+                var sira = 0
                 gunler.forEach { gun ->
-                    item { GunBasligi(gun.tarih, gun.ogeler.size) }
-                    items(gun.ogeler.size) { i ->
-                        val oge = gun.ogeler[i]
-                        AjandaSatiri(oge) { onAra(oge.baslik) }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        GunBasligi(gun.tarih, gun.ogeler.size)
+                    }
+                    gun.ogeler.forEach { oge ->
+                        val ilk = sira == 0
+                        sira++
+                        item {
+                            AjandaKarti(
+                                oge = oge,
+                                modifier = if (ilk) Modifier.focusRequester(ilkKart) else Modifier,
+                                onAc = { onAra(oge.baslik) },
+                            )
+                        }
                     }
                 }
             }
@@ -161,31 +180,38 @@ private fun GunBasligi(tarih: String, adet: Int) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun AjandaSatiri(oge: AgendaItem, onAc: () -> Unit) {
-    // Satır ODAK ALIR ve OK ile açılır: ajanda "ne var" listesiydi, gördüğün
-    // bölüme gitmenin yolu yoktu (Dean: "bastın mı gidilebilecek şekilde olabilir").
-    // Ajanda TMDB takviminden geliyor, öğede oynatma adresi YOK — bu yüzden OK
-    // başlığı Gözat'ın aramasına düşürür, zincir kaynağı orada bulur.
+private fun AjandaKarti(oge: AgendaItem, modifier: Modifier = Modifier, onAc: () -> Unit) {
+    // Kart Gözat'taki posterle aynı ölçü ve odak davranışında. Ajanda TMDB
+    // takviminden geliyor, öğede oynatma adresi YOK: OK başlığı Gözat'ın
+    // aramasına düşürür, tek eşleşme varsa dizi doğrudan açılır.
     var focused by remember { mutableStateOf(false) }
+    val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "ajandaScale")
     val shape = RoundedCornerShape(NmDim.CardRadius)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
+    Box(
+        modifier = modifier
+            .aspectRatio(2f / 3f)
+            .nmScale(scale)
+            .zIndex(if (focused) 1f else 0f)
             .clip(shape)
-            .background(if (focused) NmColor.SurfaceHigh else NmColor.Surface)
-            .nmFocusRing(focused, shape)
+            .background(NmColor.SurfaceHigh)
+            .nmFocusRingOnly(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onAc() }
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .clickable { onAc() },
     ) {
-        Box(Modifier.width(46.dp).height(68.dp).clip(RoundedCornerShape(6.dp))) {
-            PosterImage(poster = oge.poster, title = oge.baslik, modifier = Modifier.fillMaxSize())
-        }
-        // TV ekranı geniş; başlık ve özet tek satıra kırpılıyordu. Odaktaki satır
-        // tam metni gösterir, diğerleri kısa kalır — liste yine taranabilir olsun.
-        Column(Modifier.weight(1f)) {
+        PosterImage(poster = oge.poster, title = oge.baslik, modifier = Modifier.fillMaxSize())
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(62.dp)
+                .background(nmBottomScrim),
+        )
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        ) {
             Text(
                 text = oge.baslik,
                 fontWeight = FontWeight.SemiBold,
@@ -196,8 +222,7 @@ private fun AjandaSatiri(oge: AgendaItem, onAc: () -> Unit) {
             )
             Text(
                 text = buildString {
-                    append(if (oge.tur == "film") "Film" else "Dizi")
-                    append(" · ").append(oge.bolum)
+                    append(oge.bolum)
                     if (oge.puan > 0) append(" · ★ ").append(oge.puan)
                 },
                 fontSize = NmType.Caption,
@@ -205,15 +230,6 @@ private fun AjandaSatiri(oge: AgendaItem, onAc: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (oge.ozet.isNotBlank()) {
-                Text(
-                    text = oge.ozet,
-                    fontSize = NmType.Caption,
-                    color = NmColor.OnSurfaceMuted,
-                    maxLines = if (focused) 6 else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }

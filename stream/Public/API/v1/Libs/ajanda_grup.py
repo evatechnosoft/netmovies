@@ -6,6 +6,17 @@
 from __future__ import annotations
 
 
+def aralikla(satirlar: list[dict], son_gun: str) -> list[dict]:
+    """Aylık listeden haftalık görünümü süzer.
+
+    Hafta ve ay ayrı TMDB turuyla çekildiğinde `discover` iki aralık için farklı
+    "ilk N popüler" listesi döndürüyordu: aynı gün haftada 6, ayda 5 satır
+    görünüyor, ay haftanın alt kümesi olmuyordu. Tek liste çekilip burada
+    süzülür — iki görünüm arasında tutarsızlık kalmaz.
+    """
+    return [s for s in satirlar if s["tarih"] <= son_gun]
+
+
 def gunlere_bol(satirlar: list[dict]) -> list[dict]:
     """Tarihe göre sıralı satırları gün başlıklarına böler.
 
