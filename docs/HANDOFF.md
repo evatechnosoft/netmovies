@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `a9e9313` · temiz, push'lı
-**Sürümler:** TV `v0.2.4-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `b2dec7c` · temiz, push'lı
+**Sürümler:** TV `v0.2.5-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
@@ -17,22 +17,25 @@
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.2.4)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.2.5)
 
 Dean v0.2.2'yi TV'de gezdi; ajandadan gelen beş bulgu düzeltilip **v0.2.3**
 çıkarıldı (bkz. 0.7). Motor tarafındaki üç düzeltme de aynı turda görülebilir
 (0.6). **v0.1.98 → v0.2.2 arasındaki maddeler hâlâ denenmedi.**
 
-1. TV'ye OTA'dan **v0.2.4**'ü kur (`/api/v1/app_update?target=tv`).
-2. **Arama (v0.2.4 — yeni):** üst barın SOL BAŞINDAKİ büyüteç kendi arama
+1. TV'ye OTA'dan **v0.2.5**'i kur (`/api/v1/app_update?target=tv`).
+2. **Güncelleme (v0.2.5 — yeni):** güncelle → indir → kurulum ekranını KAPAT →
+   tekrar güncelle: APK **yeniden inmemeli**, doğrudan kuruluma gitmeli.
+   Dosya `Android/data/com.evaitec.netmovies.tv/files/update-<tag>.apk`.
+3. **Arama (v0.2.4):** üst barın SOL BAŞINDAKİ büyüteç kendi arama
    ekranını açmalı (Gözat'ı değil; Gözat artık ayrı düğme). Bir şey ara → GERİ:
    sonuç listesinden arama geçmişine, oradan ana ekrana dönmeli. Tekrar girince
    **aynı sonuçlar durmalı**. Son aramalar: üstte 6 satır + "Hepsini göster" +
    "Geçmişi temizle"; uygulamayı kapat-aç, geçmiş kalmalı.
-3. **Canlı TV'de kanal gezme (v0.2.4 — yeni):** bir kanal aç, YUKARI sonraki /
+4. **Canlı TV'de kanal gezme (v0.2.4):** bir kanal aç, YUKARI sonraki /
    AŞAĞI önceki kanala geçmeli — ekrandan çıkmadan. Dizi/filmde bu iki tuş eski
    işini yapmalı (YUKARI scrub, AŞAĞI ayarlar).
-4. **Ajanda (v0.2.3–v0.2.4):**
+5. **Ajanda (v0.2.3–v0.2.4):**
    - Hafta/ay artık SAĞ/SOL değil, başlığın altındaki **iki düğme**.
    - Izgarada aşağı inerken liste **başa sıçramamalı**.
    - Ekran poster **ızgarası** olmalı, tek satırlık liste değil; gün başlığı tam
@@ -113,6 +116,26 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.9 14 Eylül gecesi — güncelleme önbelleği ve katalog (TV v0.2.5)
+
+**Her güncellemede APK baştan iniyordu.** `downloadApk` tek bir `update.apk`
+dosyasına yazıp her çağrıda siliyordu; inmiş dosyanın hangi sürüm olduğu
+bilinemediği için saklanamıyordu da. Dosya adı artık sürümü taşıyor
+(`update-<tag>.apk`), indirme öncesi `apkHazir()` bakıyor: dosya var ve boyutu
+sunucunun bildirdiğine eşitse doğrudan kuruluma gidiyor. Boyut doğrulaması şart
+— yarım dosya kuruluma gitmesin. Eski sürüm artıkları yeni indirmede siliniyor.
+
+**evaitecOTA katalogunda NetMovies TV vardı ama 0.1.80'de kalmıştı** (11 Eylül,
+13 sürüm geride) — Dean'in "bulamadım" dediği bu. Release
+`netmovies-tv-v0.2.5` açıldı (evaglass-releases), `apps.json` → `netmovies-tv`
+girdisi ona bağlandı. Katalogdaki `netmovies-phone` girdisi hâlâ 0.1.80; aynı
+APK telefonda kumanda olarak çalışıyor, güncellenmedi.
+
+> Üç dağıtım yeri ayrı ve elle: (1) ev sunucusu `data/apk/` → uygulama içi OTA,
+> (2) `evatechnosoft/netmovies` release'leri (v0.1.56'da duruyor, kullanılmıyor),
+> (3) `evaglass-releases` release + `apps.json` → evaitecOTA. Yeni sürümde (1)
+> her zaman, (3) Dean'in evaitecOTA'dan kurması gerekiyorsa.
 
 ## 0.8 14 Eylül gecesi — kanal gezme, arama ekranı, ajanda kayması (TV v0.2.4)
 
