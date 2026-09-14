@@ -47,12 +47,30 @@ _GROUP_TR = {
 #
 # ULUSAL — genel izleyiciye yayın yapan ana kanallar. Haber/spor/çocuk gibi
 # tematik kanallar KASITLI olarak dışarıda: onların kendi grubu zaten çalışıyor.
+# TRT 2/3/Türk/Avaz/Kurdî kasıtlı YOK: Dean bunları favorilerine alıyor, ana
+# yayın rafında yer kaplamaları istenmedi. TRT 1 kalıyor.
 _ULUSAL = {
-    "trt 1", "trt1", "trt 2", "trt2", "trt 3", "trt3",
-    "trt turk", "trt türk", "trt avaz", "trt kurdi", "trt kurdî",
+    "trt 1", "trt1",
     "atv", "kanal d", "star tv", "show tv", "now tv", "fox tv",
     "tv 8", "tv8", "kanal 7", "beyaz tv", "teve2", "tv 360", "360 tv",
 }
+
+# Yabancı film kanalları — iptv-org `categories/movies` içinde 585 canlı kanal
+# var, çoğu bölgesel ABD yayını ya da İspanyolca/Portekizce. Buraya yalnız
+# tanınmış marka + İngilizce yayın alındı; hepsi TR'den 200 döndüğü ölçülerek
+# seçildi. Kaynak soneki `#secme` bu kümeyi süzer ve "Yabancı Film" grubuna yazar.
+_SECME_FILM = {
+    "AMC.us", "AMCEurope.uk", "CinemaxClassics.us", "CinemaxHits.us",
+    "HBOMovies.us", "ParamountMovieChannel.us", "StarzCinema.us",
+    "HallmarkMoviesMore.us", "MovieSphere.us", "Runtime.us", "DUST.us",
+    "FilmRiseWestern.us", "GravitasMovies.us", "ClassicMoviesChannel.us",
+    "PlutoTVTrendingNow.us", "PlutoTVSpotlight.us", "PlutoTVStaffPicks.us",
+    "PlutoTVIcons.us", "PlutoTVFranchiseFavorites.us", "PlutoTVActionMovies.us",
+    "PlutoTVComedyMovies.us", "PlutoTVCrimeMovies.us", "PlutoTVDramaMovies.us",
+    "PlutoTVHorror.us", "PlutoTVSciFi.us", "PlutoTVThrillers.us",
+    "PlutoTVWesterns.us", "PlutoTVCultFilms.us", "PlutoTVRomance.us",
+}
+_SECME_GRUP = "Yabancı Film"
 
 # BÖLGESEL — şehir/ilçe yayını. İki işaretten biri yeter: adın içinde bir il adı
 # geçiyor, ya da ad sadece "Kanal/TV + plaka kodu" kalıbında (Kanal 58 = Sivas,
@@ -230,7 +248,8 @@ class M3UPlaylist(PluginBase):
         raw = os.getenv("M3U_SOURCES", "").strip()
         if not raw:
             return
-        gorulen = {it["stream_url"] for it in self._items}
+        gorulen       = {it["stream_url"] for it in self._items}
+        secme_gorulen: set[str] = set()
         for ham in (s.strip() for s in raw.split(",") if s.strip()):
             src, _, ulke = ham.partition("#")
             src, ulke = src.strip(), ulke.strip().lower()
@@ -250,7 +269,18 @@ class M3UPlaylist(PluginBase):
                 # `liste.m3u#tr` → yalnız o ülkenin kanalları. iptv-org kategori
                 # listeleri dünya çapında (749 film kanalı); süzgeçsiz eklemek
                 # listeyi Dean'in hiç açmayacağı kanallarla dolduruyor.
-                if ulke and _tvg_ulke(it["tvg_id"]) != ulke:
+                if ulke == "secme":
+                    kimlik = it["tvg_id"].split("@")[0]
+                    if kimlik not in _SECME_FILM:
+                        continue
+                    # Aynı kanalın bölgesel kopyaları ayrı satır: "AMC Europe
+                    # Bulgary/Czech/Hungary", "Pluto TV Sci-Fi" üç kez. Aynı
+                    # yayının dublaj varyantları — rafta tekrar olarak duruyor.
+                    if kimlik in secme_gorulen:
+                        continue
+                    secme_gorulen.add(kimlik)
+                    it["group"] = _SECME_GRUP
+                elif ulke and _tvg_ulke(it["tvg_id"]) != ulke:
                     continue
                 # Aynı akış birden çok listede geçiyor (tr.m3u ∩ tur.m3u): URL
                 # anahtarıyla tekilleştirilir. Aynı ADLI farklı URL bilerek kalır —

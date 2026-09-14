@@ -35,6 +35,7 @@ _ESZAMANLI   = 40
 # onlarca istek atınca kanallar zaman aşımına düşüp "ölü" sayılıyordu — tek tek
 # denendiğinde hepsi 200 veriyor. Tarama kendi sonucunu bozmasın.
 _host_kapilari: dict[str, asyncio.Semaphore] = {}
+_tarama: asyncio.Task | None = None
 
 
 async def _stream_ok(client: httpx.AsyncClient, url: str, kapi: asyncio.Semaphore) -> bool:
@@ -60,6 +61,32 @@ async def _stream_ok(client: httpx.AsyncClient, url: str, kapi: asyncio.Semaphor
     return ok
 
 
+def _bilinen(url: str) -> bool | None:
+    """Önbellekteki taze sonuç; yoksa None (henüz yoklanmadı)."""
+    hit = _stream_cache.get(url)
+    if hit and time.monotonic() - hit[0] < (_CANLI_TTL if hit[1] else _OLU_TTL):
+        return hit[1]
+    return None
+
+
+async def _tara(adresler: list[str]) -> None:
+    kapi = asyncio.Semaphore(_ESZAMANLI)
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            await asyncio.gather(*(_stream_ok(client, url, kapi) for url in adresler))
+    finally:
+        global _tarama
+        _tarama = None
+
+
+def _tarama_baslat(adresler: list[str]) -> None:
+    """Sağlık taramasını arka planda başlatır; aynı anda tek tarama koşar."""
+    global _tarama
+    if _tarama and not _tarama.done():
+        return
+    _tarama = asyncio.create_task(_tara(adresler))
+
+
 async def collect_live_channels(check_health: bool = True) -> list[dict[str, str | None]]:
     """M3U tabanlı eklentilerin tüm gruplarındaki kanalları düz listeye açar.
 
@@ -79,17 +106,21 @@ async def collect_live_channels(check_health: bool = True) -> list[dict[str, str
     if not check_health or not channels:
         return channels
 
-    adresler = sorted({c["url"] or "" for c in channels})
-    kapi     = asyncio.Semaphore(_ESZAMANLI)
-    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
-        sonuc = await asyncio.gather(*(_stream_ok(client, url, kapi) for url in adresler))
-    canli = {url for url, ok in zip(adresler, sonuc) if ok}
+    adresler   = sorted({c["url"] or "" for c in channels})
+    bilinmeyen = [u for u in adresler if _bilinen(u) is None]
 
-    elenen = [c for c in channels if (c["url"] or "") not in canli]
+    # Tarama İSTEĞİN İÇİNDE yapılmaz: 200+ kanal, host başına sıraya giren
+    # istekler ve yavaş sunucularla dakikalara çıkıyor, ağ geçidi 504 veriyordu.
+    # Bilinmeyen adresler arka planda yoklanır; bu turda "canlı" sayılırlar
+    # (kart kaybetmemek için) ve bir sonraki tazelemede süzülürler.
+    if bilinmeyen:
+        _tarama_baslat(bilinmeyen)
+
+    elenen = [c for c in channels if _bilinen(c["url"] or "") is False]
     if elenen:
         konsol.log(f"[yellow]∅ canlı:[/] {len(elenen)} kanal elendi · ölü: {sorted({str(c['title']) for c in elenen})[:20]}")
 
-    return [c for c in channels if (c["url"] or "") in canli]
+    return [c for c in channels if _bilinen(c["url"] or "") is not False]
 
 
 @api_v1_router.get("/quick_channels")

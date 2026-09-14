@@ -89,7 +89,9 @@ services:
       #   countries/tr    → Türkiye kanalları (asıl gövde)
       #   languages/tur   → yurtdışındaki Türkçe kanallar (Kanal D Drama, Timeless Dizi…)
       #   categories/movies#tr → 7/24 Türkçe film kanalları (beIN Box Office, MovieSmart…)
-      M3U_SOURCES: ${M3U_SOURCES:-https://iptv-org.github.io/iptv/countries/tr.m3u,https://iptv-org.github.io/iptv/languages/tur.m3u,https://iptv-org.github.io/iptv/categories/movies.m3u#tr,https://iptv-org.github.io/iptv/categories/series.m3u#tr,/data/lists/ozel.m3u}
+      #   categories/movies#secme → seçilmiş yabancı film kanalları (AMC, HBO Movies,
+      #     Pluto TV Trending Now/Icons/Sci-Fi…) → "Yabancı Film" grubu
+      M3U_SOURCES: ${M3U_SOURCES:-https://iptv-org.github.io/iptv/countries/tr.m3u,https://iptv-org.github.io/iptv/languages/tur.m3u,https://iptv-org.github.io/iptv/categories/movies.m3u#tr,https://iptv-org.github.io/iptv/categories/series.m3u#tr,https://iptv-org.github.io/iptv/categories/movies.m3u#secme,/data/lists/ozel.m3u}
       # Domainler otomatik keşfedilir (Kekik-cloudstream'den güncel çekilir).
       # Aşağıdakiler yalnızca elle SABİTLEMEK istersen; boşsa otomatik çalışır.
       RECTV_URL: ${RECTV_URL:-}
