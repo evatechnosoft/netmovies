@@ -8,9 +8,9 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `df37c0d` · temiz, push'lı
-**Sürümler:** TV `v0.2.6-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.4`
-**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone 0.2.6 (vc 206), evaitecOTA 0.1.4 (vc 5)
+**Dal:** `fix/general-stability` @ `47fc3e1` · temiz, push'lı
+**Sürümler:** TV `v0.2.8-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
+**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone 0.2.8 (vc 208) · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 34/34 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
@@ -83,6 +83,35 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.12 14-15 Eylül gecesi — kaynak yıldızı, kare kodla APK aktarımı
+
+**Gözat'ta kaynaklara yıldız** (TV v0.2.7 → v0.2.8). 16 eklentilik çip şeridinde
+en çok kullanılana ulaşmak için sona kadar gitmek gerekiyordu. Yıldızlılar başta
+ve kendi aralarında alfabetik; kayıt sunucuda (`prefs` → `fav_providers`), kanal
+favorileriyle aynı yer. **İlk denemede yıldızı SAĞ oka bağlamak hataydı**: çip
+şeridi yatay, SAĞ/SOL zaten çipler arasında geziniyor — kanal listesi dikey
+olduğu için orada boştaydı, burada değil. v0.2.8'de OK'a basılı tutmaya alındı.
+
+**Telefondan televizyona APK aktarımı** (evaitecOTA 0.1.6 → 0.1.7). Wear veri
+katmanı yalnız saat için çalışıyor; TV'ye gönderme yolu yoktu. LocalSend mantığı,
+küçük bir HTTP el sıkışması:
+- TV: "📥 Telefondan APK al" → dinleyici açılır, adresi KARE KOD olarak gösterilir
+  (`ApkAlimActivity`, zxing core). Ekran açık kaldıkça art arda dosya alır, her
+  APK kendi adıyla kaydedilip kurulum kapısına gider.
+- Telefon: katalogdaki TV uygulamalarında "Televizyona gönder" → kodu okut →
+  APK iner ve yerel ağdan akar. Adres hatırlanır; ikinci dosyada kod okutulmaz,
+  gönderim hata verirse unutulur (TV'de alım ekranı kapanmış olabilir).
+- Çekirdek `appkit/transfer/LocalApkTransfer.kt`: ServerSocket alıcı,
+  Content-Length ile tam boyut doğrulaması, HttpURLConnection gönderici.
+- **Kasıtlı basitlik:** keşif (mDNS/NSD) yok — kare kod hem daha az kod hem
+  "hangi cihaz benim" sorusunu bitiriyor. Eşleştirme kodu da yok (Dean: "aynı ağ
+  yeter"); güvenlik sınırı dinleyicinin ömrü — yalnız alım ekranı açıkken ayakta.
+- **Cihazda DENENMEDİ** — yalnız derlendi.
+
+**evaitecOTA 0.1.5:** katalog elle tazelenebiliyor (telefonda aşağı çekme, TV'de
+"↻ Listeyi yenile") ve `netmovies-mini-watch` 0.1.1'de bayat kalmıştı, 0.1.2'ye
+çekildi.
 
 ## 0.11 14 Eylül gecesi — Dizilla sezonları, evaitecOTA listesi
 
