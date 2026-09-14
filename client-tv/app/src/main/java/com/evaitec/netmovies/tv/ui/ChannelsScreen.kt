@@ -51,7 +51,12 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun ChannelsScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
+fun ChannelsScreen(
+    onSelect: (MediaItem) -> Unit,
+    onBack: () -> Unit,
+    /** Yüklenen kanal listesi — oynatıcı kanal geçişi için bunu kullanır. */
+    onKanallar: (List<MediaItem>) -> Unit = {},
+) {
     var all by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -65,7 +70,7 @@ fun ChannelsScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
 
     LaunchedEffect(Unit) {
         runCatching { Network.api.quickChannels().result }
-            .onSuccess { all = it }
+            .onSuccess { all = it; onKanallar(it) }
             .onFailure { error = it.message ?: "Kanallar alınamadı" }
         favUrls = runCatching { okuFavoriler(Network.api.prefsGet().result) }.getOrDefault(emptySet())
         loading = false

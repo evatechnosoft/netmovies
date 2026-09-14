@@ -125,6 +125,7 @@ fun HomeScreen(
     menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
@@ -144,14 +145,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -171,6 +172,7 @@ private fun CategoryRows(
     menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
@@ -265,6 +267,7 @@ private fun CategoryRows(
             item {
                 TopBar(
                     onOpenBrowse = onOpenBrowse,
+                    onOpenSearch = onOpenSearch,
                     onOpenRemote = onOpenRemote,
                     onOpenChannels = onOpenChannels,
                     onOpenAgenda = onOpenAgenda,
@@ -357,6 +360,7 @@ private fun CategoryRows(
 @Composable
 private fun TopBar(
     onOpenBrowse: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenRemote: () -> Unit,
     onOpenChannels: () -> Unit,
     onOpenAgenda: () -> Unit,
@@ -378,11 +382,16 @@ private fun TopBar(
             color = NmColor.Primary,
             modifier = Modifier.padding(end = 4.dp),
         )
+        // Büyüteç SOL BAŞTA: en sık kullanılan giriş, sağ uçta kaybolmasın
+        // (Dean: "arama butonu ana ekran sol üstte olsun, sadece büyüteç").
+        // Artık Gözat'ı değil kendi arama ekranını açıyor; Gözat'ın kendi
+        // arama kutusu yerinde duruyor.
+        TvTopBarButton("🔎", onClick = onOpenSearch, compact = true)
         TvTopBarButton("📡  Canlı TV", onClick = onOpenChannels)
         TvTopBarButton("🗓  Ajanda", onClick = onOpenAgenda)
         TvTopBarButton("★  Listem", onClick = onOpenFollowing)
+        TvTopBarButton("▦  Gözat", onClick = onOpenBrowse)
         Spacer(Modifier.weight(1f))
-        TvTopBarButton("🔎", onClick = onOpenBrowse, compact = true)
         TvTopBarButton("📱", onClick = onOpenRemote, compact = true)
         TvTopBarButton("⚙", onClick = onOpenSettings, compact = true)
     }

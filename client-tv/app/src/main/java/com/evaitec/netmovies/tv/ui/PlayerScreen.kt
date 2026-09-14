@@ -133,6 +133,10 @@ fun PlayerScreen(
     onBack: () -> Unit,
     /** Uygulamanın ana ekranına dön (sistemin HOME tuşu değil — o uygulamaya gelmez). */
     onHome: () -> Unit = onBack,
+    /** Canlı TV'de gezilecek kanal listesi; boşsa kanal geçişi kapalı. */
+    kanallar: List<MediaItem> = emptyList(),
+    /** Kanal değişimi — ekranı kapatmadan aynı oynatıcıda yeni kanala geçilir. */
+    onKanal: (MediaItem) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -360,6 +364,17 @@ fun PlayerScreen(
         exo.playWhenReady = true
     }
 
+    // Kanal geçişi yalnız canlı yayında ve liste doluyken açık.
+    val kanalGecisiVar = canliYayin && kanallar.size > 1
+
+    fun kanalAtla(yon: Int) {
+        val simdiki = kanallar.indexOfFirst { it.url == item.url }
+        if (simdiki < 0) return
+        val hedef = kanallar[(simdiki + yon + kanallar.size) % kanallar.size]
+        onKanal(hedef)
+        flashControls()   // yeni kanalın adı kontrol çubuğunda görünsün
+    }
+
     fun dispatch(a: RemoteAction) {
         when (a) {
             RemoteAction.NONE -> Unit
@@ -370,13 +385,16 @@ fun PlayerScreen(
             RemoteAction.SEEK_BACK_60 -> seekBy(-60_000)
             RemoteAction.SEEK_HOLD_FWD -> seekBy(8_000)
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-8_000)
-            RemoteAction.OPEN_SETTINGS -> showSettings = true
+            RemoteAction.OPEN_SETTINGS -> if (kanalGecisiVar) kanalAtla(-1) else showSettings = true
             // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
             RemoteAction.OPEN_EPISODES ->
                 if (episodes.isEmpty()) showSettings = true
                 else { panelAsList = true; showStartPanel = true; showControls = false }
             RemoteAction.SHOW_CONTROLS -> flashControls()
-            RemoteAction.TOGGLE_SCRUB -> enterScrub()
+            // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
+            // Akışın "kaldığın yeri" yok, scrub anlamsız (Dean: "kanaldan
+            // çıkmadan kanallarda gezelim"). Dizi/filmde eski davranış duruyor.
+            RemoteAction.TOGGLE_SCRUB -> if (kanalGecisiVar) kanalAtla(+1) else enterScrub()
             RemoteAction.BACK -> onBack()
         }
     }

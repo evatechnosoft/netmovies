@@ -118,6 +118,13 @@ class MainActivity : ComponentActivity() {
                         // Gözat'a ajandadan mı girildi: GERİ oraya dönsün, arama
                         // sonucu tek eşleşmeyse dizi doğrudan açılsın.
                         var ajandadanGeldi by remember { mutableStateOf(false) }
+                        var showSearch by remember { mutableStateOf(false) }
+                        // Canlı TV listesi oynatıcıya taşınır: kanal değiştirmek
+                        // için ekrandan çıkmak gerekmesin.
+                        var kanalListesi by remember { mutableStateOf<List<com.evaitec.netmovies.tv.data.MediaItem>>(emptyList()) }
+                        // Arama durumu ekranın DIŞINDA yaşar: ekran bileşimden
+                        // çıkınca `remember` ölüyor, dönüşte sonuç kayboluyordu.
+                        val searchState = remember { com.evaitec.netmovies.tv.ui.SearchState() }
                         var showChannels by remember { mutableStateOf(false) }
 
                         // Aynı APK telefona da kuruluyor (leanback zorunlu değil).
@@ -289,6 +296,8 @@ class MainActivity : ComponentActivity() {
                                     library = library,
                                     onBack = { selected = null },
                                     onHome = anaSayfa,
+                                    kanallar = kanalListesi,
+                                    onKanal = { selected = it },
                                 )
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
@@ -303,6 +312,13 @@ class MainActivity : ComponentActivity() {
                                 com.evaitec.netmovies.tv.ui.ChannelsScreen(
                                     onSelect = pick,
                                     onBack = { showChannels = false },
+                                    onKanallar = { kanalListesi = it },
+                                )
+                            showSearch ->
+                                com.evaitec.netmovies.tv.ui.SearchScreen(
+                                    state = searchState,
+                                    onSelect = pick,
+                                    onBack = { showSearch = false },
                                 )
                             showAgenda ->
                                 com.evaitec.netmovies.tv.ui.AgendaScreen(
@@ -358,6 +374,7 @@ class MainActivity : ComponentActivity() {
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).
                                         onExit = { finish() },
                                         onOpenBrowse = { browseVaultMode = false; showBrowse = true },
+                                        onOpenSearch = { showSearch = true },
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenRemote = { showRemote = true },
                                         onOpenVault = { browseVaultMode = true; showBrowse = true },

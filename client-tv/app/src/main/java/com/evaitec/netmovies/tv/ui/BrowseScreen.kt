@@ -692,7 +692,7 @@ private fun ItemGrid(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun BrowsePoster(item: MediaItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "browseScale")
     val shape = RoundedCornerShape(NmDim.CardRadius)

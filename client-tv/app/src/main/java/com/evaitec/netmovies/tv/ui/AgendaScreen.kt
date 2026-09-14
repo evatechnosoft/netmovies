@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -28,8 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.KeyEvent as ComposeKeyEvent
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +46,6 @@ import com.evaitec.netmovies.tv.ui.theme.nmBottomScrim
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRingOnly
 import com.evaitec.netmovies.tv.ui.theme.nmFocusScale
 import com.evaitec.netmovies.tv.ui.theme.nmScale
-import android.view.KeyEvent
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -76,9 +74,17 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     // Odak doğrudan İLK KARTA gider. Önceki sürümde dış Column `focusable()`
     // olduğu için odak orada takılı kalıyor, D-pad ızgaraya inemiyordu (Dean:
     // "listeye basamıyoruz, sadece en üsttekini seçiyor").
+    //
+    // İlk odak YALNIZ BİR KEZ istenir: her veri tazelemesinde istenirse ızgarada
+    // aşağı inerken liste başa sıçrıyordu (Dean: "sistem kaydırdığı için
+    // yeniliyor ve tekrar başa geçiyor").
     val ilkKart = remember { FocusRequester() }
+    var odakVerildi by remember { mutableStateOf(false) }
     LaunchedEffect(gunler) {
-        if (gunler.isNotEmpty()) runCatching { ilkKart.requestFocus() }
+        if (gunler.isNotEmpty() && !odakVerildi) {
+            odakVerildi = true
+            runCatching { ilkKart.requestFocus() }
+        }
     }
 
     LaunchedEffect(aylik) {
@@ -93,21 +99,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = NmDim.SafeH)
-            // Aralık için ayrı bir odak hedefi açmak yerine yatay tuşlar kullanılır:
-            // ızgara dikey kayıyor, SAĞ/SOL yalnız satır sonunda boşta kalıyor.
-            // Olay odaktaki karttan buraya kabarır; kapsayıcının odağı olması
-            // gerekmez.
-            .onKeyEvent { ke: ComposeKeyEvent ->
-                val kod = ke.nativeKeyEvent.keyCode
-                val yatay = kod == KeyEvent.KEYCODE_DPAD_LEFT || kod == KeyEvent.KEYCODE_DPAD_RIGHT
-                if (yatay && ke.nativeKeyEvent.action == KeyEvent.ACTION_UP) {
-                    aylik = !aylik
-                    true
-                } else {
-                    false
-                }
-            },
+            .padding(horizontal = NmDim.SafeH),
     ) {
         Text(
             text = if (aylik) "🗓  Ajanda — Bu Ay ($toplam)" else "🗓  Ajanda — Bu Hafta ($toplam)",
@@ -116,12 +108,16 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             color = NmColor.OnSurface,
             modifier = Modifier.padding(top = NmDim.SafeV, bottom = 4.dp),
         )
-        Text(
-            text = "SAĞ/SOL: hafta ↔ ay  ·  OK: diziyi aç",
-            fontSize = NmType.Caption,
-            color = NmColor.OnSurfaceMuted,
+        // Aralık SAĞ/SOL tuşuyla değişiyordu: ızgarada satır sonuna gelince yatay
+        // tuş aralığı değiştirip listeyi baştan yüklüyordu — kart seçmeye
+        // çalışırken ekran altından kayıyordu. Artık iki düğme, ızgaradan ayrı.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(bottom = 10.dp),
-        )
+        ) {
+            AralikDugmesi("Bu Hafta", secili = !aylik) { aylik = false }
+            AralikDugmesi("Bu Ay", secili = aylik) { aylik = true }
+        }
 
         when {
             loading -> AjandaBos("Yükleniyor…")
@@ -153,6 +149,29 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun AralikDugmesi(etiket: String, secili: Boolean, onSec: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.CardRadius)
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (secili) NmColor.Primary else NmColor.Surface)
+            .nmFocusRingOnly(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onSec() }
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = etiket,
+            fontSize = NmType.Caption,
+            fontWeight = if (secili) FontWeight.Bold else FontWeight.Normal,
+            color = if (secili) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
+        )
     }
 }
 
