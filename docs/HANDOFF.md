@@ -8,8 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `a0b4a76` · temiz, push'lı
-**Sürümler:** TV `v0.2.2-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Dal:** `fix/general-stability` @ `b88fd4a` · temiz, push'lı
+**Sürümler:** TV `v0.2.3-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
@@ -69,9 +69,6 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 
 ## Çözülemeyen iki gözlem
 
-- **"Ajandada hafta 5 ay 4 gösteriyor."** Sunucu doğru: `view=week` 7 gün/25 kayıt,
-  `view=month` 12 gün/35 kayıt (parametrenin adı `view`, `range` değil). Cihazda
-  başlıkta hangi sayıların yazdığı sorulacak.
 - **"İkinci girişte 12. bölümü son bölüm gibi gösterdi"** (Fırtınaya Doğru) ve
   **"Evlilik Güzeldir / MGM logolu film açıldı"**. İkisi de kanıtsız; ilki paneldeki
   normal `⏭ Son bölüm` satırı olabilir. İkincisi büyük ihtimalle DDizi sızıntısı +
@@ -99,6 +96,33 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.7 14 Eylül akşamı — ajanda kullanılabilir oldu (TV v0.2.3 + gateway)
+
+Dean TV'de ajandayı gezdi; dört ayrı arıza, dört ayrı kök neden:
+
+**Odak listeye inmiyordu** ("sadece en üsttekini seçiyor"). Dış Column
+`focusable()` idi, odak orada takılıyordu. Odak artık doğrudan ilk karta gider;
+hafta/ay değiştiren SAĞ/SOL, odaktaki karttan yukarı kabaran tuş olayıyla
+çalışır — kapsayıcının odak alması gerekmiyor.
+
+**OK diziyi açmıyordu.** Ajanda TMDB takviminden geliyor, öğede oynatma adresi
+yok; arama zorunlu. Artık sonuç listede bırakılmıyor: başlığı birebir tutan tek
+kayıt (ya da tek sonuç) doğrudan açılır. Birden çok sonuçta liste kalır —
+yanlış diziyi açmaktansa seçtirmek doğru.
+
+**Geri, ajandaya dönmüyordu.** Gözat'a ajandadan girildiği izlenmiyordu.
+
+**Ajanda liste, geri kalan ızgaraydı.** Ajanda da Gözat'la aynı poster
+ızgarasına geçti: gün başlığı tam satır, altında kartlar.
+
+**"Hafta 26 ama bugün 6, ay 36 ama bugün 5"** — kanıtsız değilmiş: hafta ve ay
+AYRI TMDB turuyla çekiliyordu, `discover` iki aralık için farklı "ilk N popüler"
+listesi döndürüyor, ay haftanın alt kümesi olmuyordu. Artık tek aylık tur
+çekilip hafta ondan süzülüyor (`aralikla`, saf fonksiyon — router'ı testten
+import etmek dairesel import veriyor, `ajanda_grup` dersinin aynısı). `discover`
+sayfa başına 20 kayıt verdiği için iki sayfa okunuyor: bugün iki görünümde de 7,
+haftalık toplam 24 → 30.
 
 ## 0.6 14 Eylül öğleden sonra — ölü sağlayıcı, kirli katalog, yeni kanallar (engine)
 
