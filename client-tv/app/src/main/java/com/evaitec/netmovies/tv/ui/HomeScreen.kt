@@ -386,11 +386,14 @@ private fun TopBar(
         // (Dean: "arama butonu ana ekran sol üstte olsun, sadece büyüteç").
         // Artık Gözat'ı değil kendi arama ekranını açıyor; Gözat'ın kendi
         // arama kutusu yerinde duruyor.
+        // Hepsi yalnız İKON: metinli düğmeler dar ekranda satır sarıyor ve
+        // "Aja/nda" gibi kırpılmış etiketler çıkıyordu (Dean: "üstte yazılar
+        // kalmasın"). Gözat aramanın hemen yanında, başta.
         TvTopBarButton("🔎", onClick = onOpenSearch, compact = true)
-        TvTopBarButton("📡  Canlı TV", onClick = onOpenChannels)
-        TvTopBarButton("🗓  Ajanda", onClick = onOpenAgenda)
-        TvTopBarButton("★  Listem", onClick = onOpenFollowing)
-        TvTopBarButton("▦  Gözat", onClick = onOpenBrowse)
+        TvTopBarButton("▦", onClick = onOpenBrowse, compact = true)
+        TvTopBarButton("📡", onClick = onOpenChannels, compact = true)
+        TvTopBarButton("🗓", onClick = onOpenAgenda, compact = true)
+        TvTopBarButton("★", onClick = onOpenFollowing, compact = true)
         Spacer(Modifier.weight(1f))
         TvTopBarButton("📱", onClick = onOpenRemote, compact = true)
         TvTopBarButton("⚙", onClick = onOpenSettings, compact = true)
