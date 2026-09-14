@@ -7,9 +7,9 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 14 Eylül 2026 (akşam)
-**Dal:** `fix/general-stability` @ `fe57b3c` · temiz, push'lı
-**Sürümler:** TV `v0.2.3-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
+**Son güncelleme:** 14 Eylül 2026 (gece)
+**Dal:** `fix/general-stability` @ `a9e9313` · temiz, push'lı
+**Sürümler:** TV `v0.2.4-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
@@ -17,19 +17,28 @@
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.2.3)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.2.4)
 
 Dean v0.2.2'yi TV'de gezdi; ajandadan gelen beş bulgu düzeltilip **v0.2.3**
 çıkarıldı (bkz. 0.7). Motor tarafındaki üç düzeltme de aynı turda görülebilir
 (0.6). **v0.1.98 → v0.2.2 arasındaki maddeler hâlâ denenmedi.**
 
-1. TV'ye OTA'dan **v0.2.3**'ü kur (`/api/v1/app_update?target=tv`).
-2. **Ajanda (v0.2.3 — yeni):**
+1. TV'ye OTA'dan **v0.2.4**'ü kur (`/api/v1/app_update?target=tv`).
+2. **Arama (v0.2.4 — yeni):** üst barın SOL BAŞINDAKİ büyüteç kendi arama
+   ekranını açmalı (Gözat'ı değil; Gözat artık ayrı düğme). Bir şey ara → GERİ:
+   sonuç listesinden arama geçmişine, oradan ana ekrana dönmeli. Tekrar girince
+   **aynı sonuçlar durmalı**. Son aramalar: üstte 6 satır + "Hepsini göster" +
+   "Geçmişi temizle"; uygulamayı kapat-aç, geçmiş kalmalı.
+3. **Canlı TV'de kanal gezme (v0.2.4 — yeni):** bir kanal aç, YUKARI sonraki /
+   AŞAĞI önceki kanala geçmeli — ekrandan çıkmadan. Dizi/filmde bu iki tuş eski
+   işini yapmalı (YUKARI scrub, AŞAĞI ayarlar).
+4. **Ajanda (v0.2.3–v0.2.4):**
+   - Hafta/ay artık SAĞ/SOL değil, başlığın altındaki **iki düğme**.
+   - Izgarada aşağı inerken liste **başa sıçramamalı**.
    - Ekran poster **ızgarası** olmalı, tek satırlık liste değil; gün başlığı tam
      satır, altında kartlar.
    - Odak ilk kartta başlamalı, AŞAĞI/YUKARI ızgarada gezmeli (eskiden odak
      kapsayıcıda takılıydı, yalnız en üstteki seçiliyordu).
-   - SAĞ/SOL hâlâ hafta ↔ ay değiştirmeli — artık odak karttayken de.
    - Bir karta OK: dizi **doğrudan açılmalı**. Birden çok eşleşme varsa arama
      listesi kalır (kasıtlı — yanlış diziyi açmaktansa seçtirmek).
    - Oradan GERİ: **ajandaya dönmeli**, ana ekrana değil.
