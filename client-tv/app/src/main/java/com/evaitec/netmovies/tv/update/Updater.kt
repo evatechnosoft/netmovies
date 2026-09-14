@@ -51,12 +51,40 @@ object Updater {
      * Bu yüzden önce `.part` dosyasına inilir, boyut Content-Length ile doğrulanır,
      * ancak tamsa asıl ada taşınır — yarım APK hiçbir zaman kurulmaya gitmez.
      */
-    fun downloadApk(context: Context, url: String): File {
+    private fun apkDosyasi(context: Context, tag: String): File {
         val dir = context.getExternalFilesDir(null) ?: context.filesDir
-        val out = File(dir, "update.apk")
-        val part = File(dir, "update.apk.part")
+        // Dosya adı SÜRÜMÜ taşır: tek "update.apk" olduğunda inmiş dosyanın hangi
+        // sürüm olduğu bilinemiyor, her açılışta silinip yeniden indiriliyordu.
+        return File(dir, "update-${tag.replace(Regex("[^A-Za-z0-9._-]"), "_")}.apk")
+    }
+
+    /**
+     * Bu sürüm zaten inmişse dosyayı döner, yoksa null.
+     *
+     * `beklenenBoyut` sunucunun bildirdiği boyut: yarım kalmış bir dosya tekrar
+     * kurulmaya gitmesin. Boyut bilinmiyorsa (0) yalnız "var ve boş değil"
+     * koşulu aranır.
+     */
+    fun apkHazir(context: Context, tag: String, beklenenBoyut: Long): File? {
+        val dosya = apkDosyasi(context, tag)
+        if (!dosya.exists() || dosya.length() == 0L) return null
+        if (beklenenBoyut > 0 && dosya.length() != beklenenBoyut) {
+            dosya.delete()
+            return null
+        }
+        return dosya
+    }
+
+    fun downloadApk(context: Context, url: String, tag: String): File {
+        val dir = context.getExternalFilesDir(null) ?: context.filesDir
+        val out = apkDosyasi(context, tag)
+        val part = File(dir, "${out.name}.part")
         if (out.exists()) out.delete()
         if (part.exists()) part.delete()
+        // Başka sürümlerin artıkları birikmesin: TV'de yer dar.
+        dir.listFiles()?.forEach { f ->
+            if (f.name.startsWith("update-") && f.name != out.name) f.delete()
+        }
 
         val request = Request.Builder().url(url).build()
         http.newCall(request).execute().use { resp ->

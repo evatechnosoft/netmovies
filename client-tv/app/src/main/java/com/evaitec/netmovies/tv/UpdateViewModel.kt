@@ -18,7 +18,9 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.net.UnknownHostException
 
-data class UpdateInfo(val tag: String, val url: String)
+/** `size` sunucudan gelen APK boyutu; 0 = bilinmiyor (GitHub yolu).
+ *  İnmiş dosyanın tamlığını doğrulamak için kullanılır. */
+data class UpdateInfo(val tag: String, val url: String, val size: Long = 0)
 
 sealed interface UpdateUi {
     data object Idle : UpdateUi
@@ -108,7 +110,7 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
 
                 val apk = target.assets.first { it.name.endsWith(".apk") }
                 PlaybackLog.info("güncelleme", "yeni sürüm: ${target.tagName}")
-                _ui.value = UpdateUi.Available(UpdateInfo(target.tagName, apk.downloadUrl))
+                _ui.value = UpdateUi.Available(UpdateInfo(target.tagName, apk.downloadUrl, apk.size))
             } catch (e: Exception) {
                 PlaybackLog.fail("güncelleme", "kontrol başarısız", e)
                 _ui.value = UpdateUi.Failed(humanMessage(e))
@@ -126,7 +128,7 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun yerelGuncelleme(): UpdateInfo? = runCatching {
         withContext(Dispatchers.IO) { Network.api.appUpdate() }.result
             ?.takeIf { it.url.isNotBlank() && ReleaseVersion.isNewerThan(it.tag, BuildConfig.RELEASE_TAG) }
-            ?.let { UpdateInfo(it.tag, it.url) }
+            ?.let { UpdateInfo(it.tag, it.url, it.size) }
     }.getOrNull()
 
     fun download(info: UpdateInfo) {
@@ -141,9 +143,10 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val file = withContext(Dispatchers.IO) {
-                    Updater.downloadApk(context, info.url)
+                    Updater.apkHazir(context, info.tag, info.size)
+                        ?: Updater.downloadApk(context, info.url, info.tag)
                 }
-                PlaybackLog.info("güncelleme", "indirildi (${file.length() / 1024} KB) · kurulum açılıyor")
+                PlaybackLog.info("güncelleme", "kuruluma gidiyor (${file.length() / 1024} KB) · ${file.name}")
                 // 20 MB'lık oturum yazması ANA THREAD'deydi: kurulum başlarken
                 // uygulama saniyelerce donup ANR ile ölüyordu ("indirdi, patladı").
                 withContext(Dispatchers.IO) { Updater.installApk(context, file) }

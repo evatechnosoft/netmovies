@@ -24,6 +24,8 @@ data class GhRelease(
 data class GhAsset(
     val name: String = "",
     @SerialName("browser_download_url") val downloadUrl: String = "",
+    /** Bayt cinsinden boyut — inmiş APK'nın tamlığını doğrulamak için. */
+    val size: Long = 0,
 )
 
 interface GithubApi {
