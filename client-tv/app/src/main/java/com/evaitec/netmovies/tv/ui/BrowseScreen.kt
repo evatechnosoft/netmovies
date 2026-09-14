@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -204,6 +205,13 @@ fun BrowseScreen(
     var resultsTitle by remember { mutableStateOf("") }
     var resultsLoading by remember { mutableStateOf(false) }
     var acilacakBaslik by remember { mutableStateOf<String?>(null) }
+    // Yıldızlı kaynaklar SUNUCUDA (prefs): kanal favorileriyle aynı yer, aynı
+    // mantık — başka TV'den girince ya da yeniden kurunca kaybolmasın.
+    var favKaynaklar by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(Unit) {
+        favKaynaklar = runCatching { okuFavoriKaynaklar(Network.api.prefsGet().result) }
+            .getOrDefault(emptySet())
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -311,6 +319,16 @@ fun BrowseScreen(
             SourceChips(
                 names = plugins.map { it.name },
                 selected = selectedPlugin,
+                favoriler = favKaynaklar,
+                onFavori = { ad ->
+                    val yeni = if (ad in favKaynaklar) favKaynaklar - ad else favKaynaklar + ad
+                    favKaynaklar = yeni
+                    browseScope.launch {
+                        runCatching {
+                            Network.api.prefsPost(mapOf(FAV_KAYNAK_ANAHTAR to yeni.joinToString("\n")))
+                        }
+                    }
+                },
                 onSelect = { name ->
                     state.plugin = name
                     state.shelf = 0
@@ -448,25 +466,60 @@ private fun IconPill(glyph: String, onClick: () -> Unit) {
 // rafları başka kaynağınkilerle iç içe geçmez.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SourceChips(names: List<String>, selected: String?, onSelect: (String?) -> Unit) {
+private fun SourceChips(
+    names: List<String>,
+    selected: String?,
+    favoriler: Set<String>,
+    onSelect: (String?) -> Unit,
+    onFavori: (String) -> Unit,
+) {
+    // Yıldızlı kaynaklar başta: liste 16 eklentiye çıktı, en çok kullanılana
+    // ulaşmak için sonuna kadar gitmek gerekiyordu (Dean: "cehennemi için sona
+    // kadar gidiyorum"). Sıra: favoriler (alfabetik) → kalanlar (özgün sıra).
+    val sirali = remember(names, favoriler) {
+        names.filter { it in favoriler }.sorted() + names.filterNot { it in favoriler }
+    }
     LazyRow(
         modifier = Modifier.fillMaxWidth().focusGroup(),
         contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { SourceChip("Tümü", selected == null) { onSelect(null) } }
-        items(names.size) { i -> SourceChip(names[i], selected == names[i]) { onSelect(names[i]) } }
+        item { SourceChip("Tümü", selected == null, favori = false) { onSelect(null) } }
+        items(sirali.size) { i ->
+            val ad = sirali[i]
+            // SAĞ ok kanallarda favori ekliyor; burada da aynı hareket.
+            SourceChip(ad, selected == ad, favori = ad in favoriler, onFavori = { onFavori(ad) }) {
+                onSelect(ad)
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SourceChip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun SourceChip(
+    label: String,
+    active: Boolean,
+    favori: Boolean,
+    onFavori: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.PillRadius)
     Box(
         modifier = Modifier
             .clip(shape)
+            .onKeyEvent { ke ->
+                val sagOk = ke.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                if (onFavori != null && focused && sagOk &&
+                    ke.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP
+                ) {
+                    onFavori()
+                    true
+                } else {
+                    false
+                }
+            }
             .background(
                 when {
                     focused -> NmColor.Primary
@@ -480,7 +533,7 @@ private fun SourceChip(label: String, active: Boolean, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
-            text = label,
+            text = if (favori) "★ $label" else label,
             fontSize = NmType.Label,
             maxLines = 1,
             color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
@@ -751,4 +804,16 @@ private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
     }
+}
+
+
+// prefs'teki yıldızlı kaynak kaydı: satır başına bir eklenti adı.
+internal const val FAV_KAYNAK_ANAHTAR = "fav_providers"
+
+internal fun okuFavoriKaynaklar(
+    prefs: Map<String, kotlinx.serialization.json.JsonElement>,
+): Set<String> {
+    val ham = prefs[FAV_KAYNAK_ANAHTAR] ?: return emptySet()
+    val metin = (ham as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return emptySet()
+    return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }.toSet()
 }
