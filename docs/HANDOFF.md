@@ -114,6 +114,33 @@ Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
 
+## 0.8 14 Eylül gecesi — kanal gezme, arama ekranı, ajanda kayması (TV v0.2.4)
+
+**Canlı yayında kanal değiştirmek için çıkmak gerekmiyordu.** YUKARI sonraki,
+AŞAĞI önceki kanal — klasik TV davranışı. O iki tuşun canlıdaki eski işi
+(scrub / ayarlar) zaten boştaydı: akışın "kaldığın yeri" yok. Dizi ve filmde
+davranış değişmedi. Kanal listesi Canlı TV ekranından oynatıcıya taşınıyor
+(`ChannelsScreen.onKanallar` → `MainActivity.kanalListesi` → `PlayerScreen`).
+
+**Ajanda ızgarada kayıyordu, iki ayrı sebep:**
+1. Hafta/ay SAĞ-SOL tuşuna bağlıydı; ızgarada satır sonuna gelince yatay tuş
+   aralığı değiştirip listeyi baştan yüklüyordu. Aralık iki düğmeye taşındı.
+2. İlk karta odak HER veri tazelemesinde isteniyordu → aşağı inerken liste başa
+   sıçrıyordu. Odak yalnız bir kez isteniyor (`odakVerildi`).
+
+**Arama kendi ekranı oldu** (`SearchScreen.kt`). Büyüteç üst barın SOL BAŞINDA ve
+doğrudan aramayı açıyor; Gözat ayrı düğme, kendi arama kutusu yerinde.
+- Geçmiş cihazda: `netmovies_search` prefs, en fazla 40, aynı metin tekrar
+  aranınca başa taşınır. Üstte son 6 + "Hepsini göster" + "Geçmişi temizle".
+- Sorgu ve sonuçlar ekranın DIŞINDA (`SearchState`, MainActivity'de). `remember`
+  ekran bileşimden çıkınca ölüyor, GERİ'den dönen kullanıcı aramayı baştan
+  yazmak zorunda kalıyordu — `compose-screen-state-dies` dersinin aynısı, bu kez
+  aramada. Sonuçtayken GERİ arama geçmişine, oradan ana ekrana döner.
+
+> Bu beş değişikliğin hiçbiri CİHAZDA denenmedi; yalnız derlendi ve testler
+> geçti. Kanal geçişinde YUKARI/AŞAĞI kullanıcının kendi buton eşlemesiyle
+> değiştirilmişse davranış oradan gelir (Ayarlar → Buton Eşleme).
+
 ## 0.7 14 Eylül akşamı — ajanda kullanılabilir oldu (TV v0.2.3 + gateway)
 
 Dean TV'de ajandayı gezdi; dört ayrı arıza, dört ayrı kök neden:
