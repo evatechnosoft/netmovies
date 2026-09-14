@@ -7,45 +7,53 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 14 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `b88fd4a` · temiz, push'lı
+**Son güncelleme:** 14 Eylül 2026 (akşam)
+**Dal:** `fix/general-stability` @ `fe57b3c` · temiz, push'lı
 **Sürümler:** TV `v0.2.3-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33 · stream 108/108
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
 > ağ ad alanı stream'e pinli, o zaman `docker compose --profile tunnel up -d`.
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## SIRADAKİ İŞ — cihazda doğrulama (v0.1.95–v0.2.2)
+## SIRADAKİ İŞ — cihazda doğrulama (v0.2.3)
 
-> Not: 14 Eylül öğleden sonra motor tarafında üç düzeltme girdi (0.6) — TV
-> istemcisine dokunulmadı, aşağıdaki cihaz doğrulama listesi aynen geçerli.
-> Motor değişiklikleri de aynı turda görülebilir: **7.** maddeye eklendi.
+Dean v0.2.2'yi TV'de gezdi; ajandadan gelen beş bulgu düzeltilip **v0.2.3**
+çıkarıldı (bkz. 0.7). Motor tarafındaki üç düzeltme de aynı turda görülebilir
+(0.6). **v0.1.98 → v0.2.2 arasındaki maddeler hâlâ denenmedi.**
 
-Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.3, 0.4).
-**v0.1.98 → v0.2.2 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
-
-1. TV'ye OTA'dan **v0.2.2**'yi kur (`/api/v1/app_update?target=tv`).
-2. **Jenerik geri sayımı — v0.1.95'ten beri hiç doğrulanmadı.** Bir dizi bölümünü
-   sonuna kadar izle: jenerikte sağ altta "Sıradaki bölüm · 10" çıkmalı, GERİ
-   durdurmalı, SAĞ ok geçmeli. Çıkmazsa:
+1. TV'ye OTA'dan **v0.2.3**'ü kur (`/api/v1/app_update?target=tv`).
+2. **Ajanda (v0.2.3 — yeni):**
+   - Ekran poster **ızgarası** olmalı, tek satırlık liste değil; gün başlığı tam
+     satır, altında kartlar.
+   - Odak ilk kartta başlamalı, AŞAĞI/YUKARI ızgarada gezmeli (eskiden odak
+     kapsayıcıda takılıydı, yalnız en üstteki seçiliyordu).
+   - SAĞ/SOL hâlâ hafta ↔ ay değiştirmeli — artık odak karttayken de.
+   - Bir karta OK: dizi **doğrudan açılmalı**. Birden çok eşleşme varsa arama
+     listesi kalır (kasıtlı — yanlış diziyi açmaktansa seçtirmek).
+   - Oradan GERİ: **ajandaya dönmeli**, ana ekrana değil.
+   - Başlıktaki sayı ile gün sayıları tutarlı olmalı; hafta artık ayın alt kümesi
+     (aynı gün ikisinde de aynı adet).
+3. **Jenerik geri sayımı — v0.1.95'ten beri hiç doğrulanmadı, en eski açık.**
+   Bir dizi bölümünü sonuna kadar izle: jenerikte sağ altta "Sıradaki bölüm · 10"
+   çıkmalı, GERİ durdurmalı, SAĞ ok geçmeli. Çıkmazsa:
    `curl -u dean:1234 http://192.168.1.185:3310/api/v1/client_log` → oynatıcının
    `isaret` satırı (`açılış=… jenerik=… (subtitle)`); `-` ise o kaynakta altyazı
    yok ya da desen tutmamış.
-3. Üst bar: NetMovies · 📡 Canlı TV · 🗓 Ajanda · ★ Listem · 🔎 · 📱 · ⚙ — sekmeler
+4. Üst bar: NetMovies · 📡 Canlı TV · 🗓 Ajanda · ★ Listem · 🔎 · 📱 · ⚙ — sekmeler
    çalışıyor mu, arama büyüteci yeterli mi.
-4. Canlı TV: kanal **panelsiz** açılmalı; oynarken ⏮ tamponun başına, ⏭ canlıya
+5. Canlı TV: kanal **panelsiz** açılmalı; oynarken ⏮ tamponun başına, ⏭ canlıya
    gitmeli. Kanal favorisi SAĞ ok, uygulamayı kapat-aç kalıcı mı (`prefs` →
    `fav_channels`). Favoriler hem Canlı TV'de başta hem **Listem**'in tepesinde
    ("📡 Favori Kanallar"), kendi aralarında alfabetik olmalı.
    Bir kanal izleyip çık: **Devam Et rafına DÜŞMEMELİ** (v0.2.2) — eskiden düşüyor
    ve orada yanlış ad/poster gösteriyordu.
-5. Ajanda: satır OK ile Gözat aramasına düşmeli; odaktaki satır tam metni göstermeli.
 6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
 7. **Motor tarafı (0.6) — cihazda görülecekler:**
    - Canlı TV grupları: **Ulusal** (7) · **Yabancı Film** (29) · **Bölgesel** (26)
      · Film (7, Türkçe beIN'ler) · Genel (47). Toplam ~200 kanal.
+     Ulusal'da TRT 2/3/Türk/Avaz/Kurdî **yok** — Dean favorilerine alıyor.
    - Yeni film kanalları: beIN Box Office 1-3, beIN Movies Turk/Stars ve yabancı
      tarafta AMC, HBO Movies, Cinemax, Paramount, Pluto TV kuşakları.
    - Gözat → Dizilla: "Forum", "İletişim", "Gizlilik Politikası" posterleri
