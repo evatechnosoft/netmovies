@@ -77,12 +77,20 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
   sıra-bazlı eşleştirmeydi (ikisi de düzeldi). Tekrarlarında `client_log`:
   `resolve: arama — <eklenti> · '<sorgu>' → eşleşti: <başlık>`.
 
-## Bilinen sınır — ulusal kanallar
+## Kanal grupları — kendi eşleme tablomuz (14 Eylül)
 
-158 kanalda "Ulusal" etiketi YALNIZ Show TV'de; TRT/ATV/Kanal D "Genel"in (76)
-içinde. Etiketler iptv-org `group-title`'dan geliyor, biz üretmiyoruz. Tek kanallık
-kategoriler artık çip olarak gösterilmiyor. Düzgün gruplama istenirse kendi eşleme
-tablomuz gerekir — yapılmadı.
+Artık `Ulusal` (13) · `Bölgesel` (26) · `Genel` (43) ayrı. iptv-org bu etiketi
+vermiyordu, tablo `engine/Plugins/M3UPlaylist.py` içinde:
+- `_ULUSAL` — ana yayın kanalı adları. Tematik kanallar (haber/spor/çocuk)
+  kasıtlı dışarıda, kendi grupları çalışıyor.
+- `_ILLER` + plaka kalıbı + `_BOLGESEL_ADLAR` — şehir yayınları.
+- Yeni kanal yanlış grupta görünürse düzeltme yeri bu üç küme; kanal adı
+  `_sade()` ile sadeleşiyor ("ATV (1080p)" → "atv").
+
+Genel'de kalan 43'ün bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
+Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
+doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
+bir satır eklemek yeter.
 
 ## 0.6 14 Eylül öğleden sonra — ölü sağlayıcı, kirli katalog, yeni kanallar (engine)
 
