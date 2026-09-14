@@ -8,9 +8,9 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 14 Eylül 2026 (öğleden sonra)
-**Dal:** `fix/general-stability` @ `7054083` · temiz, push'lı
+**Dal:** `fix/general-stability` @ `a0b4a76` · temiz, push'lı
 **Sürümler:** TV `v0.2.2-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 25/25
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 33/33
 > Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
 > (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
 > ağ ad alanı stream'e pinli, o zaman `docker compose --profile tunnel up -d`.
@@ -44,9 +44,10 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 5. Ajanda: satır OK ile Gözat aramasına düşmeli; odaktaki satır tam metni göstermeli.
 6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
 7. **Motor tarafı (0.6) — cihazda görülecekler:**
-   - Canlı TV'de yeni film kanalları: beIN Box Office 1-3, beIN Movies Turk/Stars,
-     Kanal D Drama, Timeless Dizi. Kanal sayısı ~173 olmalı (ana sayfa ilk 60'ı
-     gösterir, tam liste Canlı TV ekranında).
+   - Canlı TV grupları: **Ulusal** (7) · **Yabancı Film** (29) · **Bölgesel** (26)
+     · Film (7, Türkçe beIN'ler) · Genel (47). Toplam ~200 kanal.
+   - Yeni film kanalları: beIN Box Office 1-3, beIN Movies Turk/Stars ve yabancı
+     tarafta AMC, HBO Movies, Cinemax, Paramount, Pluto TV kuşakları.
    - Gözat → Dizilla: "Forum", "İletişim", "Gizlilik Politikası" posterleri
      GİTMİŞ olmalı, 5 gerçek dizi kalmalı.
    - Gözat → FullHDFilmizlesene: bir film aç, oynamalı (bu sağlayıcı tamamen
@@ -79,6 +80,9 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
 
 ## Kanal grupları — kendi eşleme tablomuz (14 Eylül)
 
+> Ulusal rafında TRT 2/3/Türk/Avaz/Kurdî **yok** — Dean favorilerine alıyor.
+> TRT 1 kaldı. Geri kalanlar Genel'de.
+
 Artık `Ulusal` (13) · `Bölgesel` (26) · `Genel` (43) ayrı. iptv-org bu etiketi
 vermiyordu, tablo `engine/Plugins/M3UPlaylist.py` içinde:
 - `_ULUSAL` — ana yayın kanalı adları. Tematik kanallar (haber/spor/çocuk)
@@ -87,7 +91,11 @@ vermiyordu, tablo `engine/Plugins/M3UPlaylist.py` içinde:
 - Yeni kanal yanlış grupta görünürse düzeltme yeri bu üç küme; kanal adı
   `_sade()` ile sadeleşiyor ("ATV (1080p)" → "atv").
 
-Genel'de kalan 43'ün bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
+`_SECME_FILM` — yabancı film kanalı beyaz listesi; `categories/movies.m3u#secme`
+soneki bu kümeyi süzer ve "Yabancı Film" grubuna yazar. Aynı tvg-id'nin bölgesel
+kopyaları (AMC Europe Bulgary/Czech/Hungary) tekilleştirilir.
+
+Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
