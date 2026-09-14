@@ -10,9 +10,10 @@
 **Son güncelleme:** 14 Eylül 2026 (öğleden sonra)
 **Dal:** `fix/general-stability` @ `7054083` · temiz, push'lı
 **Sürümler:** TV `v0.2.2-poc` · saat `v0.1.2-poc` — ikisi de OTA'da
-**Yığın:** doh · engine · stream · warp · `smoke.sh` YEŞİL · engine 25/25
-> Tünel (`cloudflared`) şu an AYAKTA DEĞİL — `--profile tunnel` ile kalkmadı,
-> yani `w.evaitec.com` dışarıdan cevap vermez. Yerel adres çalışıyor.
+**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 25/25
+> Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
+> (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
+> ağ ad alanı stream'e pinli, o zaman `docker compose --profile tunnel up -d`.
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
@@ -20,6 +21,7 @@
 
 > Not: 14 Eylül öğleden sonra motor tarafında üç düzeltme girdi (0.6) — TV
 > istemcisine dokunulmadı, aşağıdaki cihaz doğrulama listesi aynen geçerli.
+> Motor değişiklikleri de aynı turda görülebilir: **7.** maddeye eklendi.
 
 Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.3, 0.4).
 **v0.1.98 → v0.2.2 arası hiç denenmedi.** Sıra bunların cihazda görülmesinde.
@@ -41,6 +43,14 @@ Dean v0.1.97'ye kadarını TV'de gördü; oradan gelen her bulgu düzeltildi (0.
    ve orada yanlış ad/poster gösteriyordu.
 5. Ajanda: satır OK ile Gözat aramasına düşmeli; odaktaki satır tam metni göstermeli.
 6. Gözat'ta kaynak değiştir → odak İLK posterde olmalı (v0.1.98).
+7. **Motor tarafı (0.6) — cihazda görülecekler:**
+   - Canlı TV'de yeni film kanalları: beIN Box Office 1-3, beIN Movies Turk/Stars,
+     Kanal D Drama, Timeless Dizi. Kanal sayısı ~173 olmalı (ana sayfa ilk 60'ı
+     gösterir, tam liste Canlı TV ekranında).
+   - Gözat → Dizilla: "Forum", "İletişim", "Gizlilik Politikası" posterleri
+     GİTMİŞ olmalı, 5 gerçek dizi kalmalı.
+   - Gözat → FullHDFilmizlesene: bir film aç, oynamalı (bu sağlayıcı tamamen
+     ölüydü). Kaynak listesinde "Türkçe Altyazı" görünüyorsa altyazı da geldi.
 
 ## Dean'e sorulan, cevap bekleyen
 
