@@ -57,6 +57,10 @@ def _search_poster(value: str | None) -> str | None:
     return value.replace(_AMP_PREFIX, "").replace("/f/f/", "/300/450/")
 
 
+_SEZON_NO = re.compile(r"-(\d+)-sezon/?$")
+_BOLUM_NO = re.compile(r"-(\d+)-bolum")
+
+
 class Dizilla(PluginBase):
     # Dizilla SNI-bloklu → SADECE bu plugin çıkışını WARP proxy'sinden geçir.
     # NOT: PluginBase'in FallbackHTTPX'i proxy param'ını uygulamıyor (direkt bağlanıp
@@ -90,6 +94,23 @@ class Dizilla(PluginBase):
         f"{main_url}/dizi-turu/romantik": "Romantik",
         f"{main_url}/dizi-turu/komedi": "Komedi",
     }
+
+    def _sezon_adresleri(self, selector: HTMLHelper) -> list[tuple[int, str]]:
+        """Sayfadaki GERÇEK sezon bağlantıları — (sezon no, adres).
+
+        Seçici `-sezon` geçen her bağlantıyı alıyordu, ama bölüm adresleri de
+        `-1-sezon-3-bolum` kalıbında: her bölüm ayrı bir "sezon sayfası" sanılıp
+        içindeki bölümler tekrar tekrar toplanıyordu (Reacher'da 24 bölüm 124
+        satır olmuştu). Adres `-<n>-sezon` ile BİTMELİ.
+        """
+        bulunan: dict[int, str] = {}
+        for dugum in selector.select("a[href*='-sezon']"):
+            href = dugum.attrs.get("href") or ""
+            esle = _SEZON_NO.search(href)
+            if not esle:
+                continue
+            bulunan.setdefault(int(esle.group(1)), absolute(self.main_url, href))
+        return sorted((no, adres) for no, adres in bulunan.items() if adres)
 
     @staticmethod
     def _result(node: HTMLHelper, base_url: str, category: str) -> MainPageResult | None:
@@ -171,10 +192,8 @@ class Dizilla(PluginBase):
         poster = absolute(self.main_url, first_attr(selector, ("div.page-top img", "img"), "src"))
         description = first_text(selector, ("div.mv-det-p", "div.w-full div.text-base"))
         episodes: list[Episode] = []
-        for season in selector.select("div.gap-2 a[href*='-sezon']"):
-            season_url = absolute(self.main_url, season.attrs.get("href"))
-            if not season_url:
-                continue
+        gorulen: set[str] = set()
+        for sezon_no, season_url in self._sezon_adresleri(selector):
             season_text = await fetch_html(self.httpx, normalize_url(season_url, self.main_url))
             season_selector = HTMLHelper(season_text)
             for node in season_selector.select("div.episodes div.cursor-pointer, div.dub-episodes div.cursor-pointer"):
@@ -183,8 +202,21 @@ class Dizilla(PluginBase):
                 if not ep_title or not ep_url:
                     continue
                 ep_url = normalize_url(ep_url, self.main_url)
-                season_no, episode_no = season_episode(ep_title)
-                episodes.append(Episode(season=season_no, episode=episode_no, title=ep_title, url=ep_url))
+                if ep_url in gorulen:
+                    continue
+                gorulen.add(ep_url)
+                # Bölüm adı sayfada yalnız sıra numarası ("1", "2"); sezon ve bölüm
+                # numarası ADRESTEN okunur — `season_episode` metinde "1. Sezon"
+                # arıyor, bulamayınca her bölüm 1. sezona düşüyordu.
+                esle       = _BOLUM_NO.search(ep_url)
+                bolum_no   = int(esle.group(1)) if esle else season_episode(ep_title)[1]
+                episodes.append(Episode(
+                    season  = sezon_no,
+                    episode = bolum_no,
+                    title   = f"{sezon_no}. Sezon {bolum_no or ep_title}. Bölüm",
+                    url     = ep_url,
+                ))
+        episodes.sort(key=lambda e: (e.season or 0, e.episode or 0))
         return SeriesInfo(url=normalize_url(url, self.main_url), title=title, poster=poster, description=description, episodes=episodes)
 
     @staticmethod
