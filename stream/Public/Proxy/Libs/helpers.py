@@ -58,13 +58,9 @@ _WARP_DEAD_TTL              = 600.0
 _warp_dead: dict[str, float] = {}
 
 
-def warp_host_durumu(host: str) -> str:
-    """Kaynak zincirinin okuyabilmesi için: 'warp' | 'olu' | 'normal'."""
-    if host in _warp_hosts:
-        return "warp"
-    if _warp_dead.get(host, 0.0) > time.monotonic():
-        return "olu"
-    return "normal"
+def warp_olu(host: str) -> bool:
+    """Host WARP ile de çözülemiyor mu — TTL dolmadan tekrar denenmez."""
+    return _warp_dead.get(host, 0.0) > time.monotonic()
 
 
 async def open_upstream(target_url: str, request_headers: dict):
@@ -79,7 +75,7 @@ async def open_upstream(target_url: str, request_headers: dict):
         return response
 
     # WARP da denendi ve o host için işe yaramadıysa: TTL boyunca tekrar deneme.
-    if _warp_dead.get(host, 0.0) > time.monotonic():
+    if warp_olu(host):
         return response
 
     await response.aclose()

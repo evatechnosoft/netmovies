@@ -32,24 +32,20 @@ class WarpNegatifOnbellekTest(unittest.TestCase):
         helpers._warp_dead.clear()
         helpers._warp_hosts.clear()
 
-    def test_normal_host_denenebilir(self):
-        self.assertEqual(helpers.warp_host_durumu("example.com"), "normal")
+    def test_bilinmeyen_host_denenebilir(self):
+        self.assertFalse(helpers.warp_olu("example.com"))
 
-    def test_warp_gerektiren_host_warp_isaretli(self):
-        helpers._warp_hosts.add("engelli.example")
-        self.assertEqual(helpers.warp_host_durumu("engelli.example"), "warp")
-
-    def test_warp_da_cozemedigi_host_olu(self):
+    def test_warp_da_cozemedigi_host_atlanir(self):
         import time as _t
 
         helpers._warp_dead["olu.example"] = _t.monotonic() + helpers._WARP_DEAD_TTL
-        self.assertEqual(helpers.warp_host_durumu("olu.example"), "olu")
+        self.assertTrue(helpers.warp_olu("olu.example"))
 
     def test_ttl_dolunca_yeniden_denenir(self):
         import time as _t
 
         helpers._warp_dead["eski.example"] = _t.monotonic() - 1.0
-        self.assertEqual(helpers.warp_host_durumu("eski.example"), "normal")
+        self.assertFalse(helpers.warp_olu("eski.example"))
 
 
 class SegmentZinciriTest(unittest.TestCase):
