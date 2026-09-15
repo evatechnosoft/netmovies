@@ -52,6 +52,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    // Çıktı adı OTA'nın sözleşmesi: `app_update.py` hedefi önekten (`netmovies-wear-`),
+    // sürümü addaki `vX.Y.Z`den okuyor. `wear-debug.apk` adı sürüm taşımadığı için
+    // /data/apk'ya kopyalansa bile sunulmuyordu — elle yeniden adlandırma gerekiyordu.
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
+                .outputFileName = "NetMovies-Wear-v$wearVersion.apk"
+        }
+    }
 }
 
 dependencies {
