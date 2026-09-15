@@ -24,19 +24,38 @@ object Sunucu {
 
     @Volatile private var taban: String? = null
 
-    /** Çalışan sunucu adresi. İlk çağrıda yoklar, sonra hatırlar. */
+    /**
+     * Çalışan sunucu adresi. Adaylar PARALEL yoklanır, ilk cevap veren kazanır.
+     *
+     * İki tuzak vardı: adaylar SIRAYLA yoklanıyordu (her ölü aday 2 sn) ve hiçbiri
+     * cevap vermeyince tünel adresi ayakta mı diye BAKILMADAN hatırlanıyordu. Tünel
+     * kopuksa (cloudflared ağ ad alanı stream'e pinli, stream yeniden kurulunca
+     * kopuyor → 530) saat ölü adrese kilitleniyor, ekran sonsuza kadar "yükleniyor"
+     * kalıyor ve her düğme "gönderilemedi" diyordu. Artık yalnız GERÇEKTEN ayakta
+     * olan adres hatırlanır; hiçbiri yoksa hatırlanmaz, sonraki istek yeniden arar.
+     */
     fun taban(): String {
         taban?.let { return it }
 
         val adaylar = BuildConfig.LOCAL_URL.split(",").map { it.trim() }.filter { it.isNotBlank() }
-        for (aday in adaylar) {
-            if (ayakta(aday)) {
-                taban = aday
-                return aday
-            }
-        }
-        return BuildConfig.BASE_URL.also { taban = it }
+        val kazanan = adaylar
+            .map { aday -> aday to Thread { if (ayakta(aday)) bulunan.compareAndSet(null, aday) } }
+            .onEach { (_, is_) -> is_.start() }
+            .also { isler -> isler.forEach { (_, is_) -> runCatching { is_.join(2_500) } } }
+            .let { bulunan.getAndSet(null) }
+
+        if (kazanan != null) return kazanan.also { taban = it }
+
+        // Tünel de yoklanır: ölü adresi hatırlamak saati kalıcı olarak kör bırakıyordu.
+        val tunel = BuildConfig.BASE_URL
+        if (ayakta(tunel)) return tunel.also { taban = it }
+        return tunel
     }
+
+    private val bulunan = java.util.concurrent.atomic.AtomicReference<String?>(null)
+
+    /** Sunucu bulunabildi mi — ekranın "ulaşılamıyor" demesi için. */
+    fun bagli(): Boolean = taban != null
 
     private fun ayakta(adres: String): Boolean = runCatching {
         istemci.newCall(Request.Builder().url("$adres/api/v1/health").build()).execute().use { it.isSuccessful }

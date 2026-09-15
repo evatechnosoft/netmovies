@@ -279,6 +279,9 @@ fun PlayerScreen(
     // Aynı panel iki işi görür: içerik açılırken "başlangıç", oynarken "bölüm listesi".
     // Ayrımı GERİ belirler — başlangıçta içerikten çıkar, listede yalnız paneli kapatır.
     var panelAsList by remember(item.url) { mutableStateOf(false) }
+    // Bölüm seçici sayfası: null = sezon sayfası. Durum burada tutulur çünkü
+    // GERİ tuşu bu ekranda değil, oynatıcının tuş işleyicisinde yakalanıyor.
+    var secilenSezon by remember(item.url) { mutableStateOf<Int?>(null) }
     // Ayarlar başlangıç panelinin ÜSTÜNE açılıyordu: iki modal üst üste kalınca
     // odak ikisi arasında gidip geliyor ve hiçbir satır seçilemiyordu (Dean:
     // "2 popup açık olunca seçmiyor"). Ayarlar açılırken panel kapanır, ayarlar
@@ -435,7 +438,7 @@ fun PlayerScreen(
             // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
             RemoteAction.OPEN_EPISODES ->
                 if (episodes.isEmpty()) showSettings = true
-                else { panelAsList = true; showStartPanel = true; showControls = false }
+                else { panelAsList = true; secilenSezon = null; showStartPanel = true; showControls = false }
             RemoteAction.SHOW_CONTROLS -> flashControls()
             RemoteAction.OPEN_BAR -> { showPad = true; showControls = false }
             // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
@@ -1124,7 +1127,14 @@ fun PlayerScreen(
                     return@onPreviewKeyEvent false
                 }
                 if (ke.nativeKeyEvent.action == KeyEvent.ACTION_UP) {
-                    if (panelAsList) { showStartPanel = false; panelAsList = false } else onBack()
+                    val cokSezon = episodes.map { it.season }.distinct().size > 1
+                    when {
+                        // Bölüm sayfasından önce sezon sayfasına dönülür: sayfa
+                        // geçişinin geri adımı da tek seviye olsun.
+                        panelAsList && secilenSezon != null && cokSezon -> secilenSezon = null
+                        panelAsList -> { showStartPanel = false; panelAsList = false }
+                        else -> onBack()
+                    }
                 }
                 true
             }
@@ -1267,7 +1277,7 @@ fun PlayerScreen(
                 // Dizide bölüm listesi tek tuş uzakta olsun: kontrol çubuğundaki
                 // "Bölümler" aynı sezon/bölüm panelini oynatmayı kesmeden açar.
                 onOpenList = if (episodes.isEmpty()) null else {
-                    { panelAsList = true; showStartPanel = true; showControls = false }
+                    { panelAsList = true; secilenSezon = null; showStartPanel = true; showControls = false }
                 },
                 introRange = if (introBas != null && introBit != null) introBas to introBit else null,
                 creditsStart = jenerikBas,
@@ -1319,7 +1329,7 @@ fun PlayerScreen(
                 onPlayPause = { if (exo.isPlaying) exo.pause() else exo.play() },
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) }; showPad = false },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) }; showPad = false },
-                onOpenEpisodes = { showPad = false; panelAsList = true; showStartPanel = true },
+                onOpenEpisodes = { showPad = false; panelAsList = true; secilenSezon = null; showStartPanel = true },
                 onOpenSeek = { showPad = false; showSeek = true },
                 onOpenSettings = { showPad = false; showSettings = true },
                 onHome = { showPad = false; onHome() },
@@ -1337,7 +1347,7 @@ fun PlayerScreen(
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) } },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) } },
                 onOpenEpisodes = if (episodes.isEmpty()) null else {
-                    { panelAsList = true; showStartPanel = true }
+                    { panelAsList = true; secilenSezon = null; showStartPanel = true }
                 },
                 canliYayin = canliYayin,
                 onTamponBasina = { tamponBasina() },
@@ -1346,7 +1356,22 @@ fun PlayerScreen(
             )
         }
 
-        if (showStartPanel) {
+        if (showStartPanel && panelAsList && episodes.isNotEmpty()) {
+            BolumSecici(
+                title = item.title.orEmpty(),
+                episodes = episodes,
+                currentEpIndex = currentEpIndex,
+                secilenSezon = secilenSezon,
+                onSezon = { secilenSezon = it },
+                onSelect = { idx ->
+                    if (resumeEpisode != null && resumeEpisode != idx) resumeLabel = null
+                    currentEpIndex = idx
+                    playRequested = true
+                    exo.playWhenReady = true
+                },
+                onClose = { showStartPanel = false; panelAsList = false },
+            )
+        } else if (showStartPanel) {
             StartPanel(
                 title = item.title.orEmpty(),
                 details = details,
@@ -1357,7 +1382,6 @@ fun PlayerScreen(
                 currentLinkIndex = currentLinkIndex,
                 resumeLabel = resumeLabel,
                 hazir = links.isNotEmpty(),
-                listeModu = panelAsList,
                 // Bölüme basmak DOĞRUDAN başlatır: seçtikten sonra panelin
                 // tepesindeki OYNAT'a dönmek fazladan bir yolculuktu (Dean).
                 onSelect = { idx ->
@@ -1386,6 +1410,7 @@ fun PlayerScreen(
                     exo.playWhenReady = true
                 },
                 onOpenSettings = { showStartPanel = false; panelGeriGelsin = true; showSettings = true },
+                onOpenEpisodes = { panelAsList = true; secilenSezon = null },
             )
         }
 
@@ -1409,6 +1434,7 @@ fun PlayerScreen(
                     showSettings = false
                     panelGeriGelsin = false
                     panelAsList = true
+                    secilenSezon = null
                     showStartPanel = true
                 },
                 onSelectAudio = { group, trackIndex ->
@@ -2204,18 +2230,12 @@ private fun StartPanel(
     currentLinkIndex: Int,
     resumeLabel: String?,
     hazir: Boolean,
-    /** true = panel oynarken "bölüm listesi" olarak açıldı → odak doğrudan listede. */
-    listeModu: Boolean,
     onSelect: (Int) -> Unit,
     onSelectLink: (Int) -> Unit,
     onPlay: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenEpisodes: () -> Unit,
 ) {
-    // Sezon rafı: seçili bölümün sezonu açık gelir; SOL/SAĞ sezon, YUKARI/AŞAĞI bölüm.
-    val seasons = remember(episodes) { episodes.map { it.season }.distinct().sorted() }
-    var season by remember(episodes, currentEpIndex) {
-        mutableIntStateOf(episodes.getOrNull(currentEpIndex)?.season ?: seasons.firstOrNull() ?: 1)
-    }
     val bilgi = listOfNotNull(
         details?.yearText?.takeIf { it.isNotBlank() },
         details?.tagsText?.takeIf { it.isNotBlank() },
@@ -2225,26 +2245,22 @@ private fun StartPanel(
     // Bölüm listesi olarak açıldığında odak OYNAT'ta değil, OYNAYAN BÖLÜMDE olmalı:
     // aksi hâlde listeye inmek ve o bölümü bulmak kaydırmakla geçiyordu
     // (Dean: "direkt bölümlere girmiyor").
-    val epFocus = remember { FocusRequester() }
     // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
-    LaunchedEffect(listeModu) {
+    LaunchedEffect(Unit) {
         repeat(6) {
             withFrameNanos {}
-            val hedef = if (listeModu && episodes.isNotEmpty()) epFocus else playFocus
-            if (runCatching { hedef.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
     // Odak nöbeti: liste yeniden oluşunca (bölümler geç gelir, sezon değişir) odak
     // hiçbir satırda kalmıyor ve D-pad ölüyordu (Dean: "cursor kayboluyor, bir daha
     // bir şey seçmiyor"). Panelin tamamı odaksız kalırsa OYNAT'a geri alınır.
     var panelOdakli by remember { mutableStateOf(false) }
-    LaunchedEffect(panelOdakli, episodes.size, season, listeModu) {
+    LaunchedEffect(panelOdakli, episodes.size) {
         if (panelOdakli) return@LaunchedEffect
         repeat(8) {
             withFrameNanos {}
             if (panelOdakli) return@LaunchedEffect
-            // Liste modunda nöbet de bölüme bakar; yoksa OYNAT'a düşer.
-            if (listeModu && runCatching { epFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
@@ -2305,48 +2321,21 @@ private fun StartPanel(
             if (!hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
 
             if (episodes.isNotEmpty()) {
-                // Üstte sezon rafı (SOL/SAĞ), altta o sezonun bölümleri adlarıyla (YUKARI/AŞAĞI).
-                if (seasons.size > 1) {
-                    SectionTitle("📑 Sezon")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2)) {
-                        items(seasons.size, key = { seasons[it] }) { i ->
-                            val s = seasons[i]
-                            Box(Modifier.width(110.dp)) { SettingRow("S$s", s == season) { season = s } }
-                        }
-                    }
+                // Sezon rafı (yatay) + bölüm listesi (dikey) BURADAYDI: aynı panelde
+                // iki ayrı yön, üstüne panel zaten oynatıcının üstünde bir katmandı
+                // (Dean: "çok karışık, iç içe hep geçiyor"). Bölüm seçimi artık ayrı
+                // bir sayfa — `BolumSecici`, kutucuk ızgarası, sezon → bölüm.
+                SettingRow("📑  Bölümler (${episodes.size}) — sezon ve bölüm seç", false) {
+                    onOpenEpisodes()
                 }
-                val secili = episodes.withIndex().filter { it.value.season == season }
-                // Süregelen dizide en çok istenen "son bölüm" — listenin sonuna
-                // kaydırmadan tek satırda. Tek bölümlük listede anlamsız, gizlenir.
+                val sonIdx = episodes.lastIndex
                 if (episodes.size > 1) {
-                    val sonIdx = episodes.lastIndex
                     SettingRow(
                         "⏭  Son bölüm — ${episodeLabel(episodes[sonIdx], sonIdx)}",
                         sonIdx == currentEpIndex,
                     ) { onSelect(sonIdx) }
                 }
-                SectionTitle("🎬 Bölümler (${secili.size})")
-                // Liste OYNAYAN bölümden açılır: uzaktaki satır hiç çizilmezse odak
-                // isteği düşer ve panel yine OYNAT'ta kalırdı.
-                val seciliSira = secili.indexOfFirst { it.index == currentEpIndex }.coerceAtLeast(0)
-                val listState = androidx.compose.foundation.lazy.rememberLazyListState(
-                    initialFirstVisibleItemIndex = seciliSira,
-                )
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2),
-                ) {
-                    items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
-                        val (idx, ep) = secili[i]
-                        // Oynayan bölüm odağı alır (listeModu) — Compose odaklanan
-                        // satırı kendiliğinden görünür alana kaydırır.
-                        val odak = if (idx == currentEpIndex) Modifier.focusRequester(epFocus) else Modifier
-                        Box(odak) {
-                            SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) { onSelect(idx) }
-                        }
-                    }
-                }
+                Spacer(Modifier.weight(1f))
             } else {
                 Spacer(Modifier.weight(1f))
             }

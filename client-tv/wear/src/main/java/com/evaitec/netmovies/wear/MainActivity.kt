@@ -104,6 +104,9 @@ private fun MiniEkran() {
     var durum by remember { mutableStateOf("") }
     var ogeler by remember { mutableStateOf<List<KatalogOgesi>>(emptyList()) }
     var yukleniyor by remember { mutableStateOf(true) }
+    // Yeniden deneme sayaci: sunucu bulunamadiginda ekrana dokunmak
+    // adres aramasini sifirdan baslatir (LaunchedEffect anahtari).
+    var tekrar by remember { mutableStateOf(0) }
     var geriAn by remember { mutableStateOf(0L) }
     var halkaBirikim by remember { mutableStateOf(0f) }
     var halkaKipi by remember { mutableStateOf(HalkaKipi.SARMA) }
@@ -124,7 +127,10 @@ private fun MiniEkran() {
         titre()
         kapsam.launch(Dispatchers.IO) {
             val ok = Sunucu.post("/api/v1/remote/command", govde)
-            withContext(Dispatchers.Main) { durum = if (ok) "" else "gönderilemedi" }
+            // Adres olmus olabilir (tunel kopmasi, baska agla baglanma): hatirlanani
+            // unut ki sonraki istek sunucuyu yeniden arasin.
+            if (!ok) Sunucu.unut()
+            withContext(Dispatchers.Main) { durum = if (ok) "" else "sunucuya ulaşılamadı" }
         }
     }
 
@@ -158,8 +164,9 @@ private fun MiniEkran() {
 
     LaunchedEffect(Unit) { runCatching { halkaOdak.requestFocus() } }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(tekrar) {
         if (ogeler.isNotEmpty()) return@LaunchedEffect   // alt ekrandan dönüldü
+        yukleniyor = true
         // 1. aşama: Devam Et — sunucunun yerel kaydı, milisaniyeler içinde gelir.
         val devam = withContext(Dispatchers.IO) {
             Sunucu.get("/api/v1/continue_watching")
@@ -259,7 +266,17 @@ private fun MiniEkran() {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (ogeler.isEmpty()) {
-                Text("yükleniyor…", color = Soluk, fontSize = 12.sp, modifier = Modifier.padding(top = 24.dp))
+                // Sunucu bulunamayinca ekran sonsuza kadar "yukleniyor" kaliyordu:
+                // durum satiri altta yaziyordu ama buradaki metin degismiyordu.
+                Text(
+                    text = if (yukleniyor) "yükleniyor…" else "sunucuya ulaşılamadı — dokun, yeniden dene",
+                    color = Soluk,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(top = 24.dp, start = 16.dp, end = 16.dp)
+                        .clickable(enabled = !yukleniyor) { Sunucu.unut(); tekrar++ },
+                )
             } else {
                 LazyRow(
                     Modifier.fillMaxWidth().height(72.dp),
