@@ -8,7 +8,8 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 15 Eylül 2026
-**Dal:** `fix/general-stability` @ `760c441` · **temiz (0 kirli dosya)** · push edilmedi
+**Dal:** `fix/general-stability` · **temiz (0 kirli dosya)** · push edilmedi
+**Son kod commit'i:** `6bccb5c` (sonrasındakiler yalnız doküman)
 **Sürümler:** TV `v0.2.9-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
 **Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone **0.2.8 (vc 208) BAYAT**,
 0.2.9 (vc 209) BİLEREK yüklenmedi (cihazda denenmemiş sürüm televizyona
@@ -19,7 +20,7 @@
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 760c441
+git log --oneline -1 6bccb5c                # son KOD commit'i burada olmalı
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
@@ -27,7 +28,7 @@ docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s t
 curl -s localhost:3310/api/v1/client_log    # şu an: "Kayıt yok" (TV hiç oynatmadı)
 curl -s localhost:3310/api/v1/source_score  # şu an: kaynaklar: [] (hiç olay gelmedi)
 ```
-HEAD tutmuyorsa: `git log 760c441..HEAD --oneline`. Tünel koptuysa
+`6bccb5c` bulunamıyorsa dal değişmiş: `git log --oneline -10` ile bak. Tünel koptuysa
 (`cloudflared` ağ ad alanı stream'e pinli, stream yeniden inşa edilince kopar):
 `docker compose --profile tunnel up -d`.
 
