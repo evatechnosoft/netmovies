@@ -193,7 +193,11 @@ private fun MiniEkran() {
     }
 
     if (aramaAcik) {
-        AramaEkrani(onSec = { oynat(it) }, onKapat = { aramaAcik = false })
+        AramaEkrani(
+            onSec   = { oynat(it) },
+            onKapat = { aramaAcik = false },
+            onDurum = { durum = it },
+        )
         return
     }
 
@@ -286,7 +290,7 @@ private fun MiniEkran() {
                 // yerine tek dokunuş (Dean: "ana menü").
                 YuvarlakDugme("☰", 38.dp) { komut("""{"type":"nav","screen":"home"}""") }
 
-                YuvarlakDugme("🔍", 38.dp) { titre(); aramaAcik = true }
+                YuvarlakDugme("🎙", 38.dp) { titre(); aramaAcik = true }
 
                 // Halka kipi anahtarı: sarma ⟷ ses.
                 YuvarlakDugme(
@@ -403,25 +407,52 @@ private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
     }
 }
 
-// Arama — saatte klavye işkence, sesle aranır. Tanıma SAATİN kendi motoruyla
-// yapılır (`RecognizerIntent`): sunucudaki Gemini ucu ses dosyası bekliyor ve
-// anahtar istiyor; buradaki tek ihtiyaç düz metin.
+/** JSON gövdesine gömülecek metin. Konuşma tanıması tırnak da üretebiliyor;
+ *  kaçırılmazsa gövde bozulur ve uç 400 döner. */
+private fun jsonKacis(metin: String): String =
+    metin.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ")
+
+// Sesli kumanda — saatte klavye işkence. Tanıma SAATİN kendi motoruyla yapılır
+// (`RecognizerIntent`), çıkan metin sunucudaki `/voice` ucuna gider: Gemini
+// cümleyi niyete çevirir. "inception aç" arama olur, "sesi kıs" / "10 saniye
+// geri al" / "takip listem" doğrudan televizyona gider (uç kendi kuyruğa yazar).
+//
+// Gemini yoksa (anahtar girilmemiş, 503) ya da ulaşılamıyorsa düz aramaya
+// düşülür: sesli komut çalışmasa bile arama çalışmaya devam etsin.
 @Composable
-private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit) {
+private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit, onDurum: (String) -> Unit) {
     val kapsam = rememberCoroutineScope()
     var sorgu by remember { mutableStateOf("") }
     var sonuclar by remember { mutableStateOf<List<KatalogOgesi>>(emptyList()) }
     var araniyor by remember { mutableStateOf(false) }
 
-    fun ara(metin: String) {
-        sorgu     = metin
-        araniyor  = true
-        sonuclar  = emptyList()
+    fun soyle(metin: String) {
+        sorgu    = metin
+        araniyor = true
+        sonuclar = emptyList()
         kapsam.launch(Dispatchers.IO) {
-            val bulunan = Sunucu.get("/api/v1/search_all?query=" + URLEncoder.encode(metin, "UTF-8"))
+            val niyet = Sunucu.postAl("/api/v1/voice", """{"text":"${jsonKacis(metin)}"}""")
+                ?.let { runCatching { Sunucu.json.decodeFromString<SesYaniti>(it).result }.getOrNull() }
+
+            // Komut niyetini uç zaten TV'ye yolladı; saatin yapacağı bir şey yok.
+            if (niyet != null && niyet.sent) {
+                withContext(Dispatchers.Main) {
+                    araniyor = false
+                    onDurum(niyet.reply?.takeIf { it.isNotBlank() } ?: "📺 gönderildi")
+                    onKapat()
+                }
+                return@launch
+            }
+
+            val aranan  = niyet?.query?.takeIf { it.isNotBlank() } ?: metin
+            val bulunan = Sunucu.get("/api/v1/search_all?query=" + URLEncoder.encode(aranan, "UTF-8"))
                 ?.let { runCatching { Sunucu.json.decodeFromString<AramaYaniti>(it).result }.getOrNull() }
                 .orEmpty()
-            withContext(Dispatchers.Main) { sonuclar = bulunan; araniyor = false }
+            withContext(Dispatchers.Main) {
+                sorgu    = aranan
+                sonuclar = bulunan
+                araniyor = false
+            }
         }
     }
 
@@ -432,7 +463,7 @@ private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit) {
                 ?.firstOrNull()
                 ?.trim()
                 .orEmpty()
-            if (metin.isNotBlank()) ara(metin)
+            if (metin.isNotBlank()) soyle(metin)
         }
     }
 
@@ -456,7 +487,7 @@ private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = sorgu.ifBlank { "🎙 dokun ve söyle" },
+                text = sorgu.ifBlank { "🎙 söyle: ara, sar, ses, ekran" },
                 color = if (sorgu.isBlank()) Soluk else Metin,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,

@@ -58,6 +58,17 @@ object Sunucu {
             .build()
         istemci.newCall(istek).execute().use { it.isSuccessful }
     }.getOrDefault(false)
+
+    /** Yanıt gövdesi gereken POST'lar için (sesli niyet). Başarısızsa null. */
+    fun postAl(yol: String, govde: String): String? = runCatching {
+        val istek = Request.Builder()
+            .url(taban() + yol)
+            .post(govde.toRequestBody("application/json".toMediaType()))
+            .build()
+        istemci.newCall(istek).execute().use { yanit ->
+            if (yanit.isSuccessful) yanit.body?.string() else null
+        }
+    }.getOrNull()
 }
 
 // ── Uçların gövdeleri ────────────────────────────────────────────────────────
@@ -86,6 +97,22 @@ data class KatalogOgesi(
 // search_all düz liste döner (katalogdaki gibi `items` sarmalayıcı yok).
 @Serializable
 data class AramaYaniti(val result: List<KatalogOgesi> = emptyList())
+
+// Sesli niyet (/voice). Tuş/oynatma/ekran niyetlerini SUNUCU kuyruğa yazar —
+// saatin ayrıca komut göndermesi gerekmez, `sent` onu söyler. Arama niyetinde
+// sonucu kullanıcı seçer: TV'de ne açılacağına Gemini karar vermez.
+@Serializable
+data class SesNiyeti(
+    val action: String = "",
+    val query:  String? = null,
+    val spoken: String? = null,
+    val reply:  String? = null,
+    val sent:   Boolean = false,
+    val error:  String? = null,
+)
+
+@Serializable
+data class SesYaniti(val result: SesNiyeti = SesNiyeti())
 
 @Serializable
 data class KatalogGovde(val items: List<KatalogOgesi> = emptyList())
