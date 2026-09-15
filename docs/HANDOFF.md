@@ -7,32 +7,50 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 15 Eylül 2026
-**Dal:** `fix/general-stability` · **temiz (0 kirli dosya)** · push edilmedi
-**Son kod commit'i:** `6bccb5c` (sonrasındakiler yalnız doküman)
-**Sürümler:** TV `v0.2.9-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
-**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone **0.2.8 (vc 208) BAYAT**,
-0.2.9 (vc 209) BİLEREK yüklenmedi (cihazda denenmemiş sürüm televizyona
-"güncelleme var" diye düşmemeli) · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
+**Son güncelleme:** 15 Eylül 2026, 16:00
+**Dal:** `fix/general-stability` @ `6b3a622` · 3 kirli dosya (yalnız `.claude/handoffs/`) · push edilmedi
+**Sürümler:** TV `v0.2.9-poc` · saat `v0.1.3-poc` · evaitecOTA TV+mobil `0.1.8`
+**Katalog:** `evaglass-releases/apps.json` @ `66acab8` (push EDİLDİ) — saat **0.1.3 (vc 103) CANLI** ·
+netmovies tv+phone **0.2.8 (vc 208) BAYAT**, 0.2.9 (vc 209) BİLEREK yüklenmedi
+(cihazda denenmemiş sürüm televizyona "güncelleme var" diye düşmemeli)
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git log --oneline -1 6bccb5c                # son KOD commit'i burada olmalı
-git status --porcelain | wc -l              # beklenen: 0
+git rev-parse --short HEAD                  # beklenen: 6b3a622
+git status --porcelain                      # beklenen: yalnız .claude/handoffs/ satırları
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
-docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
+MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
                                             # beklenen: Ran 132 · OK
+curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.3-poc
 curl -s localhost:3310/api/v1/client_log    # şu an: "Kayıt yok" (TV hiç oynatmadı)
 curl -s localhost:3310/api/v1/source_score  # şu an: kaynaklar: [] (hiç olay gelmedi)
 ```
-`6bccb5c` bulunamıyorsa dal değişmiş: `git log --oneline -10` ile bak. Tünel koptuysa
+`6b3a622` bulunamıyorsa dal ilerlemiş: `git log 6b3a622..HEAD --oneline`. Tünel koptuysa
 (`cloudflared` ağ ad alanı stream'e pinli, stream yeniden inşa edilince kopar):
 `docker compose --profile tunnel up -d`.
 
-## SIRADAKİ İŞ #1 — v0.2.9'u televizyonda dene
+## SIRADAKİ İŞ #1 — saat 0.1.3'ü bilekte dene (5 dakikalık iş)
+
+Saat uygulaması (v0.1.3) üç dağıtım yerinde de yayında ama **bilekte hiç
+denenmedi**. Sunucu tarafı kanıtlı, cihaz tarafı değil.
+
+1. Saatte evaitecOTA'yı aç → NetMovies Mini 0.1.3 (vc 103) → kur.
+2. 🎙 düğmesine bas ve **"inception aç"** de → sonuç listesi gelmeli, dokununca TV'de açmalı.
+3. Yine 🎙 → **"sesi kıs"** de → saat ana ekrana dönüp "Ses kısılıyor" yazmalı, TV'de ses düşmeli.
+4. ⏩/🔊 düğmesine bas, çerçeveyi çevir → kip değişmeli (sarma ⟷ ses).
+
+Mikrofon hiç açılmıyorsa: `adb logcat | grep -i recognizer`. Sebep büyük ihtimalle
+Android 11+ paket görünürlüğüdür — manifeste `<queries>` bloğu eklendi
+(`client-tv/wear/src/main/AndroidManifest.xml:11-18`), logcat bunu doğrular.
+
+"inception aç" arama yerine düz metin arıyorsa Gemini ucu susuyordur:
+`curl -s -X POST localhost:3310/api/v1/voice -H 'Content-Type: application/json' -d '{"text":"inception ac","dry":"1"}'`
+→ 503 ise anahtar yok (Yönetim → Sesli Kumanda).
+
+## SIRADAKİ İŞ #2 — v0.2.9'u televizyonda dene
 
 Oynatma kalitesi çalışması (`docs/PLAN-oynatma-kalitesi.md`) dört fazın tamamıyla
 kodda ve sunucu tarafı yeşil, ama **TELEVİZYONDA HİÇ DENENMEDİ**. Ses kesintisinin
@@ -58,7 +76,18 @@ gerçekten bittiği yalnız cihazda belli olur.
 Bu üçü yeşilse OTA'ya yükle (`--target` bayrağı olmadan release `/releases`
 listesine düşmez, TV güncellemeyi görmez) ve `apps.json` vc 209'a çekilir.
 
-## Tekrarlama — bu oturumda ölen yollar
+## Tekrarlama — ölen yollar
+
+- **Wear'a Gemini'ye ses yüklemek** gereksiz: saatte `RecognizerIntent` var ve
+  `/api/v1/voice` düz metni de kabul ediyor. Anahtar sunucuda kalır.
+- **`/voice` yanıtını görüp ayrıca `/remote/command` atmak**: uç komutu KENDİ
+  kuyruğa yazıyor (`sent:true`), ikinci istek TV'ye çift komut gönderir.
+- **`gh release create` `--target main` olmadan**: release `/releases` listesine
+  düşmez, OTA görmez.
+- **Git Bash'te `docker exec -w /usr/src/Stream`**: yol çevrilir, "Cwd must be an
+  absolute path" verir. Başına `MSYS_NO_PATHCONV=1`.
+- **Bash heredoc ile Kotlin dosyası yazmak**: tırnak yüzünden "unexpected EOF";
+  Write tool kullan.
 
 - **Audio offload** denenmedi ve denenmemeli: HLS/TS'de gapless şartı var,
   kazancı pil — televizyonda karşılığı yok. Tunneling yeter.
@@ -141,6 +170,54 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.14 15 Eylül öğleden sonra — saat: sesli kumanda, halka anahtarı, hızlı açılış (saat v0.1.3)
+
+Dean'in isteği tek cümlede: "saat geç yükleniyor, sunucuda tutsun, arama ekranı
+sesle arama, çerçeveyle sarma ve ses — tek tuş switch olsun, yükleme için iç içe
+halkamızı kullanalım." Hepsi kodda ve üç dağıtım yerinde yayında; **bilekte
+denenmedi** (SIRADAKİ İŞ #1).
+
+**Geç açılışın kök nedeni tek `await` idi.** Saat `continue_watching` ile
+`aggregate_new`'i tek beklemede istiyordu; soğuk agregasyon ~40 sn sürdüğü için
+en çok istenen liste (Devam Et, sunucunun yerel kaydı, 0.157 sn) yarım dakika
+ekrana gelmiyordu. İki aşamaya ayrıldı: Devam Et hemen çizilir, Yeni Çıkanlar
+arkadan eklenir.
+
+**"Serverda tutsun" → cache ısıtıcı** (`stream/Core/Modules/__init__.py`,
+`_cache_isit`). `aggregate_new` cache TTL'i 600 sn; TTL dolduktan sonra ilk
+isteyen soğuk bedeli ödüyordu. 480 sn'de bir movie+serie arka planda tazelenir.
+Aralık TTL'in ALTINDA olmalı, yoksa arada soğuk pencere kalır. `params`
+istemcininkiyle birebir aynı olmalı — cache anahtarı params'tan üretiliyor.
+Ölçüm: 1. çağrı 4.83 sn (ısıtıcı uçuştaydı), 2. çağrı **0.062 sn**.
+
+**Sesli kumanda: tanıma saatte, niyet sunucuda.** Saatin kendi motoru
+(`RecognizerIntent`, tr-TR) metni verir, metin `/api/v1/voice`'a gider, Gemini
+niyete çevirir. Gemini'ye ses yüklemeye gerek yok — anahtar sunucuda kalır,
+saate hiçbir şey gömülmez. **Tuzak:** uç komut niyetini KENDİ kuyruğa yazıyor
+(`sent:true`); saat ayrıca `/remote/command` atarsa TV'ye çift gider. Yalnız
+`action=search` kuyruğa yazılmaz — TV'de ne açılacağına Gemini karar vermez.
+Gemini yoksa (503) düz aramaya düşülür: sesli komut sussa bile arama çalışır.
+Hafıza: `memory/voice-endpoint-self-enqueues.md`.
+
+**Halka artık iki iş yapıyor.** Döner çerçeve yalnız sarıyordu; ⏩/🔊 düğmesi
+sarma (±10 sn) ile ses (±1 kademe) arasında geçiyor. TV tarafı ses için yalnız
+işarete bakıyor (`ADJUST_RAISE`/`LOWER`, `MainActivity.kt:258`).
+
+**Yükleme göstergesi kadran kenarında** iç içe iki ters dönen yay — web'deki
+`.wp-spinner` deseninin saat hâli (`CerceveHalkasi`, Canvas). Ortası boş: içerik
+altında görünmeye devam eder.
+
+**APK adı artık build'de veriliyor** (`NetMovies-Wear-v0.1.3.apk`). Kozmetik
+değildi: `app_update.py` hedefi `netmovies-wear-` önekinden, sürümü addaki
+`vX.Y.Z`den okuyor; `wear-debug.apk` /data/apk'ya kopyalansa bile sürüm
+taşımadığı için sunulmuyordu, her yayında elle adlandırma gerekiyordu.
+
+Kanıt: `:wear:assembleDebug` EXIT=0 (23.178.305 bayt) · 132 test OK · smoke YEŞİL ·
+`POST /voice {"text":"10 saniye geri al"}` → `sent:true`, `remote/poll` →
+`{"type":"transport","action":"seek","value":-10.0}` · `app_update?target=wear` →
+`v0.1.3-poc` · release indirme http 200 · katalog canlı `0.1.3 vc 103`.
+Commit'ler: `3d880b1`, `3f753ed`, `6b3a622` · evaglass-releases `66acab8` (push edildi).
 
 ## 0.13 15 Eylül — oynatma kalitesi: performans, ses, kaynak seçimi, Gemini
 
