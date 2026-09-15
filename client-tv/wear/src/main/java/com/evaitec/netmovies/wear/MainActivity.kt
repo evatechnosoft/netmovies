@@ -1,12 +1,25 @@
 package com.evaitec.netmovies.wear
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -32,16 +45,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.foundation.focusable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Text
@@ -59,15 +75,20 @@ import java.net.URLEncoder
 // Üstte Devam Et posterleri (yuvarlak, yatay): dokunmak doğrudan televizyonda
 // başlatır; küçük ekranda "seç → onayla" ikinci adımı israf.
 //
-// Altta tek düğme GERİ: bir basış duraklatır (en sık istenen), iki saniye içinde
-// ikinci basış gerçek GERİ gönderir — `/mini` web sayfasındaki davranışın aynısı.
+// Yükleme iki aşamalı: Devam Et sunucunun yerel kaydından milisaniyeler içinde
+// gelir ve HEMEN çizilir; Yeni Çıkanlar arkadan eklenir. Tek beklemeyle ikisini
+// birden istemek, soğuk agregasyonda (~40 sn) saati yarım dakika boş tutuyordu.
 
 private val Zemin   = Color(0xFF0A0C10)
 private val Kart    = Color(0xFF161A22)
-private val Cizgi   = Color(0xFF252B36)
 private val Metin   = Color(0xFFE8EAF0)
 private val Soluk   = Color(0xFF8B93A7)
 private val Vurgu   = Color(0xFF8B5CF6)
+private val Vurgu2  = Color(0xFF22D3EE)
+
+/** Döner çerçevenin ne sürdüğü. Tek düğme ikisi arasında geçer — saatte ayrı
+ *  ses ve sarma kontrolüne yer yok (Dean: "onu switch olur"). */
+private enum class HalkaKipi { SARMA, SES }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,13 +103,14 @@ private fun MiniEkran() {
     val baglam = LocalContext.current
     var durum by remember { mutableStateOf("") }
     var ogeler by remember { mutableStateOf<List<KatalogOgesi>>(emptyList()) }
+    var yukleniyor by remember { mutableStateOf(true) }
     var geriAn by remember { mutableStateOf(0L) }
-    // Döner çerçeve (Galaxy Watch halkası) sarma için: yatay kaydırma zaten yön
-    // tuşu, sarmaya ayrı bir hareket gerekiyordu (Dean: "geri sarmayı halkayla").
     var halkaBirikim by remember { mutableStateOf(0f) }
+    var halkaKipi by remember { mutableStateOf(HalkaKipi.SARMA) }
     // Bölüm seçimi açık mı: dolu ise ekran bölüm listesine döner.
     var seciliDizi by remember { mutableStateOf<KatalogOgesi?>(null) }
     var seciliBolumler by remember { mutableStateOf<List<BolumOgesi>>(emptyList()) }
+    var aramaAcik by remember { mutableStateOf(false) }
     val halkaOdak = remember { FocusRequester() }
 
     fun titre() {
@@ -121,6 +143,7 @@ private fun MiniEkran() {
     // Bölüm sırası TV'ye taşınır (`episode`), yoksa TV 1. bölümü açıyordu.
     fun oynat(oge: KatalogOgesi) {
         titre()
+        aramaAcik = false
         kapsam.launch(Dispatchers.IO) {
             val yanit = Sunucu.get("/api/v1/load_item?plugin=" + URLEncoder.encode(oge.plugin, "UTF-8") +
                 "&encoded_url=" + oge.url)
@@ -136,23 +159,26 @@ private fun MiniEkran() {
     LaunchedEffect(Unit) { runCatching { halkaOdak.requestFocus() } }
 
     LaunchedEffect(Unit) {
-        if (ogeler.isNotEmpty()) return@LaunchedEffect   // bölüm ekranından dönüldü
-        withContext(Dispatchers.IO) {
-            // Devam Et önde (en olası niyet), arkasına Yeni Çıkanlar.
-            val devam = Sunucu.get("/api/v1/continue_watching")
+        if (ogeler.isNotEmpty()) return@LaunchedEffect   // alt ekrandan dönüldü
+        // 1. aşama: Devam Et — sunucunun yerel kaydı, milisaniyeler içinde gelir.
+        val devam = withContext(Dispatchers.IO) {
+            Sunucu.get("/api/v1/continue_watching")
                 ?.let { runCatching { Sunucu.json.decodeFromString<IzlemeYaniti>(it).result }.getOrNull() }
                 ?.map { KatalogOgesi(it.plugin, it.contentUrl, it.title, it.poster) }
                 .orEmpty()
-            val yeni = Sunucu.get("/api/v1/aggregate_new?type=movie")
+        }
+        ogeler = devam.filter { it.url.isNotBlank() }
+        if (ogeler.isNotEmpty()) yukleniyor = false
+
+        // 2. aşama: Yeni Çıkanlar — sunucu cache'i sıcaksa anında gelir.
+        val yeni = withContext(Dispatchers.IO) {
+            Sunucu.get("/api/v1/aggregate_new?type=movie")
                 ?.let { runCatching { Sunucu.json.decodeFromString<KatalogYaniti>(it).result.items }.getOrNull() }
                 .orEmpty()
-
-            val secilen = (devam + yeni).filter { it.url.isNotBlank() }.distinctBy { it.title.lowercase() }.take(20)
-            withContext(Dispatchers.Main) {
-                ogeler = secilen
-                if (secilen.isEmpty()) durum = "sunucu bulunamadı"
-            }
         }
+        yukleniyor = false
+        ogeler = (ogeler + yeni).filter { it.url.isNotBlank() }.distinctBy { it.title.lowercase() }.take(20)
+        if (ogeler.isEmpty()) durum = "sunucu bulunamadı"
     }
 
     val dizi = seciliDizi
@@ -166,19 +192,33 @@ private fun MiniEkran() {
         return
     }
 
+    if (aramaAcik) {
+        AramaEkrani(onSec = { oynat(it) }, onKapat = { aramaAcik = false })
+        return
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .background(Zemin)
-            // Halka: her tam adımda 10 saniye. Küçük tıklar birikir, eşiği geçince
-            // tek komut gider — her mikro harekette istek atmak sarmayı titretiyor.
+            // Halka: her tam adımda tek komut. Küçük tıklar birikir, eşiği geçince
+            // gider — her mikro harekette istek atmak sarmayı titretiyor.
+            // Ne gönderdiği kipe bağlı: sarma (±10 sn) ya da ses (±1 kademe).
             .onRotaryScrollEvent { olay ->
                 halkaBirikim += olay.verticalScrollPixels
                 val adim = 60f
                 if (kotlin.math.abs(halkaBirikim) >= adim) {
-                    val yon = if (halkaBirikim > 0) 10 else -10
+                    val ileri = halkaBirikim > 0
                     halkaBirikim = 0f
-                    komut("""{"type":"transport","action":"seek","value":$yon}""")
+                    when (halkaKipi) {
+                        HalkaKipi.SARMA -> komut(
+                            """{"type":"transport","action":"seek","value":${if (ileri) 10 else -10}}"""
+                        )
+                        // TV tarafı yalnız işarete bakıyor (ADJUST_RAISE/LOWER).
+                        HalkaKipi.SES -> komut(
+                            """{"type":"transport","action":"volume","value":${if (ileri) 1 else -1}}"""
+                        )
+                    }
                 }
                 true
             }
@@ -204,6 +244,11 @@ private fun MiniEkran() {
                 ) { _, sur -> dx += sur.x; dy += sur.y }
             },
     ) {
+        // Yükleme göstergesi kadranın KENARINDA: 47 mm Classic'te orta alan
+        // posterlerin, kenar çerçevenin yeri. Web'deki iç içe iki halkanın
+        // (`.wp-spinner`) saat karşılığı.
+        if (yukleniyor) CerceveHalkasi()
+
         Column(
             Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -222,7 +267,9 @@ private fun MiniEkran() {
             }
 
             Text(
-                text = durum.ifBlank { "kaydır: yön · dokun: OK" },
+                text = durum.ifBlank {
+                    if (halkaKipi == HalkaKipi.SARMA) "halka: sarma · dokun: OK" else "halka: ses · dokun: OK"
+                },
                 color = Soluk,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -233,22 +280,28 @@ private fun MiniEkran() {
 
             Row(
                 Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             ) {
                 // Ana menü: televizyonu ana ekrana döndürür — saatte gezinmek
                 // yerine tek dokunuş (Dean: "ana menü").
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Kart)
-                        .clickable { komut("""{"type":"nav","screen":"home"}""") },
-                    contentAlignment = Alignment.Center,
-                ) { Text("☰", color = Metin, fontSize = 15.sp) }
+                YuvarlakDugme("☰", 38.dp) { komut("""{"type":"nav","screen":"home"}""") }
+
+                YuvarlakDugme("🔍", 38.dp) { titre(); aramaAcik = true }
+
+                // Halka kipi anahtarı: sarma ⟷ ses.
+                YuvarlakDugme(
+                    yazi  = if (halkaKipi == HalkaKipi.SARMA) "⏩" else "🔊",
+                    boyut = 38.dp,
+                    renk  = Vurgu,
+                ) {
+                    titre()
+                    halkaKipi = if (halkaKipi == HalkaKipi.SARMA) HalkaKipi.SES else HalkaKipi.SARMA
+                    halkaBirikim = 0f
+                }
 
                 Box(
                     Modifier
-                        .size(52.dp)
+                        .size(46.dp)
                         .clip(CircleShape)
                         .background(Kart)
                         .clickable {
@@ -272,6 +325,52 @@ private fun MiniEkran() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun YuvarlakDugme(yazi: String, boyut: Dp, renk: Color = Metin, onClick: () -> Unit) {
+    Box(
+        Modifier.size(boyut).clip(CircleShape).background(Kart).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(yazi, color = renk, fontSize = 14.sp) }
+}
+
+/** Kadran kenarında iç içe iki yay, ters yönlerde döner — web'deki `.wp-spinner`
+ *  deseninin saat hâli. Ortayı boş bırakır: içerik altında görünmeye devam eder. */
+@Composable
+private fun CerceveHalkasi() {
+    val gecis = rememberInfiniteTransition(label = "halka")
+    val dis by gecis.animateFloat(
+        initialValue  = 0f,
+        targetValue   = 360f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label         = "dis",
+    )
+    val ic by gecis.animateFloat(
+        initialValue  = 360f,
+        targetValue   = 0f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing), RepeatMode.Restart),
+        label         = "ic",
+    )
+
+    Canvas(Modifier.fillMaxSize()) {
+        val kalin = size.minDimension * 0.012f
+
+        fun yay(iceri: Float, baslangic: Float, renk: Color) {
+            drawArc(
+                color      = renk,
+                startAngle = baslangic,
+                sweepAngle = 90f,
+                useCenter  = false,
+                topLeft    = Offset(iceri, iceri),
+                size       = Size(size.width - iceri * 2, size.height - iceri * 2),
+                style      = Stroke(width = kalin),
+            )
+        }
+
+        yay(kalin, dis, Vurgu)
+        yay(kalin * 5f, ic, Vurgu2)
     }
 }
 
@@ -301,6 +400,105 @@ private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
             modifier = Modifier.size(width = 56.dp, height = 12.dp),
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+// Arama — saatte klavye işkence, sesle aranır. Tanıma SAATİN kendi motoruyla
+// yapılır (`RecognizerIntent`): sunucudaki Gemini ucu ses dosyası bekliyor ve
+// anahtar istiyor; buradaki tek ihtiyaç düz metin.
+@Composable
+private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit) {
+    val kapsam = rememberCoroutineScope()
+    var sorgu by remember { mutableStateOf("") }
+    var sonuclar by remember { mutableStateOf<List<KatalogOgesi>>(emptyList()) }
+    var araniyor by remember { mutableStateOf(false) }
+
+    fun ara(metin: String) {
+        sorgu     = metin
+        araniyor  = true
+        sonuclar  = emptyList()
+        kapsam.launch(Dispatchers.IO) {
+            val bulunan = Sunucu.get("/api/v1/search_all?query=" + URLEncoder.encode(metin, "UTF-8"))
+                ?.let { runCatching { Sunucu.json.decodeFromString<AramaYaniti>(it).result }.getOrNull() }
+                .orEmpty()
+            withContext(Dispatchers.Main) { sonuclar = bulunan; araniyor = false }
+        }
+    }
+
+    val mikrofon = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { sonuc ->
+        if (sonuc.resultCode == Activity.RESULT_OK) {
+            val metin = sonuc.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.trim()
+                .orEmpty()
+            if (metin.isNotBlank()) ara(metin)
+        }
+    }
+
+    fun dinle() {
+        val niyet = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Ne izlemek istiyorsun?")
+        }
+        runCatching { mikrofon.launch(niyet) }
+    }
+
+    // Ekran açılır açılmaz mikrofon: aramaya girmenin tek sebebi konuşmak.
+    LaunchedEffect(Unit) { dinle() }
+
+    Box(Modifier.fillMaxSize().background(Zemin)) {
+        if (araniyor) CerceveHalkasi()
+
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = sorgu.ifBlank { "🎙 dokun ve söyle" },
+                color = if (sorgu.isBlank()) Soluk else Metin,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            LazyColumn(
+                Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(sonuclar.size) { i ->
+                    val oge = sonuclar[i]
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Kart)
+                            .clickable { onSec(oge) }
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                    ) {
+                        Text(
+                            text = oge.title,
+                            color = Metin,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (sonuclar.isEmpty() && !araniyor && sorgu.isNotBlank()) {
+                    items(1) { Text("sonuç yok", color = Soluk, fontSize = 11.sp) }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+                YuvarlakDugme("🎙", 44.dp, Vurgu) { dinle() }
+                YuvarlakDugme("✕", 40.dp, Soluk) { onKapat() }
+            }
+        }
     }
 }
 

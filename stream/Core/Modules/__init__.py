@@ -20,6 +20,26 @@ async def _check_plugin(name: str, plugin, sem: asyncio.Semaphore) -> tuple[str,
         except Exception:
             return name, False, None
 
+# "Yeni Çıkanlar" soğuk agregasyonu ~40 sn sürüyor ve TTL 600 sn. TTL dolduktan
+# sonra ilk isteyen bu bedeli ödüyordu — saat uygulamasında açılış yarım dakika
+# boş ekran demekti. Cache TTL dolmadan arka planda tazelenir: isteyen hep sıcak
+# cache'i görür. Aralık TTL'in altında olmalı, yoksa arada soğuk pencere kalır.
+_ISITMA_ARALIGI = 480
+_ISITILAN_TIPLER = ("movie", "serie")
+
+
+async def _cache_isit() -> None:
+    from Public.API.v1.Libs import fuck_dmca
+
+    while True:
+        for tip in _ISITILAN_TIPLER:
+            with suppress(Exception):
+                # İstemcinin gönderdiği parametrelerle BİREBİR aynı olmalı:
+                # cache anahtarı params'tan üretiliyor, fazladan bir alan ıskalar.
+                await fuck_dmca("/aggregate_new", params={"type": tip}, timeout=90.0)
+        await asyncio.sleep(_ISITMA_ARALIGI)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan events - startup ve shutdown"""
@@ -59,9 +79,15 @@ async def lifespan(app: FastAPI):
             except Exception as hata:
                 konsol.log(f"[yellow][!] Eklenti erişim kontrolü atlandı: {hata}")
 
+    isitici = asyncio.create_task(_cache_isit())
+
     yield
 
     # Shutdown
+    isitici.cancel()
+    with suppress(Exception, asyncio.CancelledError):
+        await isitici
+
     with suppress(Exception):
         from Public.Proxy.Libs.helpers import shared_client, warp_client
         await shared_client.aclose()

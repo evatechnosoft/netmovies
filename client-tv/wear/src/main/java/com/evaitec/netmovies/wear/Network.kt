@@ -83,6 +83,10 @@ data class KatalogOgesi(
     val poster: String = "",
 )
 
+// search_all düz liste döner (katalogdaki gibi `items` sarmalayıcı yok).
+@Serializable
+data class AramaYaniti(val result: List<KatalogOgesi> = emptyList())
+
 @Serializable
 data class KatalogGovde(val items: List<KatalogOgesi> = emptyList())
 
