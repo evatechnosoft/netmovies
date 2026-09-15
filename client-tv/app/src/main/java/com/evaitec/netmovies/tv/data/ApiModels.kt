@@ -55,6 +55,8 @@ data class LinksResponse(
 
 @Serializable
 data class StreamLink(
+    /** Kaynağı veren sağlayıcı (engine doldurur). Kaynak puanlaması bu adı bildirir. */
+    val plugin: String = "",
     val name: String = "",
     val url: String = "",
     val referer: String = "",
@@ -224,10 +226,33 @@ data class ClientConfig(
     @SerialName("adult_providers") val adultProviders: List<String> = emptyList(),
     @SerialName("hidden_providers") val hiddenProviders: List<String> = emptyList(),
     @SerialName("vault_alias") val vaultAlias: String = "Özel Koleksiyon",
+    /** Oynatma kalitesi tavanı: "auto" | "1080" | "720" | "480". Yönetim panelinden gelir. */
+    @SerialName("default_quality") val defaultQuality: String = "auto",
 )
+
+/**
+ * Kalite tavanı süreç ömrü boyunca bir kez çekilir: her oynatmada yönetim
+ * ayarını sormanın anlamı yok, panel değişince uygulama yeniden açılır.
+ */
+object OynatmaAyari {
+    @Volatile var kaliteTavani: String = "auto"
+    @Volatile var okundu: Boolean = false
+
+    /** "1080" → 1920x1080. "auto" ve tanınmayan değer → null (sınır yok). */
+    fun tavanBoyutu(): Pair<Int, Int>? = when (kaliteTavani) {
+        "1080" -> 1920 to 1080
+        "720"  -> 1280 to 720
+        "480"  -> 854 to 480
+        else   -> null
+    }
+}
 
 @Serializable
 data class ClientConfigResponse(val result: ClientConfig = ClientConfig())
+
+/** Oynatma denemesinin sonucu — kaynak sırasının tek kanıt kaynağı. */
+@Serializable
+data class SourceEvent(val plugin: String = "", val ok: Boolean = false)
 
 // /api/v1/remote/poll — telefon kumandasından gelen komut (yoksa result null).
 // Tek şema, beş tür: play / key / transport / text / nav. Sunucu (Routers/remote.py)

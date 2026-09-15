@@ -11,8 +11,6 @@
 # sayfası tarayıcının kendi tanımasına düşer (yalnız arama yapar).
 
 import base64
-import json
-import os
 
 import httpx
 
@@ -21,17 +19,8 @@ from .        import api_v1_router, api_v1_global_message
 from .remote  import build_command, enqueue
 
 # Anahtar KODDA DEĞİL: önce yönetim panelinden (admin.json), yoksa .env'den.
-# Panel önce gelir ki anahtar değişince kap yeniden başlatılmasın.
-def _ayar(ad: str, env_ad: str, varsayilan: str = "") -> str:
-    try:
-        from Public.Home.Libs import admin_config
-        deger = str(admin_config.load_config().get(ad) or "").strip()
-    except Exception:
-        deger = ""
-    return deger or os.getenv(env_ad, "").strip() or varsayilan
-
-
-_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Tek kapı ..Libs.gemini — arama hakemi de aynı anahtarı/istemciyi kullanır.
+from ..Libs.gemini import ayar as _ayar, ENDPOINT as _ENDPOINT, json_ayikla as _cikti_ayikla
 
 # Ses tavanı: kumandada tek cümle söylenir, 15 sn'lik opus ~120 KB. Tavan bunun
 # katbekat üstünde ama sunucuyu megabaytlarca base64'e boğmaya izin vermez.
@@ -63,24 +52,6 @@ Anlamadığın cümlede action="none" ver."""
 
 def _hata(mesaj: str, kod: int = 400) -> JSONResponse:
     return JSONResponse(status_code=kod, content={**api_v1_global_message, "result": {"ok": False, "error": mesaj}})
-
-
-def _cikti_ayikla(payload: dict) -> dict | None:
-    """Gemini yanıtından JSON nesnesini çıkarır. Model yine de ```json çitiyle
-    sarabiliyor — o yüzden ilk { ... son } arası kesilir."""
-    try:
-        metin = payload["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError):
-        return None
-
-    bas, son = metin.find("{"), metin.rfind("}")
-    if bas < 0 or son <= bas:
-        return None
-
-    try:
-        return json.loads(metin[bas:son + 1])
-    except json.JSONDecodeError:
-        return None
 
 
 def _komuta_cevir(niyet: dict) -> dict | None:

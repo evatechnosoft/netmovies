@@ -23,6 +23,9 @@ async def client_config(request: Request):
             "hidden_categories": cfg.get("hidden_categories") or [],
             "vault_alias"      : cfg.get("vault_alias") or "Özel Koleksiyon",
             "min_rating"       : cfg.get("min_rating") or 0.0,
+            # Oynatma kalitesi tavani. TV istemcisi bunu setMaxVideoSize ile
+            # uygular; "auto" = sinir yok.
+            "default_quality"  : cfg.get("default_quality") or "auto",
             # Kumanda ayarları burada da veriliyor: panelde bir kez açılıp kapanır,
             # web kumandası ve TV aynı değeri görür (tek kaynak admin.json).
             "rc_show_recent"   : bool(cfg.get("rc_show_recent", True)),

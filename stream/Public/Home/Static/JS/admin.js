@@ -65,6 +65,11 @@ function renderRating() {
     $("#admin-min-rating-val").textContent = r;
 }
 
+function renderQuality() {
+    const el = $("#admin-default-quality");
+    if (el) el.value = CONFIG.default_quality || "auto";
+}
+
 function renderProviderUrl() {
     const el = $("#admin-provider-url");
     if (el) el.value = CONFIG.provider_url || "";
@@ -140,6 +145,7 @@ function collectConfig() {
         hidden_categories,
         featured: CONFIG.featured || [],
         min_rating: Number($("#admin-min-rating").value || 0),
+        default_quality: ($("#admin-default-quality")?.value || "auto").trim(),
         provider_url: ($("#admin-provider-url")?.value || "").trim(),
         site_pin: ($("#admin-site-pin")?.value || "").trim(),
         rc_show_recent: !!$("#admin-rc-recent")?.checked,
@@ -214,6 +220,7 @@ async function init() {
     renderCategories();
     renderFeatured();
     renderRating();
+    renderQuality();
     renderProviderUrl();
     renderGemini();
     renderSitePin();

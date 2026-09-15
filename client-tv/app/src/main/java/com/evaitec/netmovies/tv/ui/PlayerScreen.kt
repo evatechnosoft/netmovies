@@ -73,8 +73,11 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -86,9 +89,11 @@ import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
+import com.evaitec.netmovies.tv.data.OynatmaAyari
 import com.evaitec.netmovies.tv.data.PlaybackLog
 import com.evaitec.netmovies.tv.data.languageLabel
 import com.evaitec.netmovies.tv.data.loggedOrNull
+import com.evaitec.netmovies.tv.data.SourceEvent
 import com.evaitec.netmovies.tv.data.StreamLink
 import com.evaitec.netmovies.tv.data.guessSubtitleLang
 import com.evaitec.netmovies.tv.input.KeyBindings
@@ -102,6 +107,7 @@ import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import com.evaitec.netmovies.tv.ui.theme.nmPlayerScrim
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
@@ -140,21 +146,50 @@ fun PlayerScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Cihaza özel oynatıcı tercihleri. Sunucuda değil burada: tunneling desteği
+    // televizyonun kendi kod çözücüsünün meselesi, başka cihazı ilgilendirmez.
+    val oynaticiPrefs = remember { context.getSharedPreferences("player", android.content.Context.MODE_PRIVATE) }
+    // Tunneling: Android TV'de ses ve görüntü aynı donanım hattından gider,
+    // senkron kayması ve ses tamponu boşalması belirgin azalır. Destek cihaza
+    // göre değişir — açılmıyorsa ilk hatada kalıcı kapanır (aşağıda).
+    var tunneling by remember { mutableStateOf(oynaticiPrefs.getBoolean("tunneling", true)) }
+    val trackSelector = remember {
+        DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setTunnelingEnabled(tunneling)
+                    // Aynı akışta kod çözücü değişimi gerekiyorsa engelleme:
+                    // kısıt yüzünden hiç video seçilmemesi daha kötü.
+                    .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                    .setExceedVideoConstraintsIfNecessary(true)
+            )
+        }
+    }
     val exo = remember {
         ExoPlayer.Builder(context)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
+            .setTrackSelector(trackSelector)
+            // Varsayılan tampon ev ağı için kısaydı: segmentler ev upload'ından
+            // geçtiği için tek yavaş segment doğrudan sese yansıyordu. Televizyonda
+            // bellek bol, hat dar — tamponu büyütmek doğru takas.
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(30_000, 90_000, 3_000, 6_000)
+                    .setBackBuffer(20_000, true)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build()
+            )
             .build()
     }
     // Preview (scrub önizleme) oynatıcısı: aynı kaynak, düşük kalite, duraklatılmış,
     // hızlı seek (CLOSEST_SYNC). Küçük bir surface'e render edilip thumbnail gibi gösterilir.
-    val previewExo = remember {
-        ExoPlayer.Builder(context).build().apply {
-            volume = 0f
-            playWhenReady = false
-            setSeekParameters(SeekParameters.CLOSEST_SYNC)
-        }
-    }
+    //
+    // TEMBEL: eskiden ekran açılır açılmaz kuruluyor ve aynı HLS akışını paralel
+    // hazırlıyordu — ikinci kod çözücü, ikinci indirme zinciri, scrub yapılmasa
+    // bile. Mi Box sınıfı cihazda ses tamponunu boşaltan en ağır yüktü. Artık
+    // yalnız scrub başlayınca kurulur, scrub bitince bırakılır.
+    var previewExo by remember { mutableStateOf<ExoPlayer?>(null) }
 
     var error by remember { mutableStateOf<String?>(null) }
     var ready by remember { mutableStateOf(false) }
@@ -456,8 +491,43 @@ fun PlayerScreen(
         }
     }
 
-    DisposableEffect(previewExo) {
-        onDispose { previewExo.release() }
+    DisposableEffect(Unit) {
+        onDispose { previewExo?.release(); previewExo = null }
+    }
+
+    // Yönetim panelindeki kalite tavanı. Süreç ömrü boyunca bir kez çekilir ve
+    // KAYNAK GEÇİŞİNDE KORUNUR — kullanıcının elle seçtiği kalite geçişte
+    // sıfırlanıyordu, tavan sıfırlanmamalı.
+    LaunchedEffect(Unit) {
+        if (!OynatmaAyari.okundu) {
+            runCatching { Network.api.clientConfig().result.defaultQuality }
+                .onSuccess { OynatmaAyari.kaliteTavani = it; OynatmaAyari.okundu = true }
+        }
+        OynatmaAyari.tavanBoyutu()?.let { (g, y) ->
+            trackSelector.setParameters(trackSelector.buildUponParameters().setMaxVideoSize(g, y))
+            PlaybackLog.info("kalite", "tavan: ${OynatmaAyari.kaliteTavani}p (${g}x$y)")
+        }
+    }
+
+    // Kaynak sonucunu sunucuya bildir: tarama sırası buna göre kurulur.
+    // Aynı kaynak için tek kez — bir bölümde onlarca STATE_READY olur.
+    val bildirilen = remember(item.url) { mutableSetOf<String>() }
+    fun kaynakBildir(link: StreamLink?, oynadi: Boolean) {
+        val plugin = link?.plugin?.takeIf { it.isNotBlank() } ?: return
+        val anahtar = "$plugin:$oynadi"
+        if (!bildirilen.add(anahtar)) return
+        scope.launch {
+            runCatching { Network.api.sourceEvent(SourceEvent(plugin = plugin, ok = oynadi)) }
+        }
+    }
+
+    // Tunneling'i kalıcı kapat: bir kez desteklemeyen cihaz her açılışta yeniden
+    // denenmemeli.
+    fun tunnelingKapat(neden: String) {
+        tunneling = false
+        oynaticiPrefs.edit().putBoolean("tunneling", false).apply()
+        trackSelector.setParameters(trackSelector.buildUponParameters().setTunnelingEnabled(false))
+        PlaybackLog.warn("oynatma", "tunneling kapatıldı · $neden")
     }
 
     DisposableEffect(exo) {
@@ -465,7 +535,10 @@ fun PlayerScreen(
             override fun onPlaybackStateChanged(state: Int) {
                 // Kaynak gerçekten açılınca bant kalkar; yoksa "sıradaki deneniyor"
                 // yazısı film oynarken ekranda asılı kalıyordu.
-                if (state == Player.STATE_READY) { ready = true; status = null }
+                if (state == Player.STATE_READY) {
+                    ready = true; status = null
+                    kaynakBildir(links.getOrNull(currentLinkIndex), true)
+                }
                 // Bölüm bitti. ESKİDEN buradan ANINDA sıradakine geçiliyordu ve son
                 // sahneyi kaçıran kullanıcı kendini yeni bölümde buluyordu. Artık
                 // yalnız işaret konur: geri sayım kartı (aşağıdaki efekt) devreye
@@ -475,6 +548,21 @@ fun PlayerScreen(
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
+                // Kod çözücü/ses hattı hatası: suçlu kaynak değil, tunneling olabilir.
+                // Cihaz desteklemiyorsa kaynağı harcamadan tunneling'i kalıcı kapat
+                // ve AYNI kaynağı yeniden dene — konum korunur.
+                val kodCozucuHatasi = e.errorCode in setOf(
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FAILED,
+                    PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+                    PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
+                )
+                if (tunneling && kodCozucuHatasi) {
+                    tunnelingKapat("kod çözücü hatası: ${e.errorCodeName}")
+                    carryOverMs = exo.currentPosition.coerceAtLeast(0L)
+                    retryKey++
+                    return
+                }
                 // Otomatik kaynak geçişi: çalmayan link kullanıcıyı ekrandan atmaz,
                 // sessizce sıradaki denenir. Kuyruk bittiyse arama sürüyorsa beklenir.
                 val failed = links.getOrNull(currentLinkIndex)
@@ -482,6 +570,7 @@ fun PlayerScreen(
                     "oynatma",
                     "${failed?.let { languageLabel(it) } ?: "kaynak"} açılmadı · ${e.errorCodeName}: ${e.message ?: "-"}",
                 )
+                kaynakBildir(failed, false)
                 if (links.size > currentLinkIndex + 1) {
                     // Kaldığın yer korunur: yeni kaynak aynı dakikadan devam eder.
                     carryOverMs = exo.currentPosition.coerceAtLeast(0L)
@@ -529,6 +618,9 @@ fun PlayerScreen(
                 audioSinkError: Exception,
             ) {
                 PlaybackLog.fail("ses", "çıkış hatası", audioSinkError)
+                // Ses çıkışı tunneling ile kurulamıyorsa kalıcı kapat: bir sonraki
+                // hazırlamada normal hattan gider.
+                if (tunneling) tunnelingKapat("ses çıkışı hatası")
             }
 
             override fun onAudioInputFormatChanged(
@@ -722,6 +814,9 @@ fun PlayerScreen(
     // büyüdüğünde (full taraması alternatifleri kuyruğa ekler) aynı kaynak yeniden
     // `prepare()` ediliyor ve video BAŞA dönüyordu; kaldığın yerden devam da öyle
     // uygulanıp hemen sıfırlanıyordu.
+    // Oynayan kaynağın DataSource fabrikası: önizleme oynatıcısı scrub anında
+    // kurulurken aynı başlıklarla (Referer/UA) bağlanmalı.
+    var aktifFactory by remember { mutableStateOf<DefaultHttpDataSource.Factory?>(null) }
     val currentLinkUrl = links.getOrNull(currentLinkIndex)?.url
     LaunchedEffect(currentLinkUrl, retryKey) {
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
@@ -733,6 +828,10 @@ fun PlayerScreen(
         }
         PlaybackLog.info("oynatma", "deneniyor: ${languageLabel(link)}")
         qualityAuto = true   // önceki akışın track override'ı yeni akışta geçersiz
+        // Tavan akışa değil oynatıcıya ait: geçişte de geçerli kalır.
+        OynatmaAyari.tavanBoyutu()?.let { (g, y) ->
+            trackSelector.setParameters(trackSelector.buildUponParameters().setMaxVideoSize(g, y))
+        }
         try {
             ready = false; error = null
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
@@ -741,8 +840,13 @@ fun PlayerScreen(
                 .setUserAgent(ua)
                 .setDefaultRequestProperties(headers)
                 .setAllowCrossProtocolRedirects(true)
+            aktifFactory = dataSourceFactory
 
             val hls = HlsMediaSource.Factory(dataSourceFactory)
+                // Tek segment hatası kaynağı düşürmesin: geçici 5xx/kopmada üç
+                // deneme yapılır. Eskiden ilk hata doğrudan onPlayerError'a gidip
+                // çalışan kaynağı bırakıyordu.
+                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(3))
                 .createMediaSource(ExoMediaItem.fromUri(link.url))
 
             val subSources = link.subtitles
@@ -777,16 +881,10 @@ fun PlayerScreen(
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, com.evaitec.netmovies.tv.data.isDubbed(link))
                 .build()
 
-            // Preview oynatıcısı: aynı kaynak (ayrı MediaSource örneği), en düşük kalite.
-            val previewHls = HlsMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(ExoMediaItem.fromUri(link.url))
-            previewExo.setMediaSource(previewHls)
-            previewExo.prepare()
-            previewExo.playWhenReady = false
-            previewExo.trackSelectionParameters = previewExo.trackSelectionParameters.buildUpon()
-                .setMaxVideoSize(426, 240)
-                .setForceLowestBitrate(true)
-                .build()
+            // Önizleme oynatıcısı burada KURULMAZ — scrub başlayınca kurulur.
+            // Kaynak değişti: elde kalan önizleme eski akışı gösterir, bırakılır.
+            previewExo?.release()
+            previewExo = null
         } catch (e: Exception) {
             // Hazırlama hatası da sessiz geçiş: sıradaki kaynak denenir — ama loglanır.
             PlaybackLog.fail("oynatma", "hazırlanamadı: ${languageLabel(link)}", e)
@@ -799,9 +897,37 @@ fun PlayerScreen(
         }
     }
 
+    // Önizleme oynatıcısı scrub ile doğar, scrub ile ölür.
+    LaunchedEffect(scrubMode) {
+        if (scrubMode) {
+            val link = links.getOrNull(currentLinkIndex)
+            val factory = aktifFactory
+            if (previewExo == null && link != null && factory != null) {
+                previewExo = runCatching {
+                    ExoPlayer.Builder(context).build().apply {
+                        volume = 0f
+                        playWhenReady = false
+                        setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                        trackSelectionParameters = trackSelectionParameters.buildUpon()
+                            .setMaxVideoSize(426, 240)
+                            .setForceLowestBitrate(true)
+                            .build()
+                        setMediaSource(
+                            HlsMediaSource.Factory(factory).createMediaSource(ExoMediaItem.fromUri(link.url))
+                        )
+                        prepare()
+                        seekTo(scrubPos)
+                    }
+                }.getOrNull()
+            }
+        } else {
+            previewExo?.release()
+            previewExo = null
+        }
+    }
     // Scrub imleci değişince preview'ı seek et (debounce ~120ms).
     LaunchedEffect(scrubTick) {
-        if (scrubMode) { delay(120); runCatching { previewExo.seekTo(scrubPos) } }
+        if (scrubMode) { delay(120); runCatching { previewExo?.seekTo(scrubPos) } }
     }
     // Scrub modunda 6sn hareketsizlikte çık.
     LaunchedEffect(scrubTick, scrubMode) {
@@ -1164,7 +1290,7 @@ fun PlayerScreen(
 
         // Scrub / önizleme overlay'i (thumbnail = preview oynatıcı karesi).
         if (scrubMode) {
-            ScrubOverlay(previewExo = previewExo, scrubPos = scrubPos, duration = duration)
+            previewExo?.let { ScrubOverlay(previewExo = it, scrubPos = scrubPos, duration = duration) }
         }
 
         if (showPad) {

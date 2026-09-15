@@ -266,9 +266,12 @@ class ResolveSourcesContractTest(unittest.TestCase):
         )
 
         self.assertEqual(["/api/v1/resolve_sources"], self.provider.paths)
+        # `order` sunucunun EKLEDİĞİ alan (kanıta dayalı tarama sırası); istemcinin
+        # gönderdiği parametreler değişmeden geçmeli.
+        gonderilen = {k: v for k, v in self.provider.params_of().items() if k != "order"}
         self.assertEqual(
             {"plugin": "DiziBox", "encoded_url": "x", "title": "Dark", "mode": "fast", "episode": "3"},
-            self.provider.params_of(),
+            gonderilen,
         )
 
     def test_diagnostics_are_passed_through_to_clients(self) -> None:

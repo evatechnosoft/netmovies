@@ -173,6 +173,11 @@ interface NetMoviesApi {
     @POST("api/v1/prefs")
     suspend fun prefsPost(@Body body: Map<String, String>): OkResponse
 
+    // Oynatma denemesinin sonucu: sunucu tarama sırasını buna göre kuruyor.
+    // Sunucu "link buldum" der ama gerçekten açıldığı yalnız burada bilinir.
+    @POST("api/v1/source_event")
+    suspend fun sourceEvent(@Body body: SourceEvent): OkResponse
+
     // Oynatma günlüğü sunucuya: kumandayla satır satır gezilemeyen rapor
     // tarayıcıdan okunur (GET /api/v1/client_log → düz metin).
     @POST("api/v1/client_log")

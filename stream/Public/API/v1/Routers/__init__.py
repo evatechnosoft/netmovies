@@ -34,6 +34,7 @@ from . import (
     watch,
     markers,
     prefs,
+    source_event,
     client_config,
     client_log,
     remote,

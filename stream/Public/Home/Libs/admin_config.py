@@ -40,6 +40,10 @@ DEFAULT_CONFIG: dict = {
     ],
     "featured": [],      # [{provider, url, title, poster, rating}]
     "min_rating": 0.0,
+    # Varsayilan oynatma kalitesi: "auto" | "1080" | "720" | "480".
+    # Ev upload'i dar oldugunda otomatik secim yukari tirmanip takiliyor; ust
+    # sinir koyulabilsin. TV istemcisi de bu degeri okur (client_config).
+    "default_quality": "auto",
     "vault_alias": "Özel Koleksiyon",
     "vault_pin": "",     # Gizli kasa PIN kodu (opsiyonel)
     "adult_providers": list(ADULT_PROVIDERS),

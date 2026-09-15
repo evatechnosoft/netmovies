@@ -245,8 +245,19 @@ async def resolve_sources(request: Request):
             if dead:
                 diag.add("info", "sağlık", f"atlanan sağlıksız kaynak: {', '.join(sorted(dead))}")
 
+            # Tarama sırası: stream kanıta dayalı sıra (`order`) verirse o geçerli,
+            # vermezse elle yazılmış liste. Sırada olmayan sağlayıcı listenin
+            # sonuna eklenir — puanı olmayan yeni eklenti kaybolmasın.
+            ham_sira = (istek.get("order") or "").strip()
+            if ham_sira:
+                istenen = [p.strip() for p in ham_sira.split(",") if p.strip()]
+                sira    = istenen + [n for n in ALTERNATIVE_ORDER if n not in istenen]
+                diag.add("info", "sıra", f"puanlı sıra uygulandı: {', '.join(istenen[:5])}…")
+            else:
+                sira = ALTERNATIVE_ORDER
+
             candidates = [
-                name for name in ALTERNATIVE_ORDER
+                name for name in sira
                 if name in plugin_names and name != selected and name not in dead
             ]
             matches    = await asyncio.gather(
