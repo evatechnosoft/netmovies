@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.2.9"
+val appVersion = "0.3.0"
 
 plugins {
     id("com.android.application")
@@ -38,6 +38,16 @@ android {
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.
         buildConfigField("String", "RELEASE_TAG", "\"v$appVersion-poc\"")
+    }
+
+    // Cikti adi OTA sozlesmesi: `app_update.py` hedefi onekten (`netmovies-tv-`),
+    // surumu addaki `vX.Y.Z`den okuyor. `app-debug.apk` surum tasimadigi icin her
+    // yayinda elle yeniden adlandirmak gerekiyordu (saat tarafinda ayni duzeltme).
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
+                .outputFileName = "NetMovies-TV-v$appVersion.apk"
+        }
     }
 
     buildFeatures {
