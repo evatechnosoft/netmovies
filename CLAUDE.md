@@ -47,6 +47,8 @@ python scripts/chain_scan.py --n 2        # HER sağlayıcının HER kaynağı m
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 docker logs netmovies-engine | grep -E "aggregate:|resolve:"   # kaynak teşhisi
+curl -s localhost:3310/api/v1/source_score                     # sağlayıcı puanları
+curl -s localhost:3310/api/v1/client_log                       # TV oynatma günlüğü (ses/tampon)
 ```
 `tests/` imaja build ile girer; kod değiştirmeden test denemek için:
 `docker cp stream/tests netmovies-stream:/usr/src/Stream/`

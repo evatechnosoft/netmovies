@@ -40,7 +40,8 @@ boş → puanlama olsa DiziMom o dizi için geriye düşerdi.
   her segmentte 403 → WARP → 403 döngüsü, stream günlüğü bununla dolu. Her segment iki
   upstream isteği + WARP gecikmesi.
 - `force_proxy=1` olan 10 sağlayıcıda tüm segmentler ev upload'ından (`source_proxy.py:20,48`).
-- Segment cache tavanı 5 MB (`video.py:181-197`): 1080p segmentler sığmıyor, cache boşa.
+- ~~Segment cache tavanı 5 MB~~ — YANLIŞ bulgu: tavan zaten 20 MB
+  (`segment_cache.py:190`), yorum satırı eski durumu anlatıyordu.
 - Gövde manifest tespiti 1 MB tam `aread()` (`video.py:124-127`): akış başına gecikme.
 - Ön-yükleme 3 segment, yalnız manifest anında (`video.py:16`); sürekli değil.
 
@@ -64,8 +65,8 @@ Kanıt: `client_log`'da `tampon boşaldı` sayısı bir bölüm boyunca 0; `grad
 ### Faz B — proxy (ses kesintisinin ağ tarafı) · stream
 1. WARP **negatif önbellek**: host WARP'ta da 403 aldıysa 10 dk `_warp_dead` kümesine,
    tekrar denenmez; kaynak zincirine "bu host ölü" sinyali gider.
-2. Segment cache tavanı 5 → 20 MB; ön-yükleme sürekli: servis edilen segmentin
-   sıradaki 2'si kuyruğa.
+2. Ön-yükleme sürekli: servis edilen segmentin sıradaki 2'si kuyruğa.
+   (Cache tavanı maddesi düştü — zaten 20 MB.)
 3. Manifest gövde tespiti: ilk 8 KB'ı `aiter_bytes` ile oku, `#EXTM3U` yoksa kalanı
    doğrudan akıt (1 MB tam okuma biter).
 Kanıt: `smoke.sh` + `chain_scan.py --n 2` yeşil; stream günlüğünde WARP döngüsü 0.
