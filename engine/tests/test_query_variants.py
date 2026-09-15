@@ -38,6 +38,12 @@ class BaslikUyusuyorTest(unittest.TestCase):
         self.assertFalse(baslik_uyusuyor("The Odyssey", "2001: A Space Odyssey"))
         self.assertFalse(baslik_uyusuyor("The Odyssey", "Doctor Odyssey"))
 
+    def test_sayi_ayirt_edici(self):
+        # "17" iki harf sinirina takilip elenince geriye {daha} kaliyor ve
+        # alakasiz film eslesme sayiliyordu.
+        self.assertFalse(baslik_uyusuyor("Daha 17", "Hızlı ve Öfkeli 2 Daha Hızlı Daha Öfkeli"))
+        self.assertTrue(baslik_uyusuyor("Daha 17", "Daha 17 son bölüm"))
+
     def test_noktalama_ve_site_eki_tolere_edilir(self):
         self.assertTrue(baslik_uyusuyor("Örümcek Adam: Yepyeni Bir Gün", "Örümcek Adam Yepyeni Bir Gün izle"))
         self.assertTrue(baslik_uyusuyor("Inception", "Başlangıç - Inception Türkçe Dublaj"))

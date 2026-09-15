@@ -8,14 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,9 +39,11 @@ import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 
-// Gezinme ekranı: belirli dakikaya atlama ve bölüm seçme — TAM EKRANDA.
-// Oynatıcının üstündeki küçük yarı saydam katmanda bunlar okunmuyordu; kalan süre
-// hiç yazmıyordu ve dakikaya atlamanın yolu yoktu (yalnız 10sn/60sn adımlar vardı).
+// Dakika tuş takımı: SOL ALTTA küçük kutu, telefon tuşu düzeninde 4x4.
+// Önce tam ekrandı ve 0-9 tek sırada diziliydi: görüntüyü tamamen kapatıyordu
+// (Dean: "koca ekran kaplıyor o sarma sayfası") ve tek sıra rakamda kumandayla
+// 7'ye gitmek yedi basış demekti. Telefon düzeninde rakam iki adımda geliyor.
+// Son sıra bölüm gezinmesi: 4x4'ün artan satırı boş durmasın.
 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -72,105 +74,99 @@ fun SeekScreen(
     }
     BackHandler { onClose() }
 
-    Box(Modifier.fillMaxSize().background(NmColor.Scrim), contentAlignment = Alignment.Center) {
+    fun git() {
+        val minutes = minuteInput.toLongOrNull() ?: return
+        val target = (minutes * 60_000L).coerceIn(0, if (duration > 0) duration else Long.MAX_VALUE)
+        onSeekTo(target)
+        minuteInput = ""
+        onClose()
+    }
+
+    // Zemin karartması YOK: görüntü tuş takımının yanında açık kalır.
+    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomStart) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.86f)
+                .width(PAD_WIDTH)
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .background(NmColor.SurfaceDialog)
                 .focusGroup()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Geçen / kalan / toplam — üçü birden, kalan büyük ve vurgulu.
+            // Geçen · kalan · yazılan dakika — tek satır, tuş takımı kadar dar.
             val remaining = (duration - position).coerceAtLeast(0)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Geçen ${fmtClock(position)}", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
+                Text(fmtClock(position), fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
                 Text(
-                    text = "Kalan ${fmtClock(remaining)}",
-                    fontSize = NmType.ScreenTitle,
+                    text = if (minuteInput.isEmpty()) "−${fmtClock(remaining)}" else "${minuteInput}. dk",
+                    fontSize = NmType.Body,
                     fontWeight = FontWeight.Bold,
                     color = NmColor.Primary,
                 )
-                Text("Toplam ${fmtClock(duration)}", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
+                Text(fmtClock(duration), fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
             }
             ProgressBar(position, duration)
 
-            // Sarma çipleri (±5dk ±1dk ±10sn) KALDIRILDI: sarma zaten SAĞ/SOL ok ve
-            // ⏪⏩ tuşlarında, panelin yarısını tekrar için harcıyordu (Dean: "çok
-            // abartı olmuş, gerek yok, zaten sağ solla gidiyoruz"). Panelde yalnız
-            // kumandadan yapılamayan iki iş kalıyor: belirli dakikaya gitmek ve
-            // bölüm değiştirmek.
-            SectionLabel("Dakikaya git")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Telefon tuşu düzeni, 4 sütun × 4 satır. Dördüncü sütun eylem
+            // (sil / 0 / git), son satır bölüm gezinmesi.
+            PadRow {
+                Digit("1", Modifier.weight(1f).focusRequester(firstFocus)) { minuteInput = yaz(minuteInput, '1') }
+                Digit("2", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '2') }
+                Digit("3", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '3') }
+                Digit("⌫", Modifier.weight(1f)) { minuteInput = minuteInput.dropLast(1) }
+            }
+            PadRow {
+                Digit("4", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '4') }
+                Digit("5", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '5') }
+                Digit("6", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '6') }
+                Digit("0", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '0') }
+            }
+            PadRow {
+                Digit("7", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '7') }
+                Digit("8", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '8') }
+                Digit("9", Modifier.weight(1f)) { minuteInput = yaz(minuteInput, '9') }
+                Digit("▶", Modifier.weight(1f), accent = true) { git() }
+            }
+            // Son satır: canlı yayında DVR uçları, kayıtta bölüm gezinmesi.
+            PadRow {
+                if (canliYayin) {
+                    Digit("⏮", Modifier.weight(1f)) { onTamponBasina(); onClose() }
+                    Digit("⏭", Modifier.weight(1f)) { onCanliyaDon(); onClose() }
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Digit("⏮", Modifier.weight(1f), enabled = prevEpisodeLabel != null) { onPrevEpisode(); onClose() }
+                    Digit("⏭", Modifier.weight(1f), enabled = nextEpisodeLabel != null) { onNextEpisode(); onClose() }
+                    Digit("📑", Modifier.weight(1f), enabled = onOpenEpisodes != null) { onOpenEpisodes?.invoke(); onClose() }
+                }
+                Digit("✕", Modifier.weight(1f)) { onClose() }
+            }
+
+            // Hangi bölüme gidileceği tuşta yazmıyor: tek satır altta.
+            (nextEpisodeLabel ?: prevEpisodeLabel)?.let {
                 Text(
-                    text = if (minuteInput.isEmpty()) "—" else "${minuteInput}. dk",
-                    fontSize = NmType.Body,
-                    fontWeight = FontWeight.Bold,
-                    color = NmColor.OnSurface,
-                    modifier = Modifier.padding(end = 6.dp),
+                    text = "⏭ $it",
+                    fontSize = NmType.Caption,
+                    color = NmColor.OnSurfaceFaint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                // İlk odak buraya: sarma satırı kalkınca `firstFocus` sahipsiz
-                // kalıyordu ve panel açıldığında hiçbir şey odaklanmıyordu.
-                ('0'..'9').forEachIndexed { i, ch ->
-                    Digit(
-                        ch.toString(),
-                        modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
-                    ) { if (minuteInput.length < 3) minuteInput += ch }
-                }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("⌫ Sil") { minuteInput = minuteInput.dropLast(1) }
-                Chip("▶ Git") {
-                    val minutes = minuteInput.toLongOrNull()
-                    if (minutes != null) {
-                        val target = (minutes * 60_000L).coerceIn(0, if (duration > 0) duration else Long.MAX_VALUE)
-                        onSeekTo(target)
-                        minuteInput = ""
-                        onClose()
-                    }
-                }
-            }
-
-            // Canlı kanalda tampon (DVR) penceresi var: Show TV'de ~59 dk geriye
-            // inilebiliyor, ama 10-30 sn'lik adımlarla. Pencerenin ucuna tek
-            // hamlede gitmek gerekiyordu.
-            if (canliYayin) {
-                SectionLabel("Canlı yayın")
-                EpisodeRow("⏮  Baştan izle — tamponun başı", false) { onTamponBasina(); onClose() }
-                EpisodeRow("⏭  Canlıya dön", false) { onCanliyaDon(); onClose() }
-            }
-
-            // Bölümler: burada düz liste vardı (3 sezon = 30 satır kaydırma).
-            // En çok kullanılan ikisi satır olarak, tamamı sezon rafı olan panelde.
-            if (prevEpisodeLabel != null || nextEpisodeLabel != null || onOpenEpisodes != null) {
-                SectionLabel("Bölüm")
-                prevEpisodeLabel?.let {
-                    EpisodeRow("⏮  Önceki bölüm — $it", false) { onPrevEpisode(); onClose() }
-                }
-                nextEpisodeLabel?.let {
-                    EpisodeRow("⏭  Sonraki bölüm — $it", false) { onNextEpisode(); onClose() }
-                }
-                onOpenEpisodes?.let {
-                    EpisodeRow("📑  Tüm bölümler (sezon seç)", false) { it(); onClose() }
-                }
-            }
-
-            Chip("✕ Kapat") { onClose() }
         }
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/** Tuş takımı genişliği: 4 sütun rahat sığar, görüntünün çeyreğini geçmez. */
+private val PAD_WIDTH = 300.dp
+
+private fun yaz(mevcut: String, ch: Char): String =
+    if (mevcut.length < 3) mevcut + ch else mevcut
+
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        fontSize = NmType.Caption,
-        fontWeight = FontWeight.SemiBold,
-        color = NmColor.OnSurfaceFaint,
-        modifier = Modifier.padding(top = 8.dp),
+private fun PadRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        content = content,
     )
 }
 
@@ -194,80 +190,46 @@ private fun ProgressBar(position: Long, duration: Long) {
     }
 }
 
+/**
+ * Tuş takımı düğmesi. `enabled=false` → görünür ama odak almaz: 4x4 düzeni
+ * bozulmasın diye kaldırılmıyor (filmde bölüm tuşu yoktur ama yeri durur).
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Chip(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(NmDim.PillRadius)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(if (focused) NmColor.Primary else NmColor.SurfaceHigh)
-            .nmFocusRing(focused, shape)
-            .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 9.dp),
-    ) {
-        Text(
-            text = label,
-            fontSize = NmType.Label,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
-        )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun Digit(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun Digit(
+    label: String,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = modifier
-            .size(42.dp)
+            .height(40.dp)
             .clip(shape)
-            .background(if (focused) NmColor.Primary else NmColor.Surface)
+            .background(
+                when {
+                    focused -> NmColor.Primary
+                    accent  -> NmColor.PrimarySelected
+                    else    -> NmColor.Surface
+                }
+            )
             .nmFocusRing(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() },
+            .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             fontSize = NmType.Body,
             fontWeight = FontWeight.Bold,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
-        )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun EpisodeRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(NmDim.RowRadius)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(
-                when {
-                    focused -> NmColor.Primary
-                    selected -> NmColor.PrimarySelected
-                    else -> NmColor.Surface
-                }
-            )
-            .nmFocusRing(focused, shape)
-            .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-    ) {
-        Text(
-            text = (if (selected) "● " else "") + label,
-            fontSize = NmType.Label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+            color = when {
+                focused -> NmColor.OnPrimary
+                enabled -> NmColor.OnSurface
+                else    -> NmColor.OnSurfaceFaint
+            },
         )
     }
 }

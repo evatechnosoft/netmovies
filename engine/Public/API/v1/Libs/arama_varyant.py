@@ -55,8 +55,15 @@ def query_variants(title: str | None) -> list[str]:
 
 
 def _anlamli_kelimeler(metin: str) -> set[str]:
+    """Anlamlı kelimeler. Sayılar UZUNLUKTAN muaf: "Daha 17"un ayırt edici
+    parçası "17"dir ve iki harf sınırına takılıp eleniyordu — geriye {daha}
+    kalınca "Hızlı ve Öfkeli 2 Daha Hızlı Daha Öfkeli" eşleşme sayılıyor ve
+    zincire yanlış film giriyordu."""
     sade = str(metin or "").translate(_HARFLER).lower()
-    return {k for k in re.sub(r"[^\w\s]", " ", sade).split() if len(k) > 2}
+    return {
+        k for k in re.sub(r"[^\w\s]", " ", sade).split()
+        if len(k) > 2 or k.isdigit()
+    }
 
 
 def baslik_uyusuyor(aranan: str, aday_baslik: str | None) -> bool:

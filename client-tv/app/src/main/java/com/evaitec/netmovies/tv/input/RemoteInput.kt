@@ -23,6 +23,7 @@ enum class RemoteAction(val id: String, val label: String, val repeatable: Boole
     SHOW_CONTROLS("controls", "Kontrolleri Göster"),
     TOGGLE_SCRUB("scrub", "Önizleme / Scrub"),
     OPEN_EPISODES("episodes", "Bölüm listesi"),
+    OPEN_BAR("bar", "Alt kumanda barı"),
     BACK("back", "Geri / Çık");
 
     companion object {
@@ -64,7 +65,8 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
     // Dizide bölüm listesi kumandada da tek harekette açılsın: YUKARI basılı tut.
     put(k(RemoteKey.UP, PressType.LONG), RemoteAction.OPEN_EPISODES)
-    put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.OPEN_SETTINGS)
+    // AŞAĞI = alt bar. Ayarlar da oradaki bir düğme; tek giriş noktası olsun.
+    put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.OPEN_BAR)
 }
 
 // Kalıcı tuş eşlemesi. Compose observable (mutableStateMap) → Buton Eşleme ekranı

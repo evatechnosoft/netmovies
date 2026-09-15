@@ -27,10 +27,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Forward30
+import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Replay30
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -426,6 +437,7 @@ fun PlayerScreen(
                 if (episodes.isEmpty()) showSettings = true
                 else { panelAsList = true; showStartPanel = true; showControls = false }
             RemoteAction.SHOW_CONTROLS -> flashControls()
+            RemoteAction.OPEN_BAR -> { showPad = true; showControls = false }
             // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
             // Akışın "kaldığın yeri" yok, scrub anlamsız (Dean: "kanaldan
             // çıkmadan kanallarda gezelim"). Dizi/filmde eski davranış duruyor.
@@ -1239,7 +1251,9 @@ fun PlayerScreen(
         }
 
         // Kontrol overlay: dokunmatikte etkileşimli butonlar; D-pad'de görsel bilgi.
-        if (showControls && !scrubMode) {
+        // Alt bar (QuickPad) açıkken çizilmez: ikisi de ekranın altına oturuyor,
+        // üst üste gelince süre çubuğu düğmelerin ardında kalıyordu.
+        if (showControls && !scrubMode && !showPad) {
             ControlsOverlay(
                 isPlaying = isPlaying,
                 position = position,
@@ -1296,6 +1310,8 @@ fun PlayerScreen(
         if (showPad) {
             QuickPad(
                 isPlaying = isPlaying,
+                position = position,
+                duration = duration,
                 prevEpisodeLabel = prevEpIndex?.let { episodeLabel(episodes[it], it) },
                 nextEpisodeLabel = nextEpIndex?.let { episodeLabel(episodes[it], it) },
                 hasEpisodes = episodes.isNotEmpty(),
@@ -1471,12 +1487,16 @@ private val PAD_DISI = setOf(
 private fun padAcarMi(code: Int): Boolean =
     RemoteKey.from(code) == null && code !in MEDIA_KEYS && code !in PAD_DISI
 
-// Sağ altta açılan hızlı kumanda kutusu. Tek basış mantığı: her şey bir düğme,
-// D-pad düğmeler arasında gezer, OK uygular, GERİ kapatır.
+// ALT BAR: oynat, sarma, bölüm geçme ve panel girişleri tek şeritte, küçük
+// ikonlarla. Önce sağ altta dikey bir kutuydu; görüntünün köşesini kapatıyordu ve
+// oynatıcının kendi alt çubuğuyla iki ayrı "kontrol yeri" oluyordu. Tek basış
+// mantığı aynı: D-pad düğmeler arasında gezer, OK uygular, GERİ kapatır.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun QuickPad(
     isPlaying: Boolean,
+    position: Long,
+    duration: Long,
     prevEpisodeLabel: String?,
     nextEpisodeLabel: String?,
     hasEpisodes: Boolean,
@@ -1498,80 +1518,128 @@ private fun QuickPad(
         }
     }
 
-    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Column(
             modifier = Modifier
-                .width(340.dp)
-                .clip(RoundedCornerShape(NmDim.PanelRadius))
-                .background(NmColor.SurfaceDialog)
-                .focusGroup()
-                .padding(14.dp),
+                .fillMaxWidth()
+                .background(nmPlayerScrim)
+                .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PadBtn("−5dk", Modifier.weight(1f)) { onSeekBy(-300_000) }
-                PadBtn("−30sn", Modifier.weight(1f)) { onSeekBy(-30_000) }
-                PadBtn(
-                    label = if (isPlaying) "⏸" else "▶",
-                    modifier = Modifier.weight(1f).focusRequester(ilkOdak),
-                    accent = true,
-                ) { onPlayPause() }
-                PadBtn("+30sn", Modifier.weight(1f)) { onSeekBy(30_000) }
-                PadBtn("+5dk", Modifier.weight(1f)) { onSeekBy(300_000) }
-            }
+        // Alt bar açıkken kontrol overlay'i çizilmiyor: süre ve ilerleme burada
+        // olmazsa nereye sarıldığı görünmez kalır.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = fmtTime(position) + "  ·  −" + fmtTime((duration - position).coerceAtLeast(0)),
+                color = NmColor.OnSurfaceMuted,
+                fontSize = NmType.Caption,
+            )
+            Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
+        }
+        Box(
+            Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
+                .background(NmColor.TrackIdle),
+        ) {
+            val oran = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+            Box(
+                Modifier.fillMaxWidth(oran).height(4.dp).clip(RoundedCornerShape(2.dp))
+                    .background(NmColor.Primary),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().focusGroup(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Bölüm geçme uçlarda: sarma tuşlarıyla karışmasın, en dış konum
+            // kumandada tek hamlede yakalanır.
+            PadBtn(Icons.Filled.SkipPrevious, "Önceki", enabled = prevEpisodeLabel != null) { onPrevEpisode() }
+            PadBtn(Icons.Filled.FastRewind, "−5 dk") { onSeekBy(-300_000) }
+            PadBtn(Icons.Filled.Replay30, "−30 sn") { onSeekBy(-30_000) }
+            PadBtn(
+                icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                label = if (isPlaying) "Duraklat" else "Oynat",
+                modifier = Modifier.focusRequester(ilkOdak),
+                accent = true,
+            ) { onPlayPause() }
+            PadBtn(Icons.Filled.Forward30, "+30 sn") { onSeekBy(30_000) }
+            PadBtn(Icons.Filled.FastForward, "+5 dk") { onSeekBy(300_000) }
+            PadBtn(Icons.Filled.SkipNext, "Sonraki", enabled = nextEpisodeLabel != null) { onNextEpisode() }
 
-            if (prevEpisodeLabel != null || nextEpisodeLabel != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    prevEpisodeLabel?.let { PadBtn("⏮ Önceki", Modifier.weight(1f)) { onPrevEpisode() } }
-                    nextEpisodeLabel?.let { PadBtn("⏭ Sonraki", Modifier.weight(1f)) { onNextEpisode() } }
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasEpisodes) PadBtn("📑 Bölümler", Modifier.weight(1f)) { onOpenEpisodes() }
-                PadBtn("🧭 Dakika", Modifier.weight(1f)) { onOpenSeek() }
-                PadBtn("⚙ Ayarlar", Modifier.weight(1f)) { onOpenSettings() }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Sistemin HOME tuşu uygulamaya gelmiyor; "ana sayfa" burada bir düğme.
-                PadBtn("🏠 Ana sayfa", Modifier.weight(1f)) { onHome() }
-                PadBtn("✕ Kapat", Modifier.weight(1f)) { onClose() }
-            }
+            PadBtn(Icons.Filled.FormatListBulleted, "Bölümler", enabled = hasEpisodes) { onOpenEpisodes() }
+            PadBtn(Icons.Filled.Dialpad, "Dakika") { onOpenSeek() }
+            PadBtn(Icons.Filled.Settings, "Ayarlar") { onOpenSettings() }
+            // Sistemin HOME tuşu uygulamaya gelmiyor; "ana sayfa" burada bir düğme.
+            PadBtn(Icons.Filled.Home, "Ana sayfa") { onHome() }
+            PadBtn(Icons.Filled.Close, "Kapat") { onClose() }
+        }
         }
     }
 }
 
+/**
+ * Alt bar düğmesi: küçük ikon + altında adı. `enabled=false` → soluk ve odak
+ * almaz; düğme kaldırılmıyor ki şeridin düzeni bölümden bölüme kaymasın
+ * (kumandayla öğrenilen "üçüncü tuş oynat" bilgisi bozulur).
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun PadBtn(
+    icon: ImageVector,
     label: String,
     modifier: Modifier = Modifier,
     accent: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
-    Box(
-        modifier = modifier
-            .height(44.dp)
-            .clip(shape)
-            .background(
-                when {
-                    odakli -> NmColor.Primary
-                    accent -> NmColor.PrimarySelected
-                    else   -> NmColor.Surface
-                }
-            )
-            .nmFocusRing(odakli, shape)
-            .onFocusChanged { odakli = it.isFocused }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center,
+    Column(
+        modifier = modifier.width(64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
+        Box(
+            modifier = Modifier
+                .size(if (accent) 46.dp else 40.dp)
+                .clip(shape)
+                .background(
+                    when {
+                        odakli -> NmColor.Primary
+                        accent -> NmColor.PrimarySelected
+                        else   -> NmColor.ScrimSoft
+                    }
+                )
+                .nmFocusRing(odakli, shape)
+                .onFocusChanged { odakli = it.isFocused }
+                .clickable(enabled = enabled) { onClick() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(if (accent) 26.dp else 22.dp),
+                colorFilter = ColorFilter.tint(
+                    when {
+                        odakli  -> NmColor.OnPrimary
+                        enabled -> NmColor.OnSurface
+                        else    -> NmColor.OnSurfaceFaint
+                    }
+                ),
+            )
+        }
         Text(
             text = label,
             fontSize = NmType.Caption,
             fontWeight = if (odakli) FontWeight.Bold else FontWeight.Medium,
-            color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
+            color = when {
+                odakli  -> NmColor.Primary
+                enabled -> NmColor.OnSurfaceMuted
+                else    -> NmColor.OnSurfaceFaint
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

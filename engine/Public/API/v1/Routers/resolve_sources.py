@@ -26,7 +26,7 @@ from .plugin_health import run_plugin_health
 from urllib.parse import quote_plus
 
 # Sıra ve bütçe Libs'te: router Core'u tetiklediği için oradan test edilemiyordu.
-from ..Libs.tarama_sirasi import ALTERNATIVE_ORDER, ALTERNATIVE_TIMEOUT, tarama_sirasi
+from ..Libs.tarama_sirasi import ALTERNATIVE_ORDER, ALTERNATIVE_TIMEOUT, tarama_sirasi, tum_saglayicilar
 
 class Diagnostics:
     """İstemciye de dönen teşhis kaydı — 'neden açılmadı' sorusu artık cevaplanabilir."""
@@ -237,14 +237,15 @@ async def resolve_sources(request: Request):
             if dead:
                 diag.add("info", "sağlık", f"atlanan sağlıksız kaynak: {', '.join(sorted(dead))}")
 
-            sira = tarama_sirasi(istek.get("order"))
-            if sira is not ALTERNATIVE_ORDER:
+            sira = tum_saglayicilar(istek.get("order"), plugin_names)
+            if tarama_sirasi(istek.get("order")) is not ALTERNATIVE_ORDER:
                 diag.add("info", "sıra", f"puanlı sıra uygulandı: {', '.join(sira[:5])}…")
 
             candidates = [
                 name for name in sira
                 if name in plugin_names and name != selected and name not in dead
             ]
+            diag.add("info", "kapsam", f"taranacak sağlayıcı ({len(candidates)}): {', '.join(candidates)}")
             matches    = await asyncio.gather(
                 *(_with_budget(_search_match(name, queries, diag), name, "arama", diag) for name in candidates),
                 return_exceptions=True,
