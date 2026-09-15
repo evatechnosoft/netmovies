@@ -8,33 +8,74 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 15 Eylül 2026
-**Dal:** `fix/general-stability` @ `fa0fa3a` · push edilmedi
+**Dal:** `fix/general-stability` @ `c887115` · **temiz (0 kirli dosya)** · push edilmedi
 **Sürümler:** TV `v0.2.9-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
 **Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone **0.2.8 (vc 208) BAYAT**,
-0.2.9 (vc 209) yüklenmedi · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` **YEŞİL**
-> engine **39/39** · stream **132/132** · TV `testDebugUnitTest` Exit 0
-> `chain_scan --n 1`: 2 ölü kaynak (HDFilmCehennemi·SetPlay · DiziMom·kaynak yok)
-> tünel `w.evaitec.com/api/v1/health` → 200
-> Stream+engine yeniden inşa edildi (15 Eylül), tünel geri kaldırıldı.
+0.2.9 (vc 209) BİLEREK yüklenmedi (cihazda denenmemiş sürüm televizyona
+"güncelleme var" diye düşmemeli) · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
 
-## ÖNCE BUNU YAP — v0.2.9 cihazda denenmedi
+## Doğrula (koş, sonra devam et)
+
+```bash
+git rev-parse --short HEAD                  # beklenen: c887115
+git status --porcelain | wc -l              # beklenen: 0
+bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
+docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
+                                            # beklenen: Ran 132 · OK
+curl -s localhost:3310/api/v1/client_log    # şu an: "Kayıt yok" (TV hiç oynatmadı)
+curl -s localhost:3310/api/v1/source_score  # şu an: kaynaklar: [] (hiç olay gelmedi)
+```
+HEAD tutmuyorsa: `git log c887115..HEAD --oneline`. Tünel koptuysa
+(`cloudflared` ağ ad alanı stream'e pinli, stream yeniden inşa edilince kopar):
+`docker compose --profile tunnel up -d`.
+
+## SIRADAKİ İŞ #1 — v0.2.9'u televizyonda dene
 
 Oynatma kalitesi çalışması (`docs/PLAN-oynatma-kalitesi.md`) dört fazın tamamıyla
-kodda; hiçbiri TELEVİZYONDA denenmedi. Kanıt kapısı:
+kodda ve sunucu tarafı yeşil, ama **TELEVİZYONDA HİÇ DENENMEDİ**. Ses kesintisinin
+gerçekten bittiği yalnız cihazda belli olur.
 
-1. APK'yı kur: `client-tv/app/build/outputs/apk/debug/app-debug.apk` (v0.2.9).
-2. Bir bölüm izle, sonra `http://192.168.1.185:3310/api/v1/client_log` oku.
-   - `ses · tampon boşaldı` satırı **hiç olmamalı** (eskiden ses kesiliyordu).
-   - `tunneling kapatıldı` satırı varsa Mi Box tunneling'i desteklemiyor demektir;
-     kalıcı kapandı, sorun değil — ama o zaman senkron kazancı da yok.
-   - `kalite · tavan:` satırı yalnız panelde tavan seçilmişse gelir.
-3. `curl -s localhost:3310/api/v1/source_score` — bir bölüm izledikten sonra
-   oynayan sağlayıcının puanı +50 olmalı. Boşsa istemci olay bildirmiyordur.
+1. APK'yı kur: `client-tv/app/build/outputs/apk/debug/app-debug.apk`
+   (15 Eylül 09:55, 20.232.314 bayt). Telefondan aktarım: evaitecOTA →
+   "Televizyona gönder" (kare kod).
+2. Bir bölüm sonuna kadar izle.
+3. `curl -s localhost:3310/api/v1/client_log` — okunacak üç satır:
+   - `ses · tampon boşaldı` **hiç olmamalı**. Varsa: kaç kez, hangi dakikada,
+     `bufferSizeMs` kaç. Tampon hâlâ yetmiyorsa `PlayerScreen.kt` içindeki
+     `setBufferDurationsMs(30_000, 90_000, 3_000, 6_000)` yukarı çekilir.
+   - `tunneling kapatıldı · <neden>` varsa Mi Box tunneling desteklemiyor
+     demektir. Kalıcı kapandı, oynatma bundan zarar görmez — ama senkron
+     kazancı da yok, o yolu kapat.
+   - `ses · biçim: … kod çözücü yeniden kuruldu` — akış ortasında ses biçimi
+     değişiyor demektir; kesinti buradan geliyorsa çare oynatıcıda değil kaynakta.
+4. `curl -s localhost:3310/api/v1/source_score` — oynayan sağlayıcı **+50** ile
+   görünmeli. Liste hâlâ boşsa istemci olay bildirmiyordur: `PlayerScreen.kt`
+   `kaynakBildir()` çağrısına ve `StreamLink.plugin` alanının dolu geldiğine bak.
 
-## SIRADAKİ İŞ — oynatıcı ve kart aksiyonları (Dean'in 14 Eylül gece listesi)
+Bu üçü yeşilse OTA'ya yükle (`--target` bayrağı olmadan release `/releases`
+listesine düşmez, TV güncellemeyi görmez) ve `apps.json` vc 209'a çekilir.
+
+## Tekrarlama — bu oturumda ölen yollar
+
+- **Audio offload** denenmedi ve denenmemeli: HLS/TS'de gapless şartı var,
+  kazancı pil — televizyonda karşılığı yok. Tunneling yeter.
+- **Global WARP proxy** hâlâ reddedilmiş durumda: WARP çıkış IP'si bazı
+  kaynaklarda bloklu (`Proxy/Libs/helpers.py:37-38`). Yalnız engellenen istek düşer.
+- **Segment cache tavanını 5→20 MB çıkarmak** diye bir iş YOK: tavan zaten 20 MB
+  (`segment_cache.py:190`), `video.py:183`'teki yorum eski durumu anlatıyor.
+- **Testte `sys.modules`'dan modül silmek** yasak: FastAPI eski fonksiyon
+  referansını tutuyor ve BAŞKA testlerin mock'ları sessizce devre dışı kalıyor.
+  Depo yolları çağrı anında okunuyor, yeniden yüklemeye gerek yok.
+- **Sabit `encoded_url` ile resolve testi yazmak** yanıltıcı: `fuck_dmca` yanıtı
+  180 sn cache'liyor, ikinci test birincinin yanıtını görür.
+- **Sunucu tarafı transcode (ffmpeg)** kapalı kalsın — imajlarda kurulu değil,
+  ev CPU'su kaldırmaz.
+
+Gerekçe zinciri: aşağıdaki **0.13** oturum günlüğü ve `docs/PLAN-oynatma-kalitesi.md`.
+
+## SONRA — oynatıcı ve kart aksiyonları (Dean'in 14 Eylül gece listesi)
 
 Hiçbiri başlanmadı. Dean'in kendi cümleleriyle, sırayla:
 
