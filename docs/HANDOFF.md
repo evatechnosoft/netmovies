@@ -8,12 +8,14 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 15 Eylül 2026
-**Dal:** `fix/general-stability` @ `12dda3c` · push edilmedi
+**Dal:** `fix/general-stability` @ `bc27e6a` · push edilmedi
 **Sürümler:** TV `v0.2.9-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
 **Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone **0.2.8 (vc 208) BAYAT**,
 0.2.9 (vc 209) yüklenmedi · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
 **Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` **YEŞİL**
-> engine **39/39** · stream **133/133** · tünel `w.evaitec.com/api/v1/health` → 200
+> engine **39/39** · stream **132/132** · TV `testDebugUnitTest` Exit 0
+> `chain_scan --n 1`: 2 ölü kaynak (HDFilmCehennemi·SetPlay · DiziMom·kaynak yok)
+> tünel `w.evaitec.com/api/v1/health` → 200
 > Stream+engine yeniden inşa edildi (15 Eylül), tünel geri kaldırıldı.
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
