@@ -2,7 +2,7 @@
 
 from CLI          import konsol
 from fastapi      import Request
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin, quote, urlsplit
 from Settings     import PROXIES
 import asyncio, ipaddress, os, time
 import httpx, traceback, re, json
@@ -196,6 +196,15 @@ def get_content_type(url: str, response_headers: dict) -> str:
     # 3. Varsayılan
     return "video/mp4"
 
+_REFERER_REDDEDEN_HOSTLAR = ("video.twimg.com",)
+
+
+def _referer_reddeden(url: str) -> bool:
+    """Referer gönderilince 403 veren CDN mi?"""
+    host = urlsplit(url).hostname or ""
+    return any(host == h or host.endswith(f".{h}") for h in _REFERER_REDDEDEN_HOSTLAR)
+
+
 def prepare_request_headers(request: Request, url: str, referer: str | None, user_agent: str | None, extra_headers: dict[str, str] | None = None) -> dict:
     """Proxy isteği için headerları hazırlar"""
     headers = {}
@@ -220,7 +229,11 @@ def prepare_request_headers(request: Request, url: str, referer: str | None, use
     else:
         headers["user-agent"] = DEFAULT_USER_AGENT
 
-    if referer and referer != "None":
+    # Referer KABUL ETMEYEN CDN'ler: Twitter/X amplify akışı referer'sız 200,
+    # embed sayfasının referer'ı ile 403 veriyor. DiziMom'un FirePlayer embed'leri
+    # (hdstreamable/peacemakerst) bu CDN'i kullanıyor — kaynak bulunuyor ama
+    # oynatıcıda "Upstream Error: 403" çıkıyordu. Adres imzalı, referer gerekmiyor.
+    if referer and referer != "None" and not _referer_reddeden(url):
         headers["referer"] = referer
 
     # Client'tan gelen Range header'ı aktar (MP4 seek/byte-range desteği, goProxy parity)

@@ -171,6 +171,27 @@ def extract_embedded_sources(
     return results
 
 
+def _fireplayer_stream(payload: dict) -> str | None:
+    """getVideo yanıtından oynatılabilir adresi çıkarır.
+
+    Üç biçim: imzalı tek link (`securedLink`), düz tek link (`videoSource`) ve
+    kalite listesi (`videoSources: [{file, label}]`). Sonuncusu yalnız `/tv/`
+    kurulumlarında dönüyor; okunmadığı için liste boş kalıyordu.
+    """
+    if not isinstance(payload, dict):
+        return None
+
+    direct = payload.get("securedLink") or payload.get("videoSource")
+    if isinstance(direct, str) and direct:
+        return direct
+
+    for source in payload.get("videoSources") or []:
+        file = (source or {}).get("file") if isinstance(source, dict) else None
+        if isinstance(file, str) and file:
+            return file
+    return None
+
+
 async def fireplayer_sources(
     client: httpx.AsyncClient,
     iframe_url: str,
@@ -179,9 +200,15 @@ async def fireplayer_sources(
 ) -> list[ExtractResult]:
     """FirePlayer embed'ini (vidpapi, hdplayersystem, …) imzalı HLS master'a çevirir.
 
-    Player linki packed JS ardında; `POST <origin>/player/index.php?data=<hash>&do=getVideo`
-    JSON'unda `securedLink` (md5+expires imzalı) düz metin geliyor. Altyazı varsa
-    iframe sayfasındaki `playerjsSubtitle` değişkeninden okunur.
+    Player linki packed JS ardında; `POST <adres>?do=getVideo` JSON'unda link düz
+    metin geliyor. Altyazı varsa iframe sayfasındaki `playerjsSubtitle`
+    değişkeninden okunur.
+
+    İki kurulum biçimi var ve ikisi de denenmeli: kök kuruluma (hdplayersystem)
+    `<origin>/player/index.php` cevap verirken, `/tv/` altındaki kurulumlar
+    (peacemakerst, hdstreamable) orada 404 verip yalnız sayfanın KENDİSİNE
+    (`<iframe>?do=getVideo`) cevap veriyor. Yalnız ilki denendiği için DiziMom'un
+    yerli dizileri hiç kaynak vermiyordu.
     """
     parts  = urlsplit(iframe_url)
     origin = f"{parts.scheme}://{parts.netloc}"
@@ -196,25 +223,36 @@ async def fireplayer_sources(
     except Exception:
         pass
 
-    response = await client.post(
+    stream = None
+    for target in (
         f"{origin}/player/index.php?data={video}&do=getVideo",
-        data    = {"hash": video, "r": site_url},
-        headers = {
-            "User-Agent"      : _DEFAULT_UA,
-            "Referer"         : iframe_url,
-            "Origin"          : origin,
-            "X-Requested-With": "XMLHttpRequest",
-        },
-        timeout = 15.0,
-    )
-    if response.status_code != 200:
-        return []
-    try:
-        payload = response.json()
-    except Exception:
-        return []
+        f"{iframe_url}?do=getVideo",
+    ):
+        try:
+            response = await client.post(
+                target,
+                data    = {"hash": video, "r": site_url},
+                headers = {
+                    "User-Agent"      : _DEFAULT_UA,
+                    "Referer"         : iframe_url,
+                    "Origin"          : origin,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout = 15.0,
+            )
+        except Exception:
+            # httpx istemcisi 4xx'te fırlatıyor: 404 veren biçim sessizce elenir.
+            continue
+        if response.status_code != 200:
+            continue
+        try:
+            payload = response.json()
+        except Exception:
+            continue
+        stream = _fireplayer_stream(payload)
+        if stream:
+            break
 
-    stream = payload.get("securedLink") or payload.get("videoSource")
     if not stream:
         return []
 
