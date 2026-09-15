@@ -7,76 +7,85 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 15 Eylül 2026, 16:00
-**Dal:** `fix/general-stability` @ `6b3a622` · 3 kirli dosya (yalnız `.claude/handoffs/`) · push edilmedi
-**Sürümler:** TV `v0.2.9-poc` · saat `v0.1.3-poc` · evaitecOTA TV+mobil `0.1.8`
-**Katalog:** `evaglass-releases/apps.json` @ `66acab8` (push EDİLDİ) — saat **0.1.3 (vc 103) CANLI** ·
-netmovies tv+phone **0.2.8 (vc 208) BAYAT**, 0.2.9 (vc 209) BİLEREK yüklenmedi
-(cihazda denenmemiş sürüm televizyona "güncelleme var" diye düşmemeli)
-**Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
-**PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+**Son güncelleme:** 15 Eylül 2026, 22:45
+**Dal:** `fix/general-stability` @ `fe0b39f` · **0 kirli dosya** · push EDİLMEDİ
+**Sürümler:** TV `v0.3.1-poc` · saat `v0.1.4-poc`
+**Katalog:** `evaglass-releases/apps.json` @ `31a2eb5` (push EDİLDİ) —
+netmovies-tv/phone **0.3.1 (vc 301)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
+**Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
+**PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
+
+> **Yayın kuralı DEĞİŞTİ** (Dean, 15 Eylül): "Yayınla sorma artık bitince geliştirme
+> yayınla." Kanıt yeşilse sürüm artırılır ve üç dağıtım yeri birden güncellenir —
+> yerel OTA (`/data/apk`), GitHub release (`--target main`), `apps.json`. Onay sorulmaz,
+> ne yayınlandığı söylenir. Eski "cihazda denenmemiş sürüm OTA'ya konmaz" kuralı KALKTI.
+> Hafıza: `memory/yayinlamak-icin-sorma.md`.
 
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 6b3a622
-git status --porcelain                      # beklenen: yalnız .claude/handoffs/ satırları
+git rev-parse --short HEAD                  # beklenen: fe0b39f
+git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
                                             # beklenen: Ran 132 · OK
-curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.3-poc
-curl -s localhost:3310/api/v1/client_log    # şu an: "Kayıt yok" (TV hiç oynatmadı)
-curl -s localhost:3310/api/v1/source_score  # şu an: kaynaklar: [] (hiç olay gelmedi)
+MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
+                                            # beklenen: Ran 40 · OK
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.1-poc
+curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.4-poc
+curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`6b3a622` bulunamıyorsa dal ilerlemiş: `git log 6b3a622..HEAD --oneline`. Tünel koptuysa
-(`cloudflared` ağ ad alanı stream'e pinli, stream yeniden inşa edilince kopar):
-`docker compose --profile tunnel up -d`.
+`fe0b39f` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+**Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
+alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
+düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — saat 0.1.3'ü bilekte dene (5 dakikalık iş)
+## SIRADAKİ İŞ #1 — TV 0.3.1 ve saat 0.1.4'ü cihazda dene
 
-Saat uygulaması (v0.1.3) üç dağıtım yerinde de yayında ama **bilekte hiç
-denenmedi**. Sunucu tarafı kanıtlı, cihaz tarafı değil.
+İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
 
-1. Saatte evaitecOTA'yı aç → NetMovies Mini 0.1.3 (vc 103) → kur.
-2. 🎙 düğmesine bas ve **"inception aç"** de → sonuç listesi gelmeli, dokununca TV'de açmalı.
-3. Yine 🎙 → **"sesi kıs"** de → saat ana ekrana dönüp "Ses kısılıyor" yazmalı, TV'de ses düşmeli.
-4. ⏩/🔊 düğmesine bas, çerçeveyi çevir → kip değişmeli (sarma ⟷ ses).
+**Televizyonda** (evaitecOTA → NetMovies 0.3.1 / vc 301 → kur):
+1. Favorilerden **Altı Üstü İstanbul** ya da **Daha 17** aç → oynamalı.
+2. **AŞAĞI** tuşu → alt bar; D-pad ile ⏮ · −5dk · −30sn · ▶ · +30sn · +5dk · ⏭ ·
+   Bölümler · Dakika · Ayarlar · Ana sayfa · Kapat gezilmeli. Süre + ilerleme barın üstünde.
+3. Bardan **Bölümler** → kutucuk ızgarası: önce **Sezon seç**, seçince bölüm kutucukları,
+   GERİ bir sayfa geri. Tek sezonluk dizide sezon sayfası atlanmalı.
+4. Bardan **Dakika** → sol altta 300dp kutu; `1 2 3 ⌫ / 4 5 6 0 / 7 8 9 ▶ / ⏮ ⏭ 📑 ✕`.
+   45 yaz → ▶ → 45. dakikaya gitmeli. Görüntü kararmamalı.
+5. `curl -s localhost:3310/api/v1/client_log` → `sunucu·kapsam` satırı denenen
+   sağlayıcıların tamamını yazmalı; `ses · tampon boşaldı` hiç olmamalı.
 
-Mikrofon hiç açılmıyorsa: `adb logcat | grep -i recognizer`. Sebep büyük ihtimalle
-Android 11+ paket görünürlüğüdür — manifeste `<queries>` bloğu eklendi
-(`client-tv/wear/src/main/AndroidManifest.xml:11-18`), logcat bunu doğrular.
+Alt bar açılmıyorsa AŞAĞI eşlemesi değişmiş olabilir: Ayarlar → Buton Eşleme →
+Aşağı ▼ → "Alt kumanda barı".
 
-"inception aç" arama yerine düz metin arıyorsa Gemini ucu susuyordur:
-`curl -s -X POST localhost:3310/api/v1/voice -H 'Content-Type: application/json' -d '{"text":"inception ac","dry":"1"}'`
-→ 503 ise anahtar yok (Yönetim → Sesli Kumanda).
+**Saatte** (evaitecOTA → NetMovies Mini 0.1.4 / vc 104 → kur):
+6. Açılışta Devam Et posterleri gelmeli. Gelmezse ekran artık "sunucuya ulaşılamadı —
+   dokun, yeniden dene" yazmalı (sonsuz "yükleniyor" DEĞİL); dokunuş adres aramasını
+   sıfırdan başlatır.
+7. 🎙 → "inception aç" (liste gelmeli, dokununca TV'de açmalı) · 🎙 → "sesi kıs"
+   (saat ana ekrana dönüp "Ses kısılıyor" yazmalı, TV'de ses düşmeli).
+8. ⏩/🔊 düğmesi → çerçeveyi çevir → kip değişmeli (sarma ⟷ ses).
 
-## SIRADAKİ İŞ #2 — v0.2.9'u televizyonda dene
-
-Oynatma kalitesi çalışması (`docs/PLAN-oynatma-kalitesi.md`) dört fazın tamamıyla
-kodda ve sunucu tarafı yeşil, ama **TELEVİZYONDA HİÇ DENENMEDİ**. Ses kesintisinin
-gerçekten bittiği yalnız cihazda belli olur.
-
-1. APK'yı kur: `client-tv/app/build/outputs/apk/debug/app-debug.apk`
-   (15 Eylül 09:55, 20.232.314 bayt). Telefondan aktarım: evaitecOTA →
-   "Televizyona gönder" (kare kod).
-2. Bir bölüm sonuna kadar izle.
-3. `curl -s localhost:3310/api/v1/client_log` — okunacak üç satır:
-   - `ses · tampon boşaldı` **hiç olmamalı**. Varsa: kaç kez, hangi dakikada,
-     `bufferSizeMs` kaç. Tampon hâlâ yetmiyorsa `PlayerScreen.kt` içindeki
-     `setBufferDurationsMs(30_000, 90_000, 3_000, 6_000)` yukarı çekilir.
-   - `tunneling kapatıldı · <neden>` varsa Mi Box tunneling desteklemiyor
-     demektir. Kalıcı kapandı, oynatma bundan zarar görmez — ama senkron
-     kazancı da yok, o yolu kapat.
-   - `ses · biçim: … kod çözücü yeniden kuruldu` — akış ortasında ses biçimi
-     değişiyor demektir; kesinti buradan geliyorsa çare oynatıcıda değil kaynakta.
-4. `curl -s localhost:3310/api/v1/source_score` — oynayan sağlayıcı **+50** ile
-   görünmeli. Liste hâlâ boşsa istemci olay bildirmiyordur: `PlayerScreen.kt`
-   `kaynakBildir()` çağrısına ve `StreamLink.plugin` alanının dolu geldiğine bak.
-
-Bu üçü yeşilse OTA'ya yükle (`--target` bayrağı olmadan release `/releases`
-listesine düşmez, TV güncellemeyi görmez) ve `apps.json` vc 209'a çekilir.
+Mikrofon hiç açılmıyorsa: `adb logcat | grep -i recognizer` (Android 11+ paket
+görünürlüğü için `client-tv/wear/src/main/AndroidManifest.xml:11-18` `<queries>` var).
 
 ## Tekrarlama — ölen yollar
+
+- **`resolve_sources?...&url=`** diye çağırma: uç `encoded_url` ister, `url` verilince
+  **410**. `encoded_url` base64 DEĞİL, **tek kez** yüzde-kodlanmış düz URL. Base64
+  verirsen "UnsupportedProtocol: Request URL is missing an 'http://'" görürsün —
+  kodda değil, çağrıda hata vardır.
+- **`fuck_dmca` yanıtı 180 sn cache'li**: düzeltmeden hemen sonra aynı parametreyle
+  çağırırsan ESKİ sonucu görürsün. Parametreyi değiştir (`&episode=0&mode=full`) ya da bekle.
+- **Bash tool'unda ters bölü yeniyor**: heredoc'a gömülen Python regex'lerinde ters bölü
+  kayboluyor ve "incomplete escape" veriyor. Uzun/kaçışlı metni Write tool'uyla ayrı bir
+  dosyaya yaz, script o dosyayı OKUSUN.
+- **DDizi'yi "bozuk" sanma**: yalnız resmi YouTube yayınlarını çözüyor. Dizi sayfasında
+  YouTube yerleşimi yoksa 0 kaynak — tasarım, hata değil.
+- **Motor içinde script**: `cd /usr/src/KekikStreamAPI && PYTHONPATH=. python ...` şart;
+  `docker exec -w` tek başına `ModuleNotFoundError: Plugins` veriyor.
+- **Saat "çalışmıyor" deyince önce TÜNELE bak**: `https://w.evaitec.com/api/v1/health`
+  530 ise saat ölü adrese düşmüştür — sunucu uçları yerelden 200 dönüyor olabilir.
 
 - **Wear'a Gemini'ye ses yüklemek** gereksiz: saatte `RecognizerIntent` var ve
   `/api/v1/voice` düz metni de kabul ediyor. Anahtar sunucuda kalır.
@@ -105,15 +114,11 @@ listesine düşmez, TV güncellemeyi görmez) ve `apps.json` vc 209'a çekilir.
 
 Gerekçe zinciri: aşağıdaki **0.13** oturum günlüğü ve `docs/PLAN-oynatma-kalitesi.md`.
 
-## SONRA — oynatıcı ve kart aksiyonları (Dean'in 14 Eylül gece listesi)
+## SONRA — kart aksiyonları (Dean'in 14 Eylül gece listesi)
 
-Hiçbiri başlanmadı. Dean'in kendi cümleleriyle, sırayla:
-
-1. **"Sonraki/önceki bölüm player'da yok sanırım, dolaşamıyorum."** Oynatıcıda
-   bölüm atlama görünür bir kontrol değil; bölüm listesi yalnız YUKARI basılı
-   tutma (`OPEN_EPISODES`) ile açılıyor. Kontrol çubuğunda ⏮/⏭ bölüm düğmesi
-   olmalı ve D-pad ile erişilebilmeli. `PlayerScreen.kt` · `nextEpIndex`,
-   `panelAsList`, `sonrakiTeklif` çevresi.
+1. ~~"Sonraki/önceki bölüm player'da yok sanırım, dolaşamıyorum."~~ **BİTTİ** (TV 0.3.1):
+   alt barda ⏮/⏭ bölüm düğmeleri D-pad ile erişilebilir, bölüm seçimi ayrı kutucuk
+   sayfası (`EpisodePicker.kt`). AŞAĞI tuşu barı açar.
 2. **"Buton kartta; sadece D-pad ile gezip seçebilmeliyim."** Kart üzerindeki
    aksiyonlar kumandayla dolaşılabilir olmalı.
 3. **"Takip/favori gibi butonlar dışarda ya da rahat ulaşılabilsin."** Şu an
@@ -126,6 +131,7 @@ Hiçbiri başlanmadı. Dean'in kendi cümleleriyle, sırayla:
 
 > Not: 2-5 aynı bileşeni (poster kartı) konuşuyor; tek tasarım kararıyla
 > çözülmeli — kart odakta iken üstünde ikon şeridi, uzun basmada tam menü.
+> Oynatıcıdaki çözüm (kutucuk ızgarası + tek giriş noktası) burada da örnek.
 
 ## Dean'e sorulan, cevap bekleyen
 
@@ -170,6 +176,91 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.15 15 Eylül akşamı — DiziMom zinciri, oynatıcı alt barı, bölüm sayfası, saat kilitlenmesi (TV v0.3.1, saat v0.1.4)
+
+Dean'in sorularıyla açıldı: "favoriye aldığım dizilerim oynanabilir kaynak vermedi
+nedendir", ardından oynatıcı arayüzü, ardından "saat uygulaması çalışmıyor".
+
+### 1. DiziMom favorileri — iki ayrı kök neden (`fcac4db`)
+
+Favorilerdeki iki yerli dizi (Daha 17, Altı Üstü İstanbul) hiç oynamıyordu.
+
+**FirePlayer embed'inin iki adres biçimi var.** `fireplayer_sources`
+(`engine/Plugins/__dizi_common.py`) yalnız `<origin>/player/index.php?...&do=getVideo`
+deniyordu. `/tv/` altındaki kurulumlar (peacemakerst.com, hdstreamable.com) orada 404
+verip yalnız sayfanın KENDİSİNE (`<iframe>?do=getVideo`) cevap veriyor; linki de
+`securedLink`/`videoSource` yerine `videoSources[].file` içinde döndürüyorlar. İkisi de
+deneniyor, üç yanıt biçimi de okunuyor (`_fireplayer_stream`). hdplayersystem kök
+kurulum olduğu için çalışıyordu — anime çalışıp yerli dizinin çalışmamasının sebebi bu.
+
+**Proxy referer reddeden CDN'e referer gönderiyordu.** Akış `video.twimg.com` üzerinden
+geliyor: referer'sız 200, embed referer'ı ile 403. Kaynak bulunuyor ama oynatıcıda
+"Upstream Error: 403" çıkıyordu. `_REFERER_REDDEDEN_HOSTLAR`
+(`stream/Public/Proxy/Libs/helpers.py`) — adres zaten imzalı, referer gerekmiyor.
+
+Kanıt: iki dizinin 1. ve son bölümü 0 → 1 kaynak; hdplayersystem'li diziler 1 → 1
+(gerileme yok); proxy master 200 → varyant 200 → segment 200.
+
+### 2. "Orası her ortamı taramalı" — kapsam elle yazılmış listeden geliyordu (`ab0cbf7`)
+
+Dean: "tek yerden eklemedim, o dizi olarak favorim." Haklıydı: `ALTERNATIVE_ORDER`
+9 adlık bir liste ve aynı zamanda KAPSAMI belirliyordu; motorda 16 eklenti yüklü.
+DDizi, FullHDFilmizlesene, JetFilmizle, M3UPlaylist zincire hiç girmiyordu — arama
+onları buluyor, çözümleme denemiyordu. `tum_saglayicilar()`
+(`engine/Public/API/v1/Libs/tarama_sirasi.py`) kapsamı yüklü eklentilerden, sırayı yine
+puan/öncelik listesinden alıyor; yetişkin eklentileri `TARAMA_DISI`. Yeni `kapsam`
+teşhisi denenen sağlayıcıların tamamını tek satırda yazıyor (istemci günlüğüne düşüyor).
+
+**Kapsam genişleyince gizli bir tuzak çıktı:** `_anlamli_kelimeler` 2 harften kısa
+parçaları atıyordu, "Daha 17" → `{daha}` kalınca "Hızlı ve Öfkeli 2 Daha Hızlı Daha
+Öfkeli" eşleşme sayılıyor ve yanlış film oynatma listesine giriyordu. Sayılar uzunluk
+sınırından muaf edildi + regresyon testi. Ders: tarama kapsamını genişletmek, eşleşme
+kesinliğini de sınar.
+
+### 3. Oynatıcı arayüzü (`ab0cbf7`, `fe0b39f`)
+
+Dean: "ileri sar süre yaz tuşu telefon tuşu 4x4 şeklinde koy, altta açılsın; alt barda
+play ve ileri geri bölüm geçme tuşlarında gezinme koy, bölümlerde oraya girsin, küçük
+ikonlarla belirsin; sol altta çıkabilir tuş takımı, daha küçük, koca ekran kaplıyor."
+Ardından: "çok karışık, player içinde liste seçimi iç içe hep geçiyor, tile olsun ya da
+sayfa geçiş."
+
+- `QuickPad` sağ alt dikey kutudan **alt bar**a döndü: küçük vektör ikon + altında ad,
+  D-pad gezinir. Bar açıkken `ControlsOverlay` çizilmiyor (ikisi de ekranın altına
+  oturuyor, üst üste geliyordu) — süre ve ilerleme çubuğu bu yüzden barın üstüne taşındı.
+  AŞAĞI tuşu yeni `RemoteAction.OPEN_BAR`'a bağlandı; Ayarlar artık barın içinde bir
+  düğme, böylece oynatıcının tek giriş noktası var.
+- `SeekScreen` tam ekran + tek sıra 0-9 iken **sol altta 300dp kutu ve telefon düzeni
+  4x4** oldu; son satır bölüm gezinmesi. Zemin karartması kalktı, görüntü açık kalıyor.
+- Bölüm seçimi **ayrı sayfa**: `EpisodePicker.kt` · `BolumSecici` — kutucuk ızgarası,
+  önce sezon sayfası sonra bölüm sayfası, GERİ bir sayfa geri. StartPanel'in içindeki
+  sezon rafı (yatay) + bölüm listesi (dikey) kaldırıldı; panelde tek "Bölümler (N)"
+  satırı kaldı. Sebep: aynı ekranda iki ayrı yön + panel üstüne panel, nereye basınca
+  nereye gidildiğini belirsiz kılıyordu. Sezon durumu PlayerScreen'de tutuluyor çünkü
+  GERİ bu ekranda değil, oynatıcının tuş işleyicisinde yakalanıyor.
+
+### 4. Saat "çalışmıyor" — tünel kopuktu, saat ölü adrese kilitlenmişti (`fe0b39f`)
+
+Belirti: yükleniyorda kalıyor + her düğme "gönderilemedi". Sunucu tarafı temizdi
+(yerelden tüm uçlar 200, `/remote/command` çerezsiz 200). `https://w.evaitec.com` **530**
+dönüyordu: `cloudflared` ağ ad alanı stream'e pinli ve stream bu oturumda yeniden
+kurulmuştu. `docker compose --profile tunnel up -d` ile 200'e döndü.
+
+Asıl kusur saatteydi: `Sunucu.taban()` adayları SIRAYLA yokluyordu (kodun kendi yorumu
+"paralel" diyordu — yalan) ve hiçbiri cevap vermeyince tünel adresini AYAKTA MI diye
+bakmadan hatırlıyordu. Ölü adrese kilitlenen saat bir daha yerel ağı aramıyordu. Artık
+paralel yoklama + yalnız gerçekten ayakta olan adres hatırlanıyor; komut başarısız
+olursa adres unutuluyor; ulaşılamayınca ekran "sunucuya ulaşılamadı — dokun, yeniden
+dene" yazıyor (sonsuz "yükleniyor" değil).
+
+### 5. Yayın kuralı değişti
+
+Dean: "Yayınla sorma artık bitince geliştirme yayınla." Önceki "cihazda denenmemiş sürüm
+televizyona güncelleme diye düşmesin" kuralı kalktı. TV 0.3.0 → 0.3.1, saat 0.1.3 →
+0.1.4 yayınlandı. TV APK'sı da artık build'de `NetMovies-TV-vX.Y.Z.apk` adıyla çıkıyor
+(`094007c`) — saat tarafındaki `6b3a622` düzeltmesinin eşi; elle yeniden adlandırma bitti.
+
 
 ## 0.14 15 Eylül öğleden sonra — saat: sesli kumanda, halka anahtarı, hızlı açılış (saat v0.1.3)
 
@@ -2157,3 +2248,33 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 
 ## 8. Commit geçmişi (özet)
 `docs/` specler → vendor+dereklam → engine plugin altyapısı (HDFilmCehennemi) → hibrit provider + M3U → sağlık kontrolü → admin panel + 4K → harici player + PWA → RecTV → auth + hibrit deploy → DoH + hls.js self-host. Hepsi `claude/stream-app-architecture-86q0sg` dalında, PR #3.
+
+---
+
+## `/clear` sonrası başlangıç promptu (yapıştır)
+
+```
+NetMovies (D:\projects\netmovies, dal fix/general-stability @ fe0b39f, 0 kirli dosya,
+push edilmedi). Bu oturumda kapanan iş: DiziMom favorilerinin oynamama nedeni (FirePlayer
+/tv embed adresi + video.twimg.com referer 403), kaynak zincirinin yüklü TÜM sağlayıcıları
+taraması, oynatıcı alt kumanda barı, sol altta 4x4 dakika tuş takımı, bölüm seçiminin ayrı
+kutucuk sayfası olması, ve saatin ölü sunucu adresine kilitlenmesi. TV 0.3.1 (vc 301) ve
+saat Mini 0.1.4 (vc 104) üç dağıtım yerinde de yayında — hiçbiri CİHAZDA denenmedi.
+
+Önce docs/HANDOFF.md oku ve içindeki "Doğrula" bloğunu koş; repo ile doküman çelişirse
+repo doğrudur.
+
+Ortam: yığın docker compose ile evde ayakta (yerel http://192.168.0.29:3310, tünel
+https://w.evaitec.com). Tünel 530 dönerse: docker compose --profile tunnel up -d.
+Yayın kuralı: geliştirme bitip kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub release
+--target main + evaglass-releases/apps.json), ne yayınladığını söyle.
+
+Öncelik sırası:
+1. SIRADAKİ İŞ #1 — TV 0.3.1 ve saat 0.1.4'ü cihazda dene (adımlar HANDOFF'ta).
+   Dean'in cihaz geri bildirimi gelene kadar oynatıcı arayüzünde yeni iş açma.
+2. Dean bir kusur bildirirse onun kök nedeni.
+3. SONRA listesi (kart aksiyonları, madde 2-5) — yalnız Dean isterse.
+
+Yeni iş açma: "isimlendirme standardı / pipeline / environment ayrımı" isteği Dean
+tarafından "pardon yanlış oldu" ile İPTAL edildi, kendiliğinden başlama.
+```
