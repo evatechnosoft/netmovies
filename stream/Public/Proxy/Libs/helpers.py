@@ -49,6 +49,23 @@ warp_client  = httpx.AsyncClient(
 # 403 yemeye gerek yok — doğrudan WARP'tan gider.
 _warp_hosts: set[str] = set()
 
+# WARP'ın da çözemediği host. Bu kayıt olmadan her segment iki upstream isteği
+# yiyordu: doğrudan 403 → WARP → yine 403. Bir bölümde yüzlerce segment var,
+# stream günlüğü "↻ WARP denemesi: four.pichive.online · 403" ile doluyordu ve
+# her segment WARP gidiş-dönüşü kadar geç açılıyordu. Kalıcı değil (host
+# gerçekten geri gelebilir), TTL sonunda bir kez daha denenir.
+_WARP_DEAD_TTL              = 600.0
+_warp_dead: dict[str, float] = {}
+
+
+def warp_host_durumu(host: str) -> str:
+    """Kaynak zincirinin okuyabilmesi için: 'warp' | 'olu' | 'normal'."""
+    if host in _warp_hosts:
+        return "warp"
+    if _warp_dead.get(host, 0.0) > time.monotonic():
+        return "olu"
+    return "normal"
+
 
 async def open_upstream(target_url: str, request_headers: dict):
     """Kaynağı akış modunda açar; ISP engeli (403/451) WARP ile bir kez daha denenir."""
@@ -61,11 +78,19 @@ async def open_upstream(target_url: str, request_headers: dict):
     if response.status_code not in (403, 451) or warp_client is None:
         return response
 
+    # WARP da denendi ve o host için işe yaramadıysa: TTL boyunca tekrar deneme.
+    if _warp_dead.get(host, 0.0) > time.monotonic():
+        return response
+
     await response.aclose()
     konsol.print(f"[yellow]↻ WARP denemesi:[/yellow] {host} · {response.status_code}")
     retry = await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
     if retry.status_code < 400:
         _warp_hosts.add(host)
+        _warp_dead.pop(host, None)
+    else:
+        _warp_dead[host] = time.monotonic() + _WARP_DEAD_TTL
+        konsol.print(f"[red]⊘ WARP da çözemedi:[/red] {host} · {retry.status_code} · {int(_WARP_DEAD_TTL)}sn sessiz")
     return retry
 
 

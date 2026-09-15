@@ -14,6 +14,13 @@ from urllib.parse import urljoin
 
 # Ön-yükleme: kaç segment, ve görevlerin GC'ye yem olmaması için referans kümesi.
 PREFETCH_COUNT   = 3
+# Oynatma ilerledikçe ön-yükleme de ilerlesin: manifest anındaki ilk 3 segment
+# yalnız açılışı kurtarıyordu, 20. dakikada her segment yine sıfırdan çekiliyordu.
+# Manifestten segment zinciri (url -> sonraki) çıkarılır, servis edilen segmentin
+# ardındaki ZINCIR_ILERI kadarı arka planda cache'e alınır.
+ZINCIR_ILERI     = 2
+_ZINCIR_TAVANI   = 4000
+_segment_zinciri : dict[str, str] = {}
 # Gövdeye bakarak manifest tespiti yapılırken okunacak üst sınır: segmentler
 # megabaytlarca, manifest en fazla birkaç yüz KB (718 segmentlik varyant ~60 KB).
 _MANIFEST_TAVANI = 1_000_000
@@ -39,24 +46,50 @@ async def _prefetch(urls: list[str], request_headers: dict):
             await response.aclose()
 
 
+def zinciri_kaydet(segmentler: list[str]):
+    """Segment sırasını hatırla: her segmentin ardından hangisi geliyor."""
+    if len(_segment_zinciri) > _ZINCIR_TAVANI:
+        # ponytail: tüm zinciri at, tek sözlük; LRU gerekirse eklenir. Zincir
+        # yeni manifest istendiğinde zaten yeniden kurulur.
+        _segment_zinciri.clear()
+    for onceki, sonraki in zip(segmentler, segmentler[1:]):
+        _segment_zinciri[onceki] = sonraki
+
+
+def zinciri_ilerlet(segment_url: str, request_headers: dict):
+    """Servis edilen segmentin ardındaki segmentleri arka planda cache'e çeker."""
+    hedefler: list[str] = []
+    imlec = segment_url
+    for _ in range(ZINCIR_ILERI):
+        imlec = _segment_zinciri.get(imlec)
+        if not imlec:
+            break
+        hedefler.append(imlec)
+    if not hedefler:
+        return
+    gorev = asyncio.create_task(_prefetch(hedefler, request_headers))
+    _prefetch_tasks.add(gorev)
+    gorev.add_done_callback(_prefetch_tasks.discard)
+
+
 def prefetch_segments(manifest: bytes, manifest_url: str, request_headers: dict):
     """Varyant manifestindeki ilk segmentleri arka planda cache'e çeker.
 
     Master manifestte satırlar başka m3u8'dir (segment değil) — `is_hls_segment`
     onları eler, o yüzden ayrıca ayrım yapmaya gerek yok.
     """
-    hedefler: list[str] = []
+    tum_segmentler: list[str] = []
     for line in manifest.decode("utf-8", "ignore").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
         segment_url = urljoin(manifest_url, line)
         if is_hls_segment(segment_url):
-            hedefler.append(segment_url)
-        if len(hedefler) >= PREFETCH_COUNT:
-            break
-    if not hedefler:
+            tum_segmentler.append(segment_url)
+    if not tum_segmentler:
         return
+    zinciri_kaydet(tum_segmentler)
+    hedefler = tum_segmentler[:PREFETCH_COUNT]
     gorev = asyncio.create_task(_prefetch(hedefler, request_headers))
     _prefetch_tasks.add(gorev)
     gorev.add_done_callback(_prefetch_tasks.discard)
@@ -81,6 +114,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
         cached_content = await segment_cache.get(target_url)
         if cached_content:
             # konsol.print(f"[green]✓ Cache HIT:[/green] {target_url[-50:]}")
+            zinciri_ilerlet(target_url, request_headers)
             return Response(
                 content     = cached_content,
                 status_code = 200,
@@ -117,7 +151,9 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
         # Kalıp listesine her sağlayıcı için satır eklemek kırılgan; `#EXTM3U`
         # kesin imzadır.
         onden_okunan: bytes | None = None
-        if not is_hls:
+        # Segment adresi manifest olamaz: 1 MB'a kadar tam okuma yalnız akışı
+        # geciktirirdi.
+        if not is_hls and not is_hls_segment(target_url):
             uzunluk = response.headers.get("content-length")
             # Segmentler megabaytlarca; manifest en fazla birkaç yüz KB. Boyut
             # bilinmiyorsa da okunur — chunked manifest de var.
@@ -188,6 +224,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
 
                 # Cache'e ekle
                 await segment_cache.set(target_url, content)
+                zinciri_ilerlet(target_url, request_headers)
 
                 return Response(
                     content     = content,
