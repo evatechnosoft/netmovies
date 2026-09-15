@@ -77,6 +77,10 @@ class KurtarmaTetiklemeTest(unittest.TestCase):
         from Core import kekik_FastAPI
 
         self.client = TestClient(kekik_FastAPI)
+        # `fuck_dmca` yanıtı 180 sn cache'liyor ve anahtar parametrelerden
+        # türüyor: sabit url kullanan iki test birbirinin yanıtını görür ve
+        # ikincisinde motor HİÇ çağrılmaz (bkz. test_resolve_cache_isolation).
+        self.url = f"benzersiz-{id(self)}"
 
     def test_kaynak_bulunduysa_kurtarma_calismaz(self):
         async def sahte_engine(path, params=None, **_):
@@ -84,7 +88,10 @@ class KurtarmaTetiklemeTest(unittest.TestCase):
 
         with mock.patch("Public.API.v1.Routers.resolve_sources.fuck_dmca", side_effect=sahte_engine), \
              mock.patch("Public.API.v1.Routers.resolve_sources.alternatif_basliklar") as kurtar:
-            self.client.get("/api/v1/resolve_sources", params={"plugin": "DiziPal", "encoded_url": "x", "title": "Dark"})
+            self.client.get(
+                "/api/v1/resolve_sources",
+                params={"plugin": "DiziPal", "encoded_url": self.url, "title": "Dark"},
+            )
         kurtar.assert_not_called()
 
     def test_fast_modda_kurtarma_calismaz(self):
@@ -96,7 +103,7 @@ class KurtarmaTetiklemeTest(unittest.TestCase):
              mock.patch("Public.API.v1.Routers.resolve_sources.alternatif_basliklar") as kurtar:
             self.client.get(
                 "/api/v1/resolve_sources",
-                params={"plugin": "DiziPal", "encoded_url": "x", "title": "Dark", "mode": "fast"},
+                params={"plugin": "DiziPal", "encoded_url": self.url, "title": "Dark", "mode": "fast"},
             )
         kurtar.assert_not_called()
 
@@ -117,7 +124,7 @@ class KurtarmaTetiklemeTest(unittest.TestCase):
              mock.patch("Public.API.v1.Routers.resolve_sources.alternatif_basliklar", side_effect=alternatifler):
             res = self.client.get(
                 "/api/v1/resolve_sources",
-                params={"plugin": "DiziPal", "encoded_url": "x", "title": "The Odyssey"},
+                params={"plugin": "DiziPal", "encoded_url": self.url, "title": "The Odyssey"},
             )
 
         self.assertEqual(cagrilan_basliklar, ["The Odyssey", "Odyssey"])

@@ -22,8 +22,9 @@ class SourceScoreTest(unittest.TestCase):
     def setUp(self) -> None:
         self._dir = tempfile.TemporaryDirectory()
         os.environ["SOURCE_SCORE_PATH"] = str(Path(self._dir.name) / "score.json")
-        for mod in [m for m in list(sys.modules) if m.endswith("source_score")]:
-            del sys.modules[mod]
+        # Modül YENİDEN YÜKLENMEZ: depo yolu her çağrıda okunuyor. sys.modules'dan
+        # silmek FastAPI'nin tuttuğu fonksiyon referanslarını bayatlatır ve BAŞKA
+        # testlerin mock'ları hiç devreye girmez.
         from Public.API.v1.Libs import source_score
 
         self.ss = source_score
@@ -91,26 +92,31 @@ class PuanliSiraEngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self._dir = tempfile.TemporaryDirectory()
         os.environ["SOURCE_SCORE_PATH"] = str(Path(self._dir.name) / "score.json")
-        os.environ["PREFS_PATH"] = str(Path(self._dir.name) / "prefs.json")
-        for mod in [m for m in list(sys.modules) if m.endswith(("source_score", "resolve_sources", "prefs"))]:
-            del sys.modules[mod]
 
     def tearDown(self) -> None:
         self._dir.cleanup()
         os.environ.pop("SOURCE_SCORE_PATH", None)
-        os.environ.pop("PREFS_PATH", None)
 
     def test_veri_yokken_order_gonderilmez(self):
+        """Puan da yıldız da yoksa engine kendi listesine düşer."""
+        from unittest import mock
+
+        import Public.API.v1.Routers.prefs as prefs_mod
         from Public.API.v1.Routers.resolve_sources import _puanli_sira
 
-        self.assertEqual(_puanli_sira(), "")
+        with mock.patch.object(prefs_mod, "_oku", return_value={}):
+            self.assertEqual(_puanli_sira(), "")
 
     def test_puan_varsa_order_dolu_gelir(self):
+        from unittest import mock
+
+        import Public.API.v1.Routers.prefs as prefs_mod
         from Public.API.v1.Libs import source_score
         from Public.API.v1.Routers.resolve_sources import _puanli_sira
 
         source_score.kaydet("DiziBox", True)
         source_score.kaydet("DiziPal", False)
-        sira = _puanli_sira().split(",")
+        with mock.patch.object(prefs_mod, "_oku", return_value={}):
+            sira = _puanli_sira().split(",")
         self.assertEqual(sira[0], "DiziBox")
         self.assertEqual(sira[-1], "DiziPal")
