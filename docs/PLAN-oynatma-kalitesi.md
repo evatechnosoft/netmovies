@@ -1,7 +1,9 @@
 # Oynatma Kalitesi Planı — performans, ses kesintisi, kalite, kaynak seçimi
 
 > 15 Eylül 2026. Araştırma + kod keşfi sonucu. Kanıtlar dosya:satır; dış kaynaklar sonda.
-> Hiçbiri uygulanmadı — Dean onayından sonra sırayla.
+> **DURUM: dört fazın tamamı uygulandı** (15 Eylül, TV v0.2.9). Kanıt: stream
+> 130/130 test, TV `testDebugUnitTest assembleDebug` Exit Code 0. Cihazda
+> DENENMEDİ — ses kesintisinin gerçekten bittiği `client_log` ile doğrulanmalı.
 
 ## Ne bulduk (kanıtlı)
 

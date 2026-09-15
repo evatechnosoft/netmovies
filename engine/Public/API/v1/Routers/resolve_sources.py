@@ -25,16 +25,8 @@ from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
 
-# Alternatif tarama sırası — dublaj ağırlıklı kaynaklar önde.
-# Önce en çok işe yarayanlar (Dean'in izleme alışkanlığı), sonra harf sırası.
-# Zincir ilk çalışan kaynakta durduğu için sıra doğrudan bekleme süresidir.
-_ONCELIKLI = ["DiziPal", "DiziMom", "HDFilmCehennemi"]
-_DIGERLERI = sorted(["KultFilmler", "FilmMakinesi", "DiziBox", "DiziYou", "Dizilla", "SezonlukDizi"])
-ALTERNATIVE_ORDER = _ONCELIKLI + _DIGERLERI
-
-# Bir alternatif sağlayıcıya ayrılan üst süre. Ölü site (DNS/connect timeout) eskiden
-# httpx'in kendi süresine kadar zinciri bekletiyordu; bütçe aşılırsa o sağlayıcı atlanır.
-ALTERNATIVE_TIMEOUT = 25
+# Sıra ve bütçe Libs'te: router Core'u tetiklediği için oradan test edilemiyordu.
+from ..Libs.tarama_sirasi import ALTERNATIVE_ORDER, ALTERNATIVE_TIMEOUT, tarama_sirasi
 
 class Diagnostics:
     """İstemciye de dönen teşhis kaydı — 'neden açılmadı' sorusu artık cevaplanabilir."""
@@ -245,16 +237,9 @@ async def resolve_sources(request: Request):
             if dead:
                 diag.add("info", "sağlık", f"atlanan sağlıksız kaynak: {', '.join(sorted(dead))}")
 
-            # Tarama sırası: stream kanıta dayalı sıra (`order`) verirse o geçerli,
-            # vermezse elle yazılmış liste. Sırada olmayan sağlayıcı listenin
-            # sonuna eklenir — puanı olmayan yeni eklenti kaybolmasın.
-            ham_sira = (istek.get("order") or "").strip()
-            if ham_sira:
-                istenen = [p.strip() for p in ham_sira.split(",") if p.strip()]
-                sira    = istenen + [n for n in ALTERNATIVE_ORDER if n not in istenen]
-                diag.add("info", "sıra", f"puanlı sıra uygulandı: {', '.join(istenen[:5])}…")
-            else:
-                sira = ALTERNATIVE_ORDER
+            sira = tarama_sirasi(istek.get("order"))
+            if sira is not ALTERNATIVE_ORDER:
+                diag.add("info", "sıra", f"puanlı sıra uygulandı: {', '.join(sira[:5])}…")
 
             candidates = [
                 name for name in sira

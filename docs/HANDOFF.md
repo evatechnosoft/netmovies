@@ -7,16 +7,30 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 14 Eylül 2026 (gece)
-**Dal:** `fix/general-stability` @ `47fc3e1` · temiz, push'lı
-**Sürümler:** TV `v0.2.8-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
-**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone 0.2.8 (vc 208) · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
-**Yığın:** doh · engine · stream · **tunnel** · warp · `smoke.sh` YEŞİL · engine 34/34 · stream 108/108
-> Tünel ayakta: `w.evaitec.com/api/v1/health` → 200. Yükü yok sayılır
-> (CPU %0.00, 18 MiB). Stream yeniden inşa edilirse kopar — `cloudflared`
-> ağ ad alanı stream'e pinli, o zaman `docker compose --profile tunnel up -d`.
+**Son güncelleme:** 15 Eylül 2026
+**Dal:** `fix/general-stability` @ `6253a55` · push edilmedi
+**Sürümler:** TV `v0.2.9-poc` · saat `v0.1.2-poc` · evaitecOTA TV+mobil `0.1.7`
+**Katalog:** `evaglass-releases/apps.json` — netmovies tv+phone **0.2.8 (vc 208) BAYAT**,
+0.2.9 (vc 209) yüklenmedi · saat 0.1.2 (vc 102) · evaitecOTA 0.1.7 (vc 8)
+**Yığın:** doh · engine · stream · **tunnel** · warp · stream **130/130** test yeşil
+> Stream yeniden inşa edildi (15 Eylül) — tünel koptuysa
+> `docker compose --profile tunnel up -d`.
 **Adresler:** yerel `http://192.168.1.185:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth `ADMIN_PASS=1234`
+
+## ÖNCE BUNU YAP — v0.2.9 cihazda denenmedi
+
+Oynatma kalitesi çalışması (`docs/PLAN-oynatma-kalitesi.md`) dört fazın tamamıyla
+kodda; hiçbiri TELEVİZYONDA denenmedi. Kanıt kapısı:
+
+1. APK'yı kur: `client-tv/app/build/outputs/apk/debug/app-debug.apk` (v0.2.9).
+2. Bir bölüm izle, sonra `http://192.168.1.185:3310/api/v1/client_log` oku.
+   - `ses · tampon boşaldı` satırı **hiç olmamalı** (eskiden ses kesiliyordu).
+   - `tunneling kapatıldı` satırı varsa Mi Box tunneling'i desteklemiyor demektir;
+     kalıcı kapandı, sorun değil — ama o zaman senkron kazancı da yok.
+   - `kalite · tavan:` satırı yalnız panelde tavan seçilmişse gelir.
+3. `curl -s localhost:3310/api/v1/source_score` — bir bölüm izledikten sonra
+   oynayan sağlayıcının puanı +50 olmalı. Boşsa istemci olay bildirmiyordur.
 
 ## SIRADAKİ İŞ — oynatıcı ve kart aksiyonları (Dean'in 14 Eylül gece listesi)
 
@@ -83,6 +97,51 @@ Genel'de kalan 47'nin bir kısmı hâlâ yerel olabilir (Aksu TV, Cay TV, Er TV,
 Ton TV, Line TV, Bir TV…) — adlarından hangi şehir olduğu anlaşılmıyor, elle
 doğrulanmadan eklenmedi. Dean cihazda görüp söylerse `_BOLGESEL_ADLAR`'a
 bir satır eklemek yeter.
+
+## 0.13 15 Eylül — oynatma kalitesi: performans, ses, kaynak seçimi, Gemini
+
+Dean: "performans kayıpları, ses kesintileri, kalite, eklenti seçimleri en iyi
+şekilde, otonom olsun." Araştırma + kod keşfi `docs/PLAN-oynatma-kalitesi.md`'de;
+dört faz da uygulandı.
+
+**Ses kesintisinin en güçlü şüphelisi ikinci oynatıcıydı.** Scrub önizleme
+oynatıcısı (`previewExo`) ekran açılır açılmaz kuruluyor ve AYNI HLS akışını
+paralel hazırlıyordu: ikinci kod çözücü, ikinci indirme zinciri — kullanıcı
+scrub yapmasa bile. Mi Box sınıfı cihazda ses tamponunu boşaltacak yük tam da
+budur. Artık scrub ile doğuyor, scrub ile ölüyor. Yanında: `DefaultLoadControl`
+30/90 sn (varsayılan tampon ev upload'ı için kısaydı), tunneling açık (Android
+TV'de ses-video aynı donanım hattından), segment hatasında üç deneme
+(`DefaultLoadErrorHandlingPolicy(3)` — eskiden tek 4xx kaynağı düşürüyordu).
+**Tunneling kendi kendini kapatıyor:** kod çözücü/ses hattı hatasında kalıcı
+kapanır ve AYNI kaynak yeniden denenir, kaynak harcanmaz.
+
+**Proxy'de her segment iki upstream isteği yiyordu.** WARP'ın da 403 verdiği
+host kaydedilmiyordu: doğrudan 403 → WARP → yine 403, segment başına. Günlük
+`↻ WARP denemesi: four.pichive.online · 403` ile doluydu. Artık 10 dk sessizlik.
+Ön-yükleme de manifest anındaki ilk 3 segmentle bitiyordu — 20. dakikada ölüydü;
+segment zinciri hatırlanıyor, servis edilenin ardındakiler çekiliyor.
+
+**Kaynak sırası elle yazılı listeydi** (`_ONCELIKLI = [DiziPal, DiziMom,
+HDFilmCehennemi]`). Zincir ilk çalışan kaynakta durduğu için sıra doğrudan
+bekleme süresi; o hafta bozulan sağlayıcı her çözümlemede 25 sn harcıyordu.
+Artık puan: başarı +50 / hata −50, 7 gün yarı ömür, yıldızlı sağlayıcı +100.
+**Hiçbir sağlayıcı yasaklanmaz** — yalnız sıraya girer. Kanıtı televizyon
+veriyor (`POST /api/v1/source_event`): sunucu "link buldum" der, gerçekten
+açıldığı yalnız oynatıcıda belli olur. Veri yokken sıra engine'in eski
+listesinin aynısı — puanlama ilk gün hiçbir şeyi bozmaz (test edilmiş).
+
+**Kalite varsayılanı hiçbir yere bağlı değilmiş.** `window.DEFAULT_QUALITY`
+okunuyordu ama hiçbir yer yazmıyordu; admin'de alan bile yoktu. Panele alan,
+`client_config`'e alan, TV'ye `setMaxVideoSize` — ve kaynak geçişinde korunuyor.
+
+**Gemini yalnız zincir boşa düşünce konuşuyor.** Sağlayıcı aramaları harfi
+harfine: "the odyssey" sıfır, "odyssey" iki sonuç. Tüm zincir boş dönerse
+başlığın başka yazılışları soruluyor (yapısal çıktı, en çok 2 deneme).
+Normal akışta hiç maliyeti yok. Anahtar/model aynı yerden — `Libs/gemini.py`
+tek kapı, `voice.py` de oradan geçiyor.
+
+**Yapılmadı:** hiçbiri cihazda denenmedi. Kalite tavanı panelde varsayılan
+"auto" — Dean seçmeden davranış değişmez.
 
 ## 0.12 14-15 Eylül gecesi — kaynak yıldızı, kare kodla APK aktarımı
 
