@@ -6,7 +6,7 @@ import os
 import re
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, poster_attr, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
 # Domain zinciri: dizimom.plus → .work → .food → .diy. Upstream .kt hâlâ ölü .plus'ı
@@ -37,7 +37,7 @@ class DiziMom(PluginBase):
     def _result(node: HTMLHelper, base_url: str, category: str) -> MainPageResult | None:
         title = first_text(node, ("div.categorytitle a", "div.episode-name a", "a"))
         href = absolute(base_url, first_attr(node, ("div.categorytitle a", "div.episode-name a", "a"), "href"))
-        poster = absolute(base_url, first_attr(node, ("div.cat-img img", "a img", "img"), "src"))
+        poster = absolute(base_url, poster_attr(node, ("div.cat-img img", "a img", "img")))
         if not title or not href:
             return None
         return MainPageResult(category=category, title=title.split(" izle")[0].strip(), url=href, poster=poster)
@@ -97,7 +97,7 @@ class DiziMom(PluginBase):
                     html = await fetch_html(self.httpx, target)
         selector = HTMLHelper(html)
         title = (first_text(selector, ("div.title h1", "h1")) or "").split(" izle")[0].strip()
-        poster = absolute(self.main_url, first_attr(selector, ("div.category_image img", "img"), "src"))
+        poster = absolute(self.main_url, poster_attr(selector, ("div.category_image img", "img")))
         description = first_text(selector, ("div.category_desc",))
         episodes: list[Episode] = []
         for node in selector.select("div.bolumust"):

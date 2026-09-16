@@ -18,7 +18,7 @@ from KekikStream.Core import (
     SeriesInfo,
 )
 
-from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, poster_attr, season_episode
 from Plugins.__kekik_domain import discover_main_url
 
 
@@ -80,7 +80,7 @@ class DiziBox(PluginBase):
     def _card(node: HTMLHelper, base_url: str, category: str) -> MainPageResult | None:
         title = first_text(node, ("h3 a", "h3", "a"))
         href = absolute(base_url, first_attr(node, ("h3 a", "a"), "href"))
-        poster = absolute(base_url, first_attr(node, ("img",), "src"))
+        poster = absolute(base_url, poster_attr(node, ("img",)))
         if not title or not href:
             return None
         return MainPageResult(category=category, title=title, url=normalize_url(href, base_url), poster=poster)
@@ -96,7 +96,7 @@ class DiziBox(PluginBase):
             return None
         title = self._EPISODE_SUFFIX.sub("", first_attr(node, ("a.episode-card-title",), "title") or "").strip() \
             or first_text(node, ("b.series-name",)).title()
-        poster = absolute(self.main_url, first_attr(node, ("img",), "data-src") or first_attr(node, ("img",), "src"))
+        poster = absolute(self.main_url, poster_attr(node, ("img",)))
         if not title:
             return None
         return MainPageResult(category=category, title=title, url=f"{self.main_url}/diziler/{m.group(1)}/", poster=poster)
@@ -130,7 +130,7 @@ class DiziBox(PluginBase):
         text = await self._get(url)
         selector = HTMLHelper(text)
         title = first_text(selector, ("div.tv-overview h1 a", "h1")) or ""
-        poster = absolute(self.main_url, first_attr(selector, ("div.tv-overview figure img", "img"), "src"))
+        poster = absolute(self.main_url, poster_attr(selector, ("div.tv-overview figure img", "img")))
         episodes: list[Episode] = []
         for season_link in selector.select("div#seasons-list a"):
             season_url = season_link.attrs.get("href")

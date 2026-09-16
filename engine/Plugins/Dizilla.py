@@ -21,6 +21,7 @@ from Plugins.__dizi_common import (
     first_text,
     get_warp_client,
     normalize_url,
+    poster_attr,
     season_episode,
 )
 from Plugins.__kekik_domain import discover_main_url
@@ -116,7 +117,7 @@ class Dizilla(PluginBase):
     def _result(node: HTMLHelper, base_url: str, category: str) -> MainPageResult | None:
         title = first_text(node, ("h2", "a"))
         href = absolute(base_url, first_attr(node, ("a",), "href"))
-        poster = absolute(base_url, first_attr(node, ("img",), "data-src")) or absolute(base_url, first_attr(node, ("img",), "src"))
+        poster = absolute(base_url, poster_attr(node, ("img",)))
         if not title or not href:
             return None
         # `div.grid a` sayfanın altbilgi ızgarasını da yakalıyor: "Forum",
@@ -189,7 +190,7 @@ class Dizilla(PluginBase):
         # h1 içinde başlığın ardına butonu geliyor ve düz metne "Darknetİzle" gibi
         # yapışıyor — son "İzle" ekini at.
         title = re.sub(r"\s*İzle$", "", first_text(selector, ("div.page-top h1", "h1")) or "")
-        poster = absolute(self.main_url, first_attr(selector, ("div.page-top img", "img"), "src"))
+        poster = absolute(self.main_url, poster_attr(selector, ("div.page-top img", "img")))
         description = first_text(selector, ("div.mv-det-p", "div.w-full div.text-base"))
         episodes: list[Episode] = []
         gorulen: set[str] = set()

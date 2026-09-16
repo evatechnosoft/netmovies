@@ -109,11 +109,20 @@ fun BolumSecici(
             }
 
             if (secilenSezon == null) {
+                // Odak hedefi TEK: "şu an oynayan sezon" varsa o, yoksa ilk sezon.
+                // Önceki hal `i == 0 || simdiki` idi — 1. sezonda değilken bu iki
+                // koşul AYRI kutucuklara denk geliyor, aynı FocusRequester iki
+                // düğüme birden bağlanıyor ve requestFocus() hiçbirine kesin
+                // yerleşmiyordu (D-pad/OK panele hiç ulaşmıyordu, "sezon seçilemiyor").
+                val sezonHedef = remember(sezonlar, episodes, currentEpIndex) {
+                    val oynayanSezon = episodes.getOrNull(currentEpIndex)?.season
+                    sezonlar.indexOf(oynayanSezon).coerceAtLeast(0)
+                }
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(180.dp),
+                    columns = GridCells.Adaptive(NmDim.GridPosterMin),
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                 ) {
                     items(sezonlar.size, key = { sezonlar[it] }) { i ->
                         val s = sezonlar[i]
@@ -123,7 +132,7 @@ fun BolumSecici(
                             ustYazi = "Sezon $s",
                             altYazi = "$sayi bölüm",
                             secili = simdiki,
-                            modifier = if (i == 0 || simdiki) Modifier.focusRequester(ilkOdak) else Modifier,
+                            modifier = if (i == sezonHedef) Modifier.focusRequester(ilkOdak) else Modifier,
                         ) { onSezon(s) }
                     }
                 }
@@ -134,20 +143,23 @@ fun BolumSecici(
                 val seciliSira = secili.indexOfFirst { it.index == currentEpIndex }.coerceAtLeast(0)
                 val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = seciliSira)
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(180.dp),
+                    columns = GridCells.Adaptive(NmDim.GridPosterMin),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                 ) {
                     items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
                         val (idx, ep) = secili[i]
                         val oynayan = idx == currentEpIndex
+                        // seciliSira zaten oynayan bölümün sırası (bulunamazsa 0) —
+                        // ayrıca `oynayan` kontrolü aynı öğeye iki kez odak hedefi
+                        // bağlamaktan başka bir şey katmıyordu, tek koşula indirildi.
                         Kutucuk(
                             ustYazi = ep.episode?.let { "Bölüm $it" } ?: "Bölüm ${i + 1}",
                             altYazi = ep.title?.takeIf { it.isNotBlank() } ?: "",
                             secili = oynayan,
-                            modifier = if (oynayan || (i == seciliSira)) Modifier.focusRequester(ilkOdak) else Modifier,
+                            modifier = if (i == seciliSira) Modifier.focusRequester(ilkOdak) else Modifier,
                         ) { onSelect(idx); onClose() }
                     }
                 }
@@ -170,7 +182,11 @@ private fun Kutucuk(
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Column(
         modifier = modifier
-            .height(92.dp)
+            // Dean: "gridler çok büyük kaldı" — 92dp + 180dp min genişlik ekrana az
+            // kutucuk sığdırıyordu. 68dp + NmDim.GridPosterMin (150dp) ile hem daha
+            // çok sütun hem daha çok satır görünür; bölüm numarası (Body, tek satır)
+            // yine de rahat okunur.
+            .height(68.dp)
             .clip(shape)
             .background(
                 when {
@@ -182,8 +198,8 @@ private fun Kutucuk(
             .nmFocusRing(odakli, shape)
             .onFocusChanged { odakli = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(
             text = (if (secili) "● " else "") + ustYazi,
@@ -194,11 +210,13 @@ private fun Kutucuk(
             overflow = TextOverflow.Ellipsis,
         )
         if (altYazi.isNotBlank()) {
+            // Kutucuk küçülünce iki satıra yer kalmadı — öncelik bölüm numarasında,
+            // ad tek satıra sığmazsa kesilir.
             Text(
                 text = altYazi,
                 fontSize = NmType.Caption,
                 color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }

@@ -125,6 +125,28 @@ def first_attr(node: HTMLHelper, selectors: tuple[str, ...], attr: str) -> str |
     return None
 
 
+# Tembel yükleme kullanan sitelerde `src` GERÇEK poster değildir: gömülü bir
+# yer tutucu (`data:image/svg+xml;base64,...`) durur, asıl adres `data-src` gibi
+# bir öznitelikte bekler ve sayfa görününce JavaScript onu yerleştirir. Sunucu
+# tarafında JavaScript çalışmadığı için `src` okuyan eklenti yer tutucuyu poster
+# sanıyordu — DiziMom'da 45 bölümün hepsi böyle geldi (Dean, 16 Eylül: "DiziMom
+# son bölümler poster gelmiyor"). Dizilla ve DiziBox bunu tek tek çözmüştü;
+# kural artık tek yerde.
+_TEMBEL_OZNITELIKLER = ("data-src", "data-original", "data-lazy-src", "data-echo", "src")
+
+
+def poster_attr(node: HTMLHelper, selectors: tuple[str, ...]) -> str | None:
+    """Poster adresi: önce tembel yükleme öznitelikleri, sonra `src`.
+
+    Gömülü `data:` URI'ler atlanır — yer tutucu görüntüdür, poster değil.
+    """
+    for oznitelik in _TEMBEL_OZNITELIKLER:
+        deger = first_attr(node, selectors, oznitelik)
+        if deger and not deger.lower().startswith("data:"):
+            return deger
+    return None
+
+
 def season_episode(value: str) -> tuple[int, int | None]:
     season_match = re.search(r"(\d+)\s*\.\s*Sezon", value, re.IGNORECASE)
     episode_match = re.search(r"(\d+)\s*\.\s*Bölüm", value, re.IGNORECASE)
