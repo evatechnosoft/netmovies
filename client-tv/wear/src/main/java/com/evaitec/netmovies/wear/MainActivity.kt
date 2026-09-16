@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,6 +59,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Text
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
@@ -115,6 +117,9 @@ private fun MiniEkran() {
     var seciliBolumler by remember { mutableStateOf<List<BolumOgesi>>(emptyList()) }
     var aramaAcik by remember { mutableStateOf(false) }
     val halkaOdak = remember { FocusRequester() }
+    // Kendi kendini guncelleme: evaitecOTA bileklikte APK kuramiyordu.
+    var guncelleme by remember { mutableStateOf<Guncelleme.Bilgi?>(null) }
+    var guncelDurum by remember { mutableStateOf("") }
 
     fun titre() {
         runCatching {
@@ -163,6 +168,32 @@ private fun MiniEkran() {
     }
 
     LaunchedEffect(Unit) { runCatching { halkaOdak.requestFocus() } }
+
+    // Acilista bir kez sorulur: sunucu zaten adres aramasi yapiyor, bu istek
+    // onun ardina takilir. Bulunmazsa satir hic cizilmez.
+    LaunchedEffect(Unit) {
+        val bilgi = withContext(Dispatchers.IO) { runCatching { Guncelleme.kontrol() }.getOrNull() }
+        guncelleme = bilgi
+    }
+
+    fun guncelle() {
+        val bilgi = guncelleme ?: return
+        titre()
+        if (!Guncelleme.kurabilirMi(baglam)) {
+            // Izin yokken kurulum sessizce reddediliyor: APK iniyor, hicbir sey
+            // olmuyor. Once izin ekrani, sonra tekrar dokunus.
+            runCatching { Guncelleme.izinEkrani(baglam) }
+            guncelDurum = "izin ver, tekrar dokun"
+            return
+        }
+        guncelDurum = "indiriliyor…"
+        kapsam.launch(Dispatchers.IO) {
+            val sonuc = runCatching { Guncelleme.kur(baglam, Guncelleme.indir(baglam, bilgi)) }
+            withContext(Dispatchers.Main) {
+                guncelDurum = sonuc.fold({ "kuruluyor…" }, { "olmadı: ${it.message ?: "bilinmeyen"}" })
+            }
+        }
+    }
 
     LaunchedEffect(tekrar) {
         if (ogeler.isNotEmpty()) return@LaunchedEffect   // alt ekrandan dönüldü
@@ -265,6 +296,25 @@ private fun MiniEkran() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            // Guncelleme seridi: yalniz daha yeni surum varken cizilir.
+            guncelleme?.let { bilgi ->
+                Text(
+                    text = guncelDurum.ifBlank { "⬆ ${bilgi.surum} güncelle" },
+                    color = Vurgu,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Kart)
+                        .clickable { guncelle() }
+                        .padding(vertical = 3.dp),
+                )
+            }
+
             if (ogeler.isEmpty()) {
                 // Sunucu bulunamayinca ekran sonsuza kadar "yukleniyor" kaliyordu:
                 // durum satiri altta yaziyordu ama buradaki metin degismiyordu.
@@ -346,6 +396,61 @@ private fun MiniEkran() {
                 }
             }
         }
+    }
+}
+
+/**
+ * Yuvarlak kadrana oturan liste. Düz `LazyColumn` dikdörtgen çiziyordu: en üst ve
+ * en alttaki satırlar kadranın kavisinde kesiliyor, okunmuyordu (Dean, 16 Eylül).
+ * `ScalingLazyColumn` satırları kenarlara doğru küçültüp içeri çeker — liste
+ * kadranın yayını takip eder, orta satır tam boy kalır.
+ *
+ * Halka (döner çerçeve) listeyi kaydırır: bu ekranlarda halkanın TV'ye komut
+ * göndermesi anlamsız, parmakla kaydırmak da küçük ekranda satırı kaçırtıyor.
+ * Odak burada istenir — `focusable()` olmadan çerçeve olayı hiç gelmez.
+ */
+@Composable
+private fun HalkaListesi(
+    modifier: Modifier = Modifier,
+    icerik: androidx.wear.compose.foundation.lazy.ScalingLazyListScope.() -> Unit,
+) {
+    val durum: ScalingLazyListState = rememberScalingLazyListState()
+    val odak = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { odak.requestFocus() } }
+
+    ScalingLazyColumn(
+        modifier = modifier
+            .fillMaxWidth()
+            .onRotaryScrollEvent { olay ->
+                durum.dispatchRawDelta(olay.verticalScrollPixels)
+                true
+            }
+            .focusRequester(odak)
+            .focusable(),
+        state = durum,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        content = icerik,
+    )
+}
+
+/** Liste satırı: tek dokunuşluk kart. İki listede de aynı görünsün diye tek yerde. */
+@Composable
+private fun ListeSatiri(yazi: String, onSec: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Kart)
+            .clickable { onSec() }
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = yazi,
+            color = Metin,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -514,28 +619,10 @@ private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit, onDu
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            LazyColumn(
-                Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
+            HalkaListesi(Modifier.weight(1f)) {
                 items(sonuclar.size) { i ->
                     val oge = sonuclar[i]
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Kart)
-                            .clickable { onSec(oge) }
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
-                    ) {
-                        Text(
-                            text = oge.title,
-                            color = Metin,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    ListeSatiri(oge.title) { onSec(oge) }
                 }
                 if (sonuclar.isEmpty() && !araniyor && sorgu.isNotBlank()) {
                     items(1) { Text("sonuç yok", color = Soluk, fontSize = 11.sp) }
@@ -573,30 +660,12 @@ private fun BolumListesi(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        LazyColumn(
-            Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+        HalkaListesi(Modifier.weight(1f)) {
             items(bolumler.size) { i ->
                 val ep = bolumler[i]
                 val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "${i + 1}. Bölüm"
                 val ad = ep.title?.takeIf { it.isNotBlank() }
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Kart)
-                        .clickable { onSec(i) }
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                ) {
-                    Text(
-                        text = if (ad != null) "$numara · $ad" else numara,
-                        color = Metin,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                ListeSatiri(if (ad != null) "$numara · $ad" else numara) { onSec(i) }
             }
         }
         Box(

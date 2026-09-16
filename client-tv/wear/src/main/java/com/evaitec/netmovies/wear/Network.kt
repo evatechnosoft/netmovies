@@ -78,6 +78,23 @@ object Sunucu {
         istemci.newCall(istek).execute().use { it.isSuccessful }
     }.getOrDefault(false)
 
+    /**
+     * Büyük gövdeyi doğrudan dosyaya akıtır (APK indirme). Yazılan bayt döner,
+     * hata durumunda 0. Bellekte tutulmaz: saatte 20 MB'lık bir dizi belleği
+     * uygulamayı öldürüyor.
+     */
+    fun indir(yol: String, hedef: java.io.File): Long = runCatching {
+        val istek = Request.Builder().url(taban() + yol).build()
+        // İndirme okuma zaman aşımı kısa olamaz: 20 MB ev ağında da saniyeler sürer.
+        val indirici = istemci.newBuilder().readTimeout(120, TimeUnit.SECONDS).build()
+        indirici.newCall(istek).execute().use { yanit ->
+            if (!yanit.isSuccessful) return 0L
+            val govde = yanit.body ?: return 0L
+            hedef.outputStream().use { cikis -> govde.byteStream().copyTo(cikis) }
+        }
+        hedef.length()
+    }.getOrDefault(0L)
+
     /** Yanıt gövdesi gereken POST'lar için (sesli niyet). Başarısızsa null. */
     fun postAl(yol: String, govde: String): String? = runCatching {
         val istek = Request.Builder()
@@ -153,3 +170,14 @@ data class BilgiGovde(val episodes: List<BolumOgesi> = emptyList())
 
 @Serializable
 data class BilgiYaniti(val result: BilgiGovde? = null)
+
+// OTA: /api/v1/app_update?target=wear
+@Serializable
+data class GuncellemeGovde(
+    val tag: String = "",
+    val size: Long = 0,
+    val name: String = "",
+)
+
+@Serializable
+data class GuncellemeYaniti(val result: GuncellemeGovde? = null)

@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Saat kendi kendini gunceller: evaitecOTA bileklikte APK kuramiyordu,
+         kurulu uygulama PackageInstaller ile araciya gerek duymadan kurar. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.hardware.type.watch" />
 
     <!-- Sesli arama saatin kendi tanıyıcısıyla yapılır. Android 11+ paket
@@ -29,6 +33,11 @@
         <meta-data
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
+
+        <!-- PackageInstaller oturum sonucu: onay ekranini acan alici -->
+        <receiver
+            android:name=".KurulumAlicisi"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
