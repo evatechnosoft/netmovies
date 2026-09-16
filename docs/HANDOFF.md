@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 15 Eylül 2026, 22:45
-**Dal:** `fix/general-stability` @ `fe0b39f` · **0 kirli dosya** · push EDİLMEDİ
-**Sürümler:** TV `v0.3.1-poc` · saat `v0.1.4-poc`
-**Katalog:** `evaglass-releases/apps.json` @ `31a2eb5` (push EDİLDİ) —
-netmovies-tv/phone **0.3.1 (vc 301)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
+**Son güncelleme:** 16 Eylül 2026, 08:50
+**Dal:** `fix/general-stability` @ `8f355e7` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.3.2-poc` · saat `v0.1.4-poc`
+**Katalog:** `evaglass-releases/apps.json` @ `fcc0118` (push EDİLDİ) —
+netmovies-tv/phone **0.3.2 (vc 302)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -24,27 +24,38 @@ netmovies-tv/phone **0.3.1 (vc 301)** · netmovies-mini-watch **0.1.4 (vc 104)**
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: fe0b39f
+git rev-parse --short HEAD                  # beklenen: 8f355e7
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
                                             # beklenen: Ran 132 · OK
 MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
                                             # beklenen: Ran 40 · OK
-curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.1-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.2-poc
 curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.4-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`fe0b39f` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+`8f355e7` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
 **Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
 alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
 düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — TV 0.3.1 ve saat 0.1.4'ü cihazda dene
+## SIRADAKİ İŞ #1 — TV 0.3.2 ve saat 0.1.4'ü cihazda dene
 
 İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
 
-**Televizyonda** (evaitecOTA → NetMovies 0.3.1 / vc 301 → kur):
+**0.3.2 = sarma motoru** (Dean 16 Eylül sabah: "basılı tutunca 8/10/30 atlama durmuyor,
+basmadan da ilerlemiyor, bıraktığım yerde devam etsin, OK ile orada durayım"):
+- Basışlar hedefte birikir, sağ altta `+2dk 30sn → 1:12:40`, son basıştan 350 ms sonra TEK seek.
+- SAĞ'a 3 kez bas → +30 sn tek atlama (çift basış = 1 dk varsayılanı KALKTI, tek basış anında).
+- SAĞ basılı tut → 10 sn adım, 1.5 sn sonra 30 sn, 4 sn sonra 1 dk; bırakınca hedefte oynar,
+  fazladan 10 sn eklenmez. Sarma sürerken OK → hedefe hemen gider, DURAKLATMAZ.
+- Kumandanın ⏪⏩ tuşları aynı motor. Bardaki −30/+30 de birikir.
+Kod: `PlayerScreen.kt` `seekBy/seekHold/commitSeek` · `RemoteInput.kt` `onHold` + `longFired=true`.
+
+**Televizyonda** (evaitecOTA → NetMovies 0.3.2 / vc 302 → kur):
+0. Bir FİLM aç, SAĞ'ı 3 sn basılı tut → gösterge büyüsün, bırakınca tek seferde oraya
+   gitsin ve oynasın. SAĞ'a hızlı 3 kez bas → +30 sn. Sarma sürerken OK → orada dursun.
 1. Favorilerden **Altı Üstü İstanbul** ya da **Daha 17** aç → oynamalı.
 2. **AŞAĞI** tuşu → alt bar; D-pad ile ⏮ · −5dk · −30sn · ▶ · +30sn · +5dk · ⏭ ·
    Bölümler · Dakika · Ayarlar · Ana sayfa · Kapat gezilmeli. Süre + ilerleme barın üstünde.
