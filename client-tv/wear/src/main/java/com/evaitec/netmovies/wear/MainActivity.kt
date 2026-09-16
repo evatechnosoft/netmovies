@@ -1,5 +1,10 @@
 package com.evaitec.netmovies.wear
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -212,6 +217,10 @@ private fun MiniEkran() {
     LaunchedEffect(tekrar) {
         if (ogeler.isNotEmpty()) return@LaunchedEffect   // alt ekrandan dönüldü
         yukleniyor = true
+        // Ev sunucusu LAN'da: Wi-Fi uyanmadan adres aramanın anlamı yok.
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { devam ->
+            WifiKoprusu.uyandir(baglam) { if (devam.isActive) devam.resumeWith(Result.success(Unit)) }
+        }
         // 1. aşama: Devam Et — sunucunun yerel kaydı, milisaniyeler içinde gelir.
         val devam = withContext(Dispatchers.IO) {
             Sunucu.get("/api/v1/continue_watching")
@@ -778,5 +787,65 @@ private fun BolumListesi(
                 .clickable { onKapat() },
             contentAlignment = Alignment.Center,
         ) { Text("✕", color = Soluk, fontSize = 13.sp) }
+    }
+}
+
+/**
+ * Saatin Wi-Fi'sini uyandırır ve süreci o ağa bağlar.
+ *
+ * Wear OS pil için Wi-Fi radyosunu telefona Bluetooth ile bağlıyken KAPALI
+ * tutuyor; ayar ekranına girildiğinde radyo uyanıyor ve o yüzden "girince
+ * bağlanıyor" gibi görünüyor (Dean, 16 Eylül: "saat hep kapatıyor Wi-Fi'yi,
+ * eğer girersem Wi-Fi içine bağlanıyor"). Bu sistemin tasarımı, kapatılamaz —
+ * ama uygulama Wi-Fi TAŞIYICISINI açıkça isteyebilir: istek süresince sistem
+ * radyoyu açık tutar. Ev sunucusu LAN'da olduğu için Bluetooth vekili işe
+ * yaramaz, gereken tam da Wi-Fi'dir.
+ *
+ * İstek geri çağrısı BIRAKILMAZ: serbest bırakılırsa sistem radyoyu yeniden
+ * uyutur ve sunucu bir sonraki istekte yine kaybolur. Uygulama kapanınca
+ * süreçle birlikte düşer.
+ */
+object WifiKoprusu {
+
+    @Volatile private var baglandi = false
+
+    fun uyandir(context: Context, zamanAsimiMs: Int = 8_000, sonra: () -> Unit) {
+        if (baglandi) { sonra(); return }
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        if (cm == null) { sonra(); return }
+
+        // Zaten Wi-Fi üzerindeysek bekletme: her açılışta 8 sn beklemek pahalı.
+        val mevcut = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        if (mevcut?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+            baglandi = true
+            sonra()
+            return
+        }
+
+        val istek = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        var cevapVerildi = false
+        val geriCagri = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                baglandi = true
+                // Süreci bu ağa bağla: yoksa istekler varsayılan taşıyıcıdan
+                // (Bluetooth vekili) çıkar ve ev sunucusuna hiç ulaşmaz.
+                runCatching { cm.bindProcessToNetwork(network) }
+                if (!cevapVerildi) { cevapVerildi = true; sonra() }
+            }
+
+            override fun onUnavailable() {
+                if (!cevapVerildi) { cevapVerildi = true; sonra() }
+            }
+
+            override fun onLost(network: Network) {
+                baglandi = false
+                runCatching { cm.bindProcessToNetwork(null) }
+            }
+        }
+        runCatching { cm.requestNetwork(istek, geriCagri, zamanAsimiMs) }
+            .onFailure { if (!cevapVerildi) { cevapVerildi = true; sonra() } }
     }
 }

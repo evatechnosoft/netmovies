@@ -4,6 +4,9 @@
     <!-- Saat ev Wi-Fi'sindeki sunucuya doğrudan bağlanır; telefon aracı değil. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- requestNetwork(TRANSPORT_WIFI): Wear OS pil icin Wi-Fi radyosunu kapatiyor,
+         ev sunucusu LAN'da oldugu icin Bluetooth vekili ise yaramiyor. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Saat kendi kendini gunceller: evaitecOTA bileklikte APK kuramiyordu,

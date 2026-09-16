@@ -130,7 +130,14 @@ class Dizilla(PluginBase):
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         text = await fetch_html(self.httpx, normalize_url(url, self.main_url))
         selector = HTMLHelper(text)
-        css = "div.grid-cols-3 a" if "/dizi-turu/" in url else "div.grid a"
+        # Tür sayfaları için ayrı seçici (`div.grid-cols-3 a`) vardı ve SIFIR düğüm
+        # buluyordu: site duyarlı sınıf adlarına geçmiş, kapsayıcı artık
+        # `class="grid sm:grid-cols-3 …"`. Katalogda Dizilla'dan yalnız 5 kayıt
+        # kalmıştı (Dean, 16 Eylül). `div.grid a` her iki sayfada da çalışıyor —
+        # ölçüm: tür sayfası 24, ana sayfa 23 sonuç. Gereksiz bağlantıları
+        # `_result` zaten `/dizi/` filtresiyle eliyor, sınıf adına bel bağlamaya
+        # gerek yok.
+        css = "div.grid a"
         results: list[MainPageResult] = []
         for node in selector.select(css):
             item = self._result(node, self.main_url, category)
