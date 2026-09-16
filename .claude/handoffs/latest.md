@@ -1,72 +1,118 @@
-# DEVİR — 16 Eylül 2026, 20:38 · TV 0.3.9 liste-satırı UI + saat OTA teşhisi
+# Handoff: saat kumandası UI + TV liste satırları
 
-## Hedef
-Dean'in iki isteği: (1) saat güncellendi mi / orada sorun var mı, (2) bölüm seçici ve
-Ayarlar ekranı "list tile" (tam genişlik satır listesi) olsun.
+> 2026-09-16 21:05 · `fix/general-stability` @ `07bde9c` · 0 kirli dosya · push EDİLDİ
+> Katalog `evaglass-releases` @ `d457d83` · 0 kirli · push EDİLDİ
 
-## Durum — kanıtlı
+## Goal
 
-**Yayınlandı: NetMovies TV 0.3.9 (vc 309), üç dağıtım yeri canlı.**
-- `netmovies` dalı `fix/general-stability` @ `bc3f529` · push edildi · 0 kirli dosya
-- `evaglass-releases` @ `c5776b6` · push edildi
-- `aapt2 dump badging` → `versionCode='309' versionName='0.3.9'`
-- `./gradlew :app:assembleDebug` + `:app:testDebugUnitTest` → BUILD SUCCESSFUL
-- `/api/v1/app_update?target=tv` → `v0.3.9-poc`
-- release asset sha256 `403e25831e83b30a…` = yerel APK ile birebir
-- `evatechnosoft.github.io/evaglass-releases/apps.json` → `netmovies-tv=0.3.9/309`,
-  `netmovies-phone=0.3.9/309`
+Dean'in cihazda gördüğü UI şikâyetlerini kök nedeniyle kapatmak: televizyonda
+bölüm ızgarası okunmuyordu, saatte ana ekran açılışta kayıp üst üste biniyordu.
+Uzun devir günlüğü ve mimari: `docs/HANDOFF.md`. Bu oturumun gerekçe kaydı:
+`.claude/handoffs/2026-09-16-2038-tv-list-tile-ui.md`.
 
-**Tünel** 530'du (stream yeniden kurulunca cloudflared netns kopmuş),
-`docker compose --profile tunnel up -d` ile kaldırıldı → `w.evaitec.com/api/v1/health` **200**.
+## State
 
-**Saat zinciri: sunucu tarafında sorun YOK** (uçtan uca doğrulandı)
-- `app_update?target=wear` → `v0.1.8-poc`; APK `versionCode='108' versionName='0.1.8'`
-- yerel APK = katalog sha256 = GitHub release asset sha256 → `7e28e460…e3e07a0`
-- imza 0.1.4 → 0.1.7 → 0.1.8 hepsi `20319a76…02d841` → **imza çatışması yok**
-- katalog canlı: `evaitec-ota-wear=0.1.10/6`, `netmovies-mini-watch=0.1.8/108`
-- telefon OTA `evaitec-ota-mobile=0.1.10/11`; `sendToWatch`+`ApkSender` kodda,
-  saat alıcısı `OtaApkReceiver` + manifest `CHANNEL_EVENT` ilk commit'ten beri var
-  → eski evaitecOTA'da da alıcı mevcut, oradan gelen blokaj yok.
+**Yayınlandı — üç dağıtım yeri de canlı (yerel OTA · GitHub release · apps.json):**
+- **NetMovies TV 0.3.9** (vc 309) — bölüm seçici tam genişlik satır listesi,
+  Ayarlar menüsü tam yükseklik. Commit `bc3f529`.
+- **NetMovies Mini 0.1.10** (vc 110) — sabit ince şerit, üç kip düğmesi,
+  mikrofon öne, TV ana ekranı uzun basışta. Commit `07bde9c` (0.1.9 = `dbc29c7`).
 
-**DOĞRULANMADI — cihazda ne olduğu.** `adb devices` boş, `client_log` boş.
-Erişim günlüğünde 16:45'te `192.168.1.185` iki kez `/app_update/download` çekmiş ama
-günlük satırı sorgu dizesini kestiği için TV mi saat mi ayırt edilemiyor. Saatte hangi
-sürümün kurulu olduğu buradan bilinemez.
+Kanıt (komut çıktıları):
+- `aapt2 dump badging` → TV `versionCode='309' versionName='0.3.9'`,
+  saat `versionCode='110' versionName='0.1.10'`
+- `/api/v1/app_update?target=tv` → `v0.3.9-poc` · `?target=wear` → `v0.1.10-poc`
+- release asset sha256 = yerel APK: TV `403e2583…`, saat `4d343fd3…`
+- `evatechnosoft.github.io/evaglass-releases/apps.json` → `netmovies-tv 0.3.9/309`,
+  `netmovies-phone 0.3.9/309`, `netmovies-mini-watch 0.1.10/110`
+- saat imzası `20319a76…02d841` — 0.1.4'ten beri aynı, güncelleme imzadan düşmez
+- `./gradlew :app:assembleDebug`, `:app:testDebugUnitTest`, `:wear:assembleDebug`
+  → hepsi BUILD SUCCESSFUL
 
-## Karar ve gerekçe
+**HİÇBİRİ CİHAZDA GÖRÜLMEDİ.** Sunucu tarafı kanıtlı, ekran değil. `adb devices`
+boş, `client_log` boş.
 
-- **Bölüm seçici: ızgara → tek sütun satır listesi.** `EpisodePicker.kt` `Kutucuk`
-  yerine `Satir`: solda `Bölüm 7` (sabit 150dp sütun → satırlar hizalı), ortada tam ad
-  (`weight(1f)`), sağda `1x7` rozeti. Izgarada göz satır mı sütun mu izleyeceğini
-  bilemiyor ve ad 150dp kutuya sığmayıp kesiliyordu. Oynayan satır dolgulu,
-  `rememberLazyListState(initialFirstVisibleItemIndex=…)` ile ona kaydırılmış açılıyor.
-- **Sayfa-sayfa akış KORUNDU** (sezon sayfası → bölüm sayfası). Sezon rafı + bölüm
-  listesini aynı ekrana koymak daha önce denendi ve "çok karışık" diye geri alındı
-  (D-pad aynı ekranda iki yön). Dean'in "önce sezonlar sonra altta bölümler" cümlesi
-  bu akışla zaten karşılanıyor.
-- **Ayarlar menüsü** (`HomeScreen.kt` `ModalCard`): `fillMaxHeight(0.7f)` → `fillMaxHeight()`,
-  `MenuRow` dikey dolgu 13 → 10dp. 11 seçenek kaydırmadan tek ekrana iniyor.
-  `verticalScroll` küçük ekran için emniyet olarak duruyor.
+**KIRMIZI — bu oturumun işiyle ilgisiz, açık kalan:** `bash scripts/smoke.sh`
+→ `[HATA] DiziPal · zincir kaynak vermedi`. Motor günlüğü sebebi söylüyor:
+`resolve: link — DiziPal · ConnectError:` (adres `dizipal2220.com`). Katalog,
+kanallar ve `stream/tests` YEŞİL; yalnız bu sağlayıcı düşük. Desen tanıdık:
+domain taşınması / SNI blok (`memory/plugin-domain-moves.md`).
 
-## Tekrarlama
+**Tünel:** oturum başında 530'du, `docker compose --profile tunnel up -d` ile
+kaldırıldı → `w.evaitec.com/api/v1/health` 200.
 
-- `gh release create ... "dosya#ad"` **yeniden adlandırmaz**, `#` sadece etiket.
-  Asset'i doğru adla (`netmovies-tv-0.3.9.apk`) yüklemek için önce dosyayı o adla
-  kopyala, sonra `gh release upload`. Bu turda yanlış adlı asset yüklenip silindi.
-- Yeni yüklenen release asset'i **~40 sn 404 döner** (CDN). 404 görünce yayını bozuk
-  sanma, döngüyle yokla.
-- Saat için ADB deneme: cihaz ağda yok, "Wi-Fi üzerinden hata ayıklama" kapalı.
-  Aynı taramayı tekrar koşturma, önce Dean'den IP/onay gelsin.
-- Sunucu/katalog/imza zinciri bu turda tamamen doğrulandı — saat için tekrar
-  taranmasın; kalan belirsizlik yalnız cihazın kendisinde.
+## Next
 
-## Sıradaki tek iş
+1. **Dean cihazda denesin** (tek kişilik adım, kod değil): televizyonda
+   evaitecOTA → NetMovies 0.3.9; saatte ana ekranın en altındaki
+   "⬆ 0.1.10 güncelle" şeridi. Geri bildirim gelene kadar saat/TV UI'sine
+   dokunma — ölçü ayarı (yay yayvanlığı, düğme boyu) ekranı görmeden tahmindir.
+2. **DiziPal'i ayağa kaldır:** `docker logs netmovies-engine | grep -i dizipal`
+   ile güncel adresi gör, `python scripts/chain_scan.py --n 2` ile doğrula.
+   Adres taşınmışsa `.env` override ile sabitle (desen: `DiziMom→dizimom.food`).
+   `bash scripts/smoke.sh` yeşile dönene kadar bitmedi.
+3. Dean'den yeni UI geri bildirimi gelirse onu önceliklendir.
 
-Dean televizyonda 0.3.9'u kurup bölüm seçiciyi ve Ayarlar menüsünü görsün; geri
-bildirimi al. Paralelde saat: telefondaki evaitecOTA → "Saate gönder" ile önce
-**evaitecOTA 0.1.10** (kurulum hatasının sebebini bileğe yazan sürüm), sonra
-**NetMovies Mini 0.1.8**. Ekranda ne yazdığı tek kanıt; olmazsa saatte
-"Wi-Fi üzerinden hata ayıklama" açtırıp `bash scripts/saat-kur.sh <ip>`.
+## Don't repeat
 
-Açık soru: "Ayarlar ekranı" derken oynatıcı içindeki sağ ayar paneli kastedildiyse
-o da aynı desene çekilecek (şu an `SettingsPanel`, `NmDim.PanelWidth` 360dp yan panel).
+- **Saat için ADB taraması** — cihaz ağda görünmüyor, "Wi-Fi üzerinden hata
+  ayıklama" kapalı. Dean IP vermeden `scripts/saat-kur.sh` boşa koşar.
+- **Saat OTA zincirini yeniden doğrulama** — yerel APK / release / katalog
+  sha256'ları ve imza bu oturumda uçtan uca eşleşti; kalan belirsizlik yalnız
+  cihazın kendisinde.
+- **Sezon rafı + bölüm listesini aynı ekrana koymak** — denendi, "çok karışık"
+  diye geri alındı (D-pad aynı ekranda iki yön). Sayfa-sayfa akış korunacak.
+- **Saatte tek düğmeyle dönen kip** (gezinme→sarma→ses) — hangi kipte olunduğu
+  akılda tutulamıyordu; üç ayrı düğmeye çevrildi.
+- **`gh release create "dosya#ad"` ile yeniden adlandırma** — `#` sadece etiket,
+  dosya adı değişmez. Önce doğru adla kopyala, sonra yükle.
+- Yeni release asset'i **~40 sn 404 döner** (CDN); 404 görünce yayını bozuk sanma.
+- **Bash heredoc + Türkçe kesme işareti** bu kabukta parse hatası veriyor
+  (`unexpected EOF looking for matching '`). Çok satırlı Türkçe içerik için
+  betiği önce Write ile dosyaya yaz, sonra `python <dosya>` ile koştur.
+
+## Read first
+
+1. `docs/HANDOFF.md` — proje sözleşmesi, doğrulama komutları, mimari
+2. `client-tv/wear/src/main/java/com/evaitec/netmovies/wear/MainActivity.kt`
+   — saat ana ekranı (`KipYayi`, `PosterYayi`, kip geri dönüş `LaunchedEffect`)
+3. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/EpisodePicker.kt`
+   — bölüm seçici satır listesi
+4. `memory/plugin-domain-moves.md` — Next #2'nin deseni
+
+## Verify
+
+```bash
+git rev-parse --short HEAD              # beklenen: 07bde9c (değilse: git log 07bde9c..HEAD --oneline)
+git status --porcelain | wc -l          # beklenen: 0
+bash scripts/smoke.sh                   # beklenen: DiziPal KIRMIZI, gerisi yeşil
+curl -s "localhost:3310/api/v1/app_update?target=tv"    # beklenen: v0.3.9-poc
+curl -s "localhost:3310/api/v1/app_update?target=wear"  # beklenen: v0.1.10-poc
+curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health  # beklenen: 200
+```
+Tünel 530 dönerse: `docker compose --profile tunnel up -d` (cloudflared ağ ad
+alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor).
+
+## Yeniden başlangıç promptu (yapıştır)
+
+```
+NetMovies projesinde çalışıyoruz (D:\projects\netmovies, dal fix/general-stability).
+Geçen oturumda TV 0.3.9 ve saat kumandası 0.1.10 yayınlandı: televizyonda bölüm
+seçici tam genişlik satır listesine geçti ve Ayarlar menüsü tam yüksekliğe çıktı;
+saatte ana ekran açılışta kaymayı bitiren sabit ince şerit, üç kip düğmesi
+(saatte gezin / sarma / ses, 5 sn sonra varsayılana döner), mikrofon öne ve TV
+ana ekranı uzun basışa taşındı. Her ikisi de üç dağıtım yerinde canlı ve sunucu
+tarafı kanıtlı, ama HİÇBİRİ cihazda denenmedi. İki repo da temiz ve push edilmiş.
+
+Önce HANDOFF.md'yi oku ve Verify bloğunu çalıştır.
+
+Öncelik sırası:
+1. smoke.sh'deki tek kırmızıyı çöz: DiziPal zinciri ConnectError veriyor
+   (dizipal2220.com). Kök neden domain taşınması mı, SNI blok mu — motor
+   günlüğünden teşhis et, chain_scan ile doğrula, gerekirse .env override.
+2. Dean cihaz geri bildirimi verirse (TV 0.3.9 / saat 0.1.10 ekran görüntüsü)
+   onu önceliklendir; ekranı görmeden saat/TV ölçülerini kurcalama.
+
+Yeni iş açma, HANDOFF.md'deki Next listesinin dışına çıkma. Bir şey bozuksa kök
+nedeni bul, semptomu yamalama. Her iddianın arkasında komut çıktısı olsun.
+```
