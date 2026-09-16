@@ -186,6 +186,7 @@ private fun MiniEkran() {
             guncelDurum = "izin ver, tekrar dokun"
             return
         }
+        Guncelleme.sonDurum = ""
         guncelDurum = "indiriliyor…"
         kapsam.launch(Dispatchers.IO) {
             val sonuc = runCatching { Guncelleme.kur(baglam, Guncelleme.indir(baglam, bilgi)) }
@@ -299,7 +300,9 @@ private fun MiniEkran() {
             // Guncelleme seridi: yalniz daha yeni surum varken cizilir.
             guncelleme?.let { bilgi ->
                 Text(
-                    text = guncelDurum.ifBlank { "⬆ ${bilgi.surum} güncelle" },
+                    // Kurulum alıcısından gelen sonuç yerel durumu EZER: "kuruluyor…"
+                    // yazarken kurulum reddedilirse ekran yalan söylemesin.
+                    text = Guncelleme.sonDurum.ifBlank { guncelDurum.ifBlank { "⬆ ${bilgi.surum} güncelle" } },
                     color = Vurgu,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,

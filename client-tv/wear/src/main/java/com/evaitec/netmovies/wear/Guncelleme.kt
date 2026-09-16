@@ -7,7 +7,11 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.provider.Settings
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import java.io.File
 import java.io.IOException
 
@@ -25,6 +29,14 @@ import java.io.IOException
 object Guncelleme {
 
     private const val ETIKET = "NetMoviesWearOTA"
+
+    /**
+     * Kurulumun son durumu — EKRANA yazılır. Sonuç yalnız logcat'e gidiyordu:
+     * kurulum reddedilince ("abort") ekranda "kuruluyor…" asılı kalıyor,
+     * bilekten sebebi görmenin yolu olmuyordu. Saatte logcat okunamaz.
+     */
+    var sonDurum by mutableStateOf("")
+        internal set
 
     data class Bilgi(val tag: String, val surum: String, val boyut: Long)
 
@@ -118,6 +130,9 @@ object Guncelleme {
         val ayar = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         ayar.setSize(dosya.length())
         ayar.setAppPackageName(context.packageName)
+        // Kullanıcının istediği kurulum: sistem bunu "otomatik/politika" kurulumdan
+        // ayırıyor ve onay akışını buna göre seçiyor.
+        ayar.setInstallReason(PackageManager.INSTALL_REASON_USER)
 
         val oturum = kurucu.createSession(ayar)
         try {
@@ -154,13 +169,30 @@ class KurulumAlicisi : BroadcastReceiver() {
                 val onay = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 onay?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { context.startActivity(onay) }
-                    .onFailure { Guncelleme.logla("onay ekranı açılamadı: ${it.message}") }
+                    .onSuccess { Guncelleme.sonDurum = "onayla ↑" }
+                    .onFailure {
+                        // Onay ekranı hiç açılamazsa kurulum sessizce bekler ve
+                        // sonunda "abort" olur: sebebi burada yakalanmazsa görünmez.
+                        Guncelleme.sonDurum = "onay ekranı açılmadı"
+                        Guncelleme.logla("onay ekranı açılamadı: ${it.message}")
+                    }
             }
-            PackageInstaller.STATUS_SUCCESS -> Guncelleme.logla("kurulum tamam")
-            else -> Guncelleme.logla(
-                "kurulum reddedildi ($durum): " +
-                    intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
-            )
+            PackageInstaller.STATUS_SUCCESS -> {
+                Guncelleme.sonDurum = "kuruldu ✓"
+                Guncelleme.logla("kurulum tamam")
+            }
+            else -> {
+                val mesaj = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
+                // Ekranda yer 1 satır: kısa ad + kod. Ayrıntı logcat'te kalır.
+                Guncelleme.sonDurum = when (durum) {
+                    PackageInstaller.STATUS_FAILURE_ABORTED -> "iptal edildi — onayı kaçırdın, tekrar dokun"
+                    PackageInstaller.STATUS_FAILURE_CONFLICT -> "imza farklı — eskisini kaldır"
+                    PackageInstaller.STATUS_FAILURE_STORAGE -> "yer yok"
+                    PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> "uyumsuz APK"
+                    else -> "olmadı ($durum)"
+                }
+                Guncelleme.logla("kurulum reddedildi ($durum): $mesaj")
+            }
         }
     }
 }
