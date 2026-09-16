@@ -13,7 +13,7 @@
 | Uygulama | Sürüm | vc | Kanıt |
 |---|---|---|---|
 | NetMovies TV | 0.3.7 | 307 | OTA `v0.3.5-poc` · release 200 · katalog canlı |
-| NetMovies Mini (saat) | 0.1.7 | 107 | OTA `v0.1.6-poc` · release 200 · katalog canlı |
+| NetMovies Mini (saat) | 0.1.8 | 108 | OTA `v0.1.6-poc` · release 200 · katalog canlı |
 | evaitecOTA TV | 0.1.12 | 13 | release 200 · katalog API'de vc 13 |
 | evaitecOTA saat | 0.1.10 | 6 | release 200 · katalog API'de vc 6 |
 
@@ -85,6 +85,19 @@ Sunucu tarafı — TV güncellemesi gerekmez, canlı.
   6 test. Kanıt: 45 öğenin yer tutucu posteri 45 → 0.
   **Eklenti düzeltmesi hemen görünmez** — ağ geçidi `/get_main_page`'i 30 dk
   önbelleğe alıyor, `docker compose restart stream` şart.
+
+**Dizilla katalog + saat Wi-Fi (`c1544ee`).**
+- Dizilla'dan katalogda yalnız 5 kayıt vardı. Tür sayfaları için ayrı seçici
+  `div.grid-cols-3 a` SIFIR düğüm buluyordu: site duyarlı sınıf adlarına geçmiş
+  (`class="grid sm:grid-cols-3 …"`). Tek seçici `div.grid a` kaldı. Ölçüm:
+  eklenti toplamı 5 → 125, birleşik akışta Dizilla 5 → 99.
+  `/tum-bolumler` (5) ve `/dublaj-bolumler` (0) hâlâ zayıf ama bu eklenti hatası
+  DEĞİL: sunucudan gelen HTML'de o kadar dizi bağlantısı var.
+- **Saat Wi-Fi'yi kapatıyor:** Wear OS pil için radyoyu uyutuyor, ayar ekranı
+  uyandırdığı için "girince bağlanıyor" görünüyor. Ev sunucusu LAN'da olduğundan
+  Bluetooth vekili işe yaramaz. `WifiKoprusu.uyandir` katalog çekilmeden önce
+  `requestNetwork(TRANSPORT_WIFI)` yapıyor, geleni `bindProcessToNetwork` ile
+  sürece bağlıyor, geri çağrıyı BIRAKMIYOR (bırakılırsa radyo yeniden uyur).
 
 ## Tekrarlama — ölen yollar
 

@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 21:15
+**Son güncelleme:** 16 Eylül 2026, 22:00
 **Dal:** `fix/general-stability` @ `6a23d88` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.7-poc` · saat `v0.1.7-poc`
+**Sürümler:** TV `v0.3.7-poc` · saat `v0.1.8-poc`
 **Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
-netmovies-tv/phone **0.3.7 (vc 307)** · netmovies-mini-watch **0.1.7 (vc 107)**, ikisi de CANLI
+netmovies-tv/phone **0.3.7 (vc 307)** · netmovies-mini-watch **0.1.8 (vc 108)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -32,7 +32,7 @@ MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m uni
 MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
                                             # beklenen: Ran 40 · OK
 curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.7-poc
-curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.7-poc
+curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.8-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
 `6a23d88` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
