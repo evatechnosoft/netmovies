@@ -32,6 +32,7 @@ _API_KEY   = os.getenv("TMDB_API_KEY", "").strip()
 _DISCOVER  = "https://api.themoviedb.org/3/discover/tv"
 _TV_DETAIL = "https://api.themoviedb.org/3/tv/{id}"
 _UPCOMING  = "https://api.themoviedb.org/3/movie/upcoming"
+_DISCOVER_MOVIE = "https://api.themoviedb.org/3/discover/movie"
 _IMG_BASE  = "https://image.tmdb.org/t/p/w500"
 
 # Takvim gün içinde değişmez; TMDB kotası ve açılış süresi için günde bir tazelenir.
@@ -49,9 +50,19 @@ _client = httpx.AsyncClient(
 )
 
 
+# Ajanda GERİYE de bakar. Yayın günü geçen bölüm listeden düşüyordu, ama bölüm
+# o gün sağlayıcıya düşmemiş olabiliyor (Dean, 16 Eylül: "gün geçince atlıyor ama
+# düşmemiş olabiliyor sağlayıcıya"). Takip edilecek pencere yayın gününde kapanmaz.
+# Bir haftadan uzun süredir düşmemiş bölüm ajandanın işi değil, orada sınır var.
+_GECMIS_GUN = 7
+
+
 def _aralik(view: str) -> tuple[datetime.date, datetime.date]:
     bugun = datetime.date.today()
-    return bugun, bugun + datetime.timedelta(days=30 if view == "month" else 7)
+    return (
+        bugun - datetime.timedelta(days=_GECMIS_GUN),
+        bugun + datetime.timedelta(days=30 if view == "month" else 7),
+    )
 
 
 async def _json(url: str, params: dict) -> dict:
@@ -62,14 +73,11 @@ async def _json(url: str, params: dict) -> dict:
         return {}
 
 
-async def _dizi_bolumu(dizi_id: int, bas: datetime.date, son: datetime.date) -> dict | None:
-    """Dizinin sıradaki bölümü aralıktaysa ajanda satırı üretir."""
-    detay = await _json(_TV_DETAIL.format(id=dizi_id), {"language": "tr-TR"})
-    bolum = detay.get("next_episode_to_air") or {}
-    tarih = bolum.get("air_date")
+def _bolum_satiri(detay: dict, bolum: dict, bas: datetime.date, son: datetime.date) -> dict | None:
+    """Tek bölümü ajanda satırına çevirir. Tarihi aralık dışındaysa None."""
+    tarih = (bolum or {}).get("air_date")
     if not tarih:
         return None
-
     try:
         gun = datetime.date.fromisoformat(tarih)
     except ValueError:
@@ -89,6 +97,26 @@ async def _dizi_bolumu(dizi_id: int, bas: datetime.date, son: datetime.date) -> 
     }
 
 
+async def _dizi_bolumleri(dizi_id: int, bas: datetime.date, son: datetime.date) -> list[dict]:
+    """Dizinin aralığa düşen bölümleri.
+
+    `next_episode_to_air` YALNIZ geleceği gösterir: dün yayınlanan bölüm orada
+    değil, `last_episode_to_air`tadır. Geçmişe bakan pencerede ikisi de okunur —
+    aynı dizinin geçen haftaki ve bu haftaki bölümü ayrı satırlar olur.
+    """
+    detay = await _json(_TV_DETAIL.format(id=dizi_id), {"language": "tr-TR"})
+    satirlar = [
+        _bolum_satiri(detay, detay.get(alan) or {}, bas, son)
+        for alan in ("last_episode_to_air", "next_episode_to_air")
+    ]
+    # Aynı bölüm iki alanda birden görünebiliyor (yayın günü); tarih+bölüm ile tekilleştir.
+    tekil: dict[tuple, dict] = {}
+    for s in satirlar:
+        if s:
+            tekil.setdefault((s["tarih"], s["bolum"]), s)
+    return list(tekil.values())
+
+
 async def _diziler(bas: datetime.date, son: datetime.date) -> list[dict]:
     # `discover` sayfa başına 20 kayıt veriyor; tek sayfa aylık aralığa yetmiyordu
     # (aynı gün haftada görünen dizi ayda listeden düşüyordu). İki sayfa çekilir.
@@ -105,12 +133,23 @@ async def _diziler(bas: datetime.date, son: datetime.date) -> list[dict]:
     ))
     kayitlar = [x for liste in sayfalar for x in (liste.get("results") or [])]
     adaylar  = list(dict.fromkeys(x["id"] for x in kayitlar if x.get("id")))[:_ADAY_SINIRI]
-    satirlar = await asyncio.gather(*(_dizi_bolumu(i, bas, son) for i in adaylar), return_exceptions=True)
-    return [s for s in satirlar if isinstance(s, dict)]
+    sonuc = await asyncio.gather(*(_dizi_bolumleri(i, bas, son) for i in adaylar), return_exceptions=True)
+    return [s for liste in sonuc if isinstance(liste, list) for s in liste]
 
 
 async def _filmler(bas: datetime.date, son: datetime.date) -> list[dict]:
-    liste = await _json(_UPCOMING, {"language": "tr-TR", "region": "TR"})
+    # `movie/upcoming` adı üstünde: YALNIZ gelecek vizyonlar. Geçmişe bakan pencerede
+    # bu hafta vizyona girmiş film hiç görünmüyordu. `discover/movie` aynı veriyi
+    # tarih aralığıyla verir; `with_release_type=2|3` sinema/dijital vizyonu seçer,
+    # `region=TR` ile `release_date` TÜRKİYE tarihidir.
+    liste = await _json(_DISCOVER_MOVIE, {
+        "language"                     : "tr-TR",
+        "region"                       : "TR",
+        "with_release_type"            : "2|3",
+        "primary_release_date.gte"     : str(bas),
+        "primary_release_date.lte"     : str(son),
+        "sort_by"                      : "popularity.desc",
+    })
 
     satirlar: list[dict] = []
     for film in liste.get("results") or []:

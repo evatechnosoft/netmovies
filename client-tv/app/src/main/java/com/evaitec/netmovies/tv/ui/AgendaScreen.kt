@@ -125,19 +125,28 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             gunler.isEmpty() -> AjandaBos("Bu aralıkta yayın yok.")
             else -> LazyVerticalGrid(
                 modifier = Modifier.fillMaxSize().focusGroup(),
-                columns = GridCells.Adaptive(minSize = NmDim.GridPosterMin),
+                // Poster ana sayfa rafıyla AYNI ölçüde (130dp): ajanda 150dp ile
+                // çiziliyordu, satıra daha az kart sığıyor ve gelecek günler
+                // dağınık duruyordu. Küçülünce geçmiş günler de yan yana okunur
+                // (Dean, 16 Eylül: "standart ana sayfa kadar olursa toplu durur").
+                columns = GridCells.Adaptive(minSize = NmDim.PosterWidth),
                 contentPadding = PaddingValues(bottom = NmDim.SafeV),
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                 verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
-                var sira = 0
+                // Odak ilk karta değil, BUGÜN (ya da sonrası) ilk kartına gider:
+                // geçmiş günler listenin başında duruyor, ekran onlarla açılırsa
+                // "bu hafta ne var" sorusu bir kaydırma geriye düşerdi.
+                val bugun = LocalDate.now().toString()
+                val odakGunu = gunler.firstOrNull { it.tarih >= bugun }?.tarih ?: gunler.first().tarih
+                var odakVerilecek = true
                 gunler.forEach { gun ->
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         GunBasligi(gun.tarih, gun.ogeler.size)
                     }
                     gun.ogeler.forEach { oge ->
-                        val ilk = sira == 0
-                        sira++
+                        val ilk = odakVerilecek && gun.tarih == odakGunu
+                        if (ilk) odakVerilecek = false
                         item {
                             AjandaKarti(
                                 oge = oge,
@@ -184,15 +193,23 @@ private fun GunBasligi(tarih: String, adet: Int) {
         gun == null -> tarih
         gun == bugun -> "Bugün"
         gun == bugun.plusDays(1) -> "Yarın"
+        gun == bugun.minusDays(1) -> "Dün"
         else -> "${gun.dayOfMonth} ${gun.month.getDisplayName(TextStyle.FULL, Locale("tr"))} · " +
             gun.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("tr"))
     }
+    // Günü geçmiş satırlar listede KALIR (bölüm sağlayıcıya günler sonra
+    // düşebiliyor), ama başlık soluk: göz "bugün"ü bir bakışta bulur.
+    val gecmis = gun != null && gun < bugun
 
     Text(
-        text = "$etiket  ($adet)",
+        text = if (gecmis) "$etiket  ($adet)  · yayınlandı" else "$etiket  ($adet)",
         fontWeight = FontWeight.Bold,
         fontSize = NmType.RowTitle,
-        color = if (gun == bugun) NmColor.Primary else NmColor.OnSurface,
+        color = when {
+            gun == bugun -> NmColor.Primary
+            gecmis       -> NmColor.OnSurfaceMuted
+            else         -> NmColor.OnSurface
+        },
         modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
     )
 }
