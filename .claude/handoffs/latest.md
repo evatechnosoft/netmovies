@@ -12,8 +12,8 @@
 
 | Uygulama | Sürüm | vc | Kanıt |
 |---|---|---|---|
-| NetMovies TV | 0.3.6 | 306 | OTA `v0.3.5-poc` · release 200 · katalog canlı |
-| NetMovies Mini (saat) | 0.1.6 | 106 | OTA `v0.1.6-poc` · release 200 · katalog canlı |
+| NetMovies TV | 0.3.7 | 307 | OTA `v0.3.5-poc` · release 200 · katalog canlı |
+| NetMovies Mini (saat) | 0.1.7 | 107 | OTA `v0.1.6-poc` · release 200 · katalog canlı |
 | evaitecOTA TV | 0.1.12 | 13 | release 200 · katalog API'de vc 13 |
 | evaitecOTA saat | 0.1.10 | 6 | release 200 · katalog API'de vc 6 |
 
@@ -67,6 +67,24 @@ oynatıcı manifesti yeniden isteyince 403. WARP çıkışıyla da 403 gelmesi a
 kanıt (IP engeli olsa WARP çözerdi). Proxy artık başarılı manifesti saklıyor ve
 upstream 400+ dönünce onu 200 ile veriyor (`Proxy/Libs/manifest_cache.py`, 5 test).
 Sunucu tarafı — TV güncellemesi gerekmez, canlı.
+
+**TV 0.3.7 + saat 0.1.7 + motor.**
+- **Sezon seçilemiyordu — kök neden çift odak hedefi:** sezon sayfasında
+  `if (i == 0 || simdiki)` koşulu AYNI `FocusRequester`'ı iki kutucuğa bağlıyordu
+  (kullanıcı 1. sezonda değilse ikisi de true). Odak hiçbirine net yerleşmiyor,
+  D-pad panele ulaşmıyordu. Tek `sezonHedef` indeksi hesaplanıyor
+  (`EpisodePicker.kt`). Hafızadaki `tv-focus-and-install-traps` kalıbının aynısı.
+- Bölüm kutucukları küçüldü (180→150dp min, yükseklik 92→68dp).
+- Saatte posterler kadran kenarında YAY üzerinde, döner çerçeveyle geziliyor,
+  merkezdeki büyüyor. Halka üç kipli: GEZİNME / SARMA / SES. ⏯ ve ⬅ ayrı düğme
+  (çift görevli tek düğme "önce oynatıyor sonra çıkıyor"a sebep oluyordu).
+  Yay sabitleri cihazda kalibre EDİLMEDİ, `ponytail:` ile işaretli.
+- **DiziMom posterleri yer tutucuydu:** site tembel yükleme kullanıyor, `src`te
+  `data:image/svg+xml`, gerçek adres `data-src`te. Ortak `poster_attr`
+  (`__dizi_common.py`) eklendi, DiziMom/DiziBox/Dizilla onu kullanıyor,
+  6 test. Kanıt: 45 öğenin yer tutucu posteri 45 → 0.
+  **Eklenti düzeltmesi hemen görünmez** — ağ geçidi `/get_main_page`'i 30 dk
+  önbelleğe alıyor, `docker compose restart stream` şart.
 
 ## Tekrarlama — ölen yollar
 
