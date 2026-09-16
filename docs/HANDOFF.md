@@ -8,7 +8,7 @@
 # 🧭 DEVİR — buradan devam et
 
 **Son güncelleme:** 16 Eylül 2026, 22:00
-**Dal:** `fix/general-stability` @ `6a23d88` · **0 kirli dosya** · push EDİLDİ
+**Dal:** `fix/general-stability` @ `c1544ee` · **0 kirli dosya** · push EDİLDİ
 **Sürümler:** TV `v0.3.7-poc` · saat `v0.1.8-poc`
 **Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
 netmovies-tv/phone **0.3.7 (vc 307)** · netmovies-mini-watch **0.1.8 (vc 108)**, ikisi de CANLI
@@ -24,7 +24,7 @@ netmovies-tv/phone **0.3.7 (vc 307)** · netmovies-mini-watch **0.1.8 (vc 108)**
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 6a23d88
+git rev-parse --short HEAD                  # beklenen: c1544ee
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
@@ -35,7 +35,7 @@ curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.7-
 curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.8-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`6a23d88` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+`c1544ee` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
 **Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
 alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
 düştüğünde bu doğrudan "saat çalışmıyor" demek.
