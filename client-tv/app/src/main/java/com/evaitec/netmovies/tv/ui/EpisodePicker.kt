@@ -9,11 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,14 +38,15 @@ import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 
-// Bölüm seçici: SAYFA SAYFA, kutucuklu. Önce sezon sayfası, seçilince o sezonun
-// bölüm sayfası; GERİ bir sayfa geri alır.
+// Bölüm seçici: SAYFA SAYFA, tam genişlik SATIR listesi. Önce sezon sayfası,
+// seçilince o sezonun bölüm sayfası; GERİ bir sayfa geri alır.
 //
-// Öncesinde sezon rafı (yatay) ile bölüm listesi (dikey) AYNI panelin içindeydi,
-// panelin kendisi de oynatıcının üstünde bir katmandı: D-pad aynı ekranda iki ayrı
-// yönü idare etmek zorundaydı ve nereye basınca nereye gidildiği belli olmuyordu
-// (Dean: "çok karışık, player içinde liste seçimi iç içe hep geçiyor, tile olsun
-// ya da sayfa geçiş"). Kutucuk ızgarasında her yön aynı şeyi yapar: komşu kutuya gider.
+// Önce yatay sezon rafı + dikey bölüm listesi AYNI paneldeydi: D-pad aynı ekranda
+// iki yönü idare ediyordu, nereye basınca nereye gidildiği belli olmuyordu
+// (Dean: "çok karışık"). Sonra ızgara kutucuklara geçildi; o da okunmadı
+// (Dean: "bölümler çok kötü gözükmekte ... yine listtile"). Izgarada göz satır mı
+// sütun mu izleyeceğini bilemiyor, bölüm adı da kutuya sığmıyordu. Tek sütun satır
+// listesinde sıra tek yönlü: AŞAĞI = sonraki bölüm, ad tam satır boyunca okunur.
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -111,26 +111,25 @@ fun BolumSecici(
             if (secilenSezon == null) {
                 // Odak hedefi TEK: "şu an oynayan sezon" varsa o, yoksa ilk sezon.
                 // Önceki hal `i == 0 || simdiki` idi — 1. sezonda değilken bu iki
-                // koşul AYRI kutucuklara denk geliyor, aynı FocusRequester iki
-                // düğüme birden bağlanıyor ve requestFocus() hiçbirine kesin
-                // yerleşmiyordu (D-pad/OK panele hiç ulaşmıyordu, "sezon seçilemiyor").
+                // koşul AYRI satıra denk geliyor, aynı FocusRequester iki düğüme
+                // birden bağlanıyor ve requestFocus() hiçbirine kesin yerleşmiyordu.
                 val sezonHedef = remember(sezonlar, episodes, currentEpIndex) {
                     val oynayanSezon = episodes.getOrNull(currentEpIndex)?.season
                     sezonlar.indexOf(oynayanSezon).coerceAtLeast(0)
                 }
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(NmDim.GridPosterMin),
+                LazyColumn(
+                    state = rememberLazyListState(initialFirstVisibleItemIndex = sezonHedef),
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
-                    verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
                 ) {
                     items(sezonlar.size, key = { sezonlar[it] }) { i ->
                         val s = sezonlar[i]
                         val sayi = episodes.count { it.season == s }
                         val simdiki = episodes.getOrNull(currentEpIndex)?.season == s
-                        Kutucuk(
-                            ustYazi = "Sezon $s",
-                            altYazi = "$sayi bölüm",
+                        Satir(
+                            solYazi = "Sezon $s",
+                            adYazi = "",
+                            sagYazi = "$sayi bölüm",
                             secili = simdiki,
                             modifier = if (i == sezonHedef) Modifier.focusRequester(ilkOdak) else Modifier,
                         ) { onSezon(s) }
@@ -141,23 +140,19 @@ fun BolumSecici(
                     episodes.withIndex().filter { it.value.season == secilenSezon }
                 }
                 val seciliSira = secili.indexOfFirst { it.index == currentEpIndex }.coerceAtLeast(0)
-                val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = seciliSira)
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(NmDim.GridPosterMin),
-                    state = gridState,
+                LazyColumn(
+                    state = rememberLazyListState(initialFirstVisibleItemIndex = seciliSira),
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
-                    verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
                 ) {
                     items(secili.size, key = { "${secili[it].value.url}#${secili[it].index}" }) { i ->
                         val (idx, ep) = secili[i]
                         val oynayan = idx == currentEpIndex
-                        // seciliSira zaten oynayan bölümün sırası (bulunamazsa 0) —
-                        // ayrıca `oynayan` kontrolü aynı öğeye iki kez odak hedefi
-                        // bağlamaktan başka bir şey katmıyordu, tek koşula indirildi.
-                        Kutucuk(
-                            ustYazi = ep.episode?.let { "Bölüm $it" } ?: "Bölüm ${i + 1}",
-                            altYazi = ep.title?.takeIf { it.isNotBlank() } ?: "",
+                        val no = ep.episode ?: (i + 1)
+                        Satir(
+                            solYazi = "Bölüm $no",
+                            adYazi = ep.title?.takeIf { it.isNotBlank() } ?: "",
+                            sagYazi = "${secilenSezon}x$no",
                             secili = oynayan,
                             modifier = if (i == seciliSira) Modifier.focusRequester(ilkOdak) else Modifier,
                         ) { onSelect(idx); onClose() }
@@ -168,25 +163,22 @@ fun BolumSecici(
     }
 }
 
-/** Izgara kutucuğu: üstte numara, altta ad. Oynayan bölüm dolgulu. */
+/** Liste satırı: solda numara, ortada ad, sağda rozet. Oynayan satır dolgulu. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Kutucuk(
-    ustYazi: String,
-    altYazi: String,
+private fun Satir(
+    solYazi: String,
+    adYazi: String,
+    sagYazi: String,
     secili: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
-    Column(
+    Row(
         modifier = modifier
-            // Dean: "gridler çok büyük kaldı" — 92dp + 180dp min genişlik ekrana az
-            // kutucuk sığdırıyordu. 68dp + NmDim.GridPosterMin (150dp) ile hem daha
-            // çok sütun hem daha çok satır görünür; bölüm numarası (Body, tek satır)
-            // yine de rahat okunur.
-            .height(68.dp)
+            .fillMaxWidth()
             .clip(shape)
             .background(
                 when {
@@ -198,27 +190,33 @@ private fun Kutucuk(
             .nmFocusRing(odakli, shape)
             .onFocusChanged { odakli = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        // Numara sütunu sabit genişlikte: satırlar alt alta hizalı okunur.
         Text(
-            text = (if (secili) "● " else "") + ustYazi,
+            text = (if (secili) "● " else "") + solYazi,
             fontSize = NmType.Body,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(150.dp),
         )
-        if (altYazi.isNotBlank()) {
-            // Kutucuk küçülünce iki satıra yer kalmadı — öncelik bölüm numarasında,
-            // ad tek satıra sığmazsa kesilir.
-            Text(
-                text = altYazi,
-                fontSize = NmType.Caption,
-                color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = adYazi,
+            fontSize = NmType.Body,
+            color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = sagYazi,
+            fontSize = NmType.Caption,
+            color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted,
+            maxLines = 1,
+        )
     }
 }

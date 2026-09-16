@@ -612,7 +612,7 @@ private fun ModalCard(title: String, onClose: () -> Unit, content: @Composable (
         Column(
             modifier = Modifier
                 .width(NmDim.DialogWidth * 0.72f)
-                .fillMaxHeight(0.7f)
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .clip(shape)
                 .background(NmColor.SurfaceDialog)
@@ -652,7 +652,7 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
             // satır başına İKİ odak hedefi üretiyor ve D-pad'de bir aşağı basış
             // yutuluyordu. Tek hedef bırakıldı.
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(
             text = label,
