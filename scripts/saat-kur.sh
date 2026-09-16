@@ -23,9 +23,12 @@ if [ -z "${ADB:-}" ] || [ ! -e "$ADB" ]; then
   exit 1
 fi
 
-APK="$(ls -1 "$(dirname "$0")/../data/apk/"NetMovies-Wear-v*.apk 2>/dev/null | sort -V | tail -1)"
-if [ -z "$APK" ]; then
-  echo "data/apk/ içinde NetMovies-Wear-v*.apk yok. Önce: cd client-tv && ./gradlew :wear:assembleDebug" >&2
+# Kurulacak APK: APK=<yol> ile başka bir paket de verilebilir (ör. evaitecOTA'nın
+# kendi APK'sı). Verilmezse en yeni NetMovies-Wear alınır.
+APK="${APK:-$(ls -1 "$(dirname "$0")/../data/apk/"NetMovies-Wear-v*.apk 2>/dev/null | sort -V | tail -1)}"
+if [ -z "$APK" ] || [ ! -f "$APK" ]; then
+  echo "APK bulunamadı. Önce: cd client-tv && ./gradlew :wear:assembleDebug" >&2
+  echo "ya da: APK=<yol> bash scripts/saat-kur.sh" >&2
   exit 1
 fi
 echo "APK: $(basename "$APK")"

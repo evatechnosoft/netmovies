@@ -7,7 +7,7 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 18:10
+**Son güncelleme:** 16 Eylül 2026, 19:05
 **Dal:** `fix/general-stability` @ `6a23d88` · **0 kirli dosya** · push EDİLDİ
 **Sürümler:** TV `v0.3.5-poc` · saat `v0.1.6-poc`
 **Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
@@ -54,11 +54,21 @@ düştüğünde bu doğrudan "saat çalışmıyor" demek.
 > dokun → Geliştirici seçenekleri → ADB hata ayıklama AÇIK + Wi-Fi üzerinden hata
 > ayıklama AÇIK (ekranda IP yazar). Makine ağı `192.168.1.x`.
 >
-> **evaitecOTA neden "abort" diyor:** `evaitec-appkit` saatte zaten
-> `installViaSession` kullanıyor (`ApkInstaller.kt:105` — "Wear OS'ta ACTION_VIEW
-> ... Kur düğmesi iş görmüyor"). Yani API aynı; takıldığı yer onay ekranı.
-> NetMovies'in kendi OTA'sı aynı paketi aynı imzayla günceller, aracının başka
-> paket kurmasından daha az onay engeline takılır — ama garanti değil, denenmedi.
+> **evaitecOTA "abort" DÜZELTİLDİ — saat 0.1.9** (`evaitec-appkit` @ `f72b94a`,
+> katalog `167797d`, `evaitec-ota-wear` vc 5). Üç gerçek boşluk vardı:
+> 1. `InstallResultReceiver` başarı/hata dışındaki her durumu YUTUYORDU
+>    ("sistem zaten gösterir" varsayımı — saatte sistem bildirimi görünmüyor).
+>    Sonuç artık `InstallOutcome`a yazılıyor, `OtaWearActivity.onResume` banner'da
+>    gösteriyor: "iptal edildi", "imza farklı", "yer yok", "APK geçersiz".
+> 2. Yarım oturum sızıntısı: hata yolunda `abandonSession` yoktu; aynı pakete açık
+>    oturum varken yeni kurulum iptal ediliyor. Artık `mySessions` temizleniyor.
+> 3. `setSize` / `setAppPackageName` / `setInstallReason` eksikti; receiver'daki
+>    `startActivity` korumasızdı (Android 10+ arka plan kısıtı sessizce düşürüyor).
+>
+> Release APK imzası yayındaki 0.1.8 ile AYNI (`c910bfa7…`) — güncelleme imza
+> çatışmasına düşmez. **Saatteki evaitecOTA 0.1.8 önce KENDİNİ 0.1.9'a güncellemeli**
+> (kendi paketi, aynı imza — en kolay yol), sonra NetMovies Mini'yi kurabilir.
+> Olmazsa ADB: `APK=<yol> bash scripts/saat-kur.sh`.
 
 **0.1.5 = kendi kendini güncelleme + yuvarlak liste.** APK ev sunucusundan
 `/api/v1/app_update?target=wear` ile iner, PackageInstaller oturumuyla kurulur
