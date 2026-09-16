@@ -7,7 +7,7 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 19:05
+**Son güncelleme:** 16 Eylül 2026, 19:40
 **Dal:** `fix/general-stability` @ `6a23d88` · **0 kirli dosya** · push EDİLDİ
 **Sürümler:** TV `v0.3.5-poc` · saat `v0.1.6-poc`
 **Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
@@ -69,6 +69,16 @@ düştüğünde bu doğrudan "saat çalışmıyor" demek.
 > çatışmasına düşmez. **Saatteki evaitecOTA 0.1.8 önce KENDİNİ 0.1.9'a güncellemeli**
 > (kendi paketi, aynı imza — en kolay yol), sonra NetMovies Mini'yi kurabilir.
 > Olmazsa ADB: `APK=<yol> bash scripts/saat-kur.sh`.
+>
+> **evaitecOTA saat 0.1.10** (vc 6, katalog canlı): saat "bağlanamadı" diyordu ama
+> katalog ayakta (GitHub Pages 200, 0.30 sn). Sorun taşıyıcıda: Wear OS telefona
+> bağlıyken Wi-Fi'yi kapatıp Bluetooth vekili üzerinden çıkıyor, sürecin varsayılan
+> ağı "yok" olabiliyor. `load()` artık `requestNetwork` + `bindProcessToNetwork`
+> yapıyor; ağ gelmezse ekran "Internet yok - saati kablosuz ağa bağla" yazıyor.
+> `ACCESS_NETWORK_STATE` izni eklendi.
+>
+> **evaitecOTA TV 0.1.12** (vc 13): ızgara düzen, kart içi düğmeler kalktı, accent
+> yalnız iş bekleyen kartta. Detay: `.claude/handoffs/latest.md`.
 
 **0.1.5 = kendi kendini güncelleme + yuvarlak liste.** APK ev sunucusundan
 `/api/v1/app_update?target=wear` ile iner, PackageInstaller oturumuyla kurulur
