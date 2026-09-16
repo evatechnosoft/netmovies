@@ -6,6 +6,7 @@ from starlette.background import BackgroundTask
 from fastapi.responses    import StreamingResponse
 from .                    import proxy_router
 from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, parse_extra_headers, url_is_public
+from ..Libs import manifest_cache
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import validate_proxy_token
 
@@ -134,6 +135,21 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             # Sessiz dönmüyoruz: izleme ortada koptuğunda "neden" sorusunun tek cevabı bu
             # satır. Kaynak imzası bayatladıysa 403, dosya taşındıysa 404 görünür.
             konsol.print(f"[red]⛔ Upstream {response.status_code}:[/red] {target_url[:110]}")
+
+            # Tek kullanımlık oynatma adresi: ilk istek 200, oynatıcı manifesti
+            # yeniden isteyince aynı adres 403. Daha önce başarıyla indirilmiş
+            # manifest varsa oynatma onunla sürer — segment adresleri hâlâ
+            # geçerli, ölen yalnız manifest jetonu (16 Eylül, Dizilla/pichive).
+            saklanan = manifest_cache.oku(target_url)
+            if saklanan is not None:
+                govde, tur = saklanan
+                konsol.print(f"[yellow]↺ Son iyi manifest kullanıldı:[/yellow] {target_url[:80]}")
+                return Response(
+                    content     = govde,
+                    status_code = 200,
+                    headers     = {"Content-Type": tur, "Content-Length": str(len(govde))},
+                    media_type  = tur,
+                )
             return Response(status_code=response.status_code, content=f"Upstream Error: {response.status_code}")
 
         # 3. HLS Tespiti (URL + Header + GÖVDE)
@@ -193,6 +209,15 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
 
             # Content-Length güncelle
             final_headers["Content-Length"] = str(len(rewritten_content))
+
+            # Yeniden yazılmış hâli saklanır: adres bir daha 403 verirse oynatma
+            # buradan sürer. Ham gövde değil yazılmış hâli, çünkü istemciye giden
+            # bu; ham gövdeyi yeniden yazmak jeton bağlamını gerektirir.
+            manifest_cache.yaz(
+                target_url,
+                rewritten_content,
+                final_headers.get("Content-Type", "application/vnd.apple.mpegurl"),
+            )
 
             return Response(
                 content     = rewritten_content,
