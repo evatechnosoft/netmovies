@@ -12,7 +12,7 @@
 
 | Uygulama | Sürüm | vc | Kanıt |
 |---|---|---|---|
-| NetMovies TV | 0.3.7 | 307 | OTA `v0.3.7-poc` · release 200 · katalog canlı |
+| NetMovies TV | 0.3.8 | 308 | OTA `v0.3.7-poc` · release 200 · katalog canlı |
 | NetMovies Mini (saat) | 0.1.8 | 108 | OTA `v0.1.8-poc` · release 200 · katalog canlı |
 | evaitecOTA TV | 0.1.12 | 13 | release 200 · katalog API'de vc 13 |
 | evaitecOTA saat | 0.1.10 | 6 | release 200 · katalog API'de vc 6 |
@@ -85,6 +85,16 @@ Kanıt: yer tutucu 45 → 0.
 `div.grid-cols-3 a` SIFIR düğüm buluyordu: site duyarlı sınıf adlarına geçmiş
 (`class="grid sm:grid-cols-3 …"`). Tek seçici `div.grid a`. Kanıt: eklenti toplamı
 5 → 125, birleşik akışta Dizilla 5 → 99, toplam 503 öğe.
+
+**Zincirleme bölüm atlaması (TV 0.3.8).** Dizi 1. bölümden açıldı, saniyeler içinde
+17. bölüme ilerledi. Oynayan bölüm DEĞİLDİ: sağlayıcı kaldırılmış bölümün yerine
+10-20 sn'lik klip koyuyor ("İÇERİK KALDIRILDI · DMCA", "DUR! GİTME!") — bu metinler
+kod tabanında YOK, ekranlar sağlayıcının videosu. Klip anında `STATE_ENDED`'e
+ulaşıyor, `akisBitti` koşulsuz kuruluyor, geri sayım sonraki bölüme geçiriyordu.
+İkinci yol: "bitmek üzere" penceresi 90 sn, 90 sn'den kısa klip ilk saniyeden
+itibaren içindeydi. `MIN_GECERLI_SURE_MS = 90_000` eşiği + `akisGecersiz` bayrağı;
+önce başka kaynak, kalmazsa "Bu bölüm sağlayıcıda yok" ve otomatik geçiş YOK.
+Canlı yayın muaf.
 
 ## Tekrarlama — ölen yollar
 
