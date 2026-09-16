@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 09:40
-**Dal:** `fix/general-stability` @ `2250b46` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.3-poc` · saat `v0.1.4-poc`
-**Katalog:** `evaglass-releases/apps.json` @ `9c00313` (push EDİLDİ) —
-netmovies-tv/phone **0.3.3 (vc 303)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
+**Son güncelleme:** 16 Eylül 2026, 15:10
+**Dal:** `fix/general-stability` @ `3b5e7c3` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.3.4-poc` · saat `v0.1.4-poc`
+**Katalog:** `evaglass-releases/apps.json` @ `580ede1` (push EDİLDİ) —
+netmovies-tv/phone **0.3.4 (vc 304)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -24,23 +24,23 @@ netmovies-tv/phone **0.3.3 (vc 303)** · netmovies-mini-watch **0.1.4 (vc 104)**
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 2250b46
+git rev-parse --short HEAD                  # beklenen: 3b5e7c3
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
                                             # beklenen: Ran 132 · OK
 MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
                                             # beklenen: Ran 40 · OK
-curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.3-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.4-poc
 curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.4-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`2250b46` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+`3b5e7c3` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
 **Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
 alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
 düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — TV 0.3.3 ve saat 0.1.4'ü cihazda dene
+## SIRADAKİ İŞ #1 — TV 0.3.4 ve saat 0.1.4'ü cihazda dene
 
 İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
 
@@ -70,7 +70,20 @@ ve oynatıcı açıkken uzak komut onay kartı gösteriyor (`MainActivity.kt:246
 sessiz geçişin bilinen bir yolu YOK. Tekrarlarsa `curl -s localhost:3310/api/v1/client_log`
 → `açılış — ...` satırı sebebi söyler. Kanıt gelmeden kod değiştirilmedi.
 
-**Televizyonda** (evaitecOTA → NetMovies 0.3.3 / vc 303 → kur):
+**0.3.4 = ajanda penceresi + poster ölçüsü.** Ajanda aralığı bugünden başlıyordu,
+yayın günü geçen bölüm listeden düşüyordu — oysa bölüm sağlayıcıya günler sonra
+düşebiliyor. Aralık geriye 7 gün açıldı (`agenda.py` `_GECMIS_GUN`). Geçmiş bölüm
+`next_episode_to_air`ta YOK, `last_episode_to_air`ta: ikisi de okunuyor, tarih+bölüm
+ile tekilleşiyor. Filmler `movie/upcoming`ten geliyordu (yalnız gelecek) →
+`discover/movie` + `primary_release_date` aralığı. TV'de poster ızgarası 150dp →
+130dp (ana sayfa rafıyla aynı), odak BUGÜNÜN ilk kartına gidiyor, geçmiş gün başlığı
+soluk + "yayınlandı".
+Kanıt: hafta görünümü 24 → 60 satır, 09-15 Eylül günleri ve film satırları geldi.
+**STREAM KODU İMAJDA — `docker compose restart stream` YETMEZ**, `up -d --build stream` şart.
+
+**Televizyonda** (evaitecOTA → NetMovies 0.3.4 / vc 304 → kur):
+0b. Ajanda aç → geçmiş günler üstte soluk, ekran bugünle açılmalı, posterler ana
+   sayfa boyunda ve satırda daha çok kart olmalı.
 0a. Reacher aç → panelde "Devam et — S4B8 · ..." yazmalı, "123. bölüm" DEĞİL.
 0. Bir FİLM aç, SAĞ'ı 3 sn basılı tut → gösterge büyüsün, bırakınca tek seferde oraya
    gitsin ve oynasın. SAĞ'a hızlı 3 kez bas → +30 sn. Sarma sürerken OK → orada dursun.
