@@ -98,22 +98,10 @@ private val Soluk   = Color(0xFF8B93A7)
 private val Vurgu   = Color(0xFF8B5CF6)
 private val Vurgu2  = Color(0xFF22D3EE)
 
-/** Döner çerçevenin ne sürdüğü. Üç konumlu düğme aralarında geçer.
- *  GEZİNME eklenmeden önce halkanın tek işi TV'ye sarma/ses komutu göndermekti;
- *  şimdi üçüncü bir görevi var — poster yayında seçim gezdirmek. Çakışmayı
- *  ayrı bir "oynatma sırasında/değilken" algısı yerine üç konumlu anahtarla
- *  çözdük: TV'nin oynatma durumunu saat bilmiyor (bu ekranda tutulmuyor), o
- *  yüzden otomatik geçiş güvenilir olmazdı. Kullanıcı GEZİNME'de posterde
- *  gezinir, düğmeye basıp SARMA/SES'e geçince halka yine eskisi gibi çalışır.
- *  Hangi kipte olunduğu durum satırında her zaman görünür. */
-private enum class HalkaKipi { GEZINME, SARMA, SES }
-
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { MiniEkran() }
-    }
-}
+/** Şerit yüksekliği SABİT: iki aşamalı yüklemede posterler sonradan gelince
+ *  yerleşim kaymasın diye yer baştan ayrılır. */
+private val SeritYuksekligi = 50.dp
+private val YayYuksekligi   = 42.dp
 
 @Composable
 private fun MiniEkran() {
@@ -125,8 +113,6 @@ private fun MiniEkran() {
     // Yeniden deneme sayaci: sunucu bulunamadiginda ekrana dokunmak
     // adres aramasini sifirdan baslatir (LaunchedEffect anahtari).
     var tekrar by remember { mutableStateOf(0) }
-    var halkaBirikim by remember { mutableStateOf(0f) }
-    var halkaKipi by remember { mutableStateOf(HalkaKipi.GEZINME) }
     // Poster yayındaki kesirli seçim: 2.3 gibi bir değer 2. ve 3. öge arasında
     // yumuşak geçiş üretir, halka her adımda zıplatmaz.
     var posterSecim by remember { mutableStateOf(0f) }
@@ -266,47 +252,24 @@ private fun MiniEkran() {
         Modifier
             .fillMaxSize()
             .background(Zemin)
-            // Halka üç işi sürüyor, kipe göre dallanır:
-            // - GEZİNME: poster yayında seçimi sürekli (kesirli) kaydırır — Samsung
-            //   renk seçicisindeki gibi yumuşak, adım adım değil.
-            // - SARMA/SES: eskisi gibi birikimli eşik — her mikro harekette istek
-            //   atmak sarmayı/sesi titretiyordu, tam adımda tek komut gider.
+            // Halkanın TEK işi kaldı: şeritte gezinmek. Üç konumlu kip düğmesi
+            // (gezinme/sarma/ses) kalktı — sarma ve ses artık alttaki kendi
+            // yayında, hangi kipte olunduğunu akılda tutmak gerekmiyor.
             .onRotaryScrollEvent { olay ->
-                if (halkaKipi == HalkaKipi.GEZINME) {
-                    if (ogeler.isNotEmpty()) {
-                        val adimPiksel = 26f // bir öge ilerlemek için gereken piksel
-                        posterSecim = (posterSecim + olay.verticalScrollPixels / adimPiksel)
-                            .coerceIn(0f, (ogeler.size - 1).toFloat())
-                    }
-                    return@onRotaryScrollEvent true
-                }
-                halkaBirikim += olay.verticalScrollPixels
-                val adim = 60f
-                if (kotlin.math.abs(halkaBirikim) >= adim) {
-                    val ileri = halkaBirikim > 0
-                    halkaBirikim = 0f
-                    when (halkaKipi) {
-                        HalkaKipi.SARMA -> komut(
-                            """{"type":"transport","action":"seek","value":${if (ileri) 10 else -10}}"""
-                        )
-                        // TV tarafı yalnız işarete bakıyor (ADJUST_RAISE/LOWER).
-                        HalkaKipi.SES -> komut(
-                            """{"type":"transport","action":"volume","value":${if (ileri) 1 else -1}}"""
-                        )
-                        HalkaKipi.GEZINME -> Unit // yukarıda ele alındı
-                    }
+                if (ogeler.isNotEmpty()) {
+                    val adimPiksel = 26f // bir öge ilerlemek için gereken piksel
+                    posterSecim = (posterSecim + olay.verticalScrollPixels / adimPiksel)
+                        .coerceIn(0f, (ogeler.size - 1).toFloat())
                 }
                 true
             }
             .focusRequester(halkaOdak)
             .focusable()
-            // Ekranın tamamı dokunmatik yüzey: kaydır = yön, dokun = OK.
-            // GEZİNME kipinde dokunuş TV'ye CENTER göndermez — yayda merkezdeki
-            // (seçili) posteri açar; poster'ın kendi dokunuşu zaten aynı işi yapar,
-            // burası ekranın boş kısmına dokunulunca da aynı sonucu verir.
+            // Ekranın ORTASI dokunmatik yüzey: kaydır = yön, dokun = OK. Şerit ve
+            // sarma yayı kendi sürüklemelerini yutar, buraya hiç düşmez.
             .pointerInput(Unit) {
                 detectTapGestures {
-                    if (halkaKipi == HalkaKipi.GEZINME && ogeler.isNotEmpty()) {
+                    if (ogeler.isNotEmpty()) {
                         oynat(ogeler[posterSecim.roundToInt().coerceIn(0, ogeler.size - 1)])
                     } else {
                         komut("""{"type":"key","key":"CENTER"}""")
@@ -329,19 +292,81 @@ private fun MiniEkran() {
                 ) { _, sur -> dx += sur.x; dy += sur.y }
             },
     ) {
-        // Yükleme göstergesi kadranın KENARINDA: 47 mm Classic'te orta alan
-        // posterlerin, kenar çerçevenin yeri. Web'deki iç içe iki halkanın
-        // (`.wp-spinner`) saat karşılığı.
+        // Yükleme göstergesi kadranın KENARINDA: orta alan şeridin, kenar çerçevenin.
         if (yukleniyor) CerceveHalkasi()
 
         Column(
-            // Poster yayı (100dp) + iki düğme satırı eskisinden daha uzun — dikey
-            // boşluk daraltıldı ki içerik yuvarlak kadranda taşmasın.
-            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 10.dp),
+            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            // Guncelleme seridi: yalniz daha yeni surum varken cizilir.
+            // ŞERİT EN ÜSTTE, yüksekliği SABİT. Eskiden liste boşken düğmeler
+            // kadranın ortasında duruyor, posterler ikinci aşamada gelince her şey
+            // aşağı kayıp üst üste biniyordu (Dean: "açarken ortada düğmeler, sonra
+            // aşağı kayıyor, liste üstüne geliyor bozuyor"). Yer baştan ayrılırsa
+            // yerleşim hiç oynamaz; şerit de inceldi (100dp -> 50dp).
+            Box(
+                Modifier.fillMaxWidth().height(SeritYuksekligi),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (ogeler.isEmpty()) {
+                    // Sunucu bulunamayınca ekran sonsuza kadar "yükleniyor" kalıyordu:
+                    // durum satırı altta yazıyordu ama buradaki metin değişmiyordu.
+                    Text(
+                        text = if (yukleniyor) "yükleniyor…" else "sunucu yok — dokun, dene",
+                        color = Soluk,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .clickable(enabled = !yukleniyor) { Sunucu.unut(); tekrar++ },
+                    )
+                } else {
+                    PosterYayi(ogeler, posterSecim) { i -> posterSecim = i.toFloat(); oynat(ogeler[i]) }
+                }
+            }
+
+            Text(
+                text = durum.ifBlank {
+                    ogeler.getOrNull(posterSecim.roundToInt())?.title ?: "halka: gezin · dokun: aç"
+                },
+                color = Soluk,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Beş düğme kadranda kalabalıktı (Dean: "bu kadar fazla gerek yok,
+            // uzun basma ekleriz"). İkiye indi, ikinci işler uzun basışta:
+            //   oynat/duraklat  dokun = play_pause · UZUN BAS = GERİ
+            //   menü            dokun = televizyon ana ekranı · UZUN BAS = sesli arama
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+            ) {
+                YuvarlakDugme(
+                    yazi   = "⏯",
+                    boyut  = 46.dp,
+                    onUzun = { komut("""{"type":"key","key":"BACK"}""") },
+                ) { komut("""{"type":"transport","action":"play_pause","value":0}""") }
+
+                YuvarlakDugme(
+                    yazi   = "☰",
+                    boyut  = 46.dp,
+                    renk   = Soluk,
+                    onUzun = { titre(); aramaAcik = true },
+                ) { komut("""{"type":"nav","screen":"home"}""") }
+            }
+
+            SarmaYayi(
+                onSarma = { sn -> komut("""{"type":"transport","action":"seek","value":$sn}""") },
+                onSes   = { yon -> komut("""{"type":"transport","action":"volume","value":$yon}""") },
+            )
+
+            // Güncelleme şeridi EN ALTTA: ağ cevabı geç geldiğinde beliren bu satır
+            // en üstteyken altındaki her şeyi aşağı itiyordu.
             guncelleme?.let { bilgi ->
                 Text(
                     // Kurulum alıcısından gelen sonuç yerel durumu EZER: "kuruluyor…"
@@ -361,89 +386,92 @@ private fun MiniEkran() {
                         .padding(vertical = 3.dp),
                 )
             }
-
-            if (ogeler.isEmpty()) {
-                // Sunucu bulunamayinca ekran sonsuza kadar "yukleniyor" kaliyordu:
-                // durum satiri altta yaziyordu ama buradaki metin degismiyordu.
-                Text(
-                    text = if (yukleniyor) "yükleniyor…" else "sunucuya ulaşılamadı — dokun, yeniden dene",
-                    color = Soluk,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(top = 24.dp, start = 16.dp, end = 16.dp)
-                        .clickable(enabled = !yukleniyor) { Sunucu.unut(); tekrar++ },
-                )
-            } else {
-                PosterYayi(ogeler, posterSecim) { i -> posterSecim = i.toFloat(); oynat(ogeler[i]) }
-            }
-
-            Text(
-                text = durum.ifBlank {
-                    when (halkaKipi) {
-                        // Seçili posterin adı: yay'da hangi öğenin öne çıktığı
-                        // metinle de okunabilsin (Dean: "seçili öğenin adı").
-                        HalkaKipi.GEZINME -> ogeler.getOrNull(posterSecim.roundToInt())?.title
-                            ?: "halka: gezinme · dokun: aç"
-                        HalkaKipi.SARMA -> "halka: sarma · dokun: OK"
-                        HalkaKipi.SES -> "halka: ses · dokun: OK"
-                    }
-                },
-                color = Soluk,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Üst satır: menü / sesli arama / halka kipi — üç konumlu kip artık
-            // GEZİNME → SARMA → SES arasında döner.
-            Row(
-                Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            ) {
-                // Ana menü: televizyonu ana ekrana döndürür — saatte gezinmek
-                // yerine tek dokunuş (Dean: "ana menü").
-                YuvarlakDugme("☰", 38.dp) { komut("""{"type":"nav","screen":"home"}""") }
-
-                YuvarlakDugme("🎙", 38.dp) { titre(); aramaAcik = true }
-
-                YuvarlakDugme(
-                    yazi  = when (halkaKipi) {
-                        HalkaKipi.GEZINME -> "🧭"
-                        HalkaKipi.SARMA   -> "⏩"
-                        HalkaKipi.SES     -> "🔊"
-                    },
-                    boyut = 38.dp,
-                    renk  = Vurgu,
-                ) {
-                    titre()
-                    halkaKipi = when (halkaKipi) {
-                        HalkaKipi.GEZINME -> HalkaKipi.SARMA
-                        HalkaKipi.SARMA   -> HalkaKipi.SES
-                        HalkaKipi.SES     -> HalkaKipi.GEZINME
-                    }
-                    halkaBirikim = 0f
-                }
-            }
-
-            // Alt satır: oynat/duraklat ve GERİ artık ayrı düğmeler — tek düğmenin
-            // çift görevi (ilk dokunuş oynat, ikinci dokunuş 2 sn içinde geri)
-            // basarken tuş anlamını değiştiriyordu (Dean). Ekranda yer var, ayrı
-            // düğme koyduk; ikisi de 44dp — 36dp dokunma eşiğinin üstünde.
-            Row(
-                Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-            ) {
-                YuvarlakDugme("⏯", 44.dp) {
-                    komut("""{"type":"transport","action":"play_pause","value":0}""")
-                }
-                YuvarlakDugme("⬅", 44.dp, Soluk) {
-                    komut("""{"type":"key","key":"BACK"}""")
-                }
-            }
         }
+    }
+}
+
+/**
+ * Alt kenarda yarım daire şerit — sarmanın ve sesin KENDİ alanı.
+ *
+ * Eskiden sarma halkanın bir kipiydi ve ekranın tamamı sürüklemeyi yön tuşuna
+ * çeviriyordu: listede gezinmek için parmağı gezdirince televizyon ileri geri
+ * sarıyordu (Dean). Sarma buraya taşındı; bu kutu sürüklemeyi yutar, üstteki
+ * yön-tuşu yüzeyine hiç düşmez.
+ *
+ * Yatay sürükleme = ±10 sn (her 30 piksel bir adım, parmak sürerken birikir),
+ * dikey sürükleme = ses. Etiket sürüklerken ne gönderildiğini yazar.
+ */
+@Composable
+private fun SarmaYayi(onSarma: (Int) -> Unit, onSes: (Int) -> Unit) {
+    var etiket by remember { mutableStateOf("") }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(YayYuksekligi)
+            .pointerInput(Unit) {
+                var dx = 0f
+                var dy = 0f
+                var adim = 0
+                detectDragGestures(
+                    onDragStart = { dx = 0f; dy = 0f; adim = 0 },
+                    onDragEnd = { etiket = "" },
+                    onDragCancel = { etiket = "" },
+                ) { degisim, sur ->
+                    // Sürükleme burada TÜKETİLİR: altındaki yön-tuşu yüzeyi görmesin.
+                    degisim.consume()
+                    dx += sur.x
+                    dy += sur.y
+                    val yatay = kotlin.math.abs(dx) > kotlin.math.abs(dy)
+                    val ham = if (yatay) dx / 30f else -dy / 30f
+                    val yeni = ham.toInt()
+                    if (yeni != adim) {
+                        val fark = yeni - adim
+                        adim = yeni
+                        if (yatay) {
+                            onSarma(fark * 10)
+                            etiket = (if (adim >= 0) "+" else "") + "${adim * 10} sn"
+                        } else {
+                            onSes(if (fark > 0) 1 else -1)
+                            etiket = if (adim >= 0) "ses +" else "ses -"
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Görsel: kadranın alt kavisini izleyen yarım daire — yuvarlak düğmelerle
+        // aynı dil, ama tek parça bir "şerit" olduğu bakınca anlaşılıyor.
+        Canvas(Modifier.fillMaxSize()) {
+            val kalin = 3.dp.toPx()
+            val yaricap = size.width / 2f
+            val ustKose = Offset(0f, size.height - yaricap * 2f)
+            val yayBoyu = Size(size.width, yaricap * 2f)
+            drawArc(
+                color      = Kart,
+                startAngle = 200f,
+                sweepAngle = 140f,
+                useCenter  = false,
+                topLeft    = ustKose,
+                size       = yayBoyu,
+                style      = Stroke(width = kalin * 3f),
+            )
+            drawArc(
+                color      = Vurgu2,
+                startAngle = 200f,
+                sweepAngle = 140f,
+                useCenter  = false,
+                topLeft    = ustKose,
+                size       = yayBoyu,
+                style      = Stroke(width = kalin),
+            )
+        }
+        Text(
+            text = etiket.ifBlank { "sarma · ses" },
+            color = if (etiket.isBlank()) Soluk else Metin,
+            fontSize = 11.sp,
+            fontWeight = if (etiket.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
+            maxLines = 1,
+        )
     }
 }
 
@@ -514,9 +542,25 @@ private fun ListeSatiri(yazi: String, simge: String? = null, onSec: () -> Unit) 
 }
 
 @Composable
-private fun YuvarlakDugme(yazi: String, boyut: Dp, renk: Color = Metin, onClick: () -> Unit) {
+private fun YuvarlakDugme(
+    yazi: String,
+    boyut: Dp,
+    renk: Color = Metin,
+    /** İkinci iş: uzun basış. Kadranda düğme sayısını beşten ikiye indirdi. */
+    onUzun: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Box(
-        Modifier.size(boyut).clip(CircleShape).background(Kart).clickable(onClick = onClick),
+        Modifier
+            .size(boyut)
+            .clip(CircleShape)
+            .background(Kart)
+            .then(
+                if (onUzun == null) Modifier.clickable(onClick = onClick)
+                else Modifier.pointerInput(onUzun, onClick) {
+                    detectTapGestures(onLongPress = { onUzun() }, onTap = { onClick() })
+                }
+            ),
         contentAlignment = Alignment.Center,
     ) { Text(yazi, color = renk, fontSize = 14.sp) }
 }
@@ -576,15 +620,15 @@ private fun CerceveHalkasi() {
 @Composable
 private fun PosterYayi(ogeler: List<KatalogOgesi>, secim: Float, onClick: (Int) -> Unit) {
     val yogunluk = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val genislikPx = with(yogunluk) { maxWidth.toPx() }
         val yukseklikPx = with(yogunluk) { maxHeight.toPx() }
-        val yaricapKat = 1.3f
+        val yaricapKat = 2.2f   // ince şeritte yay daha yayvan olmalı
         val yaricap = genislikPx * yaricapKat
         val merkezX = genislikPx / 2f
         val merkezY = yukseklikPx + yaricap - yukseklikPx * 0.15f
-        val aciAdimi = 15f // derece — komşu poster arası açı
-        val yaricapAcikGorunen = 3.5f // bu değerden uzak ögeler çizilmez
+        val aciAdimi = 5f  // derece — komşu poster arası açı
+        val yaricapAcikGorunen = 3f // bu değerden uzak ögeler çizilmez
 
         ogeler.forEachIndexed { i, oge ->
             val uzaklik = i - secim
@@ -595,11 +639,11 @@ private fun PosterYayi(ogeler: List<KatalogOgesi>, secim: Float, onClick: (Int) 
             val y = merkezY + yaricap * kotlin.math.sin(aci)
             // Merkeze yakınlık: 1 = tam seçili, 0 = kenarda kaybolan.
             val yakinlik = (1f - kotlin.math.abs(uzaklik) / yaricapAcikGorunen).coerceIn(0f, 1f)
-            val olcek = 0.5f + 0.6f * yakinlik
+            val olcek = 0.55f + 0.5f * yakinlik
 
             Box(
                 Modifier
-                    .offset(with(yogunluk) { (x - 28f).toDp() }, with(yogunluk) { (y - 28f).toDp() })
+                    .offset(with(yogunluk) { (x - 18f).toDp() }, with(yogunluk) { (y - 18f).toDp() })
                     .graphicsLayer { scaleX = olcek; scaleY = olcek; alpha = 0.3f + 0.7f * yakinlik }
                     // Büyüyen (yakın) poster diğerlerinin üstünde çizilsin, kesişmesin.
                     .zIndex(yakinlik),
@@ -615,7 +659,7 @@ private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .size(52.dp)
+                .size(34.dp)
                 .clip(CircleShape)
                 .background(Kart)
                 .clickable(onClick = onClick),
@@ -630,10 +674,10 @@ private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
         Text(
             text = oge.title,
             color = Soluk,
-            fontSize = 9.sp,
+            fontSize = 8.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.size(width = 56.dp, height = 12.dp),
+            modifier = Modifier.size(width = 44.dp, height = 11.dp),
             textAlign = TextAlign.Center,
         )
     }
