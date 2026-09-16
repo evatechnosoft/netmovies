@@ -128,7 +128,7 @@ class Library(context: Context) {
         item: MediaItem,
         positionSeconds: Double,
         durationSeconds: Double,
-        episode: Int = 0,
+        episodeRef: String = "",
         isSerie: Boolean = false,
     ) {
         if (positionSeconds < 5.0) return
@@ -141,7 +141,7 @@ class Library(context: Context) {
                     poster = item.poster.orEmpty(),
                     mediaType = type,
                     contentUrl = rawUrl(item.url),
-                    episode = if (episode > 0) episode.toString() else "",
+                    episode = episodeRef,
                     positionSeconds = positionSeconds,
                     durationSeconds = durationSeconds,
                 )
@@ -167,6 +167,37 @@ class Library(context: Context) {
         const val KEY_PUSHED = "favorites_pushed_v1"
         const val MAX_WATCHED = 30
     }
+}
+
+// ---- Bölüm kimliği ----
+// `episode` sütununa uzun süre LİSTE İNDEKSİ yazıldı. İndeks sağlayıcıya ve o günkü
+// listeye bağlı: Dizilla'nın sızıntılı listesinde 123'üncü sıra kaydedildi, liste
+// 32 bölüme düzelince kayıt "123. bölüm" diye ekrana bastı (Dean, 16 Eylül). Web
+// tarafı (`central-progress.js`) aynı sütuna "S4 E8" yazıyordu — iki taraf aynı
+// alanı iki ayrı anlamda kullanıyordu, web'de izlenen bölüm TV'de eşleşmiyordu.
+// Artık kayıt SEZON+BÖLÜM numarası taşır; indeks yalnız numara bilinmiyorsa kalır.
+
+/** Kayda yazılacak bölüm kimliği: numara varsa "S4B8", yoksa ham indeks. */
+fun episodeRef(season: Int?, episode: Int?, index: Int): String =
+    if (episode != null) "S${season ?: 1}B$episode" else index.toString()
+
+/** "S4B8" / "S4 E8" / "s4e8" → (sezon, bölüm). Düz sayı ya da tanınmayan metin → null. */
+fun parseEpisodeRef(ref: String): Pair<Int, Int>? {
+    val m = Regex("""[Ss](\d+)\s*[BbEe](\d+)""").find(ref.trim()) ?: return null
+    return m.groupValues[1].toInt() to m.groupValues[2].toInt()
+}
+
+/**
+ * Kaydın listedeki karşılığı. Numaralı kayıt sezon+bölüm ile aranır (sağlayıcı
+ * değişse de doğru bölüm bulunur). Eski indeks kayıtları sınır içindeyse indeks
+ * sayılır; liste küçüldüyse `null` döner — "123. bölüm" diye bir şey gösterilmez.
+ */
+fun episodeIndexOf(ref: String, episodes: List<EpisodeItem>): Int? {
+    if (ref.isBlank() || episodes.isEmpty()) return null
+    parseEpisodeRef(ref)?.let { (s, e) ->
+        return episodes.indexOfFirst { it.season == s && it.episode == e }.takeIf { it >= 0 }
+    }
+    return ref.toIntOrNull()?.takeIf { it in episodes.indices }
 }
 
 // `content_key` sunucuda başlık + media_type'tan türer; web `serie`/`movie` yazıyor

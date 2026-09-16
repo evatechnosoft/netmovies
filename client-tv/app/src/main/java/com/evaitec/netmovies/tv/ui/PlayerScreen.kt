@@ -98,6 +98,8 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.Library
+import com.evaitec.netmovies.tv.data.episodeIndexOf
+import com.evaitec.netmovies.tv.data.episodeRef
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.OynatmaAyari
@@ -119,6 +121,7 @@ import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import com.evaitec.netmovies.tv.ui.theme.nmPlayerScrim
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
@@ -717,7 +720,11 @@ fun PlayerScreen(
                     item,
                     exo.currentPosition / 1000.0,
                     exo.duration.coerceAtLeast(0) / 1000.0,
-                    currentEpIndex,
+                    episodeRef(
+                        episodes.getOrNull(currentEpIndex)?.season,
+                        episodes.getOrNull(currentEpIndex)?.episode,
+                        currentEpIndex,
+                    ),
                     isSerie = episodes.isNotEmpty(),
                 )
             }
@@ -758,8 +765,7 @@ fun PlayerScreen(
     // http://<sunucu>:3310/api/v1/client_log — düz metin, en yeni üstte.
     LaunchedEffect(item.url) {
         var sonKayit: String? = null
-        while (true) {
-            delay(30_000)
+        suspend fun gonder() {
             val satirlar = PlaybackLog.snapshot().map { it.format() }
             // Tampon dolunca satır sayısı sabit kalır; değişimi EN YENİ kayıt söyler.
             if (satirlar.isNotEmpty() && satirlar.first() != sonKayit) {
@@ -767,22 +773,37 @@ fun PlayerScreen(
                 runCatching { Network.api.clientLog(mapOf("lines" to satirlar)) }
             }
         }
+        // İlk gönderim 6 sn: zincir 30 sn dolmadan kesilirse (içerik değişti, kullanıcı
+        // çıktı) günlük hiç gitmiyordu — teşhis edilecek olay tam da o olaydı.
+        try {
+            delay(6_000)
+            while (true) {
+                gonder()
+                delay(30_000)
+            }
+        } finally {
+            // Ekran kapanırken son hâli: iptal edilmiş coroutine suspend çağrı
+            // yapamaz, bu yüzden NonCancellable.
+            withContext(kotlinx.coroutines.NonCancellable) { gonder() }
+        }
     }
 
     // Devam bilgisi paneli beklemez: çözümleme sürerken okunur, 30sn–%92 aralığı
     // oynatıcıdaki devam kuralıyla aynı — panelde "devam" yazıp sonra baştan
     // başlaması olmasın.
-    LaunchedEffect(item.url) {
+    LaunchedEffect(item.url, episodes) {
         // content_key tür-agnostik (watch_store.py): tip bilinmeden de kayıt bulunur.
         val row = library.loadProgress(item.title.orEmpty()) ?: return@LaunchedEffect
         val savedMs = (row.positionSeconds * 1000).toLong()
         val durMs   = (row.durationSeconds * 1000).toLong()
         if (savedMs > 30_000 && (durMs <= 0 || savedMs < durMs * 0.92)) {
-            resumeEpisode = row.episode.toIntOrNull()
+            // Liste henüz gelmemişse indeks hesaplanamaz; bu efekt `episodes`
+            // dolunca tekrar koşar. Eşleşme yoksa etiket bölümsüz kalır —
+            // eski indeks kaydı "123. bölüm" diye ekrana basılmaz.
+            resumeEpisode = episodeIndexOf(row.episode, episodes)
             val bolum = resumeEpisode
                 ?.let { episodes.getOrNull(it) }
                 ?.let { episodeLabel(it, resumeEpisode ?: 0) + " · " }
-                ?: row.episode.takeIf { it.isNotBlank() }?.let { "$it. bölüm · " }
                 ?: ""
             resumeLabel = bolum + fmtTime(savedMs)
 
@@ -815,7 +836,11 @@ fun PlayerScreen(
         currentLinkIndex = 0
         searching = true
         status = "Kaynak aranıyor…"
+        // Açılış sebebi günlüğe: `autoplay` yalnız telefon/saat komutuyla ya da
+        // kart onayıyla gelir. "Kendiliğinden başka içerik açıldı" şikâyeti
+        // (Dean, 16 Eylül) ancak bu ayrım kayıtlıysa kök nedene bağlanabilir.
         PlaybackLog.startSession(item.title, item.plugin)
+        PlaybackLog.info("açılış", if (item.autoplay) "uzak komut / onay (autoplay)" else "kullanıcı seçimi")
 
         fun absorb(result: com.evaitec.netmovies.tv.data.ResolveResult?, phase: String) {
             if (result == null) return
@@ -1023,7 +1048,8 @@ fun PlayerScreen(
             ?: return@LaunchedEffect
         // Kayıt başka bir bölüme aitse konuma ATLAMA: 5. bölümü açarken 7. bölümün
         // dakikasına gitmek içeriği ortadan başlatır.
-        if ((row.episode.toIntOrNull() ?: 0) != currentEpIndex) return@LaunchedEffect
+        val kayitIdx = episodeIndexOf(row.episode, episodes)
+        if (episodes.isNotEmpty() && kayitIdx != currentEpIndex) return@LaunchedEffect
         val savedMs = (row.positionSeconds * 1000).toLong()
         val dur = exo.duration
         if (savedMs > 30_000 && (dur <= 0 || savedMs < dur * 0.92)) {
@@ -1044,7 +1070,11 @@ fun PlayerScreen(
                 item,
                 exo.currentPosition / 1000.0,
                 exo.duration.coerceAtLeast(0) / 1000.0,
-                currentEpIndex,
+                episodeRef(
+                    episodes.getOrNull(currentEpIndex)?.season,
+                    episodes.getOrNull(currentEpIndex)?.episode,
+                    currentEpIndex,
+                ),
                 isSerie = episodes.isNotEmpty(),
             )
         }
