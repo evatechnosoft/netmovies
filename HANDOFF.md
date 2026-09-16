@@ -1,6 +1,6 @@
 # Handoff: TV/saat sürümleri cihazda denenmedi
 
-> 2026-09-16 · `fix/general-stability` @ `e5ed24d` · 0 kirli dosya
+> 2026-09-16 · `fix/general-stability` @ `7d69f58` · 0 kirli dosya
 > Yan repolar: `evaitec-appkit` @ `bd74499` · `evaglass-releases` @ `edd638c` (ikisi de temiz)
 
 ## Goal
@@ -86,7 +86,7 @@ Sunucu tarafında canlı olan iki düzeltme (TV güncellemesi gerektirmez):
 ## Verify
 
 ```bash
-git rev-parse --short HEAD      # beklenen: e5ed24d — değilse: git log e5ed24d..HEAD --oneline
+git rev-parse --short HEAD      # beklenen: 7d69f58 — değilse: git log 7d69f58..HEAD --oneline
 git status --porcelain | wc -l  # beklenen: 0
 bash scripts/smoke.sh           # beklenen: kapı YEŞİL
 curl -s "localhost:3310/api/v1/app_update?target=tv"    # beklenen: v0.3.8-poc
