@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 08:50
-**Dal:** `fix/general-stability` @ `8f355e7` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.2-poc` · saat `v0.1.4-poc`
-**Katalog:** `evaglass-releases/apps.json` @ `fcc0118` (push EDİLDİ) —
-netmovies-tv/phone **0.3.2 (vc 302)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
+**Son güncelleme:** 16 Eylül 2026, 09:40
+**Dal:** `fix/general-stability` @ `2250b46` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.3.3-poc` · saat `v0.1.4-poc`
+**Katalog:** `evaglass-releases/apps.json` @ `9c00313` (push EDİLDİ) —
+netmovies-tv/phone **0.3.3 (vc 303)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -24,23 +24,23 @@ netmovies-tv/phone **0.3.2 (vc 302)** · netmovies-mini-watch **0.1.4 (vc 104)**
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 8f355e7
+git rev-parse --short HEAD                  # beklenen: 2250b46
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
                                             # beklenen: Ran 132 · OK
 MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
                                             # beklenen: Ran 40 · OK
-curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.2-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.3-poc
 curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.4-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`8f355e7` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+`2250b46` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
 **Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
 alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
 düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — TV 0.3.2 ve saat 0.1.4'ü cihazda dene
+## SIRADAKİ İŞ #1 — TV 0.3.3 ve saat 0.1.4'ü cihazda dene
 
 İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
 
@@ -53,7 +53,25 @@ basmadan da ilerlemiyor, bıraktığım yerde devam etsin, OK ile orada durayım
 - Kumandanın ⏪⏩ tuşları aynı motor. Bardaki −30/+30 de birikir.
 Kod: `PlayerScreen.kt` `seekBy/seekHold/commitSeek` · `RemoteInput.kt` `onHold` + `longFired=true`.
 
-**Televizyonda** (evaitecOTA → NetMovies 0.3.2 / vc 302 → kur):
+**0.3.3 = bölüm kimliği + teşhis kancası.** İzleme kaydının `episode` sütununa
+liste İNDEKSİ yazılıyordu; Dizilla'nın sızıntılı listesinde 123. sıra kaydedilmiş,
+liste 32'ye düzelince panel "Devam et — 123. bölüm" yazmıştı. Artık "S4B8" yazılır
+ve listede sezon+bölüm ile aranır (web'in "S4 E8" biçimi de okunur). Sınır dışına
+taşan eski indeks kaydı bölüm etiketi GÖSTERMEZ. Kod: `Library.kt` `episodeRef` /
+`episodeIndexOf` · test `EpisodeRefTest`.
+Oynatma günlüğü ilk gönderimi 6 sn'ye indi ve ekran kapanırken son bir gönderim
+yapıyor — 30 sn dolmadan içerik değişince günlük hiç gitmiyordu, `client_log`
+bu yüzden boştu. Açılış sebebi de yazılıyor (`uzak komut / onay` ya da
+`kullanıcı seçimi`).
+
+**AÇIK ŞİKÂYET — doğrulanmadı:** "kaynak denemesi 4/9'dayken kendiliğinden başka
+içerik (Reacher) açıldı". Kuyruk uçları temiz (`/api/v1/remote/poll` boş, TTL 120 sn)
+ve oynatıcı açıkken uzak komut onay kartı gösteriyor (`MainActivity.kt:246`), yani
+sessiz geçişin bilinen bir yolu YOK. Tekrarlarsa `curl -s localhost:3310/api/v1/client_log`
+→ `açılış — ...` satırı sebebi söyler. Kanıt gelmeden kod değiştirilmedi.
+
+**Televizyonda** (evaitecOTA → NetMovies 0.3.3 / vc 303 → kur):
+0a. Reacher aç → panelde "Devam et — S4B8 · ..." yazmalı, "123. bölüm" DEĞİL.
 0. Bir FİLM aç, SAĞ'ı 3 sn basılı tut → gösterge büyüsün, bırakınca tek seferde oraya
    gitsin ve oynasın. SAĞ'a hızlı 3 kez bas → +30 sn. Sarma sürerken OK → orada dursun.
 1. Favorilerden **Altı Üstü İstanbul** ya da **Daha 17** aç → oynamalı.
