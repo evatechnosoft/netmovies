@@ -101,7 +101,20 @@ private val Vurgu2  = Color(0xFF22D3EE)
 /** Şerit yüksekliği SABİT: iki aşamalı yüklemede posterler sonradan gelince
  *  yerleşim kaymasın diye yer baştan ayrılır. */
 private val SeritYuksekligi = 50.dp
-private val YayYuksekligi   = 42.dp
+private val YayYuksekligi   = 44.dp
+
+/** Halkanın (döner çerçeve) ne sürdüğü. Kip ARTIK ÜÇ AYRI DÜĞMEYLE seçilir:
+ *  tek düğmeyi üç kez çevirmek hangi kipte olunduğunu akılda tutmayı gerektiriyordu.
+ *  Dokunulmayan 5 saniyenin sonunda varsayılana dönülür — televizyonda bir şey
+ *  oynuyorsa SES, oynamıyorsa GEZINME. */
+private enum class HalkaKipi(val simge: String, val etiket: String) {
+    GEZINME("🧭", "saatte gezin"),
+    SARMA("⏩", "sarma"),
+    SES("🔊", "ses"),
+}
+
+/** Kipin kendiliğinden varsayılana döndüğü boşta kalma süresi. */
+private const val KIP_BOSTA_MS = 5_000L
 
 @Composable
 private fun MiniEkran() {
@@ -116,6 +129,12 @@ private fun MiniEkran() {
     // Poster yayındaki kesirli seçim: 2.3 gibi bir değer 2. ve 3. öge arasında
     // yumuşak geçiş üretir, halka her adımda zıplatmaz.
     var posterSecim by remember { mutableStateOf(0f) }
+    var halkaKipi by remember { mutableStateOf(HalkaKipi.GEZINME) }
+    var halkaBirikim by remember { mutableStateOf(0f) }
+    // Televizyonda bir şey oynuyor mu — varsayılan kipi bu belirler.
+    var tvOynuyor by remember { mutableStateOf(false) }
+    // Son kullanıcı teması; 5 sn sessizlikten sonra kip varsayılana döner.
+    var sonTema by remember { mutableStateOf(0L) }
     // Bölüm seçimi açık mı: dolu ise ekran bölüm listesine döner.
     var seciliDizi by remember { mutableStateOf<KatalogOgesi?>(null) }
     var seciliBolumler by remember { mutableStateOf<List<BolumOgesi>>(emptyList()) }
@@ -131,6 +150,10 @@ private fun MiniEkran() {
             v?.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
         }
     }
+
+    val varsayilanKip = if (tvOynuyor) HalkaKipi.SES else HalkaKipi.GEZINME
+
+    fun temas() { sonTema = System.currentTimeMillis() }
 
     fun komut(govde: String) {
         titre()
@@ -200,6 +223,28 @@ private fun MiniEkran() {
         }
     }
 
+    // Televizyonda bir sey oynuyor mu: kumanda seridini besleyen uctan okunur
+    // (TV 5 sn'de bir bildiriyor, sunucu 20 sn sonra dusuruyor). Varsayilan kip
+    // bundan cikar — film oynarken halkanin en cok istenen isi ses.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val govde = withContext(Dispatchers.IO) { Sunucu.get("/api/v1/remote/status") }
+            tvOynuyor = govde?.contains(Regex("\"playing\"\\s*:\\s*true")) == true
+            kotlinx.coroutines.delay(10_000)
+        }
+    }
+
+    // Bosta kalinca varsayilana don: kullanici kipi degistirip unutuyor, sonraki
+    // halka hareketi beklenmedik yere gidiyordu.
+    LaunchedEffect(halkaKipi, sonTema, varsayilanKip) {
+        if (halkaKipi == varsayilanKip) return@LaunchedEffect
+        kotlinx.coroutines.delay(KIP_BOSTA_MS)
+        if (System.currentTimeMillis() - sonTema >= KIP_BOSTA_MS) {
+            halkaKipi = varsayilanKip
+            halkaBirikim = 0f
+        }
+    }
+
     LaunchedEffect(tekrar) {
         if (ogeler.isNotEmpty()) return@LaunchedEffect   // alt ekrandan dönüldü
         yukleniyor = true
@@ -256,10 +301,30 @@ private fun MiniEkran() {
             // (gezinme/sarma/ses) kalktı — sarma ve ses artık alttaki kendi
             // yayında, hangi kipte olunduğunu akılda tutmak gerekmiyor.
             .onRotaryScrollEvent { olay ->
-                if (ogeler.isNotEmpty()) {
-                    val adimPiksel = 26f // bir öge ilerlemek için gereken piksel
-                    posterSecim = (posterSecim + olay.verticalScrollPixels / adimPiksel)
-                        .coerceIn(0f, (ogeler.size - 1).toFloat())
+                temas()
+                when (halkaKipi) {
+                    // Şeritte gezinme sürekli (kesirli): halka her adımda zıplatmaz.
+                    HalkaKipi.GEZINME -> if (ogeler.isNotEmpty()) {
+                        val adimPiksel = 26f // bir öge ilerlemek için gereken piksel
+                        posterSecim = (posterSecim + olay.verticalScrollPixels / adimPiksel)
+                            .coerceIn(0f, (ogeler.size - 1).toFloat())
+                    }
+                    // Sarma/ses birikimli: her mikro harekette istek atmak
+                    // sarmayı ve sesi titretiyordu, tam adımda tek komut gider.
+                    else -> {
+                        halkaBirikim += olay.verticalScrollPixels
+                        val adim = 60f
+                        if (kotlin.math.abs(halkaBirikim) >= adim) {
+                            val ileri = halkaBirikim > 0
+                            halkaBirikim = 0f
+                            if (halkaKipi == HalkaKipi.SARMA) {
+                                komut("""{"type":"transport","action":"seek","value":${if (ileri) 10 else -10}}""")
+                            } else {
+                                // TV tarafı yalnız işarete bakıyor (ADJUST_RAISE/LOWER).
+                                komut("""{"type":"transport","action":"volume","value":${if (ileri) 1 else -1}}""")
+                            }
+                        }
+                    }
                 }
                 true
             }
@@ -269,7 +334,8 @@ private fun MiniEkran() {
             // sarma yayı kendi sürüklemelerini yutar, buraya hiç düşmez.
             .pointerInput(Unit) {
                 detectTapGestures {
-                    if (ogeler.isNotEmpty()) {
+                    temas()
+                    if (halkaKipi == HalkaKipi.GEZINME && ogeler.isNotEmpty()) {
                         oynat(ogeler[posterSecim.roundToInt().coerceIn(0, ogeler.size - 1)])
                     } else {
                         komut("""{"type":"key","key":"CENTER"}""")
@@ -328,7 +394,11 @@ private fun MiniEkran() {
 
             Text(
                 text = durum.ifBlank {
-                    ogeler.getOrNull(posterSecim.roundToInt())?.title ?: "halka: gezin · dokun: aç"
+                    when (halkaKipi) {
+                        HalkaKipi.GEZINME ->
+                            ogeler.getOrNull(posterSecim.roundToInt())?.title ?: "halka: saatte gezin"
+                        else -> "halka: ${halkaKipi.etiket}"
+                    }
                 },
                 color = Soluk,
                 fontSize = 11.sp,
@@ -352,17 +422,27 @@ private fun MiniEkran() {
                     onUzun = { komut("""{"type":"key","key":"BACK"}""") },
                 ) { komut("""{"type":"transport","action":"play_pause","value":0}""") }
 
+                // Üç çizgi (TV ana ekranı) DOĞRUDAN düğmeydi: yanlışlıkla dokununca
+                // televizyon izlenen şeyden çıkıp ana ekrana dönüyordu (Dean:
+                // "gome üç çizgi ana sayfaya dönmesi bozuyor kullanımı, mikrofon
+                // olursa olur, basılı tutma ana sayfa olur"). Yeri mikrofonun;
+                // ana ekran kazara basılamayacak yere, uzun basışa taşındı.
                 YuvarlakDugme(
-                    yazi   = "☰",
+                    yazi   = "🎙",
                     boyut  = 46.dp,
-                    renk   = Soluk,
-                    onUzun = { titre(); aramaAcik = true },
-                ) { komut("""{"type":"nav","screen":"home"}""") }
+                    renk   = Vurgu,
+                    onUzun = { komut("""{"type":"nav","screen":"home"}""") },
+                ) { titre(); aramaAcik = true }
             }
 
-            SarmaYayi(
-                onSarma = { sn -> komut("""{"type":"transport","action":"seek","value":$sn}""") },
-                onSes   = { yon -> komut("""{"type":"transport","action":"volume","value":$yon}""") },
+            KipYayi(
+                secili = halkaKipi,
+                onSec  = { kip ->
+                    titre()
+                    temas()
+                    halkaKipi = kip
+                    halkaBirikim = 0f
+                },
             )
 
             // Güncelleme şeridi EN ALTTA: ağ cevabı geç geldiğinde beliren bu satır
@@ -391,87 +471,48 @@ private fun MiniEkran() {
 }
 
 /**
- * Alt kenarda yarım daire şerit — sarmanın ve sesin KENDİ alanı.
+ * Alt kenarda yarım daire şerit: halkanın üç işi, üç düğme.
  *
- * Eskiden sarma halkanın bir kipiydi ve ekranın tamamı sürüklemeyi yön tuşuna
- * çeviriyordu: listede gezinmek için parmağı gezdirince televizyon ileri geri
- * sarıyordu (Dean). Sarma buraya taşındı; bu kutu sürüklemeyi yutar, üstteki
- * yön-tuşu yüzeyine hiç düşmez.
- *
- * Yatay sürükleme = ±10 sn (her 30 piksel bir adım, parmak sürerken birikir),
- * dikey sürükleme = ses. Etiket sürüklerken ne gönderildiğini yazar.
+ * Önce tek düğme üç kip arasında dönüyordu; hangi kipte olunduğunu akılda tutmak
+ * gerekiyordu. Üç düğme aynı anda görünür, seçili olan vurgulu. Yarım daire yay
+ * kadranın alt kavisini izler — düğmeler ekranın kenarına dizilmiş gibi durur.
  */
 @Composable
-private fun SarmaYayi(onSarma: (Int) -> Unit, onSes: (Int) -> Unit) {
-    var etiket by remember { mutableStateOf("") }
+private fun KipYayi(secili: HalkaKipi, onSec: (HalkaKipi) -> Unit) {
     Box(
-        Modifier
-            .fillMaxWidth()
-            .height(YayYuksekligi)
-            .pointerInput(Unit) {
-                var dx = 0f
-                var dy = 0f
-                var adim = 0
-                detectDragGestures(
-                    onDragStart = { dx = 0f; dy = 0f; adim = 0 },
-                    onDragEnd = { etiket = "" },
-                    onDragCancel = { etiket = "" },
-                ) { degisim, sur ->
-                    // Sürükleme burada TÜKETİLİR: altındaki yön-tuşu yüzeyi görmesin.
-                    degisim.consume()
-                    dx += sur.x
-                    dy += sur.y
-                    val yatay = kotlin.math.abs(dx) > kotlin.math.abs(dy)
-                    val ham = if (yatay) dx / 30f else -dy / 30f
-                    val yeni = ham.toInt()
-                    if (yeni != adim) {
-                        val fark = yeni - adim
-                        adim = yeni
-                        if (yatay) {
-                            onSarma(fark * 10)
-                            etiket = (if (adim >= 0) "+" else "") + "${adim * 10} sn"
-                        } else {
-                            onSes(if (fark > 0) 1 else -1)
-                            etiket = if (adim >= 0) "ses +" else "ses -"
-                        }
-                    }
-                }
-            },
+        Modifier.fillMaxWidth().height(YayYuksekligi),
         contentAlignment = Alignment.Center,
     ) {
-        // Görsel: kadranın alt kavisini izleyen yarım daire — yuvarlak düğmelerle
-        // aynı dil, ama tek parça bir "şerit" olduğu bakınca anlaşılıyor.
         Canvas(Modifier.fillMaxSize()) {
             val kalin = 3.dp.toPx()
             val yaricap = size.width / 2f
             val ustKose = Offset(0f, size.height - yaricap * 2f)
             val yayBoyu = Size(size.width, yaricap * 2f)
             drawArc(
-                color      = Kart,
-                startAngle = 200f,
-                sweepAngle = 140f,
-                useCenter  = false,
-                topLeft    = ustKose,
-                size       = yayBoyu,
-                style      = Stroke(width = kalin * 3f),
+                color = Kart, startAngle = 200f, sweepAngle = 140f, useCenter = false,
+                topLeft = ustKose, size = yayBoyu, style = Stroke(width = kalin * 3f),
             )
             drawArc(
-                color      = Vurgu2,
-                startAngle = 200f,
-                sweepAngle = 140f,
-                useCenter  = false,
-                topLeft    = ustKose,
-                size       = yayBoyu,
-                style      = Stroke(width = kalin),
+                color = Vurgu2, startAngle = 200f, sweepAngle = 140f, useCenter = false,
+                topLeft = ustKose, size = yayBoyu, style = Stroke(width = kalin),
             )
         }
-        Text(
-            text = etiket.ifBlank { "sarma · ses" },
-            color = if (etiket.isBlank()) Soluk else Metin,
-            fontSize = 11.sp,
-            fontWeight = if (etiket.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
-            maxLines = 1,
-        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        ) {
+            HalkaKipi.entries.forEach { kip ->
+                val secildi = kip == secili
+                Box(
+                    Modifier
+                        .size(if (secildi) 36.dp else 32.dp)
+                        .clip(CircleShape)
+                        .background(if (secildi) Vurgu else Kart)
+                        .clickable { onSec(kip) },
+                    contentAlignment = Alignment.Center,
+                ) { Text(kip.simge, color = if (secildi) Zemin else Soluk, fontSize = 13.sp) }
+            }
+        }
     }
 }
 
