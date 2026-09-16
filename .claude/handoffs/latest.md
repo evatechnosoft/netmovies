@@ -4,7 +4,7 @@
 
 | Repo | Dal | HEAD |
 |---|---|---|
-| `D:\projects\netmovies` | `fix/general-stability` | `2bcfa7a` |
+| `D:\projects\netmovies` | `fix/general-stability` | `2802f4d` |
 | `D:\projects\evaitec-appkit` | `main` | `bd74499` |
 | `D:\projects\evaglass-releases` | `main` | katalog, tüm sürümler canlı |
 
