@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 15:10
-**Dal:** `fix/general-stability` @ `3b5e7c3` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.4-poc` · saat `v0.1.4-poc`
-**Katalog:** `evaglass-releases/apps.json` @ `580ede1` (push EDİLDİ) —
-netmovies-tv/phone **0.3.4 (vc 304)** · netmovies-mini-watch **0.1.4 (vc 104)**, ikisi de CANLI
+**Son güncelleme:** 16 Eylül 2026, 16:20
+**Dal:** `fix/general-stability` @ `f0f2c0d` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.3.4-poc` · saat `v0.1.5-poc`
+**Katalog:** `evaglass-releases/apps.json` @ `f10849d` (push EDİLDİ) —
+netmovies-tv/phone **0.3.4 (vc 304)** · netmovies-mini-watch **0.1.5 (vc 105)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -24,7 +24,7 @@ netmovies-tv/phone **0.3.4 (vc 304)** · netmovies-mini-watch **0.1.4 (vc 104)**
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 3b5e7c3
+git rev-parse --short HEAD                  # beklenen: f0f2c0d
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
 MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
@@ -32,15 +32,36 @@ MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m uni
 MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
                                             # beklenen: Ran 40 · OK
 curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.4-poc
-curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.4-poc
+curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.5-poc
 curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
 ```
-`3b5e7c3` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
+`f0f2c0d` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
 **Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
 alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
 düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — TV 0.3.4 ve saat 0.1.4'ü cihazda dene
+## SIRADAKİ İŞ #1 — saat 0.1.5'i ADB ile kur, TV 0.3.4'ü dene
+
+> **TAVUK-YUMURTA — saat.** Bilekte 0.1.4 kurulu ve onda OTA YOK. evaitecOTA
+> bileklikte APK kuramıyor (Dean: "kuramıyor"), bu yüzden 0.1.5'i ilk kez koymanın
+> tek yolu ADB. 0.1.5 kurulduktan SONRA güncellemeler uygulama içinden gelir.
+> ```bash
+> # saatte: Ayarlar > Geliştirici seçenekleri > Kablosuz hata ayıklama açık olmalı
+> adb connect <saat-ip>:5555
+> adb install -r data/apk/NetMovies-Wear-v0.1.5.apk
+> ```
+> ADB yolu: `C:/Users/Deacjx/AppData/Local/Android/Sdk/platform-tools/adb`
+
+**0.1.5 = kendi kendini güncelleme + yuvarlak liste.** APK ev sunucusundan
+`/api/v1/app_update?target=wear` ile iner, PackageInstaller oturumuyla kurulur
+(aracı uygulama yok). Ana ekranda yeni sürüm varsa `⬆ 0.1.6 güncelle` şeridi
+çıkar; kurulum izni yoksa ilk dokunuş izin ekranını açar, ikinci dokunuş kurar.
+Listeler `ScalingLazyColumn` oldu: satırlar kadranın kavisinde kesilmiyor, döner
+çerçeve listeyi kaydırıyor (ana ekranda halka hâlâ sarma/ses).
+Kod: `wear/.../Guncelleme.kt` · `Network.kt` `Sunucu.indir` · `MainActivity.kt`
+`HalkaListesi`.
+
+## Eski başlık — TV 0.3.4 ve saat 0.1.5'i cihazda dene
 
 İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
 
