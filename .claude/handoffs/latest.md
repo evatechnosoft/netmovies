@@ -12,7 +12,7 @@
 
 | Uygulama | Sürüm | vc | Kanıt |
 |---|---|---|---|
-| NetMovies TV | 0.3.5 | 305 | OTA `v0.3.5-poc` · release 200 · katalog canlı |
+| NetMovies TV | 0.3.6 | 306 | OTA `v0.3.5-poc` · release 200 · katalog canlı |
 | NetMovies Mini (saat) | 0.1.6 | 106 | OTA `v0.1.6-poc` · release 200 · katalog canlı |
 | evaitecOTA TV | 0.1.12 | 13 | release 200 · katalog API'de vc 13 |
 | evaitecOTA saat | 0.1.10 | 6 | release 200 · katalog API'de vc 6 |
@@ -58,6 +58,15 @@ receiver'daki `startActivity` korumasızdı. (d) 0.1.10: katalogdan önce
 sayısı ekran genişliğinden). Kart içi dolu accent düğmeler kaldırıldı; kart zaten
 OK'i işliyor, eylem adı odakta tek satır ipucu. Accent yalnız iş bekleyen kartta.
 Üst bardaki eylemler saydam çip. Ölü kod silindi.
+
+**TV 0.3.6 + proxy.** (a) Ayarlar paneli tek sütunda 11 kaynak satırı taşıyordu;
+kaynak listesi ayrı alt sayfaya taşındı, ana panelde seçili kaynak tek satır
+(`SettingsPanel`, `kaynakListesiAcik`). (b) **Film ortasında "kaynak bulunamadı"nın
+kök nedeni:** Dizilla'nın `l.php?v=<jeton>` adresi TEK KULLANIMLIK — ilk istek 200,
+oynatıcı manifesti yeniden isteyince 403. WARP çıkışıyla da 403 gelmesi ayırt edici
+kanıt (IP engeli olsa WARP çözerdi). Proxy artık başarılı manifesti saklıyor ve
+upstream 400+ dönünce onu 200 ile veriyor (`Proxy/Libs/manifest_cache.py`, 5 test).
+Sunucu tarafı — TV güncellemesi gerekmez, canlı.
 
 ## Tekrarlama — ölen yollar
 
