@@ -65,7 +65,10 @@ import java.util.Locale
 fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     var gunler by remember { mutableStateOf<List<AgendaDay>>(emptyList()) }
     var toplam by remember { mutableStateOf(0) }
-    var aylik by remember { mutableStateOf(false) }
+    // Üç adım: Bu Hafta · Bu Ay · Geçmiş. Geçmiş günler ana listede duruyordu ve
+    // "bu hafta ne var" sorusunu kirletiyordu (Dean, 16 Eylül: "geçmiş adımına
+    // alalım"). Veri tek turdan gelir, adım yalnız süzer — ek istek yok.
+    var adim by remember { mutableStateOf(AjandaAdimi.HAFTA) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -87,11 +90,21 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
         }
     }
 
-    LaunchedEffect(aylik) {
+    // Geçmiş adımı aylık turdan süzülür: haftalık yanıt yalnız bugün+7'ye kadar
+    // geliyor, geçmiş günler ikisinde de aynı (bugün-7).
+    LaunchedEffect(adim) {
         loading = true
         error = null
-        runCatching { Network.api.agenda(if (aylik) "month" else "week").result }
-            .onSuccess { gunler = it.gunler; toplam = it.toplam }
+        val gorunum = if (adim == AjandaAdimi.HAFTA) "week" else "month"
+        runCatching { Network.api.agenda(gorunum).result }
+            .onSuccess { yanit ->
+                val bugun = LocalDate.now().toString()
+                val suzulmus = yanit.gunler.filter {
+                    if (adim == AjandaAdimi.GECMIS) it.tarih < bugun else it.tarih >= bugun
+                }
+                gunler = suzulmus
+                toplam = suzulmus.sumOf { it.ogeler.size }
+            }
             .onFailure { error = it.message ?: "Ajanda alınamadı" }
         loading = false
     }
@@ -102,7 +115,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             .padding(horizontal = NmDim.SafeH),
     ) {
         Text(
-            text = if (aylik) "🗓  Ajanda — Bu Ay ($toplam)" else "🗓  Ajanda — Bu Hafta ($toplam)",
+            text = "🗓  Ajanda — ${adim.baslik} ($toplam)",
             fontWeight = FontWeight.Bold,
             fontSize = NmType.ScreenTitle,
             color = NmColor.OnSurface,
@@ -115,30 +128,30 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(bottom = 10.dp),
         ) {
-            AralikDugmesi("Bu Hafta", secili = !aylik) { aylik = false }
-            AralikDugmesi("Bu Ay", secili = aylik) { aylik = true }
+            AjandaAdimi.entries.forEach { secenek ->
+                AralikDugmesi(secenek.baslik, secili = adim == secenek) { adim = secenek }
+            }
         }
 
         when {
             loading -> AjandaBos("Yükleniyor…")
             error != null -> AjandaBos(error!!)
-            gunler.isEmpty() -> AjandaBos("Bu aralıkta yayın yok.")
+            gunler.isEmpty() -> AjandaBos(
+                if (adim == AjandaAdimi.GECMIS) "Son bir haftada yayınlanan yok."
+                else "Bu aralıkta yayın yok."
+            )
             else -> LazyVerticalGrid(
                 modifier = Modifier.fillMaxSize().focusGroup(),
-                // Poster ana sayfa rafıyla AYNI ölçüde (130dp): ajanda 150dp ile
-                // çiziliyordu, satıra daha az kart sığıyor ve gelecek günler
-                // dağınık duruyordu. Küçülünce geçmiş günler de yan yana okunur
-                // (Dean, 16 Eylül: "standart ana sayfa kadar olursa toplu durur").
-                columns = GridCells.Adaptive(minSize = NmDim.PosterWidth),
+                // Poster ana sayfa rafından da küçük (110dp): ajanda bir takvim,
+                // kart değil satır okunur — küçük poster satıra daha çok gün
+                // sığdırıyor (Dean, 16 Eylül: "daha küçük, ana sayfa gibi").
+                columns = GridCells.Adaptive(minSize = NmDim.AgendaPoster),
                 contentPadding = PaddingValues(bottom = NmDim.SafeV),
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                 verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
             ) {
-                // Odak ilk karta değil, BUGÜN (ya da sonrası) ilk kartına gider:
-                // geçmiş günler listenin başında duruyor, ekran onlarla açılırsa
-                // "bu hafta ne var" sorusu bir kaydırma geriye düşerdi.
-                val bugun = LocalDate.now().toString()
-                val odakGunu = gunler.firstOrNull { it.tarih >= bugun }?.tarih ?: gunler.first().tarih
+                // Liste adıma göre zaten süzülü: ilk kart doğru kart.
+                val odakGunu = gunler.first().tarih
                 var odakVerilecek = true
                 gunler.forEach { gun ->
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -159,6 +172,13 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
             }
         }
     }
+}
+
+/** Ajandanın üç adımı. Sıra ekrandaki düğme sırasıdır. */
+private enum class AjandaAdimi(val baslik: String) {
+    HAFTA("Bu Hafta"),
+    AY("Bu Ay"),
+    GECMIS("Geçmiş"),
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)

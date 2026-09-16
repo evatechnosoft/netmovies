@@ -62,6 +62,9 @@ object NmDim {
 
     val PosterWidth   = 130.dp
     val GridPosterMin = 150.dp
+    // Ajanda takvimdir: aynı satırda daha çok gün görünsün diye ana sayfa
+    // rafından (130dp) da küçük.
+    val AgendaPoster  = 110.dp
 
     val FocusRingWidth = 3.dp
     val IdleRingWidth  = 1.dp
