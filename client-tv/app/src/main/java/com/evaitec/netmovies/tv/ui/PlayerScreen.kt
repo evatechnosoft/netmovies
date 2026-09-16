@@ -2190,6 +2190,27 @@ private fun SettingsPanel(
     val textGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT && it.length > 0 } ?: emptyList()
     val textDisabled = textGroups.none { g -> (0 until g.length).any { g.isTrackSelected(it) } }
 
+    // Kaynak listesi (11 satıra kadar çıkıyor) ana akıştan ayrı bir alt sayfaya
+    // taşındı: ana panelde eskiden 11 satır geçmeden "Bölümler"e ulaşılamıyordu
+    // (Dean: "çok yoğun"). Seçim özelliği aynen duruyor, yalnız yeri değişti.
+    var kaynakListesiAcik by remember { mutableStateOf(false) }
+    val kaynakListFocus = remember { FocusRequester() }
+    val kaynakOzet = links.getOrNull(currentLinkIndex)?.let { languageLabel(it) } ?: "—"
+
+    // GERİ tuşu: alt sayfa açıkken önce onu kapatır — yığın en son kaydolanı
+    // (burayı) önce görür, ana panelin kendi GERİ işleyicisine hiç düşmez.
+    NmBackHandler(enabled = kaynakListesiAcik) { kaynakListesiAcik = false }
+
+    // Odak nöbeti: alt sayfa açılıp kapanınca odak doğru gruba taşınmalı, aksi
+    // hâlde kumanda önceki karede kalan (artık görünmeyen) satırda takılı kalır.
+    LaunchedEffect(kaynakListesiAcik) {
+        val hedef = if (kaynakListesiAcik) kaynakListFocus else panelFocus
+        repeat(6) {
+            withFrameNanos {}
+            if (runCatching { hedef.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxHeight()
@@ -2204,108 +2225,126 @@ private fun SettingsPanel(
             .focusGroup()
             .padding(horizontal = 22.dp, vertical = NmDim.SafeV),
     ) {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
-        ) {
-            // Sıra kuralı sabit: Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.
-            // Etiket her satırda yazar, hangi dilin oynadığı tahmine bırakılmaz.
-            SectionTitle("📺 Sağlayıcı & Kaynak")
-            if (links.isEmpty()) MutedRow("—")
-            links.forEachIndexed { idx, link ->
-                SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
-            }
-
-            // Bölümlerin DÜZ listesi buradan kalktı: 3 sezonluk dizide 30 satır
-            // oluyor ve kumandayla sezonu bulmak kaydırmakla geçiyordu. Sezon rafı
-            // olan panel tek satır uzakta.
-            if (episodes.isNotEmpty()) {
-                SectionTitle("📑 Bölümler (${episodes.size})")
-                val simdiki = episodes.getOrNull(currentEpIndex)?.let { episodeLabel(it, currentEpIndex) }
-                SettingRow("Sezon · bölüm seç" + (simdiki?.let { " — şu an $it" } ?: ""), false) {
-                    onOpenEpisodes()
+        if (kaynakListesiAcik) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusRequester(kaynakListFocus)
+                    .focusGroup()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+            ) {
+                // Sıra kuralı sabit: Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.
+                // Etiket her satırda yazar, hangi dilin oynadığı tahmine bırakılmaz.
+                SectionTitle("📺 Sağlayıcı & Kaynak")
+                if (links.isEmpty()) MutedRow("—")
+                links.forEachIndexed { idx, link ->
+                    SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
                 }
+                androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
+                SettingRow("◀ Ayarlara dön", false) { kaynakListesiAcik = false }
             }
+        } else {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+            ) {
+                // Ana panelde tek satır: hangi kaynak oynuyor görünür, listenin
+                // tamamı yalnız bu satıra basınca açılır.
+                SectionTitle("📺 Sağlayıcı & Kaynak")
+                SettingRow("$kaynakOzet — kaynak değiştir", false) { kaynakListesiAcik = true }
 
-            SectionTitle("🧭 Gezinme")
-            SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+                // Bölümlerin DÜZ listesi buradan kalktı: 3 sezonluk dizide 30 satır
+                // oluyor ve kumandayla sezonu bulmak kaydırmakla geçiyordu. Sezon rafı
+                // olan panel tek satır uzakta.
+                if (episodes.isNotEmpty()) {
+                    SectionTitle("📑 Bölümler (${episodes.size})")
+                    val simdiki = episodes.getOrNull(currentEpIndex)?.let { episodeLabel(it, currentEpIndex) }
+                    SettingRow("Sezon · bölüm seç" + (simdiki?.let { " — şu an $it" } ?: ""), false) {
+                        onOpenEpisodes()
+                    }
+                }
 
-            SectionTitle("⌨ Tuş göstergesi")
-            SettingRow(
-                if (showKeys) "Açık — basılan tuş sol üstte görünür" else "Kapalı",
-                showKeys,
-                onToggleKeys,
-            )
+                SectionTitle("🧭 Gezinme")
+                SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
 
-            SectionTitle("🩺 Kaynak raporu")
-            SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
-            if (showReport) {
-                // Satırlar ODAK ALIR: metin olarak çizildiklerinde kumanda aradan
-                // atlıyor, liste başa/sona sıçrıyor ve ortadaki kayıtlar hiç
-                // okunmuyordu. Tıklama işlevi yok, yalnız satır satır gezinme.
-                MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
-                val report = PlaybackLog.snapshot()
-                if (report.isEmpty()) MutedRow("Kayıt yok")
-                report.take(40).forEach { entry -> SettingRow(entry.format(), false) {} }
-            }
+                SectionTitle("⌨ Tuş göstergesi")
+                SettingRow(
+                    if (showKeys) "Açık — basılan tuş sol üstte görünür" else "Kapalı",
+                    showKeys,
+                    onToggleKeys,
+                )
 
-            if (videoTrackCount > 0) {
-                SectionTitle("🎚 Kalite")
-                SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
-                videoGroups.forEach { group ->
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        val label = when {
-                            fmt.height > 0 -> "${fmt.height}p"
-                            fmt.bitrate > 0 -> "${fmt.bitrate / 1000} kbps"
-                            else -> "Kalite ${i + 1}"
-                        }
-                        SettingRow(label, !qualityAuto && group.isTrackSelected(i)) {
-                            onSelectQuality(group, i)
+                SectionTitle("🩺 Kaynak raporu")
+                SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
+                if (showReport) {
+                    // Satırlar ODAK ALIR: metin olarak çizildiklerinde kumanda aradan
+                    // atlıyor, liste başa/sona sıçrıyor ve ortadaki kayıtlar hiç
+                    // okunmuyordu. Tıklama işlevi yok, yalnız satır satır gezinme.
+                    MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
+                    val report = PlaybackLog.snapshot()
+                    if (report.isEmpty()) MutedRow("Kayıt yok")
+                    report.take(40).forEach { entry -> SettingRow(entry.format(), false) {} }
+                }
+
+                if (videoTrackCount > 0) {
+                    SectionTitle("🎚 Kalite")
+                    SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
+                    videoGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            val label = when {
+                                fmt.height > 0 -> "${fmt.height}p"
+                                fmt.bitrate > 0 -> "${fmt.bitrate / 1000} kbps"
+                                else -> "Kalite ${i + 1}"
+                            }
+                            SettingRow(label, !qualityAuto && group.isTrackSelected(i)) {
+                                onSelectQuality(group, i)
+                            }
                         }
                     }
                 }
-            }
 
-            if (audioGroups.isNotEmpty()) {
-                SectionTitle("🔊 Ses Dili")
-                audioGroups.forEach { group ->
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        SettingRow(fmt.label ?: fmt.language ?: "Ses ${i + 1}", group.isTrackSelected(i)) {
-                            onSelectAudio(group, i)
+                if (audioGroups.isNotEmpty()) {
+                    SectionTitle("🔊 Ses Dili")
+                    audioGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            SettingRow(fmt.label ?: fmt.language ?: "Ses ${i + 1}", group.isTrackSelected(i)) {
+                                onSelectAudio(group, i)
+                            }
                         }
                     }
                 }
-            }
 
-            if (textGroups.isNotEmpty()) {
-                SectionTitle("💬 Altyazı")
-                SettingRow("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
-                textGroups.forEach { group ->
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        SettingRow(fmt.label ?: fmt.language ?: "Altyazı ${i + 1}", group.isTrackSelected(i)) {
-                            onSelectSubtitle(group, i)
+                if (textGroups.isNotEmpty()) {
+                    SectionTitle("💬 Altyazı")
+                    SettingRow("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
+                    textGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            SettingRow(fmt.label ?: fmt.language ?: "Altyazı ${i + 1}", group.isTrackSelected(i)) {
+                                onSelectSubtitle(group, i)
+                            }
                         }
                     }
                 }
+
+                SectionTitle("⚡ Hız")
+                SPEEDS.forEach { s ->
+                    SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
+                }
+
+                SectionTitle("⭐ Kitaplık")
+                SettingRow(
+                    if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
+                    isFavorite,
+                    onToggleFavorite,
+                )
+
+                androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
+                SettingRow("✕ Kapat", false, onClose)
             }
-
-            SectionTitle("⚡ Hız")
-            SPEEDS.forEach { s ->
-                SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
-            }
-
-            SectionTitle("⭐ Kitaplık")
-            SettingRow(
-                if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
-                isFavorite,
-                onToggleFavorite,
-            )
-
-            androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
-            SettingRow("✕ Kapat", false, onClose)
         }
     }
 }
