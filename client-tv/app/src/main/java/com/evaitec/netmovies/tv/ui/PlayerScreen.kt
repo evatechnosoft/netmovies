@@ -315,6 +315,11 @@ fun PlayerScreen(
     var otoGecisIptal by remember(item.url, currentEpIndex) { mutableStateOf(false) }
     // Akış STATE_ENDED'e ulaştı: jenerik işareti olmayan bölümde sayım buradan başlar.
     var akisBitti by remember(item.url, currentEpIndex) { mutableStateOf(false) }
+    // Bu bölüm için TÜM kaynaklar "çok kısa" çıktı (bkz. MIN_GECERLI_SURE_MS):
+    // sağlayıcı kaldırılmış bölümün yerine birkaç saniyelik uyarı/tutundurma klibi
+    // koymuş olabilir. True olunca sonraki bölüme otomatik geçiş tamamen kilitlenir —
+    // STATE_ENDED gelse bile akisBitti/sonrakiTeklif bunu "izlendi" saymaz.
+    var akisGecersiz by remember(item.url, currentEpIndex) { mutableStateOf(false) }
 
     LaunchedEffect(item.url) {
         details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
@@ -606,15 +611,50 @@ fun PlayerScreen(
                 // Kaynak gerçekten açılınca bant kalkar; yoksa "sıradaki deneniyor"
                 // yazısı film oynarken ekranda asılı kalıyordu.
                 if (state == Player.STATE_READY) {
-                    ready = true; status = null
-                    kaynakBildir(links.getOrNull(currentLinkIndex), true)
+                    // Kısa akış tespiti: sağlayıcı kaldırılmış bölümün yerine on-yirmi
+                    // saniyelik "İÇERİK KALDIRILDI / DMCA" ya da "DUR! GİTME!" uyarı
+                    // klibi koyabiliyor. Oynatıcı bunu geçerli bölüm sanıp bitince
+                    // sıradaki bölüme atlıyordu — zincirleme kayma (Dean: "1'den açtı
+                    // 17'ye kadar her bölüm birkaç sn") buradan başlıyordu. Canlı
+                    // yayında süre zaten anlamsız (DVR penceresi), muaf tutulur.
+                    val sure = exo.duration
+                    val cokKisa = !exo.isCurrentMediaItemLive && sure in 1 until MIN_GECERLI_SURE_MS
+                    if (cokKisa) {
+                        val kaynak = links.getOrNull(currentLinkIndex)
+                        PlaybackLog.warn(
+                            "oynatma",
+                            "${kaynak?.let { languageLabel(it) } ?: "kaynak"} çok kısa (${sure}ms) · " +
+                                "kaldırılmış bölüm klibi olabilir",
+                        )
+                        kaynakBildir(kaynak, false)
+                        if (links.size > currentLinkIndex + 1) {
+                            // Kısa klibin konumu bir sonraki kaynağa TAŞINMAZ — farklı
+                            // (muhtemelen kaldırılmamış) bir akış, sıfırdan başlar.
+                            carryOverMs = 0L
+                            currentLinkIndex++
+                            val next = links[currentLinkIndex]
+                            status = "Kaynak çok kısa, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size}) · ${languageLabel(next)}"
+                            ready = false
+                        } else {
+                            // Kuyrukta başka kaynak yok: DUR. Otomatik sonraki bölüme
+                            // GEÇME — kullanıcı bunun neden durduğunu görsün.
+                            akisGecersiz = true
+                            ready = false
+                            status = BOLUM_YOK
+                        }
+                    } else {
+                        ready = true; status = null
+                        kaynakBildir(links.getOrNull(currentLinkIndex), true)
+                    }
                 }
                 // Bölüm bitti. ESKİDEN buradan ANINDA sıradakine geçiliyordu ve son
                 // sahneyi kaçıran kullanıcı kendini yeni bölümde buluyordu. Artık
                 // yalnız işaret konur: geri sayım kartı (aşağıdaki efekt) devreye
                 // girer, GERİ ile durdurulabilir. Jenerik işareti bulunan bölümde
                 // sayım zaten daha önce, jenerik başlarken başlamıştır.
-                if (state == Player.STATE_ENDED) akisBitti = true
+                // `akisGecersiz` iken sayılmaz: bu akış zaten kısa klip olduğu için
+                // durduruldu, "bitti" değil "geçersiz" — sıradaki bölüme atlamamalı.
+                if (state == Player.STATE_ENDED && !akisGecersiz) akisBitti = true
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
@@ -1149,7 +1189,10 @@ fun PlayerScreen(
     // Geri sayım: jenerik başladığında (işaret varsa) ya da akış bittiğinde
     // (işaret yoksa). İptal edilmişse bir daha başlamaz.
     val jenerikte = jenerikBas != null && duration > 0 && position >= jenerikBas
-    val sayimBaslasin = nextEpIndex != null && !otoGecisIptal && (jenerikte || akisBitti)
+    // `!akisGecersiz`: kısa klip STATE_ENDED'e ulaşsa bile bu gerçek izleme değil,
+    // otomatik geçişin ikinci savunması — kök neden STATE_READY'de engellense de
+    // burada da kapalı tutulur.
+    val sayimBaslasin = nextEpIndex != null && !otoGecisIptal && !akisGecersiz && (jenerikte || akisBitti)
 
     LaunchedEffect(sayimBaslasin, nextEpIndex) {
         if (!sayimBaslasin || nextEpIndex == null) { geriSayim = null; return@LaunchedEffect }
@@ -1166,8 +1209,11 @@ fun PlayerScreen(
     // bozulmaz, kullanıcı yeni bir tuş öğrenmez.
     // Jenerik işareti VARSA bu kart hiç çıkmaz: sabit 90 sn penceresi jeneriğin
     // nerede başladığını bilmiyordu, işaret biliyor — ikisi üst üste binmesin.
-    val sonrakiTeklif = nextEpIndex != null && duration > 0 && jenerikBas == null &&
-        geriSayim == null &&
+    // `duration >= MIN_GECERLI_SURE_MS`: süre çok kısaysa (kısa klip) her konum
+    // "bitmeye az kaldı" penceresine girer — teklif kartı içerik açılır açılmaz
+    // çıkardı. `!akisGecersiz` STATE_READY'deki kök-neden engelinin ikinci savunması.
+    val sonrakiTeklif = nextEpIndex != null && duration >= MIN_GECERLI_SURE_MS && jenerikBas == null &&
+        geriSayim == null && !akisGecersiz &&
         (duration - position) in 0..NEXT_EPISODE_WINDOW_MS && !panelAcik
 
     Box(
@@ -1581,8 +1627,8 @@ fun PlayerScreen(
         // Kaynak bulunamadıysa dönen halka yanlış bilgi verir: arama BİTTİ, dönecek
         // bir şey yok. O durumda halka yerine ✕.
         when {
-            !ready && !showSettings -> CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK)
-            status != null && !showSettings -> CornerStatus(status!!, loader = status != KAYNAK_YOK)
+            !ready && !showSettings -> CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK && status != BOLUM_YOK)
+            status != null && !showSettings -> CornerStatus(status!!, loader = status != KAYNAK_YOK && status != BOLUM_YOK)
         }
 
         // Tuş göstergesi EN ÜSTTE çizilir: paneller açıkken de görünsün, çünkü
@@ -2010,6 +2056,18 @@ private const val KAYNAK_YOK = "Çalışan kaynak bulunamadı — kapanıyor…"
 // GERİ'ye basmayı beklemek anlamsız: yapacak bir şey yok (Dean: "geri kendi atsın,
 // bulamadığında bekletme").
 private const val KAYNAK_YOK_CIKIS_MS = 2500L
+
+// Bir bölüm/film için "gerçek içerik" sayılacak en kısa süre. Sağlayıcılar
+// kaldırılmış bölümün yerine on-yirmi saniyelik tutundurma/uyarı klibi koyabiliyor
+// (ekranda "İÇERİK KALDIRILDI", "DUR! GİTME!" gibi metinler — bunlar bu koddan
+// GELMEZ, kaynağın kendi videosudur). 90 sn eşiği en kısa gerçek bölüm/fragmandan
+// bile kısa tutundurma klipleri ayırt etmeye yeter; gerçek içerik bundan kısa
+// olmaz. Aynı büyüklükte olması tesadüf: NEXT_EPISODE_WINDOW_MS ayrı bir amaca
+// (bitiş penceresi) hizmet eder, kasıtlı olarak burada tekrar tanımlanır.
+private const val MIN_GECERLI_SURE_MS = 90_000L
+
+// Kuyruktaki hiçbir kaynak 90 sn eşiğini geçemedi: bölüm sağlayıcıda gerçekten yok.
+private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 private const val NEXT_EPISODE_WINDOW_MS = 90_000L
