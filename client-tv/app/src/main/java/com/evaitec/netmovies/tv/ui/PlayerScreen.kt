@@ -353,16 +353,51 @@ fun PlayerScreen(
 
     // ---- Aksiyon dağıtıcı: eşlenen tuş → oynatıcı davranışı ----
     fun flashControls() { showControls = true; controlsTick++ }
+
+    // ---- Birikimli sarma ----
+    // Eskiden her basış/tekrar ANINDA exo.seekTo çağırıyordu: basılı tutmada
+    // saniyede ~20 seek isteği HLS'de üst üste biniyor, tuş bırakıldıktan sonra
+    // da oynatıcı sıraya girmiş seek'leri işlemeye devam ediyordu (Dean: "8 10 30
+    // atlama durmamakta"). Şimdi basışlar bir HEDEF konumda birikir, ekranda
+    // hedef/ofset gösterilir, son basıştan 350 ms sonra TEK seek yapılır.
+    // OK'e basmak hedefi hemen uygular ("orda durabileyim").
+    var seekTarget by remember { mutableStateOf<Long?>(null) }
+    var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var lastHoldAt by remember { mutableLongStateOf(0L) }
+    fun commitSeek() {
+        val t = seekTarget ?: return
+        seekTarget = null
+        exo.seekTo(t)
+        position = t
+    }
     fun seekBy(deltaMs: Long) {
         val dur = exo.duration
-        val target = (exo.currentPosition + deltaMs).let {
+        val base = seekTarget ?: exo.currentPosition
+        val target = (base + deltaMs).let {
             if (dur > 0) it.coerceIn(0, dur) else it.coerceAtLeast(0)
         }
-        exo.seekTo(target)
+        seekTarget = target
         position = target
-        seekHint = (if (deltaMs > 0) "+" else "−") + "${kotlin.math.abs(deltaMs) / 1000}sn"
+        val ofset = target - exo.currentPosition
+        seekHint = (if (ofset >= 0) "+" else "−") + fmtDelta(ofset) + "  →  " + fmtTime(target)
         hintTick++
         flashControls()
+        seekJob?.cancel()
+        seekJob = scope.launch { delay(350); commitSeek() }
+    }
+    // Basılı tutma: tekrarlar 120 ms'de bire indirilir, adım tutma süresiyle
+    // büyür — ilk 1.5 sn 10 sn'lik, 4 sn'ye kadar 30 sn'lik, sonrası 1 dk'lık.
+    // Filmde 2 saatlik içerikte hedefe dakikalarca değil saniyelerce basarak varılır.
+    fun seekHold(yon: Int, heldMs: Long) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastHoldAt < 120) return
+        lastHoldAt = now
+        val adim = when {
+            heldMs < 1_500 -> 10_000L
+            heldMs < 4_000 -> 30_000L
+            else -> 60_000L
+        }
+        seekBy(yon * adim)
     }
     // CANLI yayın: kanal akışı geriye doğru bir tampon (DVR penceresi) taşıyor —
     // Show TV'de ~59 dk. 10-30 sn'lik adımlarla oraya inmek işkenceydi
@@ -427,13 +462,18 @@ fun PlayerScreen(
     fun dispatch(a: RemoteAction) {
         when (a) {
             RemoteAction.NONE -> Unit
-            RemoteAction.PLAY_PAUSE -> { if (exo.isPlaying) exo.pause() else exo.play(); flashControls() }
+            // Sarma bekliyorsa OK = "burada dur": hedef hemen uygulanır, oynatma
+            // sürer; duraklatma ancak ikinci OK'te.
+            RemoteAction.PLAY_PAUSE ->
+                if (seekTarget != null) { seekJob?.cancel(); commitSeek(); flashControls() }
+                else { if (exo.isPlaying) exo.pause() else exo.play(); flashControls() }
             RemoteAction.SEEK_FWD_10 -> seekBy(10_000)
             RemoteAction.SEEK_BACK_10 -> seekBy(-10_000)
             RemoteAction.SEEK_FWD_60 -> seekBy(60_000)
             RemoteAction.SEEK_BACK_60 -> seekBy(-60_000)
-            RemoteAction.SEEK_HOLD_FWD -> seekBy(8_000)
-            RemoteAction.SEEK_HOLD_BACK -> seekBy(-8_000)
+            // Eşleme ekranından tek basışa atanmışsa da çalışsın: tutma süresi yok, 10 sn.
+            RemoteAction.SEEK_HOLD_FWD -> seekBy(10_000)
+            RemoteAction.SEEK_HOLD_BACK -> seekBy(-10_000)
             RemoteAction.OPEN_SETTINGS -> if (kanalGecisiVar) kanalAtla(-1) else showSettings = true
             // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
             RemoteAction.OPEN_EPISODES ->
@@ -448,7 +488,19 @@ fun PlayerScreen(
             RemoteAction.BACK -> onBack()
         }
     }
-    val controller = remember { RemoteInputController(bindings, scope) { dispatch(it) } }
+    val controller = remember {
+        RemoteInputController(
+            bindings, scope,
+            onAction = { dispatch(it) },
+            onHold = { a, heldMs ->
+                when (a) {
+                    RemoteAction.SEEK_HOLD_FWD -> seekHold(+1, heldMs)
+                    RemoteAction.SEEK_HOLD_BACK -> seekHold(-1, heldMs)
+                    else -> dispatch(a)
+                }
+            },
+        )
+    }
 
     // Telefon kumandasının oynatma komutları. Tuşlar (D-pad, geri) sentetik KeyEvent
     // olarak zaten aşağıdaki onKeyEvent'ten akıyor; burada yalnız tuş karşılığı
@@ -952,7 +1004,9 @@ fun PlayerScreen(
     // Konum takibi.
     LaunchedEffect(ready) {
         while (true) {
-            position = exo.currentPosition
+            // Sarma bekliyorken konum HEDEFİ gösterir; gerçek konumla ezilirse
+            // ilerleme çubuğu bir ileri bir geri seker.
+            if (seekTarget == null) position = exo.currentPosition
             duration = exo.duration.coerceAtLeast(0)
             delay(500)
         }
@@ -1165,22 +1219,30 @@ fun PlayerScreen(
                     // dinlemiyor). Sarma ve bölüm değiştirme doğrudan burada.
                     ke.nativeKeyEvent.keyCode in MEDIA_KEYS -> {
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                            when (ke.nativeKeyEvent.keyCode) {
-                                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seekBy(30_000)
-                                KeyEvent.KEYCODE_MEDIA_REWIND       -> seekBy(-30_000)
-                                // Dizide bölüm atlar, filmde 1 dakika sarar.
-                                // Dizide bölüm atlar; CANLI yayında tamponun başına /
-                                // canlıya gider; filmde ±1 dk sarar.
-                                KeyEvent.KEYCODE_MEDIA_NEXT ->
-                                    nextEpIndex?.let { goToEpisode(it) }
-                                        ?: if (canliYayin) canliyaDon() else seekBy(60_000)
-                                KeyEvent.KEYCODE_MEDIA_PREVIOUS ->
-                                    prevEpIndex?.let { goToEpisode(it) }
-                                        ?: if (canliYayin) tamponBasina() else seekBy(-60_000)
-                                KeyEvent.KEYCODE_MEDIA_PLAY     -> { exo.play(); flashControls() }
-                                KeyEvent.KEYCODE_MEDIA_PAUSE    -> { exo.pause(); flashControls() }
-                                KeyEvent.KEYCODE_MEDIA_STOP     -> onBack()
-                                else                            -> dispatch(RemoteAction.PLAY_PAUSE)
+                            val ne = ke.nativeKeyEvent
+                            val tekrar = ne.repeatCount > 0
+                            when (ne.keyCode) {
+                                // ⏪/⏩ tek basış 30 sn; basılı tutmada D-pad ile aynı
+                                // kademeli motor (tekrar başına seek YOK).
+                                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD ->
+                                    if (tekrar) seekHold(+1, ne.eventTime - ne.downTime) else seekBy(30_000)
+                                KeyEvent.KEYCODE_MEDIA_REWIND ->
+                                    if (tekrar) seekHold(-1, ne.eventTime - ne.downTime) else seekBy(-30_000)
+                                // Diğer medya tuşları tekrarda ikinci kez tetiklenmez.
+                                else -> if (!tekrar) when (ne.keyCode) {
+                                    // Dizide bölüm atlar; CANLI yayında tamponun başına /
+                                    // canlıya gider; filmde ±1 dk sarar.
+                                    KeyEvent.KEYCODE_MEDIA_NEXT ->
+                                        nextEpIndex?.let { goToEpisode(it) }
+                                            ?: if (canliYayin) canliyaDon() else seekBy(60_000)
+                                    KeyEvent.KEYCODE_MEDIA_PREVIOUS ->
+                                        prevEpIndex?.let { goToEpisode(it) }
+                                            ?: if (canliYayin) tamponBasina() else seekBy(-60_000)
+                                    KeyEvent.KEYCODE_MEDIA_PLAY     -> { exo.play(); flashControls() }
+                                    KeyEvent.KEYCODE_MEDIA_PAUSE    -> { exo.pause(); flashControls() }
+                                    KeyEvent.KEYCODE_MEDIA_STOP     -> onBack()
+                                    else                            -> dispatch(RemoteAction.PLAY_PAUSE)
+                                }
                             }
                         }
                         true
@@ -1268,7 +1330,7 @@ fun PlayerScreen(
                 isPlaying = isPlaying,
                 position = position,
                 duration = duration,
-                onPlayPause = { if (exo.isPlaying) exo.pause() else exo.play(); flashControls() },
+                onPlayPause = { dispatch(RemoteAction.PLAY_PAUSE) },
                 onSeekBack = { seekBy(-10_000) },
                 onSeekFwd = { seekBy(10_000) },
                 onOpenSettings = { showSettings = true },
@@ -1326,7 +1388,7 @@ fun PlayerScreen(
                 nextEpisodeLabel = nextEpIndex?.let { episodeLabel(episodes[it], it) },
                 hasEpisodes = episodes.isNotEmpty(),
                 onSeekBy = { seekBy(it) },
-                onPlayPause = { if (exo.isPlaying) exo.pause() else exo.play() },
+                onPlayPause = { dispatch(RemoteAction.PLAY_PAUSE) },
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) }; showPad = false },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) }; showPad = false },
                 onOpenEpisodes = { showPad = false; panelAsList = true; secilenSezon = null; showStartPanel = true },
@@ -1744,6 +1806,19 @@ private fun fmtTime(ms: Long): String {
     val m = (total % 3600) / 60
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+// Sarma ofseti: "45sn", "2dk 30sn", "1sa 5dk". İşaret çağıranda.
+internal fun fmtDelta(ms: Long): String {
+    val total = kotlin.math.abs(ms) / 1000
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return when {
+        h > 0 -> if (m > 0) "${h}sa ${m}dk" else "${h}sa"
+        m > 0 -> if (s > 0) "${m}dk ${s}sn" else "${m}dk"
+        else -> "${s}sn"
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)

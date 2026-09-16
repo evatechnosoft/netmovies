@@ -58,8 +58,10 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     put(k(RemoteKey.OK, PressType.LONG), RemoteAction.OPEN_SETTINGS)
     put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.SEEK_BACK_10)
     put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.SEEK_FWD_10)
-    put(k(RemoteKey.LEFT, PressType.DOUBLE), RemoteAction.SEEK_BACK_60)
-    put(k(RemoteKey.RIGHT, PressType.DOUBLE), RemoteAction.SEEK_FWD_60)
+    // SOL/SAĞ'a çift basış ATANMAZ: çift basış tanımlıysa tek basış 300 ms
+    // bekletiliyordu ve art arda basmak 10+10 değil 60 sn sarıyordu (Dean:
+    // "basılı tutmadan ilerlemiyor"). Artık her basış anında +10 ekler,
+    // üst üste basışlar birikir (3 basış = 30 sn, tek seek).
     put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.SEEK_HOLD_BACK)
     put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.SEEK_HOLD_FWD)
     put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
@@ -148,6 +150,8 @@ class RemoteInputController(
     private val bindings: KeyBindings,
     private val scope: CoroutineScope,
     private val onAction: (RemoteAction) -> Unit,
+    /** Basılı tutma tekrarları: aksiyon + tuşun kaç ms'dir basılı olduğu (hız kademesi için). */
+    private val onHold: (RemoteAction, Long) -> Unit = { a, _ -> onAction(a) },
 ) {
     private val longFired = HashMap<Int, Boolean>()
     private val lastUp = HashMap<Int, Long>()
@@ -181,7 +185,12 @@ class RemoteInputController(
                     val longAction = bindings.get(rk, PressType.LONG)
                     if (longAction != RemoteAction.NONE) {
                         if (longAction.repeatable) {
-                            onAction(longAction)          // sürekli sarma: her tekrarda
+                            // Sürekli sarma: her tekrarda. longFired=true ŞART — yoksa
+                            // parmak kalkınca gelen UP "tek basış" sayılıp bırakılan
+                            // yere bir 10 sn daha ekliyordu (Dean: "bıraktığım yerde
+                            // devam etsin").
+                            longFired[code] = true
+                            onHold(longAction, e.eventTime - e.downTime)
                         } else if (longFired[code] != true) {
                             onAction(longAction); longFired[code] = true   // tek sefer
                         }
