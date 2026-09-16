@@ -129,7 +129,13 @@ evaitecOTA da bilekte kuramıyordu. Sıra:
 1. evaitecOTA saatte kendini 0.1.10'a güncellesin (kendi paketi, aynı imza).
    Katalog canlı: GitHub Pages 200, `evaitec-ota-wear` vc 6.
 2. Sonra NetMovies Mini 0.1.6'yı kurmayı dene. Düşerse ekran artık sebebini yazar.
-3. Olmazsa ADB: `bash scripts/saat-kur.sh` (netmovies reposunda) ya da
+0. **ADB'den ÖNCE DENE — telefondan saate gönderme hazır.** `evaitec-appkit`'te
+   `transfer/ApkSender` + `ApkReceiverService` var; telefondaki evaitecOTA'da
+   "Bağlı saate → Saate gönder" düğmesi (`ota-mobile`). APK Data Layer kanalından
+   gidiyor, saatin internete çıkmasına da kablosuz hata ayıklamaya da gerek yok.
+   Tavuk-yumurtayı bu kırar: telefona evaitecOTA kur → saate evaitecOTA 0.1.10
+   gönder → sonra NetMovies Mini 0.1.8.
+3. Son çare ADB: `bash scripts/saat-kur.sh` (netmovies reposunda) ya da
    `APK=<yol> bash scripts/saat-kur.sh`. **16 Eylül denemesi: saat bulunamadı** —
    bilekte "Wi-Fi üzerinden hata ayıklama" kapalı. Makine ağı `192.168.1.x`.
 
