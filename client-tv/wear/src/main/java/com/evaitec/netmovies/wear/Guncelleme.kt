@@ -106,7 +106,12 @@ object Guncelleme {
             if (f.name.startsWith("wear-") && f.name != hedef.name) f.delete()
         }
 
-        val yazilan = Sunucu.indir("/api/v1/app_update/download?target=wear", parca)
+        // Ekran kapaninca saat Wi-Fi radyosunu ve CPU'yu uyutuyor: indirme duruyor,
+        // kullanici ekrani parmakla acik tutmak zorunda kaliyordu (Dean, 17 Eylul).
+        // Iki kilit indirme suresince aciktir, `finally` ile her yolda birakilir.
+        val yazilan = kilitliyken(context) {
+            Sunucu.indir("/api/v1/app_update/download?target=wear", parca)
+        }
         if (yazilan <= 0L) {
             parca.delete()
             throw IOException("indirilemedi")
@@ -117,6 +122,22 @@ object Guncelleme {
         }
         if (!parca.renameTo(hedef)) throw IOException("dosya taşınamadı")
         return hedef
+    }
+
+    /** Wi-Fi radyosu + CPU indirme boyunca uyanik kalsin; is bitince kilitler birakilir. */
+    private fun <T> kilitliyken(context: Context, is_: () -> T): T {
+        val wifi = (context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager)
+            ?.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "netmovies:indirme")
+        val cpu = (context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager)
+            ?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "netmovies:indirme")
+        runCatching { wifi?.acquire() }
+        runCatching { cpu?.acquire(10 * 60 * 1000L) }
+        return try {
+            is_()
+        } finally {
+            runCatching { if (wifi?.isHeld == true) wifi.release() }
+            runCatching { if (cpu?.isHeld == true) cpu.release() }
+        }
     }
 
     /**
