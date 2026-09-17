@@ -24,6 +24,10 @@ object Sunucu {
 
     @Volatile private var taban: String? = null
 
+    /** Bos donen tarama bu sure boyunca tekrarlanmaz. */
+    private const val TARAMA_BOS_TTL_MS = 5 * 60 * 1000L
+    @Volatile private var sonTaramaBos = 0L
+
     /**
      * Çalışan sunucu adresi. Adaylar PARALEL yoklanır, ilk cevap veren kazanır.
      *
@@ -86,8 +90,13 @@ object Sunucu {
      * Tarama yalnizca adaylar sustugunda calisir, ilk cevap veren kazanir.
      */
     private fun tara(): String? {
+        // Basarisiz tarama hatirlanir: aksi halde her istek 254 sokete cikip acilisi
+        // kilitliyor. Saat evde degilken de uygulama akici kalmali.
+        val simdi = System.currentTimeMillis()
+        if (simdi - sonTaramaBos < TARAMA_BOS_TTL_MS) return null
+
         val onek = kendiOnek() ?: return null
-        val havuz = java.util.concurrent.Executors.newFixedThreadPool(32)
+        val havuz = java.util.concurrent.Executors.newFixedThreadPool(16)
         return try {
             havuz.invokeAny(
                 (1..254).map { son ->
@@ -96,9 +105,10 @@ object Sunucu {
                         if (ayakta(adres, taramaIstemci)) adres else throw IllegalStateException("yok")
                     }
                 },
-                4, TimeUnit.SECONDS,
+                2500, TimeUnit.MILLISECONDS,
             )
         } catch (e: Exception) {
+            sonTaramaBos = simdi
             null
         } finally {
             havuz.shutdownNow()

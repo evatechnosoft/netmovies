@@ -1378,10 +1378,15 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Sarma göstergesi — o da sağ altta (ortadaki büyük kutu kalktı).
+        // Sarma göstergesi — sağ altta, ama kontrol çubuğu açikken onun ÜSTÜNDE:
+        // ikisi de BottomEnd olunca sayaç toplam süre yazısının üzerine biniyordu
+        // (Dean, 17 Eylül: "sayaç saatin üstünde duruyor").
         seekHint?.let {
             Box(
-                Modifier.fillMaxSize().padding(NmDim.SafeArea),
+                Modifier
+                    .fillMaxSize()
+                    .padding(NmDim.SafeArea)
+                    .padding(bottom = if (showControls) 92.dp else 0.dp),
                 contentAlignment = Alignment.BottomEnd,
             ) {
                 Box(

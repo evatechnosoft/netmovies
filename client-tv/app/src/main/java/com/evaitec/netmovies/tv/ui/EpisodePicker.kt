@@ -190,7 +190,9 @@ private fun Satir(
             .nmFocusRing(odakli, shape)
             .onFocusChanged { odakli = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            // Satir yuksekligi: 32 bolumluk dizide ekrana 8 satir sigiyordu, aranan
+            // bolume inmek sayfalar suruyordu (Dean, 17 Eylul: "kocaman").
+            .padding(horizontal = 18.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -202,7 +204,7 @@ private fun Satir(
             color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(150.dp),
+            modifier = Modifier.width(112.dp),
         )
         Text(
             text = adYazi,
