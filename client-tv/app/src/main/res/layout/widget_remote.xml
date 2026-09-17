@@ -9,8 +9,9 @@
   (Dean, 17 Eylül: "o tuşlar ne öyle"). Orta sütun yukarı/OK/aşağı, yanlar sol/sağ;
   alt köşelerde geri ve ana ekran — parmak pad'in üstünde kalır, adım adım gezinir.
 
-  Poster listesi RemoteViewsService/Factory DEĞİL, üç sabit ImageView: üç görsel
-  için ayrı servis + adaptör taşımaya değmez.
+  Poster yayı: merkez büyük ve seçili, kenarlar küçülüp solar. RemoteViewsService/
+  Factory DEĞİL, beş sabit ImageView — beş görsel için ayrı servis + adaptör
+  taşımaya değmez; seçili indeks SharedPreferences'ta durur.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -40,29 +41,58 @@
         android:textSize="11sp"
         android:text="—" />
 
-    <!-- Devam Et şeridi. Şerit boşsa gizlenir (setViewVisibility). -->
+    <!-- Devam Et yayı: merkez büyük ve seçili, kenarlara doğru küçülür. Kenardaki
+         postere dokunmak onu merkeze kaydırır, merkeze dokunmak televizyonda açar. -->
     <LinearLayout
         android:id="@+id/widget_posterler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.3"
+        android:layout_weight="1.5"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:paddingTop="6dp"
         android:baselineAligned="false">
 
         <ImageView
             android:id="@+id/widget_poster1"
             style="@style/NmWidgetPoster"
+            android:layout_weight="0.7"
+            android:layout_marginTop="15dp"
+            android:layout_marginBottom="15dp"
+            android:alpha="0.45"
             android:contentDescription="@string/widget_poster_aciklama" />
 
         <ImageView
             android:id="@+id/widget_poster2"
             style="@style/NmWidgetPoster"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.75"
             android:contentDescription="@string/widget_poster_aciklama" />
 
         <ImageView
             android:id="@+id/widget_poster3"
             style="@style/NmWidgetPoster"
+            android:layout_weight="1.5"
+            android:contentDescription="@string/widget_poster_aciklama" />
+
+        <ImageView
+            android:id="@+id/widget_poster4"
+            style="@style/NmWidgetPoster"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:alpha="0.75"
+            android:contentDescription="@string/widget_poster_aciklama" />
+
+        <ImageView
+            android:id="@+id/widget_poster5"
+            style="@style/NmWidgetPoster"
+            android:layout_weight="0.7"
+            android:layout_marginTop="15dp"
+            android:layout_marginBottom="15dp"
+            android:alpha="0.45"
             android:contentDescription="@string/widget_poster_aciklama" />
     </LinearLayout>
 

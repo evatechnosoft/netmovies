@@ -72,6 +72,10 @@ class RemoteWidget : AppWidgetProvider() {
                     hepsiniTazele(context)
                 }
             }
+            EYLEM_KAY -> intent.getStringExtra(EK_GOVDE)?.toIntOrNull()?.let { yeni ->
+                secimYaz(context, yeni.coerceAtLeast(0))
+                thread(isDaemon = true) { hepsiniTazele(context) }
+            }
             EYLEM_TAZELE -> thread(isDaemon = true) { hepsiniTazele(context) }
         }
     }
@@ -110,16 +114,24 @@ class RemoteWidget : AppWidgetProvider() {
             setOnClickPendingIntent(R.id.widget_ara, giris(context, KumandaGirisActivity.MOD_METIN))
             dugme(context, R.id.widget_geri_tus, tus("BACK"))
 
-            // Devam Et şeridi: poster indirilemezse o göz boş kutu kalır, şerit
-            // tamamen boşsa gizlenir — üç boş kare kumandadan yer çalıyordu.
+            // Devam Et yayı. Ortadaki göz seçili karttır: dokunmak televizyonda açar.
+            // Yandaki gözlere dokunmak seçimi oraya kaydırır — yay böyle geziliyor.
+            // Şerit tamamen boşsa gizlenir; tek kart inemezse o göz boş kalır.
             val posterler = durum.devam
             setViewVisibility(R.id.widget_posterler, if (posterler.isEmpty()) View.GONE else View.VISIBLE)
-            POSTER_ID.forEachIndexed { i, id ->
-                val oge = posterler.getOrNull(i)
+            val orta = secim(context)
+            POSTER_ID.forEachIndexed { goz, id ->
+                val kayma = goz - MERKEZ
+                val sira = orta + kayma
+                val oge = posterler.getOrNull(sira)
                 setViewVisibility(id, if (oge == null) View.INVISIBLE else View.VISIBLE)
                 if (oge == null) return@forEachIndexed
                 setImageViewBitmap(id, oge.gorsel)
-                setOnClickPendingIntent(id, yayin(context, EYLEM_OYNAT, oge.sorgu))
+                setOnClickPendingIntent(
+                    id,
+                    if (kayma == 0) yayin(context, EYLEM_OYNAT, oge.sorgu)
+                    else yayin(context, EYLEM_KAY, sira.toString()),
+                )
             }
             // Başlığa dokunmak yalnız tazeler: widget'tan uygulamayı açmak, widget'ın
             // var oluş sebebini (uygulamayı açmamak) ortadan kaldırırdı.
@@ -183,6 +195,7 @@ class RemoteWidget : AppWidgetProvider() {
     companion object {
         private const val EYLEM_KOMUT  = "com.evaitec.netmovies.tv.WIDGET_KOMUT"
         private const val EYLEM_OYNAT  = "com.evaitec.netmovies.tv.WIDGET_OYNAT"
+        private const val EYLEM_KAY    = "com.evaitec.netmovies.tv.WIDGET_KAY"
         private const val EYLEM_TAZELE = "com.evaitec.netmovies.tv.WIDGET_TAZELE"
         private const val EK_GOVDE     = "govde"
         private const val ALARM_KODU   = 4310
@@ -195,7 +208,24 @@ class RemoteWidget : AppWidgetProvider() {
         private const val KOMUT_OYNAT = """{"type":"transport","action":"play_pause","value":0}"""
         private const val KOMUT_EV    = """{"type":"nav","screen":"home"}"""
 
-        private val POSTER_ID = listOf(R.id.widget_poster1, R.id.widget_poster2, R.id.widget_poster3)
+        // Yayın beş gözü; ortadaki (indeks 2) seçili olan.
+        private val POSTER_ID = listOf(
+            R.id.widget_poster1, R.id.widget_poster2, R.id.widget_poster3,
+            R.id.widget_poster4, R.id.widget_poster5,
+        )
+        private const val MERKEZ = 2
+        private const val SERIT_KAC = 12          // yayın dolaştığı Devam Et derinliği
+        private const val PREF = "widget"
+        private const val ANAHTAR_SECIM = "yay_secim"
+
+        /** Yayın ortasındaki kart — widget yeniden çizilse de yerinde kalsın diye diskte. */
+        private fun secim(context: Context): Int =
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getInt(ANAHTAR_SECIM, 0)
+
+        private fun secimYaz(context: Context, deger: Int) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .edit().putInt(ANAHTAR_SECIM, deger).apply()
+        }
 
         /** Şeritteki tek kart: küçültülmüş poster + televizyona yollanacak sorgu. */
         data class Kart(val gorsel: Bitmap?, val sorgu: String)
@@ -267,7 +297,7 @@ class RemoteWidget : AppWidgetProvider() {
             val dizi = govde?.takeIf { it.isNotBlank() }?.let {
                 runCatching { Json.parseToJsonElement(it).jsonObject["result"]?.jsonArray }.getOrNull()
             } ?: return emptyList()
-            return dizi.take(POSTER_ID.size).mapNotNull { oge ->
+            return dizi.take(SERIT_KAC).mapNotNull { oge ->
                 val o = runCatching { oge.jsonObject }.getOrNull() ?: return@mapNotNull null
                 val url = o.metin("content_url").orEmpty()
                 val plugin = o.metin("plugin").orEmpty()
@@ -283,8 +313,16 @@ class RemoteWidget : AppWidgetProvider() {
 
         private fun devamKartlari(context: Context, govde: String?): List<Kart> {
             val posterler = posterAdresleri(govde)
-            return devamSorgulari(govde).mapIndexed { i, sorgu ->
-                Kart(posterler.getOrNull(i)?.let { gorselAl(context, it) }, sorgu)
+            val sorgular = devamSorgulari(govde)
+            // Seçim listenin dışına taşmışsa (kayıt kısaldı) içeri çekilir.
+            val orta = secim(context).coerceIn(0, (sorgular.size - 1).coerceAtLeast(0))
+            if (orta != secim(context)) secimYaz(context, orta)
+            // Yalnız yayda görünen gözlerin görseli indirilir: on iki posteri çözmek
+            // her tazelemeyi gereksiz yere uzatıyordu.
+            val gorunur = (orta - MERKEZ)..(orta + MERKEZ)
+            return sorgular.mapIndexed { i, sorgu ->
+                val gorsel = if (i in gorunur) posterler.getOrNull(i)?.let { gorselAl(context, it) } else null
+                Kart(gorsel, sorgu)
             }
         }
 
@@ -292,7 +330,7 @@ class RemoteWidget : AppWidgetProvider() {
             val dizi = govde?.takeIf { it.isNotBlank() }?.let {
                 runCatching { Json.parseToJsonElement(it).jsonObject["result"]?.jsonArray }.getOrNull()
             } ?: return emptyList()
-            return dizi.take(POSTER_ID.size).mapNotNull {
+            return dizi.take(SERIT_KAC).mapNotNull {
                 runCatching { it.jsonObject.metin("poster") }.getOrNull()
             }
         }

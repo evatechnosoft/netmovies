@@ -81,10 +81,11 @@ class RemoteWidgetDurumTest {
     }
 
     @Test
-    fun `serit en fazla uc kart tasir`() {
+    fun `yay on ikiden fazlasini tasimaz`() {
+        // Yayda bes goz gorunur ama gezinmek icin derinlik gerek; sinir on iki.
         val kayit = """{"title":"A","plugin":"P","content_url":"https://x/a"}"""
-        val sorgular = RemoteWidget.devamSorgulari("""{"result":[$kayit,$kayit,$kayit,$kayit,$kayit]}""")
-        assertEquals(3, sorgular.size)
+        val sorgular = RemoteWidget.devamSorgulari("""{"result":[${List(20) { kayit }.joinToString(",")}]}""")
+        assertEquals(12, sorgular.size)
     }
 
     @Test
