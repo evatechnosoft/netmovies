@@ -43,6 +43,19 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Telefon ana ekranı kumandası: uygulamayı açmadan TV'yi sürer. -->
+        <receiver
+            android:name=".widget.RemoteWidget"
+            android:exported="false"
+            android:label="@string/widget_ad">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_remote_info" />
+        </receiver>
+
         <!-- PackageInstaller oturum sonucu: onay ekranını açan alıcı -->
         <receiver
             android:name=".update.InstallReceiver"

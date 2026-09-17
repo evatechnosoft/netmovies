@@ -2004,6 +2004,16 @@ private fun ControlsOverlay(
                 }
                 Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
             }
+            // Cubuktaki uc ikon odak ALMAZ (D-pad sol/sag sarmadir). Gezilebilir
+            // buton takimi QuickPad'de ve ASAGI ok ile aciliyor — yazmayinca
+            // bulunmuyordu (Dean, 17 Eylul: "sarma butonu playerda olacak, cursor
+            // gezebilir olsun").
+            Text(
+                text = "▼  Butonlar  ·  ◀ ▶ sar",
+                color = NmColor.OnSurfaceMuted,
+                fontSize = NmType.Caption,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
         }
     }
 }

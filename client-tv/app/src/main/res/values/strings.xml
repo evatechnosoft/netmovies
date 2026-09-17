@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NetMovies TV</string>
+    <string name="widget_ad">NetMovies Kumanda</string>
+    <string name="widget_aciklama">Uygulamayı açmadan televizyonu sür: sar, duraklat, ana ekran.</string>
 </resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kare 2x2 varsayılan (targetCell), geniş 4x2'ye de yerleşir: aynı düzen esner.
+  updatePeriodMillis sistemin en sık izin verdiği değer (30 dk) — dakikalık
+  tazeleme AlarmManager ile, widget varken kuruluyor.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:initialLayout="@layout/widget_remote"
+    android:previewLayout="@layout/widget_remote"
+    android:description="@string/widget_aciklama"
+    android:updatePeriodMillis="1800000" />

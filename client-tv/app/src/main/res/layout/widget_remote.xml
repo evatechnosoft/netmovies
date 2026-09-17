@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ana ekran kumandası. Kare (2x2) ve geniş (4x2) hücrede aynı düzen esner:
+  üstte ne oynadığı, altta dört düğme eşit ağırlıkla. Vektör ikon yerine metin —
+  RemoteViews'ta tint edilemeyen drawable seti taşımaya değmez.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_zemin"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widget_baslik"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#FFFFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:text="Televizyon" />
+
+    <TextView
+        android:id="@+id/widget_alt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#B3FFFFFF"
+        android:textSize="12sp"
+        android:paddingTop="2dp"
+        android:text="—" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_geri"
+            style="@style/NmWidgetDugme"
+            android:text="−30" />
+
+        <TextView
+            android:id="@+id/widget_oynat"
+            style="@style/NmWidgetDugme"
+            android:background="@drawable/widget_dugme_vurgu"
+            android:text="▶" />
+
+        <TextView
+            android:id="@+id/widget_ileri"
+            style="@style/NmWidgetDugme"
+            android:text="+30" />
+
+        <TextView
+            android:id="@+id/widget_ev"
+            style="@style/NmWidgetDugme"
+            android:text="⌂" />
+    </LinearLayout>
+</LinearLayout>
