@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 16 Eylül 2026, 23:10
-**Dal:** `fix/general-stability` @ `2802f4d` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.8-poc` · saat `v0.1.8-poc`
+**Son güncelleme:** 17 Eylül 2026, 10:40
+**Dal:** `fix/general-stability` @ `ee01313` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.3.9-poc` · saat `v0.1.10-poc`
 **Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
-netmovies-tv/phone **0.3.8 (vc 308)** · netmovies-mini-watch **0.1.8 (vc 108)**, ikisi de CANLI
+netmovies-tv/phone **0.3.9 (vc 309)** · netmovies-mini-watch **0.1.10 (vc 110)**, ikisi de CANLI
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
