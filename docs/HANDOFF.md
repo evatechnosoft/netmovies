@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 17 Eylül 2026, 22:55
-**Dal:** `fix/general-stability` @ `e06b870` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.4.9-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
-**Katalog:** `evaglass-releases/apps.json` @ `8985a92` (push EDİLDİ) —
-netmovies-tv/phone **0.4.9 (vc 409)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
+**Son güncelleme:** 17 Eylül 2026, 23:00
+**Dal:** `fix/general-stability` @ `66e6e59` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.5.0-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
+**Katalog:** `evaglass-releases/apps.json` @ `1d8396f` (push EDİLDİ) —
+netmovies-tv/phone **0.5.0 (vc 500)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
 evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut ile doğrulandı.
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
@@ -111,10 +111,11 @@ sonraki bölüm, Kitaplık en üstte). Kalan üçü açık:
    okunmadığı izlenmedi. Önce kaydın var olup olmadığına bak
    (`curl -s localhost:3310/api/v1/continue_watching`), sonra `HomeScreen` favori
    kartının `onPlay`ine.
-2. **Sezon/bölüm ekranı kocaman.** Bölüm SATIRLARI 0.4.0'da sıkıştı (12→7dp) ama
-   fotoğraftaki **sezon** satırları hâlâ dev ve ekranı kaplıyor. `EpisodePicker.kt`
-   `Satir` sezon sayfasında da kullanılıyor; sezon listesi için ayrı, kısa bir düzen
-   ya da ızgara gerekiyor.
+2. ~~Sezon/bölüm ekranı kocaman~~ → **0.5.0'da yapıldı.** Liste artık ayar panelinin
+   İÇİNDE, 📑 ikonunun altında: çok sezonluda kısa sezon satırları + o sezonun
+   bölümleri, tek sezonluda doğrudan bölümler. Seçince panel kapanır, bölüm açılır.
+   Tam ekran liste kaldırılmadı — "⛶ Tam ekran bölüm listesi" satırı duruyor.
+   Cihazda görülmedi.
 3. ~~Ayarlar YouTube gibi olsun~~ → **0.4.9'da yapıldı.** Dean seçti: "açılır seçenek
    sadece ikon olsun, buton içinde gezinir seçeriz". Üstte altı ikon
    (⭐ Kitaplık · 📑 Bölümler · 📺 Kaynak · 🔊 Ses & Altyazı · ⚡ Hız & Kalite ·
