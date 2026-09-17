@@ -2313,6 +2313,10 @@ private fun SettingsPanel(
     // taşındı: ana panelde eskiden 11 satır geçmeden "Bölümler"e ulaşılamıyordu
     // (Dean: "çok yoğun"). Seçim özelliği aynen duruyor, yalnız yeri değişti.
     var kaynakListesiAcik by remember { mutableStateOf(false) }
+    // Ayarlar tek uzun listeydi: favoriye ulasmak icin sonuna kadar inmek gerekiyordu.
+    // Artik ustte ikon seridi var, icerik yalniz secili ikonunki (Dean, 17 Eylul:
+    // "acilir secenek sadece ikon olsun, buton icinde gezinir seceriz").
+    var sekme by remember { mutableStateOf(0) }
     val kaynakListFocus = remember { FocusRequester() }
     val kaynakOzet = links.getOrNull(currentLinkIndex)?.let { languageLabel(it) } ?: "—"
 
@@ -2364,110 +2368,166 @@ private fun SettingsPanel(
                 SettingRow("◀ Ayarlara dön", false) { kaynakListesiAcik = false }
             }
         } else {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
-            ) {
-                // Ana panelde tek satır: hangi kaynak oynuyor görünür, listenin
-                // tamamı yalnız bu satıra basınca açılır.
-                SectionTitle("📺 Sağlayıcı & Kaynak")
-                SettingRow("$kaynakOzet — kaynak değiştir", false) { kaynakListesiAcik = true }
+            val sekmeler = buildList {
+                add("⭐" to "Kitaplık")
+                if (episodes.isNotEmpty()) add("📑" to "Bölümler")
+                add("📺" to "Kaynak")
+                add("🔊" to "Ses & Altyazı")
+                add("⚡" to "Hız & Kalite")
+                add("🛠" to "Araçlar")
+            }
+            val secili = sekmeler.getOrNull(sekme) ?: sekmeler.first()
 
-                // Bölümlerin DÜZ listesi buradan kalktı: 3 sezonluk dizide 30 satır
-                // oluyor ve kumandayla sezonu bulmak kaydırmakla geçiyordu. Sezon rafı
-                // olan panel tek satır uzakta.
-                if (episodes.isNotEmpty()) {
-                    SectionTitle("📑 Bölümler (${episodes.size})")
-                    val simdiki = episodes.getOrNull(currentEpIndex)?.let { episodeLabel(it, currentEpIndex) }
-                    SettingRow("Sezon · bölüm seç" + (simdiki?.let { " — şu an $it" } ?: ""), false) {
-                        onOpenEpisodes()
+            Column(verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
+                // İkon şeridi. Ad yalnız seçili olanın altında yazar — altı etiket
+                // yan yana dar panele sığmıyor, ikon tanınıyor.
+                Row(
+                    modifier = Modifier.fillMaxWidth().focusGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    sekmeler.forEachIndexed { i, (ikon, _) ->
+                        IkonSekme(ikon, i == sekme, Modifier.weight(1f)) { sekme = i }
                     }
                 }
+                SectionTitle(secili.first + "  " + secili.second)
 
-                SectionTitle("🧭 Gezinme")
-                SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
+                ) {
+                    when (secili.second) {
+                        "Kitaplık" -> SettingRow(
+                            if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
+                            isFavorite,
+                            onToggleFavorite,
+                        )
 
-                SectionTitle("⌨ Tuş göstergesi")
-                SettingRow(
-                    if (showKeys) "Açık — basılan tuş sol üstte görünür" else "Kapalı",
-                    showKeys,
-                    onToggleKeys,
-                )
+                        "Bölümler" -> {
+                            val simdiki = episodes.getOrNull(currentEpIndex)
+                                ?.let { episodeLabel(it, currentEpIndex) }
+                            SettingRow(
+                                "Sezon · bölüm seç" + (simdiki?.let { " — şu an " + it } ?: ""),
+                                false,
+                            ) { onOpenEpisodes() }
+                        }
 
-                SectionTitle("🩺 Kaynak raporu")
-                SettingRow(if (showReport) "▾ Gizle" else "▸ Son denemeleri göster", showReport, onToggleReport)
-                if (showReport) {
-                    // Satırlar ODAK ALIR: metin olarak çizildiklerinde kumanda aradan
-                    // atlıyor, liste başa/sona sıçrıyor ve ortadaki kayıtlar hiç
-                    // okunmuyordu. Tıklama işlevi yok, yalnız satır satır gezinme.
-                    MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
-                    val report = PlaybackLog.snapshot()
-                    if (report.isEmpty()) MutedRow("Kayıt yok")
-                    report.take(40).forEach { entry -> SettingRow(entry.format(), false) {} }
-                }
+                        // Kaynak listesinin tamamı ayrı sayfada: burada yalnız hangisi
+                        // oynuyor yazar.
+                        "Kaynak" -> SettingRow(kaynakOzet + " — kaynak değiştir", false) {
+                            kaynakListesiAcik = true
+                        }
 
-                // Kitaplık en alttaydı: favori eklemek için bütün ayar listesini
-                // aşağı inmek gerekiyordu (Dean, 17 Eylül). En çok kullanılan tek
-                // satır en üste alındı.
-                SectionTitle("⭐ Kitaplık")
-                SettingRow(
-                    if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
-                    isFavorite,
-                    onToggleFavorite,
-                )
-
-                if (videoTrackCount > 0) {
-                    SectionTitle("🎚 Kalite")
-                    SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
-                    videoGroups.forEach { group ->
-                        for (i in 0 until group.length) {
-                            val fmt = group.getTrackFormat(i)
-                            val label = when {
-                                fmt.height > 0 -> "${fmt.height}p"
-                                fmt.bitrate > 0 -> "${fmt.bitrate / 1000} kbps"
-                                else -> "Kalite ${i + 1}"
+                        "Ses & Altyazı" -> {
+                            if (audioGroups.isEmpty() && textGroups.isEmpty()) {
+                                MutedRow("Bu kaynakta seçenek yok")
                             }
-                            SettingRow(label, !qualityAuto && group.isTrackSelected(i)) {
-                                onSelectQuality(group, i)
+                            audioGroups.forEach { group ->
+                                for (i in 0 until group.length) {
+                                    val fmt = group.getTrackFormat(i)
+                                    SettingRow(
+                                        fmt.label ?: fmt.language ?: ("Ses " + (i + 1)),
+                                        group.isTrackSelected(i),
+                                    ) { onSelectAudio(group, i) }
+                                }
+                            }
+                            if (textGroups.isNotEmpty()) {
+                                SettingRow("Altyazı kapalı", textDisabled) { onSelectSubtitle(null, 0) }
+                                textGroups.forEach { group ->
+                                    for (i in 0 until group.length) {
+                                        val fmt = group.getTrackFormat(i)
+                                        SettingRow(
+                                            fmt.label ?: fmt.language ?: ("Altyazı " + (i + 1)),
+                                            group.isTrackSelected(i),
+                                        ) { onSelectSubtitle(group, i) }
+                                    }
+                                }
+                            }
+                        }
+
+                        "Hız & Kalite" -> {
+                            SPEEDS.forEach { h ->
+                                SettingRow(if (h == 1.0f) "Normal hız" else (h.toString() + "x"), h == speed) {
+                                    onSelectSpeed(h)
+                                }
+                            }
+                            if (videoTrackCount > 0) {
+                                SettingRow("Kalite: otomatik", qualityAuto) { onSelectQuality(null, 0) }
+                                videoGroups.forEach { group ->
+                                    for (i in 0 until group.length) {
+                                        val fmt = group.getTrackFormat(i)
+                                        val etiket = when {
+                                            fmt.height > 0 -> fmt.height.toString() + "p"
+                                            fmt.bitrate > 0 -> (fmt.bitrate / 1000).toString() + " kbps"
+                                            else -> "Kalite " + (i + 1)
+                                        }
+                                        SettingRow(etiket, !qualityAuto && group.isTrackSelected(i)) {
+                                            onSelectQuality(group, i)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        else -> {
+                            SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+                            SettingRow(
+                                if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
+                                showKeys,
+                                onToggleKeys,
+                            )
+                            SettingRow(
+                                if (showReport) "Kaynak raporu ▾" else "Kaynak raporu ▸",
+                                showReport,
+                                onToggleReport,
+                            )
+                            if (showReport) {
+                                // Satırlar ODAK ALIR: metin olarak çizilince kumanda
+                                // aradan atlıyor, ortadaki kayıtlar hiç okunmuyordu.
+                                MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
+                                val rapor = PlaybackLog.snapshot()
+                                if (rapor.isEmpty()) MutedRow("Kayıt yok")
+                                rapor.take(40).forEach { kayit -> SettingRow(kayit.format(), false) {} }
                             }
                         }
                     }
-                }
-
-                if (audioGroups.isNotEmpty()) {
-                    SectionTitle("🔊 Ses Dili")
-                    audioGroups.forEach { group ->
-                        for (i in 0 until group.length) {
-                            val fmt = group.getTrackFormat(i)
-                            SettingRow(fmt.label ?: fmt.language ?: "Ses ${i + 1}", group.isTrackSelected(i)) {
-                                onSelectAudio(group, i)
-                            }
-                        }
-                    }
-                }
-
-                if (textGroups.isNotEmpty()) {
-                    SectionTitle("💬 Altyazı")
-                    SettingRow("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
-                    textGroups.forEach { group ->
-                        for (i in 0 until group.length) {
-                            val fmt = group.getTrackFormat(i)
-                            SettingRow(fmt.label ?: fmt.language ?: "Altyazı ${i + 1}", group.isTrackSelected(i)) {
-                                onSelectSubtitle(group, i)
-                            }
-                        }
-                    }
-                }
-
-                SectionTitle("⚡ Hız")
-                SPEEDS.forEach { s ->
-                    SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
                 }
 
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
                 SettingRow("✕ Kapat", false, onClose)
             }
         }
+    }
+}
+
+/** Ayar şeridindeki tek ikon. Metin yok: altı ad yan yana dar panele sığmıyor. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifier, onSec: () -> Unit) {
+    var odakli by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(
+                when {
+                    odakli -> NmColor.Primary
+                    secili -> NmColor.PrimarySelected
+                    else -> NmColor.Surface
+                },
+            )
+            .nmFocusRing(odakli, shape)
+            .onFocusChanged {
+                odakli = it.isFocused
+                // Odak gezinirken içerik de değişir: ayrıca OK'a basmak gerekmiyor —
+                // "buton içinde gezinir seçeriz" isteği bu.
+                if (it.isFocused) onSec()
+            }
+            .focusable()
+            .clickable { onSec() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(ikon, fontSize = NmType.Body)
     }
 }
 
