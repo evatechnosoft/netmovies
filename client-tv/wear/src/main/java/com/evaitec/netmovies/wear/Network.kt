@@ -46,6 +46,9 @@ object Sunucu {
 
         if (kazanan != null) return kazanan.also { taban = it }
 
+        // Adaylar bayatlamis olabilir (DHCP kaymasi) — kendi alt agini tara.
+        tara()?.let { return it.also { bulunanAdres -> taban = bulunanAdres } }
+
         // Tünel de yoklanır: ölü adresi hatırlamak saati kalıcı olarak kör bırakıyordu.
         val tunel = BuildConfig.BASE_URL
         if (ayakta(tunel)) return tunel.also { taban = it }
@@ -57,9 +60,50 @@ object Sunucu {
     /** Sunucu bulunabildi mi — ekranın "ulaşılamıyor" demesi için. */
     fun bagli(): Boolean = taban != null
 
-    private fun ayakta(adres: String): Boolean = runCatching {
-        istemci.newCall(Request.Builder().url("$adres/api/v1/health").build()).execute().use { it.isSuccessful }
+    private fun ayakta(adres: String, ile: OkHttpClient = istemci): Boolean = runCatching {
+        ile.newCall(Request.Builder().url("$adres/api/v1/health").build()).execute().use { it.isSuccessful }
     }.getOrDefault(false)
+
+    // Tarama yerel agda: baglanti ya aninda kurulur ya da yoktur, 500 ms yeter.
+    private val taramaIstemci = OkHttpClient.Builder()
+        .connectTimeout(500, TimeUnit.MILLISECONDS)
+        .readTimeout(1000, TimeUnit.MILLISECONDS)
+        .build()
+
+    /** Saatin kendi IPv4 /24 oneki (or. "192.168.0") — yoksa null. */
+    private fun kendiOnek(): String? = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }
+            .filterIsInstance<java.net.Inet4Address>()
+            .filter { it.isSiteLocalAddress }
+            .firstNotNullOfOrNull { it.hostAddress?.substringBeforeLast('.') }
+    }.getOrNull()
+
+    /**
+     * Kendi /24'unde sunucuyu ara. Sunucu PC'nin adresi DHCP ile kayiyor; sabit aday
+     * listesi TV'de de tek basina yetmemisti (ServerResolver ayni tarayiciyi tasiyor).
+     * Tarama yalnizca adaylar sustugunda calisir, ilk cevap veren kazanir.
+     */
+    private fun tara(): String? {
+        val onek = kendiOnek() ?: return null
+        val havuz = java.util.concurrent.Executors.newFixedThreadPool(32)
+        return try {
+            havuz.invokeAny(
+                (1..254).map { son ->
+                    java.util.concurrent.Callable {
+                        val adres = "http://$onek.$son:3310"
+                        if (ayakta(adres, taramaIstemci)) adres else throw IllegalStateException("yok")
+                    }
+                },
+                4, TimeUnit.SECONDS,
+            )
+        } catch (e: Exception) {
+            null
+        } finally {
+            havuz.shutdownNow()
+        }
+    }
 
     /** Sunucu değiştiyse (başka ağa geçildi) yeniden aranması için. */
     fun unut() { taban = null }
