@@ -7,7 +7,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 import com.evaitec.netmovies.tv.R
 import com.evaitec.netmovies.tv.data.ServerResolver
@@ -16,10 +19,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import kotlin.concurrent.thread
 
 // Telefon ana ekranı kumandası: uygulamayı AÇMADAN televizyonu sür (Dean, 17 Eylül).
@@ -57,6 +62,13 @@ class RemoteWidget : AppWidgetProvider() {
                     hepsiniTazele(context)
                 }
             }
+            EYLEM_OYNAT -> intent.getStringExtra(EK_GOVDE)?.let { sorgu ->
+                thread(isDaemon = true) {
+                    oynat(context, sorgu)
+                    Thread.sleep(600)
+                    hepsiniTazele(context)
+                }
+            }
             EYLEM_TAZELE -> thread(isDaemon = true) { hepsiniTazele(context) }
         }
     }
@@ -85,6 +97,25 @@ class RemoteWidget : AppWidgetProvider() {
             dugme(context, R.id.widget_oynat, KOMUT_OYNAT)
             dugme(context, R.id.widget_ileri, KOMUT_ILERI)
             dugme(context, R.id.widget_ev, KOMUT_EV)
+            // Yön pad'i: saatteki gezinmenin aynısı, aynı tuş gövdeleri.
+            dugme(context, R.id.widget_sol, tus("LEFT"))
+            dugme(context, R.id.widget_sag, tus("RIGHT"))
+            dugme(context, R.id.widget_yukari, tus("UP"))
+            dugme(context, R.id.widget_asagi, tus("DOWN"))
+            dugme(context, R.id.widget_ok, tus("CENTER"))
+            dugme(context, R.id.widget_geri_tus, tus("BACK"))
+
+            // Devam Et şeridi: poster indirilemezse o göz boş kutu kalır, şerit
+            // tamamen boşsa gizlenir — üç boş kare kumandadan yer çalıyordu.
+            val posterler = durum.devam
+            setViewVisibility(R.id.widget_posterler, if (posterler.isEmpty()) View.GONE else View.VISIBLE)
+            POSTER_ID.forEachIndexed { i, id ->
+                val oge = posterler.getOrNull(i)
+                setViewVisibility(id, if (oge == null) View.INVISIBLE else View.VISIBLE)
+                if (oge == null) return@forEachIndexed
+                setImageViewBitmap(id, oge.gorsel)
+                setOnClickPendingIntent(id, yayin(context, EYLEM_OYNAT, oge.sorgu))
+            }
             // Başlığa dokunmak yalnız tazeler: widget'tan uygulamayı açmak, widget'ın
             // var oluş sebebini (uygulamayı açmamak) ortadan kaldırırdı.
             setOnClickPendingIntent(R.id.widget_baslik, yayin(context, EYLEM_TAZELE, null))
@@ -133,10 +164,12 @@ class RemoteWidget : AppWidgetProvider() {
 
     companion object {
         private const val EYLEM_KOMUT  = "com.evaitec.netmovies.tv.WIDGET_KOMUT"
+        private const val EYLEM_OYNAT  = "com.evaitec.netmovies.tv.WIDGET_OYNAT"
         private const val EYLEM_TAZELE = "com.evaitec.netmovies.tv.WIDGET_TAZELE"
         private const val EK_GOVDE     = "govde"
         private const val ALARM_KODU   = 4310
         private const val TAZELEME_MS  = 60_000L
+        private const val POSTER_GENISLIK = 220
 
         // Saatin yolladığı gövdelerin aynısı; sunucuda yeni bir dal açılmadı.
         private const val KOMUT_GERI  = """{"type":"transport","action":"seek","value":-30}"""
@@ -144,7 +177,19 @@ class RemoteWidget : AppWidgetProvider() {
         private const val KOMUT_OYNAT = """{"type":"transport","action":"play_pause","value":0}"""
         private const val KOMUT_EV    = """{"type":"nav","screen":"home"}"""
 
-        data class Durum(val baslik: String, val alt: String, val oynuyor: Boolean)
+        private val POSTER_ID = listOf(R.id.widget_poster1, R.id.widget_poster2, R.id.widget_poster3)
+
+        /** Şeritteki tek kart: küçültülmüş poster + televizyona yollanacak sorgu. */
+        data class Kart(val gorsel: Bitmap?, val sorgu: String)
+
+        data class Durum(
+            val baslik: String,
+            val alt: String,
+            val oynuyor: Boolean,
+            val devam: List<Kart> = emptyList(),
+        )
+
+        private fun tus(k: String) = """{"type":"key","key":"$k"}"""
 
         /**
          * Sunucu yanıtı -> ekrandaki üç alan. Ağdan ayrı ki test edilebilsin.
@@ -189,20 +234,111 @@ class RemoteWidget : AppWidgetProvider() {
             return if (sa > 0) "%d:%02d:%02d".format(sa, dk, sn) else "%d:%02d".format(dk, sn)
         }
 
-        private fun durumOku(context: Context): Durum = runCatching {
+        private fun durumOku(context: Context): Durum {
             ServerResolver.init(context)
-            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/remote/status")
-                .openConnection() as HttpURLConnection).apply {
+            val taban = runCatching { ServerResolver.activeBaseString() }.getOrNull()
+                ?: return durumdan(null)
+            val durum = durumdan(metinAl(taban + "/api/v1/remote/status"))
+            // Şerit ikinci bir istektir: durum gelmediyse sunucu zaten yok, deneme.
+            if (durum.alt == "sunucuya ulaşılamadı") return durum
+            return durum.copy(devam = devamKartlari(metinAl(taban + "/api/v1/continue_watching")))
+        }
+
+        /** `/api/v1/continue_watching` -> ilk üç kart (poster indirilmiş). */
+        internal fun devamSorgulari(govde: String?): List<String> {
+            val dizi = govde?.takeIf { it.isNotBlank() }?.let {
+                runCatching { Json.parseToJsonElement(it).jsonObject["result"]?.jsonArray }.getOrNull()
+            } ?: return emptyList()
+            return dizi.take(POSTER_ID.size).mapNotNull { oge ->
+                val o = runCatching { oge.jsonObject }.getOrNull() ?: return@mapNotNull null
+                val url = o.metin("content_url").orEmpty()
+                val plugin = o.metin("plugin").orEmpty()
+                if (url.isBlank() || plugin.isBlank()) return@mapNotNull null
+                // Saatin `gonder`i ile birebir aynı sorgu; episode=0 "kaldığı yerden".
+                "plugin=" + kacis(plugin) +
+                    "&url=" + kacis(url) +
+                    "&title=" + kacis(o.metin("title").orEmpty()) +
+                    "&poster=" + kacis(o.metin("poster").orEmpty()) +
+                    "&episode=0"
+            }
+        }
+
+        private fun devamKartlari(govde: String?): List<Kart> {
+            val posterler = posterAdresleri(govde)
+            return devamSorgulari(govde).mapIndexed { i, sorgu ->
+                Kart(posterler.getOrNull(i)?.let { gorselAl(it) }, sorgu)
+            }
+        }
+
+        private fun posterAdresleri(govde: String?): List<String> {
+            val dizi = govde?.takeIf { it.isNotBlank() }?.let {
+                runCatching { Json.parseToJsonElement(it).jsonObject["result"]?.jsonArray }.getOrNull()
+            } ?: return emptyList()
+            return dizi.take(POSTER_ID.size).mapNotNull {
+                runCatching { it.jsonObject.metin("poster") }.getOrNull()
+            }
+        }
+
+        private fun kacis(d: String): String = URLEncoder.encode(d, "UTF-8")
+
+        private fun metinAl(adres: String): String? = runCatching {
+            val conn = (URL(adres).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 4_000
-                readTimeout = 4_000
+                readTimeout = 5_000
             }
             try {
-                if (conn.responseCode !in 200..299) durumdan(null)
-                else durumdan(conn.inputStream.bufferedReader().readText())
+                if (conn.responseCode !in 200..299) null
+                else conn.inputStream.bufferedReader().readText()
             } finally {
                 conn.disconnect()
             }
-        }.getOrElse { durumdan(null) }
+        }.getOrNull()
+
+        /**
+         * Poster'i widget'a sığacak kadar küçük indirir. RemoteViews bir işlemde
+         * ~1 MB taşıyabiliyor: tam boy üç poster bu sınırı aşıp widget'ı hiç
+         * çizdirmezdi, o yüzden inSampleSize ile örnekleniyor.
+         */
+        private fun gorselAl(adres: String): Bitmap? = runCatching {
+            val conn = (URL(adres).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 4_000
+                readTimeout = 8_000
+            }
+            val ham = try {
+                if (conn.responseCode !in 200..299) return@runCatching null
+                conn.inputStream.readBytes()
+            } finally {
+                conn.disconnect()
+            }
+            val olcu = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(ham, 0, ham.size, olcu)
+            var ornek = 1
+            while (olcu.outWidth / ornek > POSTER_GENISLIK) ornek *= 2
+            BitmapFactory.decodeByteArray(
+                ham, 0, ham.size,
+                BitmapFactory.Options().apply {
+                    inSampleSize = ornek
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                },
+            )
+        }.getOrNull()
+
+        private fun oynat(context: Context, sorgu: String): Boolean = runCatching {
+            ServerResolver.init(context)
+            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/remote/play?" + sorgu)
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 4_000
+                readTimeout = 8_000
+            }
+            try {
+                conn.outputStream.close()
+                conn.responseCode in 200..299
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrDefault(false)
 
         private fun komutYolla(context: Context, govde: String): Boolean = runCatching {
             ServerResolver.init(context)

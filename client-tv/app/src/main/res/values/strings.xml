@@ -3,4 +3,5 @@
     <string name="app_name">NetMovies TV</string>
     <string name="widget_ad">NetMovies Kumanda</string>
     <string name="widget_aciklama">Uygulamayı açmadan televizyonu sür: sar, duraklat, ana ekran.</string>
+    <string name="widget_poster_aciklama">Devam ettiğin içerik</string>
 </resources>

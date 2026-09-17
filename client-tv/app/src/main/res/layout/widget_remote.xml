@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Ana ekran kumandası. Kare (2x2) ve geniş (4x2) hücrede aynı düzen esner:
-  üstte ne oynadığı, altta dört düğme eşit ağırlıkla. Vektör ikon yerine metin —
-  RemoteViews'ta tint edilemeyen drawable seti taşımaya değmez.
+  Ana ekran kumandası — saatteki pad'in telefon hâli: üstte ne oynadığı, sonra
+  Devam Et posterleri (dokun = televizyonda kaldığı yerden aç), sonra yön pad'i,
+  en altta sarma/duraklat.
+
+  Poster listesi RemoteViewsService/Factory DEĞİL, üç sabit ImageView: üç poster
+  için ayrı bir servis + adaptör taşımaya değmez, bitmap'ler doğrudan yazılıyor.
+  Vektör ikon yerine metin — RemoteViews'ta tint edilemeyen drawable seti gereksiz.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_zemin"
-    android:padding="12dp">
+    android:padding="10dp">
 
     <TextView
         android:id="@+id/widget_baslik"
@@ -18,7 +22,7 @@
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="#FFFFFFFF"
-        android:textSize="15sp"
+        android:textSize="14sp"
         android:textStyle="bold"
         android:text="Televizyon" />
 
@@ -29,37 +33,70 @@
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="#B3FFFFFF"
-        android:textSize="12sp"
-        android:paddingTop="2dp"
+        android:textSize="11sp"
         android:text="—" />
 
+    <!-- Devam Et şeridi. Poster yoksa gizlenir (setViewVisibility). -->
+    <LinearLayout
+        android:id="@+id/widget_posterler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.4"
+        android:orientation="horizontal"
+        android:paddingTop="6dp"
+        android:baselineAligned="false">
+
+        <ImageView
+            android:id="@+id/widget_poster1"
+            style="@style/NmWidgetPoster"
+            android:contentDescription="@string/widget_poster_aciklama" />
+
+        <ImageView
+            android:id="@+id/widget_poster2"
+            style="@style/NmWidgetPoster"
+            android:contentDescription="@string/widget_poster_aciklama" />
+
+        <ImageView
+            android:id="@+id/widget_poster3"
+            style="@style/NmWidgetPoster"
+            android:contentDescription="@string/widget_poster_aciklama" />
+    </LinearLayout>
+
+    <!-- Yön pad'i: saatteki gezinme. Orta düğme OK, sağ uçta GERİ. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:orientation="horizontal"
-        android:paddingTop="8dp"
-        android:gravity="center_vertical">
+        android:paddingTop="6dp">
 
+        <TextView android:id="@+id/widget_sol"   style="@style/NmWidgetDugme" android:text="◀" />
+        <TextView android:id="@+id/widget_yukari" style="@style/NmWidgetDugme" android:text="▲" />
         <TextView
-            android:id="@+id/widget_geri"
+            android:id="@+id/widget_ok"
             style="@style/NmWidgetDugme"
-            android:text="−30" />
+            android:background="@drawable/widget_dugme_vurgu"
+            android:text="OK" />
+        <TextView android:id="@+id/widget_asagi" style="@style/NmWidgetDugme" android:text="▼" />
+        <TextView android:id="@+id/widget_sag"   style="@style/NmWidgetDugme" android:text="▶" />
+        <TextView android:id="@+id/widget_geri_tus" style="@style/NmWidgetDugme" android:text="↩" />
+    </LinearLayout>
 
+    <!-- Sarma / duraklatma / ana ekran. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:paddingTop="4dp">
+
+        <TextView android:id="@+id/widget_geri"  style="@style/NmWidgetDugme" android:text="−30" />
         <TextView
             android:id="@+id/widget_oynat"
             style="@style/NmWidgetDugme"
             android:background="@drawable/widget_dugme_vurgu"
             android:text="▶" />
-
-        <TextView
-            android:id="@+id/widget_ileri"
-            style="@style/NmWidgetDugme"
-            android:text="+30" />
-
-        <TextView
-            android:id="@+id/widget_ev"
-            style="@style/NmWidgetDugme"
-            android:text="⌂" />
+        <TextView android:id="@+id/widget_ileri" style="@style/NmWidgetDugme" android:text="+30" />
+        <TextView android:id="@+id/widget_ev"    style="@style/NmWidgetDugme" android:text="⌂" />
     </LinearLayout>
 </LinearLayout>
