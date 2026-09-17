@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 17 Eylül 2026, 22:35
-**Dal:** `fix/general-stability` @ `b0826f6` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.4.7-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
-**Katalog:** `evaglass-releases/apps.json` @ `10ac21a` (push EDİLDİ) —
-netmovies-tv/phone **0.4.7 (vc 407)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
+**Son güncelleme:** 17 Eylül 2026, 22:50
+**Dal:** `fix/general-stability` @ `eb7576c` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.4.8-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
+**Katalog:** `evaglass-releases/apps.json` @ `d2cc611` (push EDİLDİ) —
+netmovies-tv/phone **0.4.8 (vc 408)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
 evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut ile doğrulandı.
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
@@ -99,6 +99,30 @@ boş dönen tarama 5 dk hatırlanır, yoksa her istek 254 sokete çıkıp açıl
 3. **`sha256sum "$TEMP/..."` çıktının başına `\` koyuyor** (Windows yolu kaçışı) ve
    `apps.json`'a bozuk sha yazdırır. `sha256sum < dosya` kullan. Katalog yazıldıktan
    sonra APK'yı GitHub'dan İNDİRİP sha256+boyut karşılaştır — katalog kaydına güvenme.
+
+## SIRADAKİ İŞ #2 — Dean'in 17 Eylül gece listesinden KALANLAR
+
+Fotoğraflarla geldi; üçü 0.4.8'de kapandı (sol üst bölüm şeridi, çubukta önceki/
+sonraki bölüm, Kitaplık en üstte). Kalan üçü açık:
+
+1. **Favoriden açınca 1. bölüm başlıyor.** Dean: "favoriden açtım bir bölüm başladı,
+   1. Bölüm yazıyor". Devam Et kaldığı bölümden açıyor, favori kartı açmıyor gibi
+   duruyor. KANITSIZ — `library.loadProgress` çağrısının favori yolunda okunup
+   okunmadığı izlenmedi. Önce kaydın var olup olmadığına bak
+   (`curl -s localhost:3310/api/v1/continue_watching`), sonra `HomeScreen` favori
+   kartının `onPlay`ine.
+2. **Sezon/bölüm ekranı kocaman.** Bölüm SATIRLARI 0.4.0'da sıkıştı (12→7dp) ama
+   fotoğraftaki **sezon** satırları hâlâ dev ve ekranı kaplıyor. `EpisodePicker.kt`
+   `Satir` sezon sayfasında da kullanılıyor; sezon listesi için ayrı, kısa bir düzen
+   ya da ızgara gerekiyor.
+3. **Ayarlar YouTube gibi olsun.** Hız ve dil her biri ayrı satır; Dean yatay buton
+   grubu istiyor. Engel: panel `NmDim.PanelWidth` ile dar, altı hız yan yana sığmaz.
+   Ya panel genişler ya da "Hız ▸ 1.25x" satırına basınca yatay seçenek şeridi açılır.
+   Tasarım kararı Dean'e soruldu, cevap bekliyor.
+
+**Ayrıca gözlenen, sorulmamış:** "Sağlayıcı & Kaynak" listesinde beş kaydın beşi de
+"dil bilinmiyor" diyor ve ikisi yinelenmiş (DiziPal ×2, Dizilla ×2) — dil etiketi
+hiç dolmuyor gibi. Fotoğraf kanıtı var, koda bakılmadı.
 
 ## Saat için dört yön sunuldu, seçim bekliyor
 
