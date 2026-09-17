@@ -76,8 +76,21 @@ class RemoteWidget : AppWidgetProvider() {
                 secimYaz(context, yeni.coerceAtLeast(0))
                 thread(isDaemon = true) { hepsiniTazele(context) }
             }
-            EYLEM_TAZELE -> thread(isDaemon = true) { hepsiniTazele(context) }
+            EYLEM_TAZELE -> thread(isDaemon = true) {
+                // Dakikalık alarm yayı bir adım ilerletir: posterler kendiliğinden
+                // geziyor, widget'a bakan her seferinde başka bir içerik görüyor.
+                // Elle kaydırma bunu ezmez — sıradaki adım oradan devam eder.
+                if (intent.getBooleanExtra(EK_OTOMATIK, false)) ilerlet(context)
+                hepsiniTazele(context)
+            }
         }
+    }
+
+    /** Yayı bir kart ilerletir; sona gelince başa döner. */
+    private fun ilerlet(context: Context) {
+        val adet = kartAdedi(context)
+        if (adet <= 1) return
+        secimYaz(context, (secim(context) + 1) % adet)
     }
 
     private fun hepsiniTazele(context: Context) {
@@ -186,7 +199,9 @@ class RemoteWidget : AppWidgetProvider() {
         val pi = PendingIntent.getBroadcast(
             context,
             ALARM_KODU,
-            Intent(context, RemoteWidget::class.java).setAction(EYLEM_TAZELE),
+            Intent(context, RemoteWidget::class.java)
+                .setAction(EYLEM_TAZELE)
+                .putExtra(EK_OTOMATIK, true),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return am to pi
@@ -198,6 +213,8 @@ class RemoteWidget : AppWidgetProvider() {
         private const val EYLEM_KAY    = "com.evaitec.netmovies.tv.WIDGET_KAY"
         private const val EYLEM_TAZELE = "com.evaitec.netmovies.tv.WIDGET_TAZELE"
         private const val EK_GOVDE     = "govde"
+        private const val EK_OTOMATIK  = "otomatik"
+        private const val ANAHTAR_ADET = "yay_adet"
         private const val ALARM_KODU   = 4310
         private const val TAZELEME_MS  = 60_000L
         private const val POSTER_GENISLIK = 220
@@ -221,6 +238,15 @@ class RemoteWidget : AppWidgetProvider() {
         /** Yayın ortasındaki kart — widget yeniden çizilse de yerinde kalsın diye diskte. */
         private fun secim(context: Context): Int =
             context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getInt(ANAHTAR_SECIM, 0)
+
+        /** Son çizimdeki kart sayısı — ilerletme ağa çıkmadan sınırını bilsin. */
+        private fun kartAdedi(context: Context): Int =
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getInt(ANAHTAR_ADET, 0)
+
+        private fun kartAdediYaz(context: Context, adet: Int) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .edit().putInt(ANAHTAR_ADET, adet).apply()
+        }
 
         private fun secimYaz(context: Context, deger: Int) {
             context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -319,6 +345,7 @@ class RemoteWidget : AppWidgetProvider() {
             if (orta != secim(context)) secimYaz(context, orta)
             // Yalnız yayda görünen gözlerin görseli indirilir: on iki posteri çözmek
             // her tazelemeyi gereksiz yere uzatıyordu.
+            kartAdediYaz(context, sorgular.size)
             val gorunur = (orta - MERKEZ)..(orta + MERKEZ)
             return sorgular.mapIndexed { i, sorgu ->
                 val gorsel = if (i in gorunur) posterler.getOrNull(i)?.let { gorselAl(context, it) } else null
