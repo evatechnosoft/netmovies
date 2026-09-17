@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -494,6 +496,24 @@ private fun PosterCard(
     }
 }
 
+/**
+ * Menüdeki kaynak yoklamasının hâli. Oynat satırının sonuna yazılır ki basmadan
+ * önce çalışıp çalışmayacağı görünsün.
+ */
+private sealed interface Yoklama {
+    object Baslamadi : Yoklama
+    object Suruyor : Yoklama
+    data class Bulundu(val adet: Int) : Yoklama
+    object Yok : Yoklama
+
+    fun kuyruk(): String = when (this) {
+        Baslamadi     -> ""
+        Suruyor       -> "   ·  kaynak yoklanıyor…"
+        is Bulundu    -> "   ·  $adet kaynak ✓"
+        Yok           -> "   ·  kaynak bulunamadı"
+    }
+}
+
 // Poster uzun-bas menüsü — sayfa açmadan hızlı aksiyonlar.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -513,10 +533,43 @@ private fun PosterMenu(
         bolumler = runCatching { Network.api.loadItem(item.plugin, item.url).result?.episodes.orEmpty() }
             .getOrDefault(emptyList())
     }
+    // Seçilen bölüm ve onun kaynak yoklaması. Bölüm seçince DOĞRUDAN oynatmak,
+    // kaynak yoksa oynatıcıyı açıp kapatıyordu — izleyen "bir şey oldu, kapandı"
+    // görüyordu (Dean, 17 Eylül). Artık seçim menüye döner, kaynak telefonda
+    // yoklanır ve sonuç Oynat satırında yazılı durur.
+    var secilenBolum by remember(item.url) { mutableStateOf<Int?>(null) }
+    var yoklama by remember(item.url) { mutableStateOf<Yoklama>(Yoklama.Baslamadi) }
+
+    LaunchedEffect(item.url, secilenBolum, bolumler.size) {
+        // Dizide bölüm seçilmeden yoklama yapılmaz: hangi bölümün kaynağına
+        // bakılacağı belli değil, boşuna zincir taraması olur.
+        if (bolumler.isNotEmpty() && secilenBolum == null) {
+            yoklama = Yoklama.Baslamadi
+            return@LaunchedEffect
+        }
+        yoklama = Yoklama.Suruyor
+        yoklama = runCatching {
+            val yanit = Network.api.resolveSources(
+                plugin = item.plugin,
+                encodedUrl = item.url,
+                title = item.title,
+                episode = secilenBolum?.let { it + 1 } ?: 0,
+                mode = "fast",
+            )
+            yanit.result?.sources?.size ?: 0
+        }.fold(
+            onSuccess = { if (it > 0) Yoklama.Bulundu(it) else Yoklama.Yok },
+            onFailure = { Yoklama.Yok },
+        )
+    }
+
     if (bolumSeciyor) {
         EpisodePickerModal(
             episodes = bolumler,
-            onPick = onPlayEpisode,
+            onPick = { idx ->
+                secilenBolum = idx
+                bolumSeciyor = false
+            },
             onClose = { bolumSeciyor = false },
         )
         return
@@ -532,9 +585,20 @@ private fun PosterMenu(
             (liste.turkish + liste.foreign).any { it.title.equals(item.title.orEmpty(), ignoreCase = true) }
         }.getOrNull()
     }
+    val bolumEtiketi = secilenBolum?.let { i ->
+        bolumler.getOrNull(i)?.let { " — S${it.season}B${it.episode ?: (i + 1)}" } ?: ""
+    } ?: ""
+
     ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
-        MenuRow("▶  Oynat", onPlay)
-        if (bolumler.isNotEmpty()) MenuRow("📑  Bölüm seç (${bolumler.size})") { bolumSeciyor = true }
+        MenuRow("▶  Oynat$bolumEtiketi${yoklama.kuyruk()}") {
+            secilenBolum?.let(onPlayEpisode) ?: onPlay()
+        }
+        if (bolumler.isNotEmpty()) {
+            MenuRow(
+                if (secilenBolum == null) "📑  Bölüm seç (${bolumler.size})"
+                else "📑  Başka bölüm (${bolumler.size})",
+            ) { bolumSeciyor = true }
+        }
         MenuRow(if (isFavorite) "★  Favoride ✓ — çıkar" else "☆  Favorilere ekle", onToggleFavorite)
         MenuRow(
             when (takipte) {
@@ -612,7 +676,11 @@ private fun ModalCard(title: String, onClose: () -> Unit, content: @Composable (
         Column(
             modifier = Modifier
                 .width(NmDim.DialogWidth * 0.72f)
-                .fillMaxHeight()
+                // Kutu ekranin tamamini kapliyordu: dort satirlik menu icin bos bir
+                // sutun uzayip gidiyordu (Dean, 17 Eylul: "cok uzun bir liste fakat
+                // ici bos"). Yukseklik icerik kadar, uzun listede kaydirmaya duser.
+                .wrapContentHeight()
+                .heightIn(max = 520.dp)
                 .verticalScroll(rememberScrollState())
                 .clip(shape)
                 .background(NmColor.SurfaceDialog)
