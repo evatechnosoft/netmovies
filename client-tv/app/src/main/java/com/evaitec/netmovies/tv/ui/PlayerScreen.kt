@@ -1594,6 +1594,11 @@ fun PlayerScreen(
                     secilenSezon = null
                     showStartPanel = true
                 },
+                onSelectEpisode = { idx ->
+                    showSettings = false
+                    panelGeriGelsin = false
+                    goToEpisode(idx)
+                },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
                         .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(trackIndex)))
@@ -2287,6 +2292,8 @@ private fun SettingsPanel(
     onToggleFavorite: () -> Unit,
     onSelectSource: (Int) -> Unit,
     onOpenEpisodes: () -> Unit = {},
+    /** Panel içinden bölüm seçildi (tam ekran listeye gitmeden). */
+    onSelectEpisode: (Int) -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
     onSelectSubtitle: (Tracks.Group?, Int) -> Unit,
     qualityAuto: Boolean,
@@ -2317,6 +2324,9 @@ private fun SettingsPanel(
     // Artik ustte ikon seridi var, icerik yalniz secili ikonunki (Dean, 17 Eylul:
     // "acilir secenek sadece ikon olsun, buton icinde gezinir seceriz").
     var sekme by remember { mutableStateOf(0) }
+    // Bölüm/sezon listesi panelin İÇİNDE: tam ekran modal koca bir liste açıp
+    // izlenen sahneyi kapatıyordu (Dean, 17 Eylül: "o da koca ekranda olmasın").
+    var panelSezon by remember { mutableStateOf<Int?>(null) }
     val kaynakListFocus = remember { FocusRequester() }
     val kaynakOzet = links.getOrNull(currentLinkIndex)?.let { languageLabel(it) } ?: "—"
 
@@ -2403,12 +2413,31 @@ private fun SettingsPanel(
                         )
 
                         "Bölümler" -> {
-                            val simdiki = episodes.getOrNull(currentEpIndex)
-                                ?.let { episodeLabel(it, currentEpIndex) }
-                            SettingRow(
-                                "Sezon · bölüm seç" + (simdiki?.let { " — şu an " + it } ?: ""),
-                                false,
-                            ) { onOpenEpisodes() }
+                            val sezonlar = remember(episodes) {
+                                episodes.map { it.season }.distinct().sorted()
+                            }
+                            val simdikiSezon = episodes.getOrNull(currentEpIndex)?.season
+                            val acikSezon = panelSezon ?: simdikiSezon ?: sezonlar.firstOrNull()
+
+                            // Tek sezonluk dizide sezon satırı fazlalık; çok sezonluda
+                            // sezonlar tek satıra sığan kısa bir şerit olur.
+                            if (sezonlar.size > 1) {
+                                sezonlar.forEach { sz ->
+                                    SettingRow("Sezon " + sz, sz == acikSezon) { panelSezon = sz }
+                                }
+                            }
+
+                            val liste = episodes.withIndex().filter { it.value.season == acikSezon }
+                            if (liste.isEmpty()) MutedRow("Bu sezonda bölüm yok")
+                            liste.forEach { (idx, ep) ->
+                                SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) {
+                                    onSelectEpisode(idx)
+                                }
+                            }
+
+                            // Tam ekran liste hâlâ duruyor: uzun dizide poster/özet
+                            // görmek isteyen oraya geçer.
+                            SettingRow("⛶ Tam ekran bölüm listesi", false) { onOpenEpisodes() }
                         }
 
                         // Kaynak listesinin tamamı ayrı sayfada: burada yalnız hangisi
