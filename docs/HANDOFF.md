@@ -7,11 +7,11 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 17 Eylül 2026, 22:50
-**Dal:** `fix/general-stability` @ `eb7576c` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.4.8-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
-**Katalog:** `evaglass-releases/apps.json` @ `d2cc611` (push EDİLDİ) —
-netmovies-tv/phone **0.4.8 (vc 408)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
+**Son güncelleme:** 17 Eylül 2026, 22:55
+**Dal:** `fix/general-stability` @ `e06b870` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.4.9-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
+**Katalog:** `evaglass-releases/apps.json` @ `8985a92` (push EDİLDİ) —
+netmovies-tv/phone **0.4.9 (vc 409)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
 evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut ile doğrulandı.
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
@@ -115,10 +115,12 @@ sonraki bölüm, Kitaplık en üstte). Kalan üçü açık:
    fotoğraftaki **sezon** satırları hâlâ dev ve ekranı kaplıyor. `EpisodePicker.kt`
    `Satir` sezon sayfasında da kullanılıyor; sezon listesi için ayrı, kısa bir düzen
    ya da ızgara gerekiyor.
-3. **Ayarlar YouTube gibi olsun.** Hız ve dil her biri ayrı satır; Dean yatay buton
-   grubu istiyor. Engel: panel `NmDim.PanelWidth` ile dar, altı hız yan yana sığmaz.
-   Ya panel genişler ya da "Hız ▸ 1.25x" satırına basınca yatay seçenek şeridi açılır.
-   Tasarım kararı Dean'e soruldu, cevap bekliyor.
+3. ~~Ayarlar YouTube gibi olsun~~ → **0.4.9'da yapıldı.** Dean seçti: "açılır seçenek
+   sadece ikon olsun, buton içinde gezinir seçeriz". Üstte altı ikon
+   (⭐ Kitaplık · 📑 Bölümler · 📺 Kaynak · 🔊 Ses & Altyazı · ⚡ Hız & Kalite ·
+   🛠 Araçlar), altında yalnız seçili olanın seçenekleri. İkonda ODAK gezinmek
+   sekmeyi değiştiriyor (OK gerekmiyor). Bölümler sekmesi yalnız dizide çıkar.
+   Cihazda görülmedi.
 
 **Ayrıca gözlenen, sorulmamış:** "Sağlayıcı & Kaynak" listesinde beş kaydın beşi de
 "dil bilinmiyor" diyor ve ikisi yinelenmiş (DiziPal ×2, Dizilla ×2) — dil etiketi
