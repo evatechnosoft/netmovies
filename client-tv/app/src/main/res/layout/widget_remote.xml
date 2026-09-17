@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Ana ekran kumandası — saatteki pad'in telefon hâli: üstte ne oynadığı, sonra
-  Devam Et posterleri (dokun = televizyonda kaldığı yerden aç), sonra yön pad'i,
-  en altta sarma/duraklat.
+  Ana ekran kumandası — saat ekranındaki pad'in telefon hâli.
 
-  Poster listesi RemoteViewsService/Factory DEĞİL, üç sabit ImageView: üç poster
-  için ayrı bir servis + adaptör taşımaya değmez, bitmap'ler doğrudan yazılıyor.
-  Vektör ikon yerine metin — RemoteViews'ta tint edilemeyen drawable seti gereksiz.
+  Yön tuşları ARTI düzeninde: tek sıraya dizilmiş ◀▲OK▼▶ kumanda gibi durmuyordu
+  (Dean, 17 Eylül: "o tuşlar ne öyle"). Orta sütun yukarı/OK/aşağı, yanlar sol/sağ;
+  alt köşelerde geri ve ana ekran — parmak pad'in üstünde kalır, adım adım gezinir.
+
+  Poster listesi RemoteViewsService/Factory DEĞİL, üç sabit ImageView: üç görsel
+  için ayrı servis + adaptör taşımaya değmez.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -36,12 +37,12 @@
         android:textSize="11sp"
         android:text="—" />
 
-    <!-- Devam Et şeridi. Poster yoksa gizlenir (setViewVisibility). -->
+    <!-- Devam Et şeridi. Şerit boşsa gizlenir (setViewVisibility). -->
     <LinearLayout
         android:id="@+id/widget_posterler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.4"
+        android:layout_weight="1.3"
         android:orientation="horizontal"
         android:paddingTop="6dp"
         android:baselineAligned="false">
@@ -62,7 +63,53 @@
             android:contentDescription="@string/widget_poster_aciklama" />
     </LinearLayout>
 
-    <!-- Yön pad'i: saatteki gezinme. Orta düğme OK, sağ uçta GERİ. -->
+    <!-- Yön pad'i: artı. Üç satır, orta sütun ▲ OK ▼. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3"
+        android:orientation="vertical"
+        android:paddingTop="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+            <TextView android:id="@+id/widget_yukari" style="@style/NmWidgetPad" android:text="▲" />
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/widget_sol" style="@style/NmWidgetPad" android:text="◀" />
+            <TextView
+                android:id="@+id/widget_ok"
+                style="@style/NmWidgetPad"
+                android:background="@drawable/widget_dugme_vurgu"
+                android:text="OK" />
+            <TextView android:id="@+id/widget_sag" style="@style/NmWidgetPad" android:text="▶" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/widget_geri_tus" style="@style/NmWidgetPad" android:text="↩" />
+            <TextView android:id="@+id/widget_asagi" style="@style/NmWidgetPad" android:text="▼" />
+            <TextView android:id="@+id/widget_ev" style="@style/NmWidgetPad" android:text="⌂" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Sarma / duraklatma. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -70,33 +117,12 @@
         android:orientation="horizontal"
         android:paddingTop="6dp">
 
-        <TextView android:id="@+id/widget_sol"   style="@style/NmWidgetDugme" android:text="◀" />
-        <TextView android:id="@+id/widget_yukari" style="@style/NmWidgetDugme" android:text="▲" />
-        <TextView
-            android:id="@+id/widget_ok"
-            style="@style/NmWidgetDugme"
-            android:background="@drawable/widget_dugme_vurgu"
-            android:text="OK" />
-        <TextView android:id="@+id/widget_asagi" style="@style/NmWidgetDugme" android:text="▼" />
-        <TextView android:id="@+id/widget_sag"   style="@style/NmWidgetDugme" android:text="▶" />
-        <TextView android:id="@+id/widget_geri_tus" style="@style/NmWidgetDugme" android:text="↩" />
-    </LinearLayout>
-
-    <!-- Sarma / duraklatma / ana ekran. -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal"
-        android:paddingTop="4dp">
-
-        <TextView android:id="@+id/widget_geri"  style="@style/NmWidgetDugme" android:text="−30" />
+        <TextView android:id="@+id/widget_geri" style="@style/NmWidgetDugme" android:text="−30" />
         <TextView
             android:id="@+id/widget_oynat"
             style="@style/NmWidgetDugme"
             android:background="@drawable/widget_dugme_vurgu"
             android:text="▶" />
         <TextView android:id="@+id/widget_ileri" style="@style/NmWidgetDugme" android:text="+30" />
-        <TextView android:id="@+id/widget_ev"    style="@style/NmWidgetDugme" android:text="⌂" />
     </LinearLayout>
 </LinearLayout>

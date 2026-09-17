@@ -21,6 +21,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -241,7 +242,7 @@ class RemoteWidget : AppWidgetProvider() {
             val durum = durumdan(metinAl(taban + "/api/v1/remote/status"))
             // Şerit ikinci bir istektir: durum gelmediyse sunucu zaten yok, deneme.
             if (durum.alt == "sunucuya ulaşılamadı") return durum
-            return durum.copy(devam = devamKartlari(metinAl(taban + "/api/v1/continue_watching")))
+            return durum.copy(devam = devamKartlari(context, metinAl(taban + "/api/v1/continue_watching")))
         }
 
         /** `/api/v1/continue_watching` -> ilk üç kart (poster indirilmiş). */
@@ -263,10 +264,10 @@ class RemoteWidget : AppWidgetProvider() {
             }
         }
 
-        private fun devamKartlari(govde: String?): List<Kart> {
+        private fun devamKartlari(context: Context, govde: String?): List<Kart> {
             val posterler = posterAdresleri(govde)
             return devamSorgulari(govde).mapIndexed { i, sorgu ->
-                Kart(posterler.getOrNull(i)?.let { gorselAl(it) }, sorgu)
+                Kart(posterler.getOrNull(i)?.let { gorselAl(context, it) }, sorgu)
             }
         }
 
@@ -299,7 +300,28 @@ class RemoteWidget : AppWidgetProvider() {
          * ~1 MB taşıyabiliyor: tam boy üç poster bu sınırı aşıp widget'ı hiç
          * çizdirmezdi, o yüzden inSampleSize ile örnekleniyor.
          */
-        private fun gorselAl(adres: String): Bitmap? = runCatching {
+        private fun gorselAl(context: Context, adres: String): Bitmap? {
+            // Önbellek: widget her tazelemede posteri yeniden indiriyordu, ilk çizim
+            // boş kalıp poster saniyeler sonra düşüyordu (Dean, 17 Eylül: "poster geç
+            // geldi"). Küçültülmüş hâli diske yazılır, sonraki çizim anında dolu gelir.
+            val kap = File(context.cacheDir, "widget-poster").apply { mkdirs() }
+            val dosya = File(kap, adres.hashCode().toUInt().toString(16) + ".png")
+            if (dosya.exists()) {
+                BitmapFactory.decodeFile(dosya.path)?.let { return it }
+                dosya.delete()
+            }
+            val bitmap = indir(adres) ?: return null
+            runCatching {
+                dosya.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            // Şerit üç posterlik: eski içerikler birikmesin.
+            runCatching {
+                kap.listFiles()?.sortedByDescending { it.lastModified() }?.drop(6)?.forEach { it.delete() }
+            }
+            return bitmap
+        }
+
+        private fun indir(adres: String): Bitmap? = runCatching {
             val conn = (URL(adres).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 4_000
                 readTimeout = 8_000
