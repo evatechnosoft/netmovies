@@ -7,162 +7,117 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 17 Eylül 2026, 10:40
-**Dal:** `fix/general-stability` @ `ee01313` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.3.9-poc` · saat `v0.1.10-poc`
-**Katalog:** `evaglass-releases/apps.json` @ `1202dec` (push EDİLDİ) —
-netmovies-tv/phone **0.3.9 (vc 309)** · netmovies-mini-watch **0.1.10 (vc 110)**, ikisi de CANLI
+**Son güncelleme:** 17 Eylül 2026, 22:35
+**Dal:** `fix/general-stability` @ `b0826f6` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.4.7-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
+**Katalog:** `evaglass-releases/apps.json` @ `10ac21a` (push EDİLDİ) —
+netmovies-tv/phone **0.4.7 (vc 407)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
+evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut ile doğrulandı.
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
-> **Yayın kuralı DEĞİŞTİ** (Dean, 15 Eylül): "Yayınla sorma artık bitince geliştirme
-> yayınla." Kanıt yeşilse sürüm artırılır ve üç dağıtım yeri birden güncellenir —
-> yerel OTA (`/data/apk`), GitHub release (`--target main`), `apps.json`. Onay sorulmaz,
-> ne yayınlandığı söylenir. Eski "cihazda denenmemiş sürüm OTA'ya konmaz" kuralı KALKTI.
-> Hafıza: `memory/yayinlamak-icin-sorma.md`.
+> **Yayın kuralı** (Dean, 15 Eylül): "Yayınla sorma artık bitince geliştirme yayınla."
+> Kanıt yeşilse sürüm artırılır ve üç dağıtım yeri birden güncellenir — yerel OTA
+> (`/data/apk`), GitHub release (`--target main`), `apps.json`. Onay sorulmaz, ne
+> yayınlandığı söylenir. Hafıza: `memory/yayinlamak-icin-sorma.md`.
 
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: 2802f4d
+git rev-parse --short HEAD                  # beklenen: b0826f6
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
-MSYS_NO_PATHCONV=1 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
-                                            # beklenen: Ran 132 · OK
-MSYS_NO_PATHCONV=1 docker exec netmovies-engine sh -c 'cd /usr/src/KekikStreamAPI && PYTHONPATH=. python -m unittest discover -s tests'
-                                            # beklenen: Ran 40 · OK
-curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: tag v0.3.8-poc
-curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: tag v0.1.8-poc
-curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health   # beklenen: 200
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: v0.4.7-poc
+curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: v0.1.13-poc
+curl -s -o /dev/null -w "%{http_code}
+" https://w.evaitec.com/api/v1/health   # 200
 ```
-`2802f4d` bulunamıyorsa dal ilerlemiş: `git log fe0b39f..HEAD --oneline`.
-**Tünel 530 dönüyorsa** `docker compose --profile tunnel up -d` — `cloudflared` ağ ad
-alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor. Saat tünele
-düştüğünde bu doğrudan "saat çalışmıyor" demek.
 
-## SIRADAKİ İŞ #1 — saat 0.1.5'i ADB ile kur, TV 0.3.4'ü dene
+## SIRADAKİ İŞ #1 — saati 0.1.4'ten kurtar (SIRA ÖNEMLİ)
 
-> **TAVUK-YUMURTA — saat.** Bilekte 0.1.4 kurulu ve onda OTA YOK. evaitecOTA
-> bileklikte APK kuramıyor (Dean: "kuramıyor"), bu yüzden 0.1.5'i ilk kez koymanın
-> tek yolu ADB. 0.1.5 kurulduktan SONRA güncellemeler uygulama içinden gelir.
-> Betik hazır — ağı tarar, bulduğu saate en yeni APK'yı kurar:
-> ```bash
-> bash scripts/saat-kur.sh            # ya da: bash scripts/saat-kur.sh <saat-ip>
-> ```
-> **16 Eylül 18:00 denemesi: SAAT BULUNAMADI** — bilekte "Wi-Fi üzerinden hata
-> ayıklama" kapalı. Saatte: Ayarlar → Sistem → Hakkında → Sürüm numarasına 7 kez
-> dokun → Geliştirici seçenekleri → ADB hata ayıklama AÇIK + Wi-Fi üzerinden hata
-> ayıklama AÇIK (ekranda IP yazar). Makine ağı `192.168.1.x`.
->
-> **evaitecOTA "abort" DÜZELTİLDİ — saat 0.1.9** (`evaitec-appkit` @ `f72b94a`,
-> katalog `167797d`, `evaitec-ota-wear` vc 5). Üç gerçek boşluk vardı:
-> 1. `InstallResultReceiver` başarı/hata dışındaki her durumu YUTUYORDU
->    ("sistem zaten gösterir" varsayımı — saatte sistem bildirimi görünmüyor).
->    Sonuç artık `InstallOutcome`a yazılıyor, `OtaWearActivity.onResume` banner'da
->    gösteriyor: "iptal edildi", "imza farklı", "yer yok", "APK geçersiz".
-> 2. Yarım oturum sızıntısı: hata yolunda `abandonSession` yoktu; aynı pakete açık
->    oturum varken yeni kurulum iptal ediliyor. Artık `mySessions` temizleniyor.
-> 3. `setSize` / `setAppPackageName` / `setInstallReason` eksikti; receiver'daki
->    `startActivity` korumasızdı (Android 10+ arka plan kısıtı sessizce düşürüyor).
->
-> Release APK imzası yayındaki 0.1.8 ile AYNI (`c910bfa7…`) — güncelleme imza
-> çatışmasına düşmez. **Saatteki evaitecOTA 0.1.8 önce KENDİNİ 0.1.9'a güncellemeli**
-> (kendi paketi, aynı imza — en kolay yol), sonra NetMovies Mini'yi kurabilir.
-> Olmazsa ADB: `APK=<yol> bash scripts/saat-kur.sh`.
->
-> **evaitecOTA saat 0.1.10** (vc 6, katalog canlı): saat "bağlanamadı" diyordu ama
-> katalog ayakta (GitHub Pages 200, 0.30 sn). Sorun taşıyıcıda: Wear OS telefona
-> bağlıyken Wi-Fi'yi kapatıp Bluetooth vekili üzerinden çıkıyor, sürecin varsayılan
-> ağı "yok" olabiliyor. `load()` artık `requestNetwork` + `bindProcessToNetwork`
-> yapıyor; ağ gelmezse ekran "Internet yok - saati kablosuz ağa bağla" yazıyor.
-> `ACCESS_NETWORK_STATE` izni eklendi.
->
-> **evaitecOTA TV 0.1.12** (vc 13): ızgara düzen, kart içi düğmeler kalktı, accent
-> yalnız iş bekleyen kartta. Detay: `.claude/handoffs/latest.md`.
+Bilekte hâlâ **0.1.4** kurulu. Bugünkü saat işlerinin hiçbiri cihazda denenmedi.
 
-**0.1.5 = kendi kendini güncelleme + yuvarlak liste.** APK ev sunucusundan
-`/api/v1/app_update?target=wear` ile iner, PackageInstaller oturumuyla kurulur
-(aracı uygulama yok). Ana ekranda yeni sürüm varsa `⬆ 0.1.6 güncelle` şeridi
-çıkar; kurulum izni yoksa ilk dokunuş izin ekranını açar, ikinci dokunuş kurar.
-Listeler `ScalingLazyColumn` oldu: satırlar kadranın kavisinde kesilmiyor, döner
-çerçeve listeyi kaydırıyor (ana ekranda halka hâlâ sarma/ses).
-Kod: `wear/.../Guncelleme.kt` · `Network.kt` `Sunucu.indir` · `MainActivity.kt`
-`HalkaListesi`.
+1. Saatte **evaitecOTA'yı 0.1.11'e** güncelle (345 KB, saniyeler sürer).
+2. Sonra **NetMovies Mini 0.1.13**'ü kur (22,2 MB).
 
-**0.3.5 = ajanda üç adım.** Geçmiş günler ana listeyi kirletiyordu → üçüncü düğme
-`Geçmiş`. Veri tek turdan gelir, adım yalnız süzer (`AjandaAdimi` enum'u,
-`AgendaScreen.kt`). Poster 130dp → 110dp (`NmDim.AgendaPoster`).
+Ters sırada yapılırsa 22 MB'ı hâlâ eski yükleyici indirir ve aynı duvara çarpar.
 
-## TV 0.3.5 ve saat 0.1.5'i cihazda dene
+**Neden bu sıra — çözülen hata:** saat ekranında `Hata: Software caused connection
+abort` çıkıyordu, indirme yavaş sayıp yarıda patlıyordu. evaitecOTA APK'yı tek parça
+belleğe indiriyordu, indirme sırasında **hiçbir kilit yoktu** ve kopunca baştan
+başlıyordu; ekran kapanınca Wear OS Wi-Fi radyosunu ve CPU'yu uyutup soketi düşürüyordu.
+`appkit` @ `c3b3a95`: `WifiLock(FULL_HIGH_PERF)` + `PARTIAL_WAKE_LOCK` indirme boyunca
+tutuluyor, kopan indirme 4 kez `Range: bytes=<kalınan>-` ile sürüyor, sunucu Range'i yok
+sayarsa (200) tampon sıfırlanıyor ki yarım gövde kuruluma gitmesin.
 
-İkisi de yayında ama **hiçbiri cihazda görülmedi**. Sunucu tarafı kanıtlı, ekran değil.
+## Bugün yayınlananlar (17 Eylül) — hiçbiri cihazda görülmedi
 
-**0.3.2 = sarma motoru** (Dean 16 Eylül sabah: "basılı tutunca 8/10/30 atlama durmuyor,
-basmadan da ilerlemiyor, bıraktığım yerde devam etsin, OK ile orada durayım"):
-- Basışlar hedefte birikir, sağ altta `+2dk 30sn → 1:12:40`, son basıştan 350 ms sonra TEK seek.
-- SAĞ'a 3 kez bas → +30 sn tek atlama (çift basış = 1 dk varsayılanı KALKTI, tek basış anında).
-- SAĞ basılı tut → 10 sn adım, 1.5 sn sonra 30 sn, 4 sn sonra 1 dk; bırakınca hedefte oynar,
-  fazladan 10 sn eklenmez. Sarma sürerken OK → hedefe hemen gider, DURAKLATMAZ.
-- Kumandanın ⏪⏩ tuşları aynı motor. Bardaki −30/+30 de birikir.
-Kod: `PlayerScreen.kt` `seekBy/seekHold/commitSeek` · `RemoteInput.kt` `onHold` + `longFired=true`.
+Tek istisna: **telefon widget'ında play/pause çalıştı** (Dean doğruladı). Gerisi sunucu,
+test ve derleme kanıtına dayanıyor.
 
-**0.3.3 = bölüm kimliği + teşhis kancası.** İzleme kaydının `episode` sütununa
-liste İNDEKSİ yazılıyordu; Dizilla'nın sızıntılı listesinde 123. sıra kaydedilmiş,
-liste 32'ye düzelince panel "Devam et — 123. bölüm" yazmıştı. Artık "S4B8" yazılır
-ve listede sezon+bölüm ile aranır (web'in "S4 E8" biçimi de okunur). Sınır dışına
-taşan eski indeks kaydı bölüm etiketi GÖSTERMEZ. Kod: `Library.kt` `episodeRef` /
-`episodeIndexOf` · test `EpisodeRefTest`.
-Oynatma günlüğü ilk gönderimi 6 sn'ye indi ve ekran kapanırken son bir gönderim
-yapıyor — 30 sn dolmadan içerik değişince günlük hiç gitmiyordu, `client_log`
-bu yüzden boştu. Açılış sebebi de yazılıyor (`uzak komut / onay` ya da
-`kullanıcı seçimi`).
+**Telefon ana ekranı kumanda widget'i** (`RemoteWidget`, TV 0.4.1 → 0.4.7). Uygulamayı
+açmadan TV'yi sürer. Saatteki kumandayla AYNI sunucu sözleşmesi, yeni uç yazılmadı:
+`GET /api/v1/remote/status` · `POST /api/v1/remote/command` · `POST /api/v1/remote/play?…`
+· `POST /api/v1/voice`. Compose değil **RemoteViews** (ana ekran ayrı süreçte çizilir).
+- Kendiliğinden gezen **poster yayı**: merkez tam boy ve seçili, komşular %75 saydam ve
+  kısa, uçlar %45. Kenara dokun = seçim oraya kayar, merkeze dokun = TV'de kaldığı
+  yerden açılır (`episode=0`). Dakikalık alarm yayı bir kart ilerletir, sona gelince
+  başa döner; elle kaydırma ezilmez. Seçim ve kart sayısı SharedPreferences'ta.
+- **Artı pad**: `🎤 ▲ 🔍 / ◀ OK ▶ / ↩ ▼ ⌂`. Tek sıra `◀▲OK▼▶` kumanda gibi durmuyordu.
+- 🎤 ve 🔍 şeffaf `KumandaGirisActivity`'yi açar (uygulama açılmaz), metni `/api/v1/voice`'a
+  yollar — o uç niyeti çözüp TV'ye kendisi gönderiyor, ikinci komut atılmaz.
+- Boyut 4×3, `resizeMode` açık. Posterler `inSampleSize` ile ~220px + RGB_565 ve
+  `cacheDir`'e yazılıyor: tam boy üç poster RemoteViews'ın ~1 MB işlem sınırını aşıp
+  widget'ı hiç çizdirmiyordu.
 
-**AÇIK ŞİKÂYET — doğrulanmadı:** "kaynak denemesi 4/9'dayken kendiliğinden başka
-içerik (Reacher) açıldı". Kuyruk uçları temiz (`/api/v1/remote/poll` boş, TTL 120 sn)
-ve oynatıcı açıkken uzak komut onay kartı gösteriyor (`MainActivity.kt:246`), yani
-sessiz geçişin bilinen bir yolu YOK. Tekrarlarsa `curl -s localhost:3310/api/v1/client_log`
-→ `açılış — ...` satırı sebebi söyler. Kanıt gelmeden kod değiştirilmedi.
+**İçerik menüsü** (`PosterMenu`, 0.4.5). Üç şikâyet aynı yerdeydi:
+panel `fillMaxHeight` ile ekranı kaplıyordu → yükseklik içeriğe sarıldı (tavan 520dp);
+oynatılabilirlik basmadan belli değildi → Oynat satırı yoklama sonucunu taşıyor
+("3 kaynak ✓" / "kaynak bulunamadı" / "yoklanıyor…", `mode=fast`); bölüm seçimi doğrudan
+oynatıp kaynak yoksa oynatıcıyı açıp kapatıyordu → seçim menüye döner, `S1B3` satırda
+yazılı kalır, kaynak O BÖLÜM için yoklanır. Dizide bölüm seçilmeden yoklama yapılmaz.
 
-**0.3.4 = ajanda penceresi + poster ölçüsü.** Ajanda aralığı bugünden başlıyordu,
-yayın günü geçen bölüm listeden düşüyordu — oysa bölüm sağlayıcıya günler sonra
-düşebiliyor. Aralık geriye 7 gün açıldı (`agenda.py` `_GECMIS_GUN`). Geçmiş bölüm
-`next_episode_to_air`ta YOK, `last_episode_to_air`ta: ikisi de okunuyor, tarih+bölüm
-ile tekilleşiyor. Filmler `movie/upcoming`ten geliyordu (yalnız gelecek) →
-`discover/movie` + `primary_release_date` aralığı. TV'de poster ızgarası 150dp →
-130dp (ana sayfa rafıyla aynı), odak BUGÜNÜN ilk kartına gidiyor, geçmiş gün başlığı
-soluk + "yayınlandı".
-Kanıt: hafta görünümü 24 → 60 satır, 09-15 Eylül günleri ve film satırları geldi.
-**STREAM KODU İMAJDA — `docker compose restart stream` YETMEZ**, `up -d --build stream` şart.
+**Oynatıcı** (0.4.0): sarma sayacı ile kontrol çubuğu ikisi de `BottomEnd` idi, sayaç
+toplam süre yazısının üstüne biniyordu → kontroller açıkken 92dp yukarı kayıyor.
+Bölüm listesi satırı 12→7dp dikey dolgu, numara sütunu 150→112dp. Kontrol çubuğuna
+`▼ Butonlar · ◀ ▶ sar` ipucu: gezilebilir buton takımı QuickPad'de ve AŞAĞI ok ile
+açılıyor, yazmayınca bulunmuyordu.
 
-**Televizyonda** (evaitecOTA → NetMovies 0.3.4 / vc 304 → kur):
-0b. Ajanda aç → geçmiş günler üstte soluk, ekran bugünle açılmalı, posterler ana
-   sayfa boyunda ve satırda daha çok kart olmalı.
-0a. Reacher aç → panelde "Devam et — S4B8 · ..." yazmalı, "123. bölüm" DEĞİL.
-0. Bir FİLM aç, SAĞ'ı 3 sn basılı tut → gösterge büyüsün, bırakınca tek seferde oraya
-   gitsin ve oynasın. SAĞ'a hızlı 3 kez bas → +30 sn. Sarma sürerken OK → orada dursun.
-1. Favorilerden **Altı Üstü İstanbul** ya da **Daha 17** aç → oynamalı.
-2. **AŞAĞI** tuşu → alt bar; D-pad ile ⏮ · −5dk · −30sn · ▶ · +30sn · +5dk · ⏭ ·
-   Bölümler · Dakika · Ayarlar · Ana sayfa · Kapat gezilmeli. Süre + ilerleme barın üstünde.
-3. Bardan **Bölümler** → kutucuk ızgarası: önce **Sezon seç**, seçince bölüm kutucukları,
-   GERİ bir sayfa geri. Tek sezonluk dizide sezon sayfası atlanmalı.
-4. Bardan **Dakika** → sol altta 300dp kutu; `1 2 3 ⌫ / 4 5 6 0 / 7 8 9 ▶ / ⏮ ⏭ 📑 ✕`.
-   45 yaz → ▶ → 45. dakikaya gitmeli. Görüntü kararmamalı.
-5. `curl -s localhost:3310/api/v1/client_log` → `sunucu·kapsam` satırı denenen
-   sağlayıcıların tamamını yazmalı; `ses · tampon boşaldı` hiç olmamalı.
+**Saat** (0.1.11 → 0.1.13): indirme sırasında Wi-Fi + CPU kilidi; kendi /24 alt ağını
+tarayarak sunucuyu bulur (PC'nin IP'si DHCP ile kayınca yerel yol kaybolmasın);
+boş dönen tarama 5 dk hatırlanır, yoksa her istek 254 sokete çıkıp açılışı kilitliyordu.
 
-Alt bar açılmıyorsa AŞAĞI eşlemesi değişmiş olabilir: Ayarlar → Buton Eşleme →
-Aşağı ▼ → "Alt kumanda barı".
+## Bu oturumda öğrenilen üç tuzak
 
-**Saatte** (evaitecOTA → NetMovies Mini 0.1.4 / vc 104 → kur):
-6. Açılışta Devam Et posterleri gelmeli. Gelmezse ekran artık "sunucuya ulaşılamadı —
-   dokun, yeniden dene" yazmalı (sonsuz "yükleniyor" DEĞİL); dokunuş adres aramasını
-   sıfırdan başlatır.
-7. 🎙 → "inception aç" (liste gelmeli, dokununca TV'de açmalı) · 🎙 → "sesi kıs"
-   (saat ana ekrana dönüp "Ses kısılıyor" yazmalı, TV'de ses düşmeli).
-8. ⏩/🔊 düğmesi → çerçeveyi çevir → kip değişmeli (sarma ⟷ ses).
+1. **`assembleRelease` imzasız APK üretiyor** (`DOES NOT VERIFY — Missing META-INF/MANIFEST.MF`).
+   Yayındaki tüm saat/TV APK'ları **debug imzalı** (`20319a76…`, appkit `c910bfa7…`).
+   Doğru build `assembleDebug`. Release yayınlanırsa cihaz kuramaz.
+2. **`gh release create dosya#ad` dosya adını DEĞİŞTİRMEZ**, yalnız görünen etiketi
+   değiştirir. Varlık `NetMovies-Wear-v0.1.13.apk` adıyla yüklenmiş, `apps.json`
+   küçük harfli adı işaret etmişti → saate yüklerken **404**. Düzeltme: dosyayı doğru
+   adla kopyalayıp `gh release upload` ile yükle, yanlışı `delete-asset` ile sil.
+3. **`sha256sum "$TEMP/..."` çıktının başına `\` koyuyor** (Windows yolu kaçışı) ve
+   `apps.json`'a bozuk sha yazdırır. `sha256sum < dosya` kullan. Katalog yazıldıktan
+   sonra APK'yı GitHub'dan İNDİRİP sha256+boyut karşılaştır — katalog kaydına güvenme.
 
-Mikrofon hiç açılmıyorsa: `adb logcat | grep -i recognizer` (Android 11+ paket
-görünürlüğü için `client-tv/wear/src/main/AndroidManifest.xml:11-18` `<queries>` var).
+## Saat için dört yön sunuldu, seçim bekliyor
+
+Çizimli sayfa: https://claude.ai/code/artifact/7f4f6092-2159-4e9e-b89e-9eb272ae76d4
+
+01 **Çerçeve pad** (yön tuşları kadran kenarına, orta daire tamamen OK) ·
+02 **Jest yüzeyi** (tuş yok; kaydır = yön, dokun = OK, uzun bas = geri) ·
+03 **Şu an oynuyor kadranı** (ilerleme dış halka, ortada poster + süre, çevir = sar) ·
+04 **Wear OS kartı** (telefon widget'ının bilekteki karşılığı, uygulama açılmadan).
+
+Önerilen: **03 + 04** — ikisi de `remote/status`'u kullanıyor, yeni bir şey öğretmiyor,
+mevcut pad'i bozmuyor. Dean henüz seçmedi.
+
+## Dean'in cevap bekleyen iki sorusu
+
+- "sayaç saatin üstünde duruyor" → oynatıcıdaki **süre göstergesi** olarak anlaşıldı ve
+  0.4.0'da düzeltildi. Kol saatindeki sayacı kastettiyse ayrı iş.
+- "odaklansın adım adım geçebilir" → TV'deki odağın pad'le yürümesi olarak anlaşıldı
+  (hâlihazırda öyle). Widget'ın KENDİ içinde odak isteniyorsa RemoteViews'ta mümkün değil.
 
 ## Tekrarlama — ölen yollar
 
