@@ -443,6 +443,17 @@ fun PlayerScreen(
         }
     }
     // Sıradaki bölüm: dizide ve son bölümde değilsek var.
+    // Sol üst şerit: dizide "Ad · S1B3", filmde yalnız ad. Bölüm numarası listedeki
+    // SIRA değil sağlayıcının verdiği numara — sıra yazmak web'de S4E8 olan bölümü
+    // "123. bölüm" diye gösteriyordu.
+    val simdikiEtiket = remember(item.title, episodes, currentEpIndex) {
+        val ad = item.title.orEmpty()
+        val ep = episodes.getOrNull(currentEpIndex)
+        if (ep == null) ad
+        else listOf(ad, "S${ep.season}B${ep.episode ?: (currentEpIndex + 1)}")
+            .filter { it.isNotBlank() }.joinToString("  ·  ")
+    }
+
     val nextEpIndex = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
     val prevEpIndex = (currentEpIndex - 1).takeIf { episodes.isNotEmpty() && it >= 0 }
 
@@ -1417,6 +1428,9 @@ fun PlayerScreen(
                 onOpenSettings = { showSettings = true },
                 onScrub = { enterScrub() },
                 onSeekToFraction = { seekToFraction(it) },
+                nowLabel = simdikiEtiket,
+                onPrevEpisode = prevEpIndex?.let { i -> { goToEpisode(i) } },
+                onNextEpisode = nextEpIndex?.let { i -> { goToEpisode(i) } },
                 // Dizide bölüm listesi tek tuş uzakta olsun: kontrol çubuğundaki
                 // "Bölümler" aynı sezon/bölüm panelini oynatmayı kesmeden açar.
                 onOpenList = if (episodes.isEmpty()) null else {
@@ -1914,6 +1928,11 @@ private fun ControlsOverlay(
     onOpenSettings: () -> Unit,
     onScrub: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
+    /** Sol üstte duran şerit: "Dizi adı · S1B3". Dizide bölüm, filmde yalnız ad. */
+    nowLabel: String = "",
+    /** null = o yöne bölüm yok (ilk/son bölüm ya da film). */
+    onPrevEpisode: (() -> Unit)? = null,
+    onNextEpisode: (() -> Unit)? = null,
     /** null = film (bölüm listesi yok). */
     onOpenList: (() -> Unit)? = null,
     /** Açılış şarkısı aralığı (ms) — çubukta soluk blok. null = işaret yok. */
@@ -1923,6 +1942,29 @@ private fun ControlsOverlay(
 ) {
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
+        // Sol üst: ne oynadığı. Dizide hangi bölümde olduğunu ekranda gösteren
+        // hiçbir yer yoktu — favoriden açınca hangi bölümün başladığı bile
+        // bilinmiyordu (Dean, 17 Eylül).
+        if (nowLabel.isNotBlank()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)
+                    .clip(RoundedCornerShape(NmDim.PillRadius))
+                    .background(NmColor.Scrim)
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = nowLabel,
+                    fontSize = NmType.Caption,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NmColor.OnSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
         // Sağ üst: mod butonları (önizleme / ayarlar) — TV güvenli alan içinde.
         Row(
             modifier = Modifier
@@ -1995,12 +2037,16 @@ private fun ControlsOverlay(
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // Bölüm geçişi yalnız QuickPad'deydi; çubukta yoktu, kullanıcı
+                    // sıradaki bölüme gitmek için panel açmak zorundaydı.
+                    onPrevEpisode?.let { IconBtn(Icons.Filled.SkipPrevious, 40.dp, 24.dp, it) }
                     IconBtn(Icons.Filled.Replay10, 40.dp, 26.dp, onSeekBack)
                     IconBtn(
                         if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         52.dp, 32.dp, onPlayPause, accent = true,
                     )
                     IconBtn(Icons.Filled.Forward10, 40.dp, 26.dp, onSeekFwd)
+                    onNextEpisode?.let { IconBtn(Icons.Filled.SkipNext, 40.dp, 24.dp, it) }
                 }
                 Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
             }
@@ -2360,6 +2406,16 @@ private fun SettingsPanel(
                     report.take(40).forEach { entry -> SettingRow(entry.format(), false) {} }
                 }
 
+                // Kitaplık en alttaydı: favori eklemek için bütün ayar listesini
+                // aşağı inmek gerekiyordu (Dean, 17 Eylül). En çok kullanılan tek
+                // satır en üste alındı.
+                SectionTitle("⭐ Kitaplık")
+                SettingRow(
+                    if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
+                    isFavorite,
+                    onToggleFavorite,
+                )
+
                 if (videoTrackCount > 0) {
                     SectionTitle("🎚 Kalite")
                     SettingRow("Otomatik", qualityAuto) { onSelectQuality(null, 0) }
@@ -2407,13 +2463,6 @@ private fun SettingsPanel(
                 SPEEDS.forEach { s ->
                     SettingRow(if (s == 1.0f) "Normal" else "${s}x", s == speed) { onSelectSpeed(s) }
                 }
-
-                SectionTitle("⭐ Kitaplık")
-                SettingRow(
-                    if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
-                    isFavorite,
-                    onToggleFavorite,
-                )
 
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
                 SettingRow("✕ Kapat", false, onClose)
