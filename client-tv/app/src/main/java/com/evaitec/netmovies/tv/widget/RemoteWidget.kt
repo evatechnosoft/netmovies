@@ -17,10 +17,12 @@ import com.evaitec.netmovies.tv.data.ServerResolver
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.io.File
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -104,6 +106,8 @@ class RemoteWidget : AppWidgetProvider() {
             dugme(context, R.id.widget_yukari, tus("UP"))
             dugme(context, R.id.widget_asagi, tus("DOWN"))
             dugme(context, R.id.widget_ok, tus("CENTER"))
+            setOnClickPendingIntent(R.id.widget_mikrofon, giris(context, KumandaGirisActivity.MOD_SES))
+            setOnClickPendingIntent(R.id.widget_ara, giris(context, KumandaGirisActivity.MOD_METIN))
             dugme(context, R.id.widget_geri_tus, tus("BACK"))
 
             // Devam Et şeridi: poster indirilemezse o göz boş kutu kalır, şerit
@@ -133,6 +137,19 @@ class RemoteWidget : AppWidgetProvider() {
         return PendingIntent.getBroadcast(
             context,
             (eylem + (govde ?: "")).hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /** 🎤 / 🔍: girdi bir pencere ister, ama uygulamanın kendisi açılmaz. */
+    private fun giris(context: Context, mod: String): PendingIntent {
+        val intent = Intent(context, KumandaGirisActivity::class.java)
+            .putExtra(KumandaGirisActivity.EK_MOD, mod)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        return PendingIntent.getActivity(
+            context,
+            mod.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -344,6 +361,31 @@ class RemoteWidget : AppWidgetProvider() {
                 },
             )
         }.getOrNull()
+
+        /**
+         * Metni `/api/v1/voice`'a yollar. O uç niyeti kendisi çözüp televizyona
+         * gönderiyor (`sent`), bu yüzden ayrıca bir komut atılmaz.
+         */
+        fun sesleSoyle(context: Context, metin: String): Boolean = runCatching {
+            ServerResolver.init(context)
+            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/voice")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 4_000
+                readTimeout = 20_000          // Gemini yanıtı birkaç saniye sürebiliyor
+                setRequestProperty("Content-Type", "application/json")
+            }
+            try {
+                // Kaçışı elle yazmak yerine serileştiriciye bırak: tırnak, ters bölü
+                // ve satır sonu taşıyan bir arama metni gövdeyi bozardı.
+                val govde = buildJsonObject { put("text", metin) }.toString()
+                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(govde) }
+                conn.responseCode in 200..299
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrDefault(false)
 
         private fun oynat(context: Context, sorgu: String): Boolean = runCatching {
             ServerResolver.init(context)

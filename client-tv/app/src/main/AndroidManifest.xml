@@ -9,6 +9,13 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Android 11+: konuşma tanıma uygulaması ancak böyle görünür. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:label="@string/app_name"
@@ -42,6 +49,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Widget'taki mikrofon/arama: şeffaf, tek işlik giriş ekranı. -->
+        <activity
+            android:name=".widget.KumandaGirisActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.NetMoviesTV.Saydam" />
 
         <!-- Telefon ana ekranı kumandası: uygulamayı açmadan TV'yi sürer. -->
         <receiver

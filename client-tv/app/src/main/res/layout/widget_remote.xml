@@ -2,6 +2,9 @@
 <!--
   Ana ekran kumandası — saat ekranındaki pad'in telefon hâli.
 
+  Pad'in üst köşeleri boş duruyordu: sola mikrofon, sağa arama (ikisi de ince bir
+  giriş ekranı açıp metni /api/v1/voice'a yollar — uygulama açılmaz).
+
   Yön tuşları ARTI düzeninde: tek sıraya dizilmiş ◀▲OK▼▶ kumanda gibi durmuyordu
   (Dean, 17 Eylül: "o tuşlar ne öyle"). Orta sütun yukarı/OK/aşağı, yanlar sol/sağ;
   alt köşelerde geri ve ana ekran — parmak pad'in üstünde kalır, adım adım gezinir.
@@ -77,9 +80,9 @@
             android:layout_weight="1"
             android:orientation="horizontal">
 
-            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+            <TextView android:id="@+id/widget_mikrofon" style="@style/NmWidgetPad" android:text="🎤" />
             <TextView android:id="@+id/widget_yukari" style="@style/NmWidgetPad" android:text="▲" />
-            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+            <TextView android:id="@+id/widget_ara" style="@style/NmWidgetPad" android:text="🔍" />
         </LinearLayout>
 
         <LinearLayout

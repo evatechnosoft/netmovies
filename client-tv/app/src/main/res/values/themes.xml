@@ -43,4 +43,12 @@
         <item name="android:textSize">17sp</item>
         <item name="android:textStyle">bold</item>
     </style>
+
+    <!-- Widget girişi: arkada ana ekran görünsün, uygulama açılmış gibi durmasın. -->
+    <style name="Theme.NetMoviesTV.Saydam" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
 </resources>
