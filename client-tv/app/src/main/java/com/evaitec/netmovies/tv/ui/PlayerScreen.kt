@@ -340,6 +340,16 @@ fun PlayerScreen(
             if (sira >= 0) currentEpIndex = sira
         }
 
+        // Kullanıcı bölüm seçmediyse (favori kartı, arama sonucu) kayıttaki bölümden
+        // devam edilir: `episode = -1` sözleşmesi zaten "kayıttan/baştan" diyor, ama
+        // indeks 0'a kırpılıp her açılışta 1. bölüm oynuyordu (Dean, 17 Eylül:
+        // "favoriden açtım bir bölüm başladı, 1. Bölüm yazıyor").
+        if (item.episode < 0 && bolumler.isNotEmpty() && currentEpIndex == 0) {
+            val kayit = library.loadProgress(item.title.orEmpty(), isSerie = true)
+            com.evaitec.netmovies.tv.data.episodeIndexOf(kayit?.episode.orEmpty(), bolumler)
+                ?.let { currentEpIndex = it }
+        }
+
         // Telefondan gönderilen DİZİ doğrudan 1. bölümden başlıyordu. Telefon
         // belirli bir bölüm seçmediyse (episode < 0) karar TV'de verilir: panel
         // açılır, kullanıcı son bölümü ya da istediğini seçer.

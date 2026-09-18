@@ -1,6 +1,6 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
-from httpx   import AsyncClient, HTTPStatusError, TimeoutException
+from httpx   import AsyncClient, HTTPStatusError, RemoteProtocolError, TimeoutException
 from fastapi import Request
 from typing  import Any
 import asyncio, os, time
@@ -117,17 +117,25 @@ async def _fetch(
     timeout: float | None,
     client_headers: dict[str, str] | None = None,
 ):
-    try:
-        headers = client_headers or {}
-        req     = await _client.get(f"{provider_url}/api/v1{endpoint}", params=params, timeout=timeout, headers=headers)
-        req.raise_for_status()
-        return req.json().get("result")
-    except TimeoutException:
-        raise ValueError(f"Provider zaman aşımı: {endpoint}")
-    except HTTPStatusError as e:
-        raise ProviderRequestError(e.response.status_code, endpoint) from e
-    except Exception as e:
-        raise ValueError(f"Provider bağlantı hatası: {e}")
+    headers = client_headers or {}
+    # Havuzdaki keep-alive bağlantısını motor bizden önce kapatmışsa istek gövdesiz
+    # düşer (RemoteProtocolError: "Server disconnected without sending a response").
+    # İçerik sağlamdı, bağlantı bayattı: kullanıcıya "kaynak bulunamadı" göstermeden
+    # taze bağlantıyla bir kez tekrarlanır (chain_scan, 18 Eylül: KultFilmler 500).
+    for son_deneme in (False, True):
+        try:
+            req = await _client.get(f"{provider_url}/api/v1{endpoint}", params=params, timeout=timeout, headers=headers)
+            req.raise_for_status()
+            return req.json().get("result")
+        except TimeoutException:
+            raise ValueError(f"Provider zaman aşımı: {endpoint}")
+        except HTTPStatusError as e:
+            raise ProviderRequestError(e.response.status_code, endpoint) from e
+        except RemoteProtocolError as e:
+            if son_deneme:
+                raise ValueError(f"Provider bağlantı hatası: {e}")
+        except Exception as e:
+            raise ValueError(f"Provider bağlantı hatası: {e}")
 
 async def fuck_dmca(
     endpoint: str,
