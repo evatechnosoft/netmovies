@@ -58,6 +58,15 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.NetMoviesTV.Saydam" />
 
+        <!-- Telefonda arama: sonuç listesi + bilgi kartı. Saydam DEĞİL, kendi
+             ekranı; geri basınca widget'a dönülür, uygulama açılmaz. -->
+        <activity
+            android:name=".widget.AramaActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Telefon ana ekranı kumandası: uygulamayı açmadan TV'yi sürer. -->
         <receiver
             android:name=".widget.RemoteWidget"

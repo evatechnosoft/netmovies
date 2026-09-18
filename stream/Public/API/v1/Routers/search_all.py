@@ -8,6 +8,8 @@
 
 import asyncio
 
+from urllib.parse import unquote_plus
+
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import fuck_dmca, get_client_headers, lang_memo, source_score
@@ -120,6 +122,27 @@ def _kullanici_agirliklari() -> dict[str, int]:
     return agirlik
 
 
+def _grupla(ogeler: list[dict]) -> list[dict]:
+    """Aynı başlığı tek satırda toplar; sağlayıcılar `providers` altına iner.
+
+    Sıra korunur: grubun yeri, o gruba ait EN İYİ sıradaki öğenin yeridir — üst
+    sıradaki sağlayıcı zaten puanla seçilmiş oluyor, temsilci de odur.
+    """
+    gruplar: dict[str, dict] = {}
+    for oge in ogeler:
+        key = lang_memo.anahtar(oge.get("title") or "") or (oge.get("url") or "")
+        grup = gruplar.get(key)
+        saglayici = {"plugin": oge.get("plugin") or "", "url": oge.get("url") or ""}
+        if grup is None:
+            gruplar[key] = {**oge, "providers": [saglayici]}
+        elif not any(s["plugin"] == saglayici["plugin"] for s in grup["providers"]):
+            grup["providers"].append(saglayici)
+            # Poster ilk gelenlerde boş olabiliyor; grupta dolu olan kazanır.
+            if not grup.get("poster") and oge.get("poster"):
+                grup["poster"] = oge["poster"]
+    return list(gruplar.values())
+
+
 async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
     """Satırda gösterilecek bilgiyi doldurur: dil rozeti, TMDB puanı/yılı, bölüm sayısı.
 
@@ -128,12 +151,14 @@ async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
     basınca zaten `load_item` + `resolve_sources` çağırıp kartı doldurur.
     """
     rozetler = lang_memo.rozetler()
-    for oge in ogeler:
+    for sira, oge in enumerate(ogeler):
         baslik = oge.get("title") or ""
         rozet  = rozetler.get(lang_memo.anahtar(baslik))
         if rozet:
             oge["lang"] = rozet
-        puan = await rating_for(baslik)
+        # Ana sayfadan farklı olarak arama TMDB'ye gidebilir: sonuç sayısı onlarla
+        # ölçülü ve kullanıcı arama sonucunu beklemeye razı. Yıl aynı aramadan gelir.
+        puan = await rating_for(baslik, fetch=sira < _ZENGIN_TAVANI)
         if puan is not None:
             oge["rating"] = puan
         yil = year_for(baslik)
@@ -141,11 +166,18 @@ async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
             oge["year"] = yil
 
     async def bolumler(oge: dict) -> None:
+        # Adres HAM gider: `oge["url"]` quote_plus KODLU gelir ve httpx parametreyi
+        # bir kez daha kodlar — motor `%253A` görüp 500 döndürüyordu. İstemci kodlu
+        # gönderir çünkü kodlama onun tarafında bir kez olur; sunucu içinden çağrıda
+        # kodlamayı httpx üstlenir.
         try:
             detay = await asyncio.wait_for(
                 fuck_dmca(
                     "/load_item",
-                    params         = {"plugin": oge.get("plugin"), "encoded_url": oge.get("url")},
+                    params         = {
+                        "plugin"     : oge.get("plugin"),
+                        "encoded_url": unquote_plus(str(oge.get("url") or "")),
+                    },
                     client_headers = client_headers,
                 ),
                 timeout = _KAYNAK_TIMEOUT,
@@ -228,6 +260,14 @@ async def search_all(request: Request):
         return -(skor + puanlar.get(oge.get("plugin") or "", 0.0) / 10.0)
 
     ogeler = sorted(ogeler, key=sira)[:_SONUC_TAVANI]
+
+    # `group=1`: aynı içerik her sağlayıcıda bir satır açıyordu — "reacher" araması
+    # beş kez "Reacher" gösteriyordu. Yeni istemciler tek satır ister, sağlayıcı
+    # seçimi bilgi kartına iner. Eski istemciler (TV Gözat, web kumanda) düz liste
+    # beklediği için varsayılan DEĞİŞMEZ.
+    if str(veri.get("group") or "") in ("1", "true"):
+        ogeler = _grupla(ogeler)
+
     await _zenginlestir(ogeler, basliklar)
 
     return {**api_v1_global_message, "result": ogeler}

@@ -47,19 +47,11 @@ class KumandaGirisActivity : Activity() {
         if (sonuc == RESULT_OK && !metin.isNullOrBlank()) yolla(metin) else finish()
     }
 
+    /** Klavye yolu artık gerçek arama ekranı: sonuçlar görünür, körlemesine
+     *  "Gönder" yok. Ses yolu komut olarak kalır (`/voice` niyeti kendi işler). */
     private fun metinSor() {
-        val kutu = EditText(this).apply {
-            hint = "ör. Reacher'ı aç"
-            imeOptions = EditorInfo.IME_ACTION_SEARCH
-            setSingleLine()
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Televizyonda ara")
-            .setView(kutu)
-            .setPositiveButton("Gönder") { _, _ -> yolla(kutu.text.toString()) }
-            .setNegativeButton("Vazgeç") { _, _ -> finish() }
-            .setOnCancelListener { finish() }
-            .show()
+        startActivity(Intent(this, AramaActivity::class.java))
+        finish()
     }
 
     private fun yolla(metin: String) {

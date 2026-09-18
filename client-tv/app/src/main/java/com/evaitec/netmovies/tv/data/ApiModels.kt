@@ -26,6 +26,8 @@ data class MediaItem(
     val category: String? = null,
     // TMDB puanı; sunucu cache'inde varsa gelir, yoksa null (yıldız çizilmez).
     val rating: Double? = null,
+    // TMDB yayın yılı — katalog sıralaması bunu kullanıyor, arama satırı gösteriyor.
+    val year: Int? = null,
     // Telefondan "TV'de oynat" ile gelen içerik: onay telefonda (basılı tutma) zaten
     // verildi, TV'de başlangıç paneli bir daha OYNAT beklemesin.
     val autoplay: Boolean = false,
@@ -34,6 +36,10 @@ data class MediaItem(
     // Poster rozetleri ("DUB", "ALT", "ORJ") — sunucu yalnız DAHA ÖNCE çözümlenmiş
     // içerik için doldurur (lang_memo.py). Hiç açılmamış kart rozetsiz gelir.
     val lang: List<String> = emptyList(),
+    // Arama (`group=1`) satırının zengin alanları; katalogda gelmez.
+    @SerialName("episode_count") val episodeCount: Int? = null,
+    @SerialName("season_count") val seasonCount: Int? = null,
+    val providers: List<ProviderRef> = emptyList(),
     // Canlı kanallarda yayın rehberi (EPG): "şu an ne oynuyor". Rehberde
     // olmayan kanalda null gelir — kart yine çizilir, satır boş kalır.
     val simdi: NowPlaying? = null,
@@ -176,6 +182,13 @@ data class Diagnostic(
     val level: String = "info",
     val stage: String = "",
     val message: String = "",
+)
+
+// Gruplanmış arama satırında aynı içeriği veren sağlayıcılardan biri.
+@Serializable
+data class ProviderRef(
+    val plugin: String = "",
+    val url: String = "",
 )
 
 // Kaynağın dili sunucuda belirlenir; istemci yalnız etiketi basar.

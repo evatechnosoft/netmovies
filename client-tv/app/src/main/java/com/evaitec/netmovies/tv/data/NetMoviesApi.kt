@@ -68,7 +68,12 @@ interface NetMoviesApi {
     // istemci eklenti eklenti `/search` çağırdığında bunların hiçbiri uygulanmıyor,
     // "walking dead city" araması alakasız dizi listesi döndürüyordu.
     @GET("api/v1/search_all")
-    suspend fun searchAll(@Query("query") query: String): MainPageResponse
+    suspend fun searchAll(
+        @Query("query") query: String,
+        // group=1: aynı içerik tek satır, sağlayıcılar `providers` altında.
+        // Telefon arama ekranı böyle ister; TV Gözat düz listeyi kullanmaya devam eder.
+        @Query("group") group: Int? = null,
+    ): MainPageResponse
 
     // Tek eklentide arama — ham liste, süzme YOK. Yeni yerde kullanma.
     @GET("api/v1/search")
@@ -164,6 +169,11 @@ interface NetMoviesApi {
         @Query("url") url: String = "",
         @Query("poster") poster: String = "",
     ): OkResponse
+
+    // Serbest metni niyete çevirir (Gemini). Tuş/oynatma niyetlerini uç kendisi
+    // kuyruğa yazar — dönen yanıta bakıp ikinci bir komut GÖNDERME.
+    @POST("api/v1/voice")
+    suspend fun voice(@Body body: Map<String, String>): OkResponse
 
     // Kişisel ayarlar (buton eşleme vb.) — cihazda değil sunucuda. Uygulamayı
     // yeniden kurmak ya da başka bir TV'den girmek ayarları sıfırlamasın.
