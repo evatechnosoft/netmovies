@@ -282,6 +282,14 @@ fun PlayerScreen(
     var currentEpIndex by remember(item.url) { mutableIntStateOf(item.episode.coerceAtLeast(0)) }
     // Başlangıç paneli bilgi alanı (özet, yıl, tür, puan) — load_item'dan, tek istek.
     var details by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
+    // AKTİF sağlayıcı: kart hangi siteden geldiyse oradan başlar, ama bölüm listesi
+    // daha zengin bir sağlayıcıda bulunursa oynatma da oraya geçer. Kartın eksik
+    // listesi yüzünden yeni bölüm görünmüyordu (18 Eylül ölçümü: Dead City'de
+    // HDFilmCehennemi 7 bölüm, DiziMom 20).
+    var aktifPlugin by remember(item.url) { mutableStateOf(item.plugin) }
+    var aktifUrl by remember(item.url) { mutableStateOf(item.url) }
+    // Listenin hangi sağlayıcıdan geldiği panelde yazsın.
+    var listeKaynagi by remember(item.url) { mutableStateOf<String?>(null) }
     // Başlangıç paneli: içerik açılır açılmaz gelir ve çözümleme bitene kadar
     // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
     // OYNAT'a basmadan akış başlamaz — yanlış içeriğe girip izlemeye başlamak yok.
@@ -332,7 +340,7 @@ fun PlayerScreen(
     var akisGecersiz by remember(item.url, currentEpIndex) { mutableStateOf(false) }
 
     LaunchedEffect(item.url) {
-        details = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
+        details = runCatching { Network.api.loadItem(aktifPlugin, aktifUrl).result }.getOrNull()
         // Bölüm listesi zincirden ÖNCE gelir: load_item tek istek, resolve_sources
         // ise sağlayıcı taraması. Panel böylece bölümleri anında gösterir ve
         // sıralama da uyumlu — sunucu bölümü aynı listeden indeksliyor
@@ -928,14 +936,14 @@ fun PlayerScreen(
 
     // Tazeleme hakkı yalnız içerik/bölüm değişince yenilenir. retryKey'i anahtara
     // KOYMA: tazeleme sayacı kendi tetiklediği efektte sıfırlanırsa döngü kapanmaz.
-    LaunchedEffect(item.url, currentEpIndex) { autoRefresh = 0 }
+    LaunchedEffect(aktifUrl, currentEpIndex) { autoRefresh = 0 }
 
     // Kaynak kuyruğu — zincir SUNUCUDA (/api/v1/resolve_sources).
     // İstemci yalnız iki çağrı yapar: önce fast (seçili sağlayıcı, hemen oynasın),
     // sonra full (alternatif sağlayıcılar, arka planda kuyruğa eklenir).
     // Arama/eşleştirme/dil sıralaması burada TEKRARLANMAZ — TV, telefon ve web
     // aynı listeyi aynı sırada görür.
-    LaunchedEffect(item.url, currentEpIndex, retryKey) {
+    LaunchedEffect(aktifUrl, aktifPlugin, currentEpIndex, retryKey) {
         error = null
         ready = false
         links = emptyList()
@@ -972,11 +980,11 @@ fun PlayerScreen(
         }
 
         // 1) Hızlı yol — seçili sağlayıcı.
-        status = "${item.plugin} deneniyor…"
+        status = "$aktifPlugin deneniyor…"
         val fast = loggedOrNull("çözümleme", "resolve_sources · fast") {
             Network.api.resolveSources(
-                plugin = item.plugin,
-                encodedUrl = item.url,
+                plugin = aktifPlugin,
+                encodedUrl = aktifUrl,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "fast",
@@ -988,8 +996,8 @@ fun PlayerScreen(
         // 2) Tam zincir — alternatif sağlayıcılar (sunucu tarar).
         val full = loggedOrNull("çözümleme", "resolve_sources · full") {
             Network.api.resolveSources(
-                plugin = item.plugin,
-                encodedUrl = item.url,
+                plugin = aktifPlugin,
+                encodedUrl = aktifUrl,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "full",
@@ -1183,6 +1191,40 @@ fun PlayerScreen(
                 ),
                 isSerie = episodes.isNotEmpty(),
             )
+        }
+    }
+
+    // Bölümler sekmesi açılınca EN ZENGİN liste aranır. Oynatıcı açılışında
+    // DEĞİL: tüm sağlayıcıları taramak ~7 sn sürüyor, ilk oynatma beklemesin.
+    // Daha uzun liste bulunursa oynatma da o sağlayıcıya geçer; şu anki bölüm
+    // İNDEKSLE değil SEZON+BÖLÜM numarasıyla yeniden eşlenir (sağlayıcılar
+    // farklı bölümden başlıyor).
+    var bolumAramasiYapildi by remember(item.url) { mutableStateOf(false) }
+    LaunchedEffect(ayarBolumler) {
+        if (!ayarBolumler || bolumAramasiYapildi || episodes.isEmpty()) return@LaunchedEffect
+        bolumAramasiYapildi = true
+        val yanit = runCatching {
+            Network.api.episodesBest(
+                title = item.title.orEmpty(),
+                plugin = aktifPlugin,
+                encodedUrl = aktifUrl,
+            ).result
+        }.getOrNull() ?: return@LaunchedEffect
+        if (yanit.episodes.size <= episodes.size) return@LaunchedEffect
+
+        val simdiki = episodes.getOrNull(currentEpIndex)
+        episodes = yanit.episodes
+        listeKaynagi = yanit.plugin
+        if (yanit.plugin != aktifPlugin && yanit.encodedUrl.isNotBlank()) {
+            aktifPlugin = yanit.plugin
+            aktifUrl = com.evaitec.netmovies.tv.data.encodedUrl(yanit.encodedUrl)
+        }
+        // Oynayan bölümü kaybetme: numarasıyla yeni listede bul.
+        if (simdiki?.episode != null) {
+            val yeni = yanit.episodes.indexOfFirst {
+                it.season == simdiki.season && it.episode == simdiki.episode
+            }
+            if (yeni >= 0) currentEpIndex = yeni
         }
     }
 
@@ -1661,6 +1703,7 @@ fun PlayerScreen(
                 currentLinkIndex = currentLinkIndex,
                 episodes = episodes,
                 acilisBolumler = ayarBolumler,
+                listeKaynagi = listeKaynagi,
                 currentEpIndex = currentEpIndex,
                 tracks = tracks,
                 speed = speed,
@@ -2390,6 +2433,9 @@ private fun SettingsPanel(
     onOpenEpisodes: () -> Unit = {},
     /** Panel doğrudan Bölümler sekmesinde açılsın (kumandadaki "Bölümler" girişi). */
     acilisBolumler: Boolean = false,
+    /** Bölüm listesi başka bir sağlayıcıdan geldiyse adı — kaç bölüm görüldüğü
+     *  sağlayıcıya bağlı, kullanıcı hangisine baktığını bilsin. */
+    listeKaynagi: String? = null,
     /** Panel içinden bölüm seçildi (tam ekran listeye gitmeden). */
     onSelectEpisode: (Int) -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
@@ -2499,7 +2545,10 @@ private fun SettingsPanel(
                         IkonSekme(ikon, i == sekme, Modifier.weight(1f)) { sekme = i }
                     }
                 }
-                SectionTitle(secili.first + "  " + secili.second)
+                SectionTitle(
+                    secili.first + "  " + secili.second +
+                        if (secili.second == "Bölümler" && listeKaynagi != null) "  ·  $listeKaynagi" else "",
+                )
 
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),

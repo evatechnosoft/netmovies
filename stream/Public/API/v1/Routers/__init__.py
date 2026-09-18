@@ -42,5 +42,6 @@ from . import (
     following,
     agenda,
     unwatched,
+    episodes_best,
     app_update,
 )

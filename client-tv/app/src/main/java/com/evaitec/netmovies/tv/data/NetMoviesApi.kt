@@ -63,6 +63,17 @@ interface NetMoviesApi {
         @Query("encoded_category", encoded = true) encodedCategory: String,
     ): MainPageResponse
 
+    // Bir dizinin EN ZENGIN bolum listesi: ayni baslik tum saglayicilarda aranir,
+    // en cok bolumu olan liste (ve o saglayicinin adresi) doner. OYNATICI
+    // ACILISINDA CAGIRMA — tum saglayicilari taramak saniyeler suruyor; yalniz
+    // Bolumler sekmesi acilinca sorulur.
+    @GET("api/v1/episodes_best")
+    suspend fun episodesBest(
+        @Query("title") title: String,
+        @Query("plugin") plugin: String,
+        @Query("encoded_url", encoded = true) encodedUrl: String,
+    ): EpisodesBestResponse
+
     // Takip edilen dizilerin yayinlanmis ama IZLENMEMIS bolumleri. Yanit ajanda
     // ile ayni sekilde gelir (tek "gun" grubu) — ekran ayni cizimi kullanir.
     @GET("api/v1/unwatched")

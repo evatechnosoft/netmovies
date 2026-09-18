@@ -184,6 +184,18 @@ data class Diagnostic(
     val message: String = "",
 )
 
+// `/api/v1/episodes_best` yanıtı: en zengin bölüm listesi ve onu veren sağlayıcı.
+@Serializable
+data class EpisodesBestResult(
+    val plugin: String = "",
+    @SerialName("encoded_url") val encodedUrl: String = "",
+    val episodes: List<EpisodeItem> = emptyList(),
+    @SerialName("kaynak_sayisi") val kaynakSayisi: Int = 0,
+)
+
+@Serializable
+data class EpisodesBestResponse(val result: EpisodesBestResult = EpisodesBestResult())
+
 // Gruplanmış arama satırında aynı içeriği veren sağlayıcılardan biri.
 @Serializable
 data class ProviderRef(
