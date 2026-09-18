@@ -63,6 +63,11 @@ interface NetMoviesApi {
         @Query("encoded_category", encoded = true) encodedCategory: String,
     ): MainPageResponse
 
+    // Takip edilen dizilerin yayinlanmis ama IZLENMEMIS bolumleri. Yanit ajanda
+    // ile ayni sekilde gelir (tek "gun" grubu) — ekran ayni cizimi kullanir.
+    @GET("api/v1/unwatched")
+    suspend fun unwatched(): AgendaResponse
+
     // TÜM kaynaklarda tek istekle arama. Süzme (sorguyu yok sayan kaynağı eleme),
     // arama varyantları ve Özel Koleksiyon'u dışarıda tutma SUNUCUDA yapılır —
     // istemci eklenti eklenti `/search` çağırdığında bunların hiçbiri uygulanmıyor,

@@ -41,5 +41,6 @@ from . import (
     voice,
     following,
     agenda,
+    unwatched,
     app_update,
 )

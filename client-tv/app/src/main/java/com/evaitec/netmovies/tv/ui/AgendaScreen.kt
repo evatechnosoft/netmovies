@@ -96,12 +96,18 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
         loading = true
         error = null
         val gorunum = if (adim == AjandaAdimi.HAFTA) "week" else "month"
-        runCatching { Network.api.agenda(gorunum).result }
+        runCatching {
+            if (adim == AjandaAdimi.IZLENMEMIS) Network.api.unwatched().result
+            else Network.api.agenda(gorunum).result
+        }
             .onSuccess { yanit ->
                 val bugun = LocalDate.now().toString()
-                val suzulmus = yanit.gunler.filter {
-                    if (adim == AjandaAdimi.GECMIS) it.tarih < bugun else it.tarih >= bugun
-                }
+                // İzlemediklerim TEK grup gelir ve tarihe göre süzülmez: iki hafta
+                // önce çıkmış ama izlenmemiş bölüm de listede kalmalı.
+                val suzulmus = if (adim == AjandaAdimi.IZLENMEMIS) yanit.gunler else
+                    yanit.gunler.filter {
+                        if (adim == AjandaAdimi.GECMIS) it.tarih < bugun else it.tarih >= bugun
+                    }
                 gunler = suzulmus
                 toplam = suzulmus.sumOf { it.ogeler.size }
             }
@@ -176,6 +182,10 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
 
 /** Ajandanın üç adımı. Sıra ekrandaki düğme sırasıdır. */
 private enum class AjandaAdimi(val baslik: String) {
+    // Ajandanin kaynagi TMDB'nin POPULER takvimi; izlemediklerin ise kullanicinin
+    // KENDI takip/favori listesinden turer ve gun gun bolunmez (Dean, 18 Eylul:
+    // "gun belirtmeden tek listede bu ay diye belirtip izlemedigim bolumleri").
+    IZLENMEMIS("İzlemediklerim"),
     HAFTA("Bu Hafta"),
     AY("Bu Ay"),
     GECMIS("Geçmiş"),
