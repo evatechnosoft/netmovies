@@ -2732,6 +2732,11 @@ private fun StartPanel(
                 }
                 Spacer(Modifier.weight(1f))
             } else {
+                // Bölüm listesi `load_item` ile geliyor ve saniyeler sürebiliyor.
+                // O ana kadar panelde yalnız "Devam et" duruyordu: kullanıcı bölüm
+                // satırlarının GELECEĞİNİ bilmeden kayıttaki bölümü açıyordu
+                // (Dean, 18 Eylül: "beklemesem göremeyeceğim bölümler yazısını").
+                MutedRow("📑  Bölümler yükleniyor…")
                 Spacer(Modifier.weight(1f))
             }
 
