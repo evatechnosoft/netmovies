@@ -1,6 +1,6 @@
 # NetMovies — kaynak dili önceliği (tek kural, tek yer).
 #
-# Kural: Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.
+# Kural: Türkçe dublaj → Türkçe altyazı → orijinal dil → dil bilinmiyor.
 # Aynı gruptaki kaynakların kendi sırası korunur (stable sort), yani sağlayıcının
 # kendi tercih sırası bozulmaz. TV istemcisi de aynı kuralı uygular
 # (client-tv/.../SourceResolver.kt); burada sıralamak web'i ve tüm API
@@ -10,15 +10,29 @@ from typing import Any
 
 DUB_MARKERS = ("dublaj", "dublajlı", "tr dublaj", "dubbed")
 TR_SUB_MARKERS = ("türkçe altyazı", "türkçe alt yazı", "altyazı", "alt yazı", "turkce altyazi", "türkçe", "turkish")
+# Sağlayıcılar orijinal dili kendi sözcükleriyle işaretliyor: DiziPal/DiziYou
+# "Orijinal" ve "Orijinal Dil", bazıları İngilizce "original"/"altyazısız" yazıyor.
+# Bunlar "bilinmiyor" sayılınca listedeki her satır aynı görünüyordu (Dean, 17 Eylül:
+# beş kaydın beşi de "dil bilinmiyor").
+ORIGINAL_MARKERS = ("orijinal", "original", "altyazısız", "altyazisiz")
 
 RANK_DUBBED = 0
 RANK_TR_SUB = 1
-RANK_UNKNOWN = 2
+RANK_ORIGINAL = 2
+RANK_UNKNOWN = 3
 
 RANK_NAMES = {
-    RANK_DUBBED : "Türkçe dublaj",
-    RANK_TR_SUB : "Türkçe altyazı",
-    RANK_UNKNOWN: "dil bilinmiyor",
+    RANK_DUBBED  : "Türkçe dublaj",
+    RANK_TR_SUB  : "Türkçe altyazı",
+    RANK_ORIGINAL: "orijinal dil",
+    RANK_UNKNOWN : "dil bilinmiyor",
+}
+
+# Poster rozeti: üç harf, kart üstünde yer kaplamasın.
+RANK_BADGES = {
+    RANK_DUBBED  : "DUB",
+    RANK_TR_SUB  : "ALT",
+    RANK_ORIGINAL: "ORJ",
 }
 
 
@@ -44,6 +58,11 @@ def language_rank(link: Any) -> int:
     subs = _subtitle_names(link).lower()
     if any(marker in name for marker in TR_SUB_MARKERS) or any(marker in subs for marker in TR_SUB_MARKERS):
         return RANK_TR_SUB
+
+    # Orijinal, altyazı kontrolünden SONRA: "Orijinal · Türkçe altyazı" gibi bir ad
+    # altyazılı sayılmalı, orijinal sözcüğü onu geri almamalı.
+    if any(marker in name for marker in ORIGINAL_MARKERS):
+        return RANK_ORIGINAL
 
     return RANK_UNKNOWN
 

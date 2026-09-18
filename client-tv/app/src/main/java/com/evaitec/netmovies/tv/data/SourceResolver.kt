@@ -13,10 +13,19 @@ fun languageLabel(link: StreamLink): String {
 }
 
 /**
- * Kaynak Türkçe dublaj mı? (rank sunucudan: 0 dublaj, 1 Türkçe altyazı, 2 bilinmiyor —
- * stream/Public/API/v1/Libs/language.py). Dublajlı kaynakta altyazı açılmaz.
+ * Kaynak Türkçe dublaj mı? (rank sunucudan: 0 dublaj, 1 Türkçe altyazı, 2 orijinal
+ * dil, 3 bilinmiyor — stream/Public/API/v1/Libs/language.py). Dublajlı kaynakta
+ * altyazı açılmaz.
  */
 fun isDubbed(link: StreamLink): Boolean = link.language?.rank == 0
+
+/** Poster ve menü rozeti — sunucudaki RANK_BADGES ile aynı üç harf. */
+fun languageBadge(link: StreamLink): String? = when (link.language?.rank) {
+    0    -> "DUB"
+    1    -> "ALT"
+    2    -> "ORJ"
+    else -> null
+}
 
 /**
  * Altyazı dosyasının dil kodu — ExoPlayer'ın altyazı parçasını etiketlemesi için.

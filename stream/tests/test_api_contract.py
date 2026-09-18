@@ -9,6 +9,7 @@
 
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,10 @@ from typing import Any
 os.environ["AUTH_USER"] = ""
 os.environ["AUTH_PASS"] = ""
 os.environ["ADMIN_PASS"] = ""
+# Dil rozeti deposu da izole edilmeli: varsayılan yol container'daki CANLI
+# `/data/lang_memo.json`, orada bir kayıt varsa katalog sözleşmesi test edilen
+# öğeye `lang` ekliyor ve karşılaştırma sebepsiz kırılıyor.
+os.environ["LANG_MEMO_PATH"] = str(Path(tempfile.mkdtemp(prefix="lang_memo_")) / "lang_memo.json")
 
 STREAM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(STREAM_ROOT))

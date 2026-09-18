@@ -31,6 +31,9 @@ data class MediaItem(
     val autoplay: Boolean = false,
     // Telefon belirli bir bölümü seçtiyse (0 tabanlı sıra); -1 = kayıttan/baştan.
     val episode: Int = -1,
+    // Poster rozetleri ("DUB", "ALT", "ORJ") — sunucu yalnız DAHA ÖNCE çözümlenmiş
+    // içerik için doldurur (lang_memo.py). Hiç açılmamış kart rozetsiz gelir.
+    val lang: List<String> = emptyList(),
     // Canlı kanallarda yayın rehberi (EPG): "şu an ne oynuyor". Rehberde
     // olmayan kanalda null gelir — kart yine çizilir, satır boş kalır.
     val simdi: NowPlaying? = null,
@@ -178,7 +181,8 @@ data class Diagnostic(
 // Kaynağın dili sunucuda belirlenir; istemci yalnız etiketi basar.
 @Serializable
 data class LanguageTag(
-    val rank: Int = 2,
+    // 0 dublaj · 1 Türkçe altyazı · 2 orijinal dil · 3 bilinmiyor (language.py).
+    val rank: Int = 3,
     val label: String = "dil bilinmiyor",
 )
 

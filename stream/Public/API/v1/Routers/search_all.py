@@ -10,9 +10,10 @@ import asyncio
 
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
-from ..Libs import fuck_dmca, get_client_headers
+from ..Libs import fuck_dmca, get_client_headers, lang_memo, source_score
 
-from Public.Home.Libs import admin_config
+from Public.Home.Libs import admin_config, watch_store
+from Public.Home.Routers.tmdb import rating_for, year_for
 
 # Kaynak başına tavan: bir eklenti asılırsa bütün arama onu beklemesin.
 # Middleware isteği 30sn'de kesiyor (`_istek.py`), altında kalmalı.
@@ -82,6 +83,85 @@ def _alakali(ogeler: list, sorgu: str) -> list:
     return isabetli
 
 
+# Kaç sonuç için ek bilgi (bölüm sayısı) çekilir. `load_item` sonucu 1 saat
+# cache'li; yine de her sonuç için çağırmak aramayı gereksiz uzatır — listenin
+# görünen başı zenginleşir, altı kaydırdıkça zaten yeniden aranır.
+_ZENGIN_TAVANI = 14
+
+
+def _kullanici_agirliklari() -> dict[str, int]:
+    """Başlık anahtarı → sıralama ağırlığı.
+
+    Aranan şey çoğu zaman kullanıcının zaten işaretlediği şeydir: favorisi,
+    listesine aldığı ya da izlemeye başladığı içerik. Sıralamayı sunucu yapar —
+    her istemci aynı kuralı yeniden yazmasın.
+    """
+    agirlik: dict[str, int] = {}
+
+    def ekle(satirlar, puan: int) -> None:
+        for satir in satirlar or []:
+            key = lang_memo.anahtar((satir or {}).get("title") or "")
+            if key:
+                agirlik[key] = max(agirlik.get(key, 0), puan)
+
+    kaynaklar = (
+        (lambda: watch_store.list_favorites(), 400),
+        (lambda: watch_store.list_user_list("izlenecek", 200), 320),
+        (lambda: watch_store.list_user_list("takip", 200), 300),
+        (lambda: watch_store.list_user_list("planlandi", 200), 260),
+        (lambda: watch_store.list_continue_watching(50), 220),
+    )
+    for oku, puan in kaynaklar:
+        try:
+            ekle(oku(), puan)
+        except Exception:
+            # Liste okunamazsa sıralama alaka + sağlayıcı puanına düşer; arama ölmez.
+            continue
+    return agirlik
+
+
+async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
+    """Satırda gösterilecek bilgiyi doldurur: dil rozeti, TMDB puanı/yılı, bölüm sayısı.
+
+    Kalite ve süre BİLEREK burada yok: ikisi de oynatma zinciri (ya da TMDB detay
+    isteği) gerektirir, 60 sonuç için o kadar tur atılmaz. İstemci bir satıra
+    basınca zaten `load_item` + `resolve_sources` çağırıp kartı doldurur.
+    """
+    rozetler = lang_memo.rozetler()
+    for oge in ogeler:
+        baslik = oge.get("title") or ""
+        rozet  = rozetler.get(lang_memo.anahtar(baslik))
+        if rozet:
+            oge["lang"] = rozet
+        puan = await rating_for(baslik)
+        if puan is not None:
+            oge["rating"] = puan
+        yil = year_for(baslik)
+        if yil:
+            oge["year"] = yil
+
+    async def bolumler(oge: dict) -> None:
+        try:
+            detay = await asyncio.wait_for(
+                fuck_dmca(
+                    "/load_item",
+                    params         = {"plugin": oge.get("plugin"), "encoded_url": oge.get("url")},
+                    client_headers = client_headers,
+                ),
+                timeout = _KAYNAK_TIMEOUT,
+            )
+        except Exception:
+            return
+        liste = (detay or {}).get("episodes") or []
+        if liste:
+            oge["episode_count"] = len(liste)
+            sezonlar = {e.get("season") for e in liste if isinstance(e, dict) and e.get("season")}
+            if sezonlar:
+                oge["season_count"] = len(sezonlar)
+
+    await asyncio.gather(*(bolumler(o) for o in ogeler[:_ZENGIN_TAVANI]), return_exceptions=True)
+
+
 @api_v1_router.get("/search_all")
 async def search_all(request: Request):
     veri  = request.state.veri or {}
@@ -132,4 +212,22 @@ async def search_all(request: Request):
     ogeler = admin_config.filter_aggregate_items(ogeler, cfg)
     ogeler = _alakali(ogeler, sorgu)
 
-    return {**api_v1_global_message, "result": ogeler[:_SONUC_TAVANI]}
+    # Sıra: kullanıcının kendi listeleri en önde, sonra kanıtlanmış sağlayıcı.
+    # Stabil sıralama — eşit ağırlıkta kaynakların kendi sırası korunur.
+    agirlik  = _kullanici_agirliklari()
+    puanlar  = source_score.puanlar()
+    sade_sorgu = _sade(sorgu)
+
+    def sira(oge: dict) -> float:
+        baslik = oge.get("title") or ""
+        skor   = float(agirlik.get(lang_memo.anahtar(baslik), 0))
+        # Tam eşleşme, aynı adı taşıyan uzun varyantların önüne geçsin
+        # ("Reacher" araması "Reacher: Ekstra" ile başlamasın).
+        if _sade(baslik) == sade_sorgu:
+            skor += 150.0
+        return -(skor + puanlar.get(oge.get("plugin") or "", 0.0) / 10.0)
+
+    ogeler = sorted(ogeler, key=sira)[:_SONUC_TAVANI]
+    await _zenginlestir(ogeler, basliklar)
+
+    return {**api_v1_global_message, "result": ogeler}

@@ -12,6 +12,7 @@ from ..Libs         import fuck_dmca, get_client_headers
 from ..Libs.language import language_name, language_rank, order_by_language
 from ..Libs.source_proxy import route_through_proxy
 from ..Libs         import source_score
+from ..Libs         import lang_memo
 from ..Libs.title_rescue import alternatif_basliklar
 
 
@@ -99,6 +100,12 @@ async def resolve_sources(request: Request):
         result   = {**result}
         base_url = str(request.base_url).rstrip("/")
         result["sources"] = route_through_proxy(decorate(result.get("sources") or []), base_url)
+        # Zincirin yan ürünü: bu içerikte hangi diller var. Katalog yanıtı bunu
+        # poster rozetine çevirir — kart çizilirken zincir koşturulamaz.
+        lang_memo.kaydet(
+            str(params.get("title") or ""),
+            [s["language"]["rank"] for s in result["sources"] if isinstance(s, dict) and s.get("language")],
+        )
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"
         konsol.log(
             f"[green]▶ resolve:[/] {params.get('plugin', '?')} · mod={params.get('mode', 'full')} · "

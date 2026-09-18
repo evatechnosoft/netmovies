@@ -481,6 +481,29 @@ private fun PosterCard(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
+        // Dil rozetleri — daha önce bir kez açılmış içerikte dolu gelir
+        // (sunucu: lang_memo.py). Başlık yazısının hemen üstünde durur.
+        if (item.lang.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 8.dp, bottom = 34.dp),
+            ) {
+                item.lang.forEach { rozet ->
+                    Text(
+                        text = rozet,
+                        fontSize = NmType.Caption,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (rozet == "DUB") NmColor.Primary else NmColor.OnSurface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NmDim.PillRadius))
+                            .background(NmColor.ScrimSoft)
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
+                    )
+                }
+            }
+        }
         Text(
             text = item.title.orEmpty(),
             maxLines = 2,
@@ -503,13 +526,14 @@ private fun PosterCard(
 private sealed interface Yoklama {
     object Baslamadi : Yoklama
     object Suruyor : Yoklama
-    data class Bulundu(val adet: Int) : Yoklama
+    /** `diller` sunucunun dil etiketleri — dublaj var mı, basmadan önce görünsün. */
+    data class Bulundu(val adet: Int, val diller: List<String> = emptyList()) : Yoklama
     object Yok : Yoklama
 
     fun kuyruk(): String = when (this) {
         Baslamadi     -> ""
         Suruyor       -> "   ·  kaynak yoklanıyor…"
-        is Bulundu    -> "   ·  $adet kaynak ✓"
+        is Bulundu    -> "   ·  $adet kaynak ✓" + diller.joinToString(", ", prefix = "  ·  ").takeIf { diller.isNotEmpty() }.orEmpty()
         Yok           -> "   ·  kaynak bulunamadı"
     }
 }
@@ -556,9 +580,16 @@ private fun PosterMenu(
                 episode = secilenBolum?.let { it + 1 } ?: 0,
                 mode = "fast",
             )
-            yanit.result?.sources?.size ?: 0
+            yanit.result?.sources.orEmpty()
         }.fold(
-            onSuccess = { if (it > 0) Yoklama.Bulundu(it) else Yoklama.Yok },
+            onSuccess = { kaynaklar ->
+                if (kaynaklar.isEmpty()) Yoklama.Yok
+                else Yoklama.Bulundu(
+                    kaynaklar.size,
+                    // Dil sıralı geldiği için sıra korunur: dublaj varsa en başta yazar.
+                    kaynaklar.mapNotNull { it.language?.label?.takeIf { l -> l.isNotBlank() } }.distinct(),
+                )
+            },
             onFailure = { Yoklama.Yok },
         )
     }

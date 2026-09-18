@@ -4,7 +4,7 @@
 
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
-from ..Libs import fuck_dmca, get_client_headers
+from ..Libs import fuck_dmca, get_client_headers, lang_memo
 
 import asyncio
 
@@ -73,6 +73,16 @@ async def aggregate_new(request: Request):
             if yil:
                 item["year"] = yil
         suzulmus.sort(key=lambda x: -(x.get("year") or 0))
+
+        # Dil rozetleri: yalnız daha önce çözümlenmiş içerikler için doldurulur
+        # (tek dosya okuması, ek istek yok). Hiç açılmamış içerik rozetsiz kalır —
+        # kartı çizmek için zincir koşturulamaz, o dakikalar sürer.
+        bilinen = lang_memo.rozetler()
+        if bilinen:
+            for item in suzulmus:
+                rozet = bilinen.get(lang_memo.anahtar(item.get("title") or ""))
+                if rozet:
+                    item["lang"] = rozet
 
         result = {**result, "items": suzulmus, "count": len(suzulmus)}
 
