@@ -100,6 +100,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.episodeIndexOf
+import com.evaitec.netmovies.tv.data.basliktanBolum
 import com.evaitec.netmovies.tv.data.episodeRef
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
@@ -345,8 +346,22 @@ fun PlayerScreen(
         // 1. bölümü açardı — tıklanan S3B7 değil.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
             val acilan = com.evaitec.netmovies.tv.data.rawUrl(item.url).trimEnd('/')
-            val sira = bolumler.indexOfFirst { it.url.trimEnd('/') == acilan }
-            if (sira >= 0) currentEpIndex = sira
+            var sira = bolumler.indexOfFirst { it.url.trimEnd('/') == acilan }
+            // Adres eşleşmesi tutmayabiliyor: katalog kartının adresi bölüm
+            // listesindekinden farklı biçimde gelebiliyor (kodlama, ek parametre).
+            // O zaman BAŞLIK söyler: "… 3.Sezon 8.Bölüm" (Dean, 18 Eylül: kart
+            // 3. sezon 8. bölümü açıyordu, panel "S1B1 baştan" öneriyordu).
+            if (sira < 0) {
+                sira = basliktanBolum(item.title, bolumler)
+            }
+            if (sira >= 0) {
+                currentEpIndex = sira
+                // Bölüm zaten belli: başlangıç paneli "hangi bölüm" diye sormasın,
+                // doğrudan o bölüm açılsın.
+                showStartPanel = false
+                playRequested = true
+                exo.playWhenReady = true
+            }
         }
 
         // Kullanıcı bölüm seçmediyse (favori kartı, arama sonucu) kayıttaki bölümden
