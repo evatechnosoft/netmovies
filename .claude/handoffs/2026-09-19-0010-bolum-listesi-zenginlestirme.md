@@ -1,4 +1,4 @@
-# DEVİR — 19 Eylül 2026 · sıradaki iş: bölüm listesi en zengin sağlayıcıdan
+# DEVİR — 19 Eylül 2026 · bölüm listesi işi bitti (0.7.0)
 
 **Dal:** `fix/general-stability` @ `f944907` · 0 kirli dosya · push EDİLDİ
 **Katalog:** `evaglass-releases/apps.json` @ `2b09a5d`
