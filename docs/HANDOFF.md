@@ -7,12 +7,13 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 17 Eylül 2026, 23:00
-**Dal:** `fix/general-stability` @ `66e6e59` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV `v0.5.0-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
-**Katalog:** `evaglass-releases/apps.json` @ `1d8396f` (push EDİLDİ) —
-netmovies-tv/phone **0.5.0 (vc 500)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
-evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut ile doğrulandı.
+**Son güncelleme:** 18 Eylül 2026, 10:10
+**Dal:** `fix/general-stability` @ `e5f511d` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV `v0.5.1-poc` · saat `v0.1.13-poc` · evaitecOTA saat `0.1.11`
+**Katalog:** `evaglass-releases/apps.json` @ `4260af4` (push EDİLDİ) —
+netmovies-tv/phone **0.5.1 (vc 501)** · netmovies-mini-watch **0.1.13 (vc 113)** ·
+evaitec-ota-wear **0.1.11 (vc 7)**. TV APK GitHub'dan indirilip sha256+boyut ile
+doğrulandı (`01c42d6c…`, 20 304 306 bayt).
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com` (ayakta)
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
@@ -24,10 +25,10 @@ evaitec-ota-wear **0.1.11 (vc 7)**. Üçü de GitHub'dan indirilip sha256+boyut 
 ## Doğrula (koş, sonra devam et)
 
 ```bash
-git rev-parse --short HEAD                  # beklenen: b0826f6
+git rev-parse --short HEAD                  # beklenen: e5f511d
 git status --porcelain | wc -l              # beklenen: 0
 bash scripts/smoke.sh                       # beklenen: kapı YEŞİL
-curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: v0.4.7-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"     # beklenen: v0.5.1-poc
 curl -s "localhost:3310/api/v1/app_update?target=wear"   # beklenen: v0.1.13-poc
 curl -s -o /dev/null -w "%{http_code}
 " https://w.evaitec.com/api/v1/health   # 200
@@ -105,12 +106,12 @@ boş dönen tarama 5 dk hatırlanır, yoksa her istek 254 sokete çıkıp açıl
 Fotoğraflarla geldi; üçü 0.4.8'de kapandı (sol üst bölüm şeridi, çubukta önceki/
 sonraki bölüm, Kitaplık en üstte). Kalan üçü açık:
 
-1. **Favoriden açınca 1. bölüm başlıyor.** Dean: "favoriden açtım bir bölüm başladı,
-   1. Bölüm yazıyor". Devam Et kaldığı bölümden açıyor, favori kartı açmıyor gibi
-   duruyor. KANITSIZ — `library.loadProgress` çağrısının favori yolunda okunup
-   okunmadığı izlenmedi. Önce kaydın var olup olmadığına bak
-   (`curl -s localhost:3310/api/v1/continue_watching`), sonra `HomeScreen` favori
-   kartının `onPlay`ine.
+1. ~~Favoriden açınca 1. bölüm başlıyor~~ → **0.5.1'de düzeltildi.** Kök neden
+   `PlayerScreen`'deydi, favori yolunda değil: `currentEpIndex` `item.episode`'u
+   0'a kırpıyordu (`-1` = "kayıttan/baştan"), kayda hiç bakılmıyordu — Devam Et
+   kartı da aynı yoldan geçiyor, kayıt yalnız konumu taşıdığı için fark
+   edilmemişti. Artık bölüm listesi gelince, kullanıcı bölüm seçmediyse
+   `loadProgress` + `episodeIndexOf` ile kayıttaki bölüm açılır. Cihazda görülmedi.
 2. ~~Sezon/bölüm ekranı kocaman~~ → **0.5.0'da yapıldı.** Liste artık ayar panelinin
    İÇİNDE, 📑 ikonunun altında: çok sezonluda kısa sezon satırları + o sezonun
    bölümleri, tek sezonluda doğrudan bölümler. Seçince panel kapanır, bölüm açılır.
