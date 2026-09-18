@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Replay30
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -282,6 +283,9 @@ fun PlayerScreen(
     // Aynı panel iki işi görür: içerik açılırken "başlangıç", oynarken "bölüm listesi".
     // Ayrımı GERİ belirler — başlangıçta içerikten çıkar, listede yalnız paneli kapatır.
     var panelAsList by remember(item.url) { mutableStateOf(false) }
+    // Ayar paneli Bölümler sekmesinde mi açılsın: "Bölümler" girişleri artık tam
+    // ekran liste yerine paneli kullanıyor (Dean, 18 Eylül: "yine koca bir liste").
+    var ayarBolumler by remember(item.url) { mutableStateOf(false) }
     // Bölüm seçici sayfası: null = sezon sayfası. Durum burada tutulur çünkü
     // GERİ tuşu bu ekranda değil, oynatıcının tuş işleyicisinde yakalanıyor.
     var secilenSezon by remember(item.url) { mutableStateOf<Int?>(null) }
@@ -505,9 +509,11 @@ fun PlayerScreen(
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-10_000)
             RemoteAction.OPEN_SETTINGS -> if (kanalGecisiVar) kanalAtla(-1) else showSettings = true
             // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
-            RemoteAction.OPEN_EPISODES ->
-                if (episodes.isEmpty()) showSettings = true
-                else { panelAsList = true; secilenSezon = null; showStartPanel = true; showControls = false }
+            RemoteAction.OPEN_EPISODES -> {
+                ayarBolumler = episodes.isNotEmpty()
+                showSettings = true
+                showControls = false
+            }
             RemoteAction.SHOW_CONTROLS -> flashControls()
             RemoteAction.OPEN_BAR -> { showPad = true; showControls = false }
             // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
@@ -1141,6 +1147,10 @@ fun PlayerScreen(
         }
     }
 
+    // Panel kapanınca Bölümler isteği düşer: sonraki "Ayarlar" girişi yine
+    // Kitaplık sekmesinde açılsın.
+    LaunchedEffect(showSettings) { if (!showSettings) ayarBolumler = false }
+
     // Kontrol overlay otomatik gizleme.
     LaunchedEffect(controlsTick, showControls) {
         if (showControls) { delay(3500); showControls = false }
@@ -1158,8 +1168,11 @@ fun PlayerScreen(
     // ilk basış odağı taşımakla harcanıyor, kullanıcı "iki kere basınca giriyor" diyordu.
     // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
     // oluyordu (ModalCard'da aynı sorun kare kare denemeyle çözülmüştü).
-    LaunchedEffect(showSettings, showSeek, showPad, scrubMode, ready) {
-        if (showSeek || showPad) return@LaunchedEffect   // bu ekranlar odağı kendi alır
+    // `showStartPanel` de anahtar: tam ekran bölüm listesi kapanınca odağı kimse
+    // geri istemiyordu, kök kutu odaksız kalıyor ve D-pad sarma tuşları hiçbir
+    // yere gitmiyordu (Dean, 18 Eylül: "sağ sol sar ama olmuyor").
+    LaunchedEffect(showSettings, showSeek, showPad, showStartPanel, scrubMode, ready) {
+        if (showSeek || showPad || showStartPanel) return@LaunchedEffect   // bu ekranlar odağı kendi alır
         repeat(10) {
             val target = if (showSettings) panelFocus else rootFocus
             if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
@@ -1444,7 +1457,7 @@ fun PlayerScreen(
                 // Dizide bölüm listesi tek tuş uzakta olsun: kontrol çubuğundaki
                 // "Bölümler" aynı sezon/bölüm panelini oynatmayı kesmeden açar.
                 onOpenList = if (episodes.isEmpty()) null else {
-                    { panelAsList = true; secilenSezon = null; showStartPanel = true; showControls = false }
+                    { ayarBolumler = true; showSettings = true; showControls = false }
                 },
                 introRange = if (introBas != null && introBit != null) introBas to introBit else null,
                 creditsStart = jenerikBas,
@@ -1496,7 +1509,7 @@ fun PlayerScreen(
                 onPlayPause = { dispatch(RemoteAction.PLAY_PAUSE) },
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) }; showPad = false },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) }; showPad = false },
-                onOpenEpisodes = { showPad = false; panelAsList = true; secilenSezon = null; showStartPanel = true },
+                onOpenEpisodes = { showPad = false; ayarBolumler = true; showSettings = true },
                 onOpenSeek = { showPad = false; showSeek = true },
                 onOpenSettings = { showPad = false; showSettings = true },
                 onHome = { showPad = false; onHome() },
@@ -1514,7 +1527,7 @@ fun PlayerScreen(
                 onPrevEpisode = { prevEpIndex?.let { goToEpisode(it) } },
                 onNextEpisode = { nextEpIndex?.let { goToEpisode(it) } },
                 onOpenEpisodes = if (episodes.isEmpty()) null else {
-                    { panelAsList = true; secilenSezon = null; showStartPanel = true }
+                    { ayarBolumler = true; showSettings = true }
                 },
                 canliYayin = canliYayin,
                 onTamponBasina = { tamponBasina() },
@@ -1586,6 +1599,7 @@ fun PlayerScreen(
                 links = links,
                 currentLinkIndex = currentLinkIndex,
                 episodes = episodes,
+                acilisBolumler = ayarBolumler,
                 currentEpIndex = currentEpIndex,
                 tracks = tracks,
                 speed = speed,
@@ -1747,9 +1761,16 @@ private fun QuickPad(
                     .background(NmColor.Primary),
             )
         }
+        // Şerit 11 düğme taşıyor; sabit genişlikte hepsi 640dp'lik TV ekranına
+        // SIĞMIYORDU: taşanlar hiç çizilmiyor, odak oraya gidince düğme görünmeden
+        // seçili oluyordu (Dean, 18 Eylül: "ileri sarma tuşuna geçemiyoruz").
+        // Yatay kaydırma + dar düğme: odak sağa gidince şerit kendiliğinden kayar.
         Row(
-            modifier = Modifier.fillMaxWidth().focusGroup(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .focusGroup(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Bölüm geçme uçlarda: sarma tuşlarıyla karışmasın, en dış konum
@@ -1796,7 +1817,7 @@ private fun PadBtn(
     var odakli by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Column(
-        modifier = modifier.width(64.dp),
+        modifier = modifier.width(54.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -2070,7 +2091,7 @@ private fun ControlsOverlay(
             // bulunmuyordu (Dean, 17 Eylul: "sarma butonu playerda olacak, cursor
             // gezebilir olsun").
             Text(
-                text = "▼  Butonlar  ·  ◀ ▶ sar",
+                text = "▼  Butonlar  ·  ◀ ▶ 10 sn sar  (basılı tut: hızlı)",
                 color = NmColor.OnSurfaceMuted,
                 fontSize = NmType.Caption,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -2302,6 +2323,8 @@ private fun SettingsPanel(
     onToggleFavorite: () -> Unit,
     onSelectSource: (Int) -> Unit,
     onOpenEpisodes: () -> Unit = {},
+    /** Panel doğrudan Bölümler sekmesinde açılsın (kumandadaki "Bölümler" girişi). */
+    acilisBolumler: Boolean = false,
     /** Panel içinden bölüm seçildi (tam ekran listeye gitmeden). */
     onSelectEpisode: (Int) -> Unit = {},
     onSelectAudio: (Tracks.Group, Int) -> Unit,
@@ -2333,7 +2356,9 @@ private fun SettingsPanel(
     // Ayarlar tek uzun listeydi: favoriye ulasmak icin sonuna kadar inmek gerekiyordu.
     // Artik ustte ikon seridi var, icerik yalniz secili ikonunki (Dean, 17 Eylul:
     // "acilir secenek sadece ikon olsun, buton icinde gezinir seceriz").
-    var sekme by remember { mutableStateOf(0) }
+    // Sekme sırası sabit: 0 Kitaplık, 1 Bölümler (dizide). "Bölümler" girişleri
+    // paneli doğrudan orada açar — tam ekran liste izlenen sahneyi kapatıyordu.
+    var sekme by remember { mutableStateOf(if (acilisBolumler && episodes.isNotEmpty()) 1 else 0) }
     // Bölüm/sezon listesi panelin İÇİNDE: tam ekran modal koca bir liste açıp
     // izlenen sahneyi kapatıyordu (Dean, 17 Eylül: "o da koca ekranda olmasın").
     var panelSezon by remember { mutableStateOf<Int?>(null) }
