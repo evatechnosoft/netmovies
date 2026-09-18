@@ -70,7 +70,24 @@ async def open_upstream(target_url: str, request_headers: dict):
     if warp_client is not None and host in _warp_hosts:
         return await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
 
-    response = await shared_client.send(shared_client.build_request("GET", target_url, headers=request_headers), stream=True)
+    try:
+        response = await shared_client.send(shared_client.build_request("GET", target_url, headers=request_headers), stream=True)
+    except (httpx.ConnectTimeout, httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
+        # Bağlanamama ISP engeliyle aynı sonucu doğuruyor ama farklı görünüyor:
+        # 403 yerine istisna. Eskiden doğrudan 502'ye düşüyordu, oynayan bölüm
+        # "tekrar deneniyor" deyip kapanıyordu (Dean, 18 Eylül). Aynı kaçış yolu
+        # burada da denenir: WARP.
+        if warp_client is None or warp_olu(host):
+            raise
+        konsol.print(f"[yellow]↻ WARP denemesi (bağlantı):[/yellow] {host} · {type(e).__name__}")
+        retry = await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
+        if retry.status_code < 400:
+            _warp_hosts.add(host)
+            _warp_dead.pop(host, None)
+        else:
+            _warp_dead[host] = time.monotonic() + _WARP_DEAD_TTL
+        return retry
+
     if response.status_code not in (403, 451) or warp_client is None:
         return response
 

@@ -1224,6 +1224,12 @@ fun PlayerScreen(
     // efektin anahtarı status, status null olunca yeniden kurulur ve çıkış düşer.
     LaunchedEffect(status) {
         if (status != KAYNAK_YOK) return@LaunchedEffect
+        // OYNAMAYA BAŞLAMIŞ içerikte kapatma YOK. Segment ararken CDN'e
+        // bağlanılamayınca (proxy: ConnectTimeout) zincir yeniden kuruluyor ve
+        // bulamazsa bu mesaj düşüyordu — izlenen bölüm kendiliğinden kapanıyordu
+        // (Dean, 18 Eylül: "çalışan dizi niye kapansın ki"). Açılışta hiç kaynak
+        // bulunamadıysa kapanmak doğru: ekranda yapacak bir şey yok.
+        if (position > 0L) return@LaunchedEffect
         delay(KAYNAK_YOK_CIKIS_MS)
         onBack()
     }
