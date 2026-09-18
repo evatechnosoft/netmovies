@@ -2,7 +2,10 @@
 
 **Dal:** `fix/general-stability` @ `b79020e` · push EDİLDİ
 **Katalog:** `evaglass-releases/apps.json` @ `8aae758` · netmovies-tv/phone **0.6.2 (vc 602)**
-**Saat:** değişmedi — `v0.1.13-poc`; bilekte hâlâ 0.1.4 kurulu (önce evaitecOTA 0.1.11, sonra Mini 0.1.13).
+**Saat:** **0.1.14** — APK 23,2 MB → **850 KB** (debug buildType'inda R8) ve indirme
+artik once Wi-Fi tasiyicisini isteyip yerel adresi yeniden cozuyor (tunelden inmiyor).
+**Dean cihazda dogruladi: "oldu hizlandi".** R8 bu modulde ilk kez calisti, wear'da
+birim test yok — kucultme degisikliginden sonra saatte bir kez ac.
 
 ## Bugün çıkan sürümler
 
