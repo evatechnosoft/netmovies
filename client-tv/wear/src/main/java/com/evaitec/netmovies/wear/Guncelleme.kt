@@ -106,6 +106,12 @@ object Guncelleme {
             if (f.name.startsWith("wear-") && f.name != hedef.name) f.delete()
         }
 
+        // Adres indirmeden ONCE yeniden cozulur. Saat Bluetooth vekilindeyken yerel
+        // sunucuyu goremiyor ve `taban()` tunele (w.evaitec.com) dusuyor: ayni APK
+        // telefonda/TV'de LAN'dan saniyeler icinde inerken saatte dakikalar suruyordu.
+        // Wi-Fi tasiyicisi istenir, surec o aga baglanir, sonra adres YENIDEN aranir.
+        wifiVeYerelAdres(context)
+
         // Ekran kapaninca saat Wi-Fi radyosunu ve CPU'yu uyutuyor: indirme duruyor,
         // kullanici ekrani parmakla acik tutmak zorunda kaliyordu (Dean, 17 Eylul).
         // Iki kilit indirme suresince aciktir, `finally` ile her yolda birakilir.
@@ -122,6 +128,17 @@ object Guncelleme {
         }
         if (!parca.renameTo(hedef)) throw IOException("dosya taşınamadı")
         return hedef
+    }
+
+    /** Wi-Fi tasiyicisini ac, surec ona baglansin, sonra sunucu adresini yeniden cöz. */
+    private fun wifiVeYerelAdres(context: Context) {
+        val kapi = java.util.concurrent.CountDownLatch(1)
+        WifiKoprusu.uyandir(context) { kapi.countDown() }
+        // Zaman asimi WifiKoprusu'nunkinden (8 sn) biraz uzun: geri cagri gelmezse
+        // indirme yine de denenir, yalnizca eski adresle.
+        runCatching { kapi.await(9, java.util.concurrent.TimeUnit.SECONDS) }
+        Sunucu.unut()
+        Sunucu.taban()
     }
 
     /** Wi-Fi radyosu + CPU indirme boyunca uyanik kalsin; is bitince kilitler birakilir. */

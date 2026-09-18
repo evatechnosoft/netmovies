@@ -4,7 +4,7 @@
 //
 // Sürüm TV'den bağımsız: saat arayüzü ayrı gelişiyor, her TV sürümünde saat APK'sı
 // yeniden yayınlanmasın. OTA `?target=wear` ile bu APK'yı ayırır.
-val wearVersion = "0.1.13"
+val wearVersion = "0.1.14"
 
 plugins {
     id("com.android.application")
@@ -43,6 +43,15 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // Kucultme DEBUG'da acik: yayinlanan APK debug imzali (assembleRelease
+        // imzasiz uretiyor, cihaz kuramiyor) ve kucultmesiz 22,6 MB'in 22 MB'i
+        // dex'ti. Saat bunu Wi-Fi radyosu uyuya kalka indiriyor; her megabayt
+        // dogrudan bekleme suresi (Dean, 18 Eylul: "indirme yine yavas saate").
+        debug {
+            isMinifyEnabled   = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
