@@ -2167,7 +2167,12 @@ private const val MIN_GECERLI_SURE_MS = 90_000L
 private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
-private const val NEXT_EPISODE_WINDOW_MS = 90_000L
+// 90 sn erken çıkıyordu — kart hâlâ sahnenin ortasındayken beliriyor, jenerik
+// ancak ~20 sn sonra başlıyordu (Dean, 18 Eylül, iki fotoğraf: kart 90 sn kala,
+// jenerik 70 sn kala). Sessizlik/konuşma temelli tespit denenmedi: dizi ve filmde
+// sahne içinde de uzun sessizlik oluyor, yanlış yerde tetiklerdi. Jenerik işareti
+// varsa bu pencere zaten hiç kullanılmaz.
+private const val NEXT_EPISODE_WINDOW_MS = 70_000L
 
 // Jenerik başlayınca sonraki bölüme geçmeden önce beklenen süre. Son sahneyi
 // kaçırmamak için var: GERİ basan kişi jeneriği sonuna kadar izler.
