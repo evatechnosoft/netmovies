@@ -263,6 +263,11 @@ fun PlayerScreen(
     // tuş (Netflix/Prime) açar — hangi tuş olduğunu uygulama bilmek zorunda değil,
     // BAŞKA BİR İŞE BAĞLI OLMAYAN her tuş açar.
     var showPad by remember { mutableStateOf(false) }
+    // Pad'de seçili düğme İNDEKSLE tutulur, Compose odağıyla değil: odak sistemi
+    // TV'de şeridin ilk düğmesini yakalayamayınca SOL/SAĞ kök kutuya düşüp sarma
+    // yapıyordu (Dean, 18 Eylül: "tuşlar üzerinde dolaşmıyor, sadece sarma
+    // yapıyor"). İndeks deterministik: şerit her zaman gezilir.
+    var padSecim by remember { mutableIntStateOf(3) }   // 3 = Oynat/Duraklat
     // Pad'i açan tuşun BIRAKILMA olayı pad'e ait değil: yoksa parmak kalkarken
     // odaktaki düğmeye basmış oluyor (aynı tuzak uzun basışta yaşanmıştı).
     var padKey by remember { mutableIntStateOf(-1) }
@@ -515,7 +520,7 @@ fun PlayerScreen(
                 showControls = false
             }
             RemoteAction.SHOW_CONTROLS -> flashControls()
-            RemoteAction.OPEN_BAR -> { showPad = true; showControls = false }
+            RemoteAction.OPEN_BAR -> { padSecim = 3; showPad = true; showControls = false }
             // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
             // Akışın "kaldığın yeri" yok, scrub anlamsız (Dean: "kanaldan
             // çıkmadan kanallarda gezelim"). Dizi/filmde eski davranış duruyor.
@@ -523,6 +528,25 @@ fun PlayerScreen(
             RemoteAction.BACK -> onBack()
         }
     }
+    // Pad şeridinin düğme sırası TEK yerde: burada ve QuickPad'in çiziminde aynı.
+    // Sıra değişirse ikisi birden değişir (indeks tabanlı seçim buna bağlı).
+    fun padCalistir(i: Int) {
+        when (i) {
+            0 -> { prevEpIndex?.let { goToEpisode(it) }; showPad = false }
+            1 -> seekBy(-300_000)
+            2 -> seekBy(-30_000)
+            3 -> dispatch(RemoteAction.PLAY_PAUSE)
+            4 -> seekBy(30_000)
+            5 -> seekBy(300_000)
+            6 -> { nextEpIndex?.let { goToEpisode(it) }; showPad = false }
+            7 -> { showPad = false; ayarBolumler = episodes.isNotEmpty(); showSettings = true }
+            8 -> { showPad = false; showSeek = true }          // çubuk üzerinde sarma
+            9 -> { showPad = false; showSettings = true }
+            10 -> { showPad = false; onHome() }
+            else -> showPad = false
+        }
+    }
+
     val controller = remember {
         RemoteInputController(
             bindings, scope,
@@ -1385,7 +1409,22 @@ fun PlayerScreen(
                     controller.consumesPendingUp(ke.nativeKeyEvent) -> true
                     // Bölüm seçici de bir modal: tuşlar yutulunca liste hiç hareket
                     // etmiyordu (Dean: "bölüm seçimi açılıyor, hareket etmiyor").
-                    showSettings || showSeek || showStartPanel || showPad -> false
+                    // Pad açıkken SOL/SAĞ şeritte gezer, OK uygular, GERİ kapatır.
+                    // Compose odak gezinmesine bırakılmıyor: pad'in ilk odağı
+                    // yerleşmediğinde tuşlar kök kutuya düşüp sarma yapıyordu.
+                    showPad -> {
+                        val ne = ke.nativeKeyEvent
+                        if (ne.action != KeyEvent.ACTION_DOWN) return@onKeyEvent true
+                        when (ne.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT  -> padSecim = (padSecim - 1 + padAdet).mod(padAdet)
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> padSecim = (padSecim + 1).mod(padAdet)
+                            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> padCalistir(padSecim)
+                            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_BACK -> showPad = false
+                            else -> return@onKeyEvent false
+                        }
+                        true
+                    }
+                    showSettings || showSeek || showStartPanel -> false
                     else -> controller.process(ke.nativeKeyEvent)
                 }
             }
@@ -1499,6 +1538,7 @@ fun PlayerScreen(
 
         if (showPad) {
             QuickPad(
+                secili = padSecim,
                 isPlaying = isPlaying,
                 position = position,
                 duration = duration,
@@ -1706,6 +1746,9 @@ private fun padAcarMi(code: Int): Boolean =
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun QuickPad(
+    /** Seçili düğme indeksi — odak DEĞİL: TV'de odak şeride yerleşmeyince
+     *  tuşlar kök kutuya düşüp sarma yapıyordu. Sıra `padCalistir` ile aynı. */
+    secili: Int,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -1722,14 +1765,6 @@ private fun QuickPad(
     onHome: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val ilkOdak = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        repeat(10) {
-            withFrameNanos {}
-            if (runCatching { ilkOdak.requestFocus() }.isSuccess) return@LaunchedEffect
-        }
-    }
-
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Column(
             modifier = Modifier
@@ -1775,25 +1810,25 @@ private fun QuickPad(
         ) {
             // Bölüm geçme uçlarda: sarma tuşlarıyla karışmasın, en dış konum
             // kumandada tek hamlede yakalanır.
-            PadBtn(Icons.Filled.SkipPrevious, "Önceki", enabled = prevEpisodeLabel != null) { onPrevEpisode() }
-            PadBtn(Icons.Filled.FastRewind, "−5 dk") { onSeekBy(-300_000) }
-            PadBtn(Icons.Filled.Replay30, "−30 sn") { onSeekBy(-30_000) }
+            PadBtn(Icons.Filled.SkipPrevious, "Önceki", secili == 0, enabled = prevEpisodeLabel != null) { onPrevEpisode() }
+            PadBtn(Icons.Filled.FastRewind, "−5 dk", secili == 1) { onSeekBy(-300_000) }
+            PadBtn(Icons.Filled.Replay30, "−30 sn", secili == 2) { onSeekBy(-30_000) }
             PadBtn(
                 icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 label = if (isPlaying) "Duraklat" else "Oynat",
-                modifier = Modifier.focusRequester(ilkOdak),
+                secili = secili == 3,
                 accent = true,
             ) { onPlayPause() }
-            PadBtn(Icons.Filled.Forward30, "+30 sn") { onSeekBy(30_000) }
-            PadBtn(Icons.Filled.FastForward, "+5 dk") { onSeekBy(300_000) }
-            PadBtn(Icons.Filled.SkipNext, "Sonraki", enabled = nextEpisodeLabel != null) { onNextEpisode() }
+            PadBtn(Icons.Filled.Forward30, "+30 sn", secili == 4) { onSeekBy(30_000) }
+            PadBtn(Icons.Filled.FastForward, "+5 dk", secili == 5) { onSeekBy(300_000) }
+            PadBtn(Icons.Filled.SkipNext, "Sonraki", secili == 6, enabled = nextEpisodeLabel != null) { onNextEpisode() }
 
-            PadBtn(Icons.Filled.FormatListBulleted, "Bölümler", enabled = hasEpisodes) { onOpenEpisodes() }
-            PadBtn(Icons.Filled.Dialpad, "Dakika") { onOpenSeek() }
-            PadBtn(Icons.Filled.Settings, "Ayarlar") { onOpenSettings() }
+            PadBtn(Icons.Filled.FormatListBulleted, "Bölümler", secili == 7, enabled = hasEpisodes) { onOpenEpisodes() }
+            PadBtn(Icons.Filled.Dialpad, "Dakika", secili == 8) { onOpenSeek() }
+            PadBtn(Icons.Filled.Settings, "Ayarlar", secili == 9) { onOpenSettings() }
             // Sistemin HOME tuşu uygulamaya gelmiyor; "ana sayfa" burada bir düğme.
-            PadBtn(Icons.Filled.Home, "Ana sayfa") { onHome() }
-            PadBtn(Icons.Filled.Close, "Kapat") { onClose() }
+            PadBtn(Icons.Filled.Home, "Ana sayfa", secili == 10) { onHome() }
+            PadBtn(Icons.Filled.Close, "Kapat", secili == 11) { onClose() }
         }
         }
     }
@@ -1809,12 +1844,14 @@ private fun QuickPad(
 private fun PadBtn(
     icon: ImageVector,
     label: String,
+    secili: Boolean = false,
     modifier: Modifier = Modifier,
     accent: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    var odakli by remember { mutableStateOf(false) }
+    // Vurgu seçimden gelir; dokunmatik için tıklama hâlâ çalışır.
+    val odakli = secili
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Column(
         modifier = modifier.width(54.dp),
@@ -1833,7 +1870,6 @@ private fun PadBtn(
                     }
                 )
                 .nmFocusRing(odakli, shape)
-                .onFocusChanged { odakli = it.isFocused }
                 .clickable(enabled = enabled) { onClick() },
             contentAlignment = Alignment.Center,
         ) {
@@ -2165,6 +2201,9 @@ private const val MIN_GECERLI_SURE_MS = 90_000L
 
 // Kuyruktaki hiçbir kaynak 90 sn eşiğini geçemedi: bölüm sağlayıcıda gerçekten yok.
 private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
+
+// Pad şeridindeki düğme sayısı — `padCalistir` ve QuickPad çizimi ile AYNI olmalı.
+private const val padAdet = 12
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 // 90 sn erken çıkıyordu — kart hâlâ sahnenin ortasındayken beliriyor, jenerik
