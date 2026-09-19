@@ -7,92 +7,84 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 15:55
-**Dal:** `fix/general-stability` @ `1e852bb` · push EDİLDİ
-**Sürümler:** TV/telefon **0.9.5 (vc 905)** · saat `v0.1.15-poc`
+**Son güncelleme:** 19 Eylül 2026, 16:10
+**Dal:** `fix/general-stability` @ `4ebe8b5` · **0 kirli dosya** · push EDİLDİ
+**Sürümler:** TV/telefon **0.9.5 (vc 905)** · saat `v0.1.15-poc` (bu oturumda dokunulmadı)
+**Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
+**PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
-**0.9.5:** harici oynatıcı seçeneği (VLC/Nova/MX) kaldırıldı — Dean: "ayrı player'a
-gerek yok". Yayında: yerel OTA `v0.9.5-poc`, release `netmovies-tv-v0.9.5`, apps.json
-tv+phone 0.9.5, indirilen APK sha256 `0277b027…fade` = yerel dosya.
+## Doğrula
 
-## ÇÖZÜLDÜ — çökmenin kök nedeni dexleyici hatasıydı
+```bash
+git rev-parse --short HEAD                            # 4ebe8b5, 0 kirli
+bash scripts/smoke.sh                                 # kapı YEŞİL (19 Eyl 16:05 yeşildi)
+curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.5-poc
+```
 
+## 🚨 SIRADAKİ İŞ — 0.9.5'i CİHAZDA dene
+
+Tek eksik bu. 0.7.1'den 0.9.5'e kadar hiçbir sürüm televizyonda denenmedi.
+Dean TV'ye 0.9.5'i kurup bir film/dizi açmalı; oynatıcı ekranı açılıyorsa çökme
+kapanmıştır.
+
+Cihaz geri bildirimi gelmeden oynatıcı arayüzünde YENİ İŞ AÇMA.
+
+## Bu oturumda kapanan iş (0.9.3 → 0.9.5)
+
+**Çökmenin kök nedeni: dexleyici hatası, kodda hata yok.**
 `java.lang.VerifyError: Verifier rejected class ...PlayerScreenKt`. Tam mesaj
-emülatörde (API 35) `adb shell cmd package compile -m verify -f <paket>` ile alındı:
+cihaza gitmeden emülatörde alındı:
 
-```
-[0x3C6] register v258 has type Reference: kotlin.jvm.functions.Function0
-        but expected Boolean
-```
-
-0x3C6'daki `invoke-static/range {v258}, Boolean.valueOf(Z)` sabit `false` yerine
-5. PARAMETRE register'ını (`onHome: Function0`) okuyor. `PlayerScreen` **264
-register** kullanıyor; AGP 8.9.1'in getirdiği **R8 8.9.x** 256 üstü register
-atamasında bozuk dex üretiyor. Kodda hata yok — dexleyicide.
-
-**Düzeltme:** kök `client-tv/build.gradle.kts`'e `classpath("com.android.tools:r8:8.13.23")`.
-Aynı emülatör, aynı komut → verify hatası **0**, dex2oat PERFORMED.
-
-**Teşhis reçetesi (bir daha çökme gelirse ilk bu):**
 ```bash
 emulator -avd eva_test & adb wait-for-device
 adb install -r -t <apk> && adb logcat -c
 adb shell cmd package compile -m verify -f com.evaitec.netmovies.tv
 adb logcat -d | grep -iE "Verification error|failed to verify"
 ```
-Cihaza gitmeden, fotoğraf beklemeden tam yığın izi verir.
+```
+[0x3C6] register v258 has type Reference: kotlin.jvm.functions.Function0
+        but expected Boolean
+```
+0x3C6'daki `invoke-static/range {v258}, Boolean.valueOf(Z)` sabit `false` yerine
+5. PARAMETRE register'ını (`onHome: Function0`) okuyor. `PlayerScreen` **264
+register** kullanıyor; AGP 8.9.1'in getirdiği **R8 8.9.x** 256 üstü register
+atamasında bozuk dex üretiyor.
 
-**Yayın:** yerel OTA `data/apk/NetMovies-TV-v0.9.4.apk` (`app_update?target=tv` → `v0.9.4-poc`),
-GitHub release `netmovies-tv-v0.9.4`, `evaglass-releases/apps.json` (tv+phone 0.9.4).
-İndirilen APK sha256 `2cda6b82…600b` = yerel dosya.
+- **0.9.4** — kök `client-tv/build.gradle.kts`'e `classpath("com.android.tools:r8:8.13.23")`.
+  Aynı emülatör, aynı komut → verify hatası **0**, dex2oat PERFORMED. Metot hâlâ
+  265 register kullanıyor; üretilen dex artık doğru.
+- **0.9.5** — harici oynatıcı seçeneği silindi (Dean: "ayrı player'a gerek yok"):
+  ayarlardaki "📤 Harici oynatıcıda aç — VLC · Nova · MX" satırı, `ACTION_VIEW`
+  niyeti, `SettingsPanel`'in `onHariciOynat` parametresi. Tek oynatıcı bizimki.
 
-**Cihazda denenmedi.** Dean 0.9.4'ü kurup oynatıcıyı açmalı.
-
-## Bu oturumda yapılanlar (0.7.1 → 0.9.3)
-
-- **0.7.1** oynatıcı seçeneği (Media3 kontrol çubuğu / bizim overlay).
-- **0.7.2** `data/CrashLog.kt` — çökme izi diske, sonraki açılışta sunucuya.
-- **0.7.3** kök neden: PlayerView odağı alınca Compose odak ağacı kopuyor →
-  panele imleç gitmiyor, ayar açılmıyor, tuş arkada oynatmayı başlatıyordu.
-  Artık `isFocusable=false` + `FOCUS_BLOCK_DESCENDANTS`. **DEĞİŞTİRME.**
-- **0.8.0** dört anlamlı liste (Devam edenler · İzlenecekler · Takip ettiklerim ·
-  Beğendiklerim) + bölüm seçici dar sütun + önizleme. Sunucuya dokunulmadı:
-  `watch_store.ALLOWED_LISTS` ve favorites zaten vardı.
-- **0.8.1** `/api/v1/episode_overviews` — TMDB bölüm özeti + bölüm karesi.
-  Ölçüm: Neagley S1 tr-TR 8/8 dolu. Sezon başına tek istek, 12 saat önbellek,
-  Türkçe hepsi boşsa en-US. `stream/tests` 4 yeni test.
-- **0.8.2** Araçlar → harici oynatıcı (VLC/Nova/MX), ACTION_VIEW + konum ekstrası.
-- **0.9.0** Media3'ün hazır Compose arayüzü (`media3-ui-compose-material3`).
-- **0.9.1** **geri alındı** — Dean: "Medya3'e gerek yok artık bizimkini uyarla".
-  Media3 UI açıkken bizim overlay hiç çizilmiyordu; "bölüm yazısı kayıp, geçişler
-  yok" şikâyetinin sebebi buydu. Bağımlılık ve iki layout XML'i silindi.
-- **0.9.2** **yanlış bölüm kök nedeni:** istemci dizi sayfası + `episode` İNDEKSİ
-  gönderiyordu; indeks engine'in kendi listesindeki sıraya göre çözülüyor, listeler
-  ayrışınca sessizce başka bölüm açılıyordu ("3 seçiyorum 1 oynuyor"). Artık
-  bölümün KENDİ adresi gidiyor (`episodes[i].url`). Kanıt: `neagley-1-sezon-3-bolum`
-  ile resolve_sources → 1 kaynak. Ayrıca kontrol çubuğu düğmeleri odak alıyor;
-  kontroller açıkken AŞAĞI ok odağı çubuğa indiriyor.
-- **0.9.3** rafa **10 poster** — kart genişliği ekrandan hesaplanıyor
-  (`nmRafPosterGenisligi`, ana ekran + Gözat + Ajanda aynı ölçü) + çökme şeridi.
+**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.5.apk`
+(`app_update?target=tv` → `v0.9.5-poc`), GitHub release `netmovies-tv-v0.9.5`,
+`evaglass-releases/apps.json` tv+phone 0.9.5. GitHub'dan indirilen APK sha256
+`0277b02711b694adb953b04b4938e65b6bf158289261e69c12020b5c9e64fade` = yerel dosya.
 
 ## Kanıt durumu
 
-**Doğrulandı:** derlemeler, `stream/tests` 163 OK, app unit testleri, `smoke.sh`
-YEŞİL, her sürümün sha256'sı GitHub'dan indirilip karşılaştırıldı, TMDB ve
-resolve_sources yanıtları canlı çekildi.
+**Doğrulandı:** `assembleDebug` + `testDebugUnitTest` exit 0 · emülatör (API 35)
+verify hatası 0 · `smoke.sh` YEŞİL (movie 428 · serie 450 · live 201, stream/tests
+tümü geçti) · yayın sha256 karşılaştırması.
 
-**Cihazda GÖRÜLMEDİ:** 0.7.1'den 0.9.3'e kadar hiçbir şey.
+**Cihazda GÖRÜLMEDİ:** 0.7.1'den 0.9.5'e kadar hiçbir şey.
 
 ## Tekrarlanmayacak şeyler
 
+- **Çökme izini cihazdan/fotoğraftan beklemek** — emülatör verify komutu (yukarıda)
+  tam mesajı saniyeler içinde verir. İki tur bu yüzden kaybedildi.
+- **PlayerScreen'i bölerek VerifyError'ü çözmeye çalışmak** — hata kodda değil,
+  dexleyicide. R8 sürümünü düşürme.
 - **Media3'ün hazır UI'sini yeniden denemek** (0.9.0'da denendi, geri alındı):
   D-pad'i kutudan gelir ama bizim overlay'i (bölüm yazısı, bölüm geçişi, kaynak
   raporu, QuickPad) götürür.
-- PlayerView'e odak vermek.
+- PlayerView'e odak vermek — 0.7.3 kök nedeni; `isFocusable=false` +
+  `FOCUS_BLOCK_DESCENDANTS` kalsın.
 - `resolve_sources`'a bölüm İNDEKSİ göndermek — adres gönder.
 - AndroidView `factory` içinden Compose state yazmak.
 - `assembleRelease` → imzasız APK; **`assembleDebug`** kullan.
-- `sha256sum "$yol"` → çıktıya `\` ekler; `sha256sum < dosya`.
+- `sha256sum "$yol"` → çıktıya ters bölü ekler; `sha256sum < dosya` kullan.
 - `docker compose up -d --build stream` tüneli düşürür → ardından
   `docker compose --profile tunnel up -d --force-recreate cloudflared`.
 - `docker exec -w /usr/src/...` Git Bash'te yol çevirir → `-w //usr/src/...`.
@@ -105,6 +97,35 @@ resolve_sources yanıtları canlı çekildi.
 - "Sağlayıcı & Kaynak" listesinde beş kayıt da "dil bilinmiyor" diyor, ikisi
   yineleniyor (DiziPal ×2, Dizilla ×2). 17 Eylül'den beri açık, koda bakılmadı.
 - SezonlukDizi ekli ve çalışıyor: domain `sezonlukdizi.cc` (`.org` değil).
+
+## Yeniden başlangıç promptu (yapıştır)
+
+```
+NetMovies (D:\projects\netmovies, dal fix/general-stability @ 4ebe8b5, 0 kirli
+dosya, push edildi). Bu oturumda kapanan iş: televizyonda oynatıcı ekranının hiç
+açılmamasının kök nedeni — kod değil dexleyici. AGP 8.9.1'in R8 8.9.x'i, 256'dan
+fazla register kullanan PlayerScreen için bozuk dex üretiyordu, ART sınıfı
+VerifyError ile reddediyordu; kök build'e R8 8.13.23 override'ı kondu (0.9.4).
+Ardından harici oynatıcı (VLC/Nova/MX) seçeneği kaldırıldı (0.9.5). TV/telefon
+0.9.5 üç dağıtım yerinde yayında — CİHAZDA DENENMEDİ.
+
+Önce docs/HANDOFF.md oku ve içindeki "Doğrula" bloğunu koş; repo ile doküman
+çelişirse repo doğrudur.
+
+Ortam: yığın docker compose ile evde ayakta (yerel http://192.168.0.29:3310,
+tünel https://w.evaitec.com). Tünel 530 dönerse: docker compose --profile tunnel up -d.
+Yayın kuralı: geliştirme bitip kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub
+release --target main + evaglass-releases/apps.json), ne yayınladığını söyle.
+
+Öncelik sırası:
+1. SIRADAKİ İŞ — Dean 0.9.5'i TV'ye kurup bir film açsın. Çökme kapandı mı?
+   Yine çökerse ilk iş cihaz beklemek DEĞİL: emülatörde
+   `adb shell cmd package compile -m verify -f com.evaitec.netmovies.tv` + logcat.
+2. Dean bir kusur bildirirse onun kök nedeni.
+3. "Cevaplanmamış / açık" maddeleri — yalnız Dean isterse.
+
+Yeni iş açma: cihaz geri bildirimi gelmeden oynatıcı arayüzünde yeni özellik yok.
+```
 
 
 ---
