@@ -311,6 +311,8 @@ fun PlayerScreen(
     // OYNAT'a panel açıkken basıldıysa: kaynak henüz yokken de kabul edilir,
     // hazır olduğu anda başlar.
     var playRequested by remember(item.url) { mutableStateOf(item.autoplay) }
+    // Yarım tuş olayı kapısı — gerekçesi ve testi input/KeyPairGate.kt'de.
+    val tusKapisi = remember { com.evaitec.netmovies.tv.input.KeyPairGate() }
     // Panelin OYNAT satırı için "nereden devam" bilgisi. Kayıt sunucuda; panel
     // çözümlemeyi beklemeden gösterilebilsin diye ayrıca burada okunuyor.
     var resumeLabel by remember(item.url) { mutableStateOf<String?>(null) }
@@ -499,6 +501,22 @@ fun PlayerScreen(
     val nextEpIndex = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
     val prevEpIndex = (currentEpIndex - 1).takeIf { episodes.isNotEmpty() && it >= 0 }
 
+    // Başlangıç panelindeki OYNAT: "Devam et" kayıtlı bölümü kastediyor, farklı
+    // bölümdeysek önce ona geçilir. GERİ de buraya düşer — panelden çıkış değil,
+    // oynatma beklenir (Dean: "geri ok çıkış yapıyor, devam etmesi gerekirken").
+    fun panelOynat() {
+        val kayit = resumeEpisode
+        if (resumeLabel != null && kayit != null && kayit != currentEpIndex &&
+            kayit in episodes.indices
+        ) {
+            currentEpIndex = kayit
+        }
+        playRequested = true
+        showStartPanel = false
+        panelAsList = false
+        exo.playWhenReady = true
+    }
+
     fun goToEpisode(idx: Int) {
         carryOverMs = 0L
         currentEpIndex = idx        // çözümleme efektinin anahtarı → yeni kaynak zinciri
@@ -627,10 +645,16 @@ fun PlayerScreen(
             geriSayim != null -> otoGecisIptal = true
             scrubMode -> scrubMode = false
             showPad -> showPad = false
-            // Başlangıç panelinde GERİ = içerikten çık: panel oynatmanın önündeki
-            // ilk adım, kapatıp boş ekranda kalmanın anlamı yok. Oynarken açılan
-            // bölüm listesinde ise arkada film var — GERİ yalnız listeyi kapatır.
-            showStartPanel -> if (panelAsList) { showStartPanel = false; panelAsList = false } else onBack()
+            // Başlangıç panelinde GERİ = OYNAT. Eskiden içerikten çıkarıyordu; izleyen
+            // paneli "önüne çıkan bir engel" gibi görüp GERİ'ye basıyor ve kendini
+            // ana ekranda buluyordu (Dean). Kaynak henüz yoksa oynatacak bir şey de
+            // yok — o zaman çıkış. Oynarken açılan bölüm listesinde arkada film var,
+            // GERİ yalnız listeyi kapatır.
+            showStartPanel -> when {
+                panelAsList -> { showStartPanel = false; panelAsList = false }
+                links.isNotEmpty() -> panelOynat()
+                else -> onBack()
+            }
             showSettings -> {
                 showSettings = false
                 if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
@@ -1360,6 +1384,14 @@ fun PlayerScreen(
             // onPreviewKeyEvent kökten aşağı ilk çalışan yoldur.
             // Yalnız bu durum ele alınır; diğer panellerin kendi işleyicileri var.
             .onPreviewKeyEvent { ke ->
+                // Bu ekran açılmadan ÖNCE basılmış bir tuşun BIRAKILMASI buraya
+                // düşüyor: karttaki OYNAT'a basınca OK'un ACTION_DOWN'ı ana ekranda
+                // işleniyor, ACTION_UP'ı burada — başlangıç panelindeki OYNAT'a
+                // kendiliğinden basılmış oluyordu (Dean: "film başlarken kendi
+                // kendine basar gibi oluyor"). DOWN'unu görmediğimiz UP hiçbir şey
+                // tetiklemez. Kökten aşağı ilk yol olduğu için panel de controller
+                // da bu olaydan haberdar olmaz.
+                if (!tusKapisi.kabul(ke.nativeKeyEvent.action, ke.nativeKeyEvent.keyCode)) return@onPreviewKeyEvent true
                 // Tuş göstergesi buradan beslenir: kökten aşağı İLK yol, yani
                 // hangi panel açık olursa olsun her tuş buraya uğrar.
                 if (showKeys &&
@@ -1394,6 +1426,7 @@ fun PlayerScreen(
                         // geçişinin geri adımı da tek seviye olsun.
                         panelAsList && secilenSezon != null && cokSezon -> secilenSezon = null
                         panelAsList -> { showStartPanel = false; panelAsList = false }
+                        links.isNotEmpty() -> panelOynat()
                         else -> onBack()
                     }
                 }
@@ -1694,20 +1727,7 @@ fun PlayerScreen(
                     exo.playWhenReady = true
                 },
                 onSelectLink = { idx -> currentLinkIndex = idx },
-                onPlay = {
-                    // "Devam et" kayıtlı bölümü kastediyor: farklı bölümdeysek önce
-                    // ona geçilir, devam etme o zaman uygulanır.
-                    val kayit = resumeEpisode
-                    if (resumeLabel != null && kayit != null && kayit != currentEpIndex &&
-                        kayit in episodes.indices
-                    ) {
-                        currentEpIndex = kayit
-                    }
-                    playRequested = true
-                    showStartPanel = false
-                    panelAsList = false
-                    exo.playWhenReady = true
-                },
+                onPlay = { panelOynat() },
                 onOpenSettings = { showStartPanel = false; panelGeriGelsin = true; showSettings = true },
                 onOpenEpisodes = { panelAsList = true; secilenSezon = null },
             )

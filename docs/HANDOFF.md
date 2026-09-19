@@ -7,8 +7,8 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 20:15
-**Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.7 (vc 907)** ·
+**Son güncelleme:** 19 Eylül 2026, 20:25
+**Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.8 (vc 908)** ·
 saat `v0.1.15-poc` (dokunulmadı)
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
@@ -17,7 +17,7 @@ saat `v0.1.15-poc` (dokunulmadı)
 
 ```bash
 bash scripts/smoke.sh                                 # kapı YEŞİL (19 Eyl 19:40)
-curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.7-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.8-poc
 ```
 
 > `smoke.sh` ilk koşuda `serie` boş diyebilir: `aggregate_new?type=serie` soğuk
@@ -44,13 +44,38 @@ EMU="$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe"; ADB="$LOCALAPPDATA/Androi
 gelmeden ana ekrana düşüyor (toast). Oynatıcı İÇİ davranış emülatörde
 doğrulanamıyor — o kısım cihaz ister.
 
-## 🚨 SIRADAKİ İŞ — 0.9.7'yi TV'de dene
+## 🚨 SIRADAKİ İŞ — 0.9.8'i TV'de dene
 
-**Doğrulanmadı, cihaz bekliyor:** oynatıcıda AŞAĞI ok artık kumanda barını
-(QuickPad) açmalı. Kod yolu QuickPad'in kanıtlı index'ine bağlandı ama cihazda
-GÖRÜLMEDİ (emülatör oynatıcıyı ayakta tutamadı).
+Oynatıcı içi hiçbir şey cihazda görülmedi (emülatör oynatıcıyı ayakta tutamıyor).
+TV'de bakılacaklar:
+1. AŞAĞI ok kumanda barını (QuickPad) açıyor mu?
+2. Film başlarken kendi kendine basılmış gibi oluyor mu? (olmamalı)
+3. Başlangıç panelinde GERİ artık çıkmıyor, OYNAT'a basılmış gibi davranıyor.
+4. Poster uzun-bas kartı TV ekranına oturuyor mu?
 
-## Bu oturumda kapanan iş (0.9.7)
+## Bu oturumda kapanan iş (0.9.8)
+
+**Film kendi kendine başlıyordu — kök neden: yarım tuş olayı.** Bir ekranda
+basılan tuşun BIRAKILMASI, o basış yeni bir ekran açtıysa yeni ekrana düşüyor.
+Poster kartındaki OYNAT'a basınca OK'un `ACTION_DOWN`'ı ana ekranda işleniyor,
+`ACTION_UP`'ı oynatıcıda — oynatıcının başlangıç panelindeki OYNAT'a kendiliğinden
+basılmış oluyordu (Dean: "film başlarken kendi kendine basar gibi oluyor").
+Düzeltme `input/KeyPairGate.kt`: `ACTION_DOWN`'ı bu ekranda görülmeyen tuşun
+`ACTION_UP`'ı yutulur. `onPreviewKeyEvent`in ilk satırı, yani panel de controller
+da o olaydan haberdar olmaz. 5 birim testi var (`KeyPairGateTest`).
+
+> `KeyEvent` NESNESİ almaz, `(action, keyCode)` alır: birim testte android.jar
+> stub'ı `KeyEvent(...)` kurucusunu "not mocked" diye reddediyor; sabitler
+> derleme zamanı `int` olduğu için sorunsuz.
+
+**Başlangıç panelinde GERİ = OYNAT** (Dean: "geri ok çıkış yapıyor, devam etmesi
+gerekirken"). Eskiden içerikten çıkarıyordu — izleyen paneli engel gibi görüp
+GERİ'ye basıyor ve kendini ana ekranda buluyordu. Kaynak henüz yoksa
+(`links` boş) oynatacak bir şey de yok, o zaman çıkış. Oynarken açılan bölüm
+listesinde (`panelAsList`) davranış değişmedi: GERİ yalnız listeyi kapatır.
+Ortak `panelOynat()` hem panelin OYNAT'ı hem GERİ tarafından çağrılıyor.
+
+## 0.9.7'de kapanan iş
 
 **Oynatıcı düğmelerinde odak yok — kök neden.** İki ayrı düğme şeridi vardı:
 `ControlsOverlay`in `IconBtn`leri (Compose `.focusable()`) ve QuickPad'in
@@ -69,23 +94,30 @@ OK seç, GERİ kapat. Seçim yine index'le — Compose odağı kullanılmıyor.
 Bölüm seçmek oynatmaz: seçim karta döner, kaynak yoklanır, sonuç Oynat düğmesinde
 yazılı durur ("Oynat — S1B3 · 1 kaynak ✓ · Türkçe altyazı").
 
-**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.7.apk`
-(`app_update?target=tv` → `v0.9.7-poc`), GitHub release `netmovies-tv-v0.9.7`
-(indirme 200), `evaglass-releases/apps.json` tv+phone 0.9.7 / vc 907.
-sha256 `c7a97a370736e0263dc74639cd63639b1f9f0c25b48a2fd96c087212576df3c9`.
+**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.8.apk`
+(`app_update?target=tv` → `v0.9.8-poc`), GitHub release `netmovies-tv-v0.9.8`
+(indirme 200), `evaglass-releases/apps.json` tv+phone 0.9.8 / vc 908.
+sha256 `c793e46dbb2f762dac071db095c909c6f533f969b2e55570b69d6887d9ae799d`.
 
 ## Kanıt durumu
 
-**Doğrulandı:** `assembleDebug` + `testDebugUnitTest` exit 0 · emülatörde
+**Doğrulandı:** `assembleDebug` + `testDebugUnitTest` BUILD SUCCESSFUL
+(`KeyPairGateTest` 5/5) · 0.9.8 emülatörde kuruldu: verify hatası 0, FATAL 0,
+ana ekran temiz açıldı · emülatörde
 (yatay) kart açıldı, ◀ bölümler → ▼▼ → OK seçti → Oynat'a döndü → kaynak
 yoklandı ("1 kaynak ✓ · Türkçe altyazı") → ▶ listeler sütununa geçti · `smoke.sh`
 YEŞİL (movie 428 · serie 450 · live 236) · release indirme 200.
 
-**Doğrulanmadı:** oynatıcı içi AŞAĞI→QuickPad (cihaz bekliyor) · kartın TV
+**Doğrulanmadı:** oynatıcı İÇİ her şey — AŞAĞI→QuickPad, yarım tuş düzeltmesi,
+GERİ=OYNAT (emülatör oynatıcıyı ayakta tutamıyor, cihaz bekliyor) · kartın TV
 ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 
 ## Tekrarlanmayacak şeyler
 
+- **Ekran değiştiren bir tuşun ACTION_UP'ını işlemek** — `KeyPairGate` var, her
+  yeni tam ekran panelde aynı tuzak geçerli.
+- **Birim testte `KeyEvent(...)` nesnesi kurmak** — android.jar stub'ı
+  "not mocked" atar; saf mantığı `(action, keyCode)` gibi ilkel imzayla ayır.
 - **Compose odak ağacına katman üstü kartta güvenmek** — üçüncü kez yaşandı.
   Katman üstü her şeyde index-tabanlı seçim + kendi `onKeyEvent`i.
 - **Kartta sabit `width(240.dp)` sütun** — dar ekranda ortaya yer kalmıyor,
@@ -121,7 +153,10 @@ ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 ## Yeniden başlangıç promptu (yapıştır)
 
 ```
-NetMovies (D:\projects\netmovies, dal fix/general-stability). Bu oturumda: (1)
+NetMovies (D:\projects\netmovies, dal fix/general-stability). 0.9.8 yayında.
+Bu oturumda: (0) film başlarken kendi kendine basılmış gibi olmasının kök nedeni —
+bir ekranda basılan tuşun ACTION_UP'ı yeni açılan ekrana düşüyordu (KeyPairGate);
+başlangıç panelinde GERİ artık çıkış değil OYNAT. (1)
 oynatıcıda AŞAĞI ok ölüydü — kök neden iki paralel düğme şeridi ve Compose odağının
 katman üstü düğmelere inmemesiydi; AŞAĞI artık QuickPad'i açıyor, sahte odaklanabilir
 düğmeler kaldırıldı. (2) Poster uzun-bas kartı yön-tuşlu üç sütuna dönüştü (sol
@@ -137,8 +172,9 @@ Yayın kuralı: kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub release --
 main + evaglass-releases/apps.json), ne yayınladığını söyle.
 
 Öncelik:
-1. Dean 0.9.7'yi TV'ye kursun: oynatıcıda AŞAĞI kumanda barını açıyor mu, poster
-   uzun-bas kartı TV ekranına oturuyor mu?
+1. Dean 0.9.8'i TV'ye kursun: AŞAĞI kumanda barını açıyor mu, film kendi kendine
+   başlıyor mu (olmamalı), başlangıç panelinde GERİ oynatıyor mu, poster kartı
+   TV ekranına oturuyor mu?
 2. Dean bir kusur bildirirse onun kök nedeni.
 3. "Cevaplanmamış / açık" maddeleri — yalnız Dean isterse.
 ```
