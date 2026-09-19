@@ -175,7 +175,9 @@ fun PlayerScreen(
     // aynı tercihle gelir.
     var orijinalKontrol by remember { mutableStateOf(oynaticiPrefs.getBoolean("orijinal_kontrol", false)) }
     // Tuşları native görünüme iletmek için: orijinal modda kontrolü PlayerView yürütür.
-    var playerView by remember { mutableStateOf<PlayerView?>(null) }
+    // State DEĞİL: AndroidView'ın factory'si bileşim sırasında koşuyor, oraya state
+    // yazmak yeniden bileşim tetikler.
+    val playerView = remember { java.util.concurrent.atomic.AtomicReference<PlayerView?>(null) }
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             setParameters(
@@ -1421,7 +1423,7 @@ fun PlayerScreen(
                     // sarma, oynat/duraklat ve gezinme Media3'ün kendi çubuğunda.
                     // Panel/pad açıkken devreye girmez — onlar hâlâ bizim ekranımız.
                     orijinalKontrol && !showSettings && !showSeek && !showStartPanel && !showPad ->
-                        playerView?.dispatchKeyEvent(ke.nativeKeyEvent) ?: false
+                        playerView.get()?.dispatchKeyEvent(ke.nativeKeyEvent) ?: false
                     // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
                     // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
                     // basınca hiçbir şey olmuyordu (useController=false → ExoPlayer de
@@ -1523,7 +1525,7 @@ fun PlayerScreen(
                     keepScreenOn = true
                     isFocusable = orijinalKontrol
                     isFocusableInTouchMode = orijinalKontrol
-                    playerView = this
+                    playerView.set(this)
                 }
             },
             update = { v ->

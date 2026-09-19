@@ -21,6 +21,7 @@ import com.evaitec.netmovies.tv.ui.theme.NetMoviesTheme
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.BrowseScreen
@@ -102,6 +103,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.evaitec.netmovies.tv.data.ServerResolver.init(this)
+        // Çökme izi: bu açılıştan önceki çökme varsa sunucuya gider, sonra silinir.
+        com.evaitec.netmovies.tv.data.CrashLog.kur(this)
+        com.evaitec.netmovies.tv.data.CrashLog.bekleyen(this)?.let { satirlar ->
+            satirlar.forEach { com.evaitec.netmovies.tv.data.PlaybackLog.warn("cokme", it) }
+            lifecycleScope.launch {
+                val gonderildi = runCatching {
+                    com.evaitec.netmovies.tv.data.Network.api.clientLog(
+                        mapOf("lines" to (listOf("=== ÖNCEKİ AÇILIŞTA ÇÖKME ===") + satirlar))
+                    )
+                }.isSuccess
+                if (gonderildi) com.evaitec.netmovies.tv.data.CrashLog.temizle(this@MainActivity)
+            }
+        }
         setContent {
             NetMoviesTheme {
                 run {
