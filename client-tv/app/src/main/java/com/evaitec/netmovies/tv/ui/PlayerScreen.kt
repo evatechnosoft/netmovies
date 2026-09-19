@@ -1476,11 +1476,6 @@ fun PlayerScreen(
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
                         true
                     }
-                    // Kontroller açıkken AŞAĞI ok = odağı çubuktaki düğmelere indir
-                    // (Compose'un kendi odak gezinmesi). Kapalıyken eski davranış:
-                    // AŞAĞI alt kumanda barını (QuickPad) açar.
-                    showControls && !showPad && !scrubMode &&
-                        ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN -> false
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
                     // Uzun basışla açılan panelin, tuş bırakılırken kendi kendini
                     // kapatmasını engeller — bırakma olayı controller'a aittir.
@@ -2239,24 +2234,18 @@ private fun MarkerBand(start: Float, end: Float) {
 // D-pad focus'unu bozmaz. accent=true → dolu mor (oynat/duraklat).
 @Composable
 private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: androidx.compose.ui.unit.Dp, onTap: () -> Unit, accent: Boolean = false) {
-    // Düğmeler ODAK ALIR. Eskiden almıyordu (D-pad sol/sağ yalnız sarmaydı) ve
-    // gezilebilir takım ayrı bir şeritteydi — Dean, 19 Eylül: "d-pad gezmiyor,
-    // player üstünde odak yok". Kontroller açıkken AŞAĞI ok odağı buraya indirir.
-    var odakli by remember { mutableStateOf(false) }
+    // Düğmeler ODAK ALMAZ — bu bilinçli. Denendi ve cihazda çalışmadı: kök kutu
+    // `.focusable()` olduğu için Compose'un odak araması buraya inmiyordu, AŞAĞI ok
+    // ölü kalıyordu (Dean, 19 Eylül: "sarma ileri geri sonraki bölüm dolaşmıyor,
+    // odak yok butonlarda"). Gezilebilir takım TEK yerde: QuickPad — index'le
+    // seçilir, Compose odak ağacına güvenmez. AŞAĞI ok onu açar.
     Box(
         modifier = Modifier
             .size(box)
             .clip(CircleShape)
             .background(
-                when {
-                    odakli -> NmColor.OnSurface
-                    accent -> NmColor.Primary
-                    else   -> NmColor.ScrimSoft
-                }
+                if (accent) NmColor.Primary else NmColor.ScrimSoft
             )
-            .onFocusChanged { odakli = it.isFocused }
-            .focusable()
-            .clickable { onTap() }
             .pointerInput(Unit) { detectTapGestures { onTap() } },
         contentAlignment = Alignment.Center,
     ) {
@@ -2264,7 +2253,7 @@ private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: and
             icon,
             contentDescription = null,
             modifier = Modifier.size(ic),
-            colorFilter = ColorFilter.tint(if (odakli) NmColor.Primary else NmColor.OnPrimary),
+            colorFilter = ColorFilter.tint(NmColor.OnPrimary),
         )
     }
 }

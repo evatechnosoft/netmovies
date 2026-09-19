@@ -7,154 +7,140 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 16:40
-**Dal:** `fix/general-stability` @ `28c2b17` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV/telefon **0.9.6 (vc 906)** · saat `v0.1.15-poc` (bu oturumda dokunulmadı)
+**Son güncelleme:** 19 Eylül 2026, 20:15
+**Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.7 (vc 907)** ·
+saat `v0.1.15-poc` (dokunulmadı)
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
 
 ## Doğrula
 
 ```bash
-git rev-parse --short HEAD                            # 28c2b17, 0 kirli
-bash scripts/smoke.sh                                 # kapı YEŞİL (19 Eyl 16:05 yeşildi)
-curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.6-poc
+bash scripts/smoke.sh                                 # kapı YEŞİL (19 Eyl 19:40)
+curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.7-poc
 ```
 
-## 🔬 ARTIK EMÜLATÖR VAR — cihaz beklemeden test et
+> `smoke.sh` ilk koşuda `serie` boş diyebilir: `aggregate_new?type=serie` soğuk
+> cache'te 90 sn sınırını aşıyor. İkinci koşu 450 içerik verir — kusur değil.
 
-`eva_test` AVD (API 35) PC'de duruyor ve ev ağına erişiyor: uygulama yerel
-sunucuya (`192.168.1.185:3310`) bağlanıp gerçek katalogla açılıyor. Çökme izi
-için cihaz/fotoğraf beklemek ARTIK GEREKMİYOR.
+## 🔬 EMÜLATÖR — cihaz beklemeden test
+
+`eva_test` AVD (API 35) ev ağına erişiyor, gerçek katalogla açılıyor. **Yatay
+çevir**, yoksa TV yerleşimi değerlendirilemez:
+`adb shell settings put system accelerometer_rotation 0` + `... user_rotation 1`
 
 ```bash
 EMU="$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe"; ADB="$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"
 "$EMU" -avd eva_test -no-snapshot-load -no-boot-anim &      # run_in_background
-"$ADB" install -r -t <apk> && "$ADB" logcat -c
-"$ADB" shell cmd package compile -m verify -f com.evaitec.netmovies.tv   # VerifyError kapısı
+"$ADB" install -r -t <apk>
+"$ADB" shell cmd package compile -m verify -f com.evaitec.netmovies.tv   # VerifyError kapisi
 "$ADB" logcat -d | grep -iE "Verification error|failed to verify"        # beklenen: bos
 "$ADB" shell am start -n com.evaitec.netmovies.tv/.MainActivity
 "$ADB" exec-out screencap -p > ss.png                      # Read ile bak
-"$ADB" shell input tap <x> <y>  ·  "$ADB" shell input keyevent 20
-"$ADB" shell "run-as com.evaitec.netmovies.tv ls files/"   # crash dosyasi duruyor mu
+"$ADB" shell input keyevent 22   ·   "$ADB" shell input keyevent --longpress 23
 ```
 
-## 🚨 SIRADAKİ İŞ — 0.9.6'yı CİHAZDA dene
+**Emülatörün sınırı:** oynatıcı açılıyor, `resolve_sources` dönüyor, ama görüntü
+gelmeden ana ekrana düşüyor (toast). Oynatıcı İÇİ davranış emülatörde
+doğrulanamıyor — o kısım cihaz ister.
 
-0.7.1'den 0.9.6'ya kadar hiçbir sürüm televizyonda denenmedi. Dean TV'ye 0.9.6'yı
-kurup bir dizi açmalı. Beklenen: çökme şeridi gelmez (gelirse tek tuşla kapanır
-ve bir daha gelmez), oynatıcı ekranı açılır.
+## 🚨 SIRADAKİ İŞ — 0.9.7'yi TV'de dene
 
-**Açık, doğrulanmamış:** emülatörde oynatıcı açıldı, `resolve_sources` 200 döndü,
-sonra ~20 sn içinde ana ekrana döndü — görüntü gelmedi. Emülatörün kod çözücüsü mü,
-kaynağın kendisi mi ayrılmadı. TV'de oynuyorsa bu emülatör kusurudur; TV'de de
-dönüyorsa kök neden burada: `docker logs netmovies-engine | grep resolve:` ve
-`curl -s localhost:3310/api/v1/client_log`.
+**Doğrulanmadı, cihaz bekliyor:** oynatıcıda AŞAĞI ok artık kumanda barını
+(QuickPad) açmalı. Kod yolu QuickPad'in kanıtlı index'ine bağlandı ama cihazda
+GÖRÜLMEDİ (emülatör oynatıcıyı ayakta tutamadı).
 
-## Bu oturumda kapanan iş (0.9.3 → 0.9.6)
+## Bu oturumda kapanan iş (0.9.7)
 
-**0.9.4 — çökmenin kök nedeni: dexleyici hatası, kodda hata yok.**
-`VerifyError: Verifier rejected class ...PlayerScreenKt`, tam mesaj:
+**Oynatıcı düğmelerinde odak yok — kök neden.** İki ayrı düğme şeridi vardı:
+`ControlsOverlay`in `IconBtn`leri (Compose `.focusable()`) ve QuickPad'in
+`PadBtn`leri (index). Kontroller açıkken AŞAĞI ok `false` dönüyor, odağın
+`IconBtn`lere inmesi bekleniyordu — inmiyor: kök kutu `.focusable()` olduğu için
+odak araması oraya gitmiyor. AŞAĞI ölü kalıyordu (Dean: "sarma ileri geri sonraki
+bölüm dolaşmıyor, odak yok butonlarda"). Düzeltme: o dal silindi (AŞAĞI →
+`OPEN_BAR` → QuickPad), `IconBtn`den `.focusable()`/`.clickable()` kaldırıldı —
+odak alamayan düğme artık odak alacakmış gibi durmuyor. **Gezilebilir tek desen
+QuickPad'in index'i.**
 
-```
-[0x3C6] register v258 has type Reference: kotlin.jvm.functions.Function0
-        but expected Boolean
-```
-0x3C6'daki `invoke-static/range {v258}, Boolean.valueOf(Z)` sabit `false` yerine
-5. PARAMETRE register'ını (`onHome: Function0`) okuyor. `PlayerScreen` **264
-register** kullanıyor; AGP 8.9.1'in getirdiği **R8 8.9.x** 256 üstü register
-atamasında bozuk dex üretiyor. Düzeltme: kök `client-tv/build.gradle.kts`'e
-`classpath("com.android.tools:r8:8.13.23")`. Verify hatası 0.
+**Poster uzun-bas kartı** (Dean'in tarifi): dikey menü yerine üç sütun —
+SOL bölümler · ORTA poster + yıl/puan/tür + özet + dil rozetleri · SAĞ listeler ·
+ALT Oynat. Yön tuşları: ◀ bölümler, ▶ listeler, ▼ (sütun sonunda) oynat, ▲ özet,
+OK seç, GERİ kapat. Seçim yine index'le — Compose odağı kullanılmıyor.
+Bölüm seçmek oynatmaz: seçim karta döner, kaynak yoklanır, sonuç Oynat düğmesinde
+yazılı durur ("Oynat — S1B3 · 1 kaynak ✓ · Türkçe altyazı").
 
-**0.9.5 — harici oynatıcı seçeneği silindi** (Dean: "ayrı player'a gerek yok"):
-ayarlardaki "📤 Harici oynatıcıda aç — VLC · Nova · MX", `ACTION_VIEW` niyeti,
-`SettingsPanel.onHariciOynat`. Tek oynatıcı bizimki.
-
-**0.9.6 — çökme şeridinin kendi kusurları** (Dean: "kapata basamıyoruz, her
-açılışta geliyor"):
-- Kapat düğmesi Compose odak ağacının erişilemez yerindeydi → artık HERHANGİ bir
-  tuş şeridi kapatıyor (`MainActivity.dispatchKeyEvent`, odak sistemine güvenmeden).
-- `son_crash.txt` yalnız sunucuya ULAŞINCA siliniyordu; gönderim tutmayınca aynı iz
-  her açılışta geri geliyordu → dosya okunur okunmaz siliniyor, satırlar bellekte,
-  gönderim yine 3 kez deneniyor.
-- Mesaj 160 karakterde kesiliyordu (asıl neden kesilen kısımdaydı) → 400 karakter,
-  8 satır. Başlıkta artık KURULU sürüm de var: iz eski sürümden mi geliyor belli olsun.
-
-**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.6.apk`
-(`app_update?target=tv` → `v0.9.6-poc`), GitHub release `netmovies-tv-v0.9.6`,
-`evaglass-releases/apps.json` tv+phone 0.9.6. İndirilen APK sha256
-`2dc13dd68a13aa0c400d9071633276c08e0b1dad8bead68ad04e845704286b12` = yerel dosya.
+**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.7.apk`
+(`app_update?target=tv` → `v0.9.7-poc`), GitHub release `netmovies-tv-v0.9.7`
+(indirme 200), `evaglass-releases/apps.json` tv+phone 0.9.7 / vc 907.
+sha256 `c7a97a370736e0263dc74639cd63639b1f9f0c25b48a2fd96c087212576df3c9`.
 
 ## Kanıt durumu
 
-**Doğrulandı:** `assembleDebug` + `testDebugUnitTest` exit 0 · emülatörde verify
-hatası 0 · sahte `son_crash.txt` ile şerit çıktı → tek tuşla kapandı → yeniden
-açılışta GELMEDİ (`files/` boş) · emülatörde dizi açıldı, `resolve_sources` 200,
-VerifyError/FATAL 0 · `smoke.sh` YEŞİL (movie 428 · serie 450 · live 201) ·
-yayın sha256 karşılaştırması.
+**Doğrulandı:** `assembleDebug` + `testDebugUnitTest` exit 0 · emülatörde
+(yatay) kart açıldı, ◀ bölümler → ▼▼ → OK seçti → Oynat'a döndü → kaynak
+yoklandı ("1 kaynak ✓ · Türkçe altyazı") → ▶ listeler sütununa geçti · `smoke.sh`
+YEŞİL (movie 428 · serie 450 · live 236) · release indirme 200.
 
-**Televizyonda GÖRÜLMEDİ:** 0.7.1'den 0.9.6'ya kadar hiçbir şey.
+**Doğrulanmadı:** oynatıcı içi AŞAĞI→QuickPad (cihaz bekliyor) · kartın TV
+ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 
 ## Tekrarlanmayacak şeyler
 
-- **Çökme izini cihazdan/fotoğraftan beklemek** — emülatör reçetesi yukarıda.
-- **PlayerScreen'i bölerek VerifyError'ü çözmeye çalışmak** — hata dexleyicide.
-  R8 sürümünü düşürme.
-- **Çökme şeridine (ya da benzer katman üstü karta) odaklanabilir düğme koymak** —
-  Compose odak ağacı oraya gitmiyor; tuşu `dispatchKeyEvent`'te yakala.
-- **Media3'ün hazır UI'sini yeniden denemek** (0.9.0'da denendi, geri alındı):
-  bizim overlay'i (bölüm yazısı, bölüm geçişi, kaynak raporu, QuickPad) götürür.
-- PlayerView'e odak vermek — 0.7.3 kök nedeni; `isFocusable=false` +
-  `FOCUS_BLOCK_DESCENDANTS` kalsın.
+- **Compose odak ağacına katman üstü kartta güvenmek** — üçüncü kez yaşandı.
+  Katman üstü her şeyde index-tabanlı seçim + kendi `onKeyEvent`i.
+- **Kartta sabit `width(240.dp)` sütun** — dar ekranda ortaya yer kalmıyor,
+  başlık tek harflik sütuna sıkışıyordu. `weight` kullan.
+- **Yarı saydam scrim ile tam ekran kart** — arkadaki raflar okunuyor, dağınık.
+- **PlayerScreen'i bölerek VerifyError'ü çözmeye çalışmak** — hata dexleyicide
+  (R8 8.9.x, 256+ register). R8 8.13.23 override'ı kök build'de, düşürme.
+- **Çökme şeridine odaklanabilir düğme koymak** — tuşu `dispatchKeyEvent`te yakala.
+- **Media3'ün hazır UI'si** (0.9.0'da denendi, geri alındı): overlay'i götürür.
+- PlayerView'e odak vermek — `isFocusable=false` + `FOCUS_BLOCK_DESCENDANTS` kalsın.
 - `resolve_sources`'a bölüm İNDEKSİ göndermek — adres gönder.
 - AndroidView `factory` içinden Compose state yazmak.
 - `assembleRelease` → imzasız APK; **`assembleDebug`** kullan.
-- `sha256sum "$yol"` → çıktıya ters bölü ekler; `sha256sum < dosya` kullan.
+- `sha256sum "$yol"` → ters bölü ekler; `sha256sum < dosya` kullan.
 - `docker compose up -d --build stream` tüneli düşürür → ardından
   `docker compose --profile tunnel up -d --force-recreate cloudflared`.
 - `docker exec -w /usr/src/...` Git Bash'te yol çevirir → `-w //usr/src/...`.
+- Git Bash heredoc'una uzun Kotlin/Markdown gömmek → parse hatası; Write ile yaz.
 - Python (Windows) `/tmp` görmez; scratchpad'in tam yolunu ver.
-- Python `re.sub` replacement'ında Windows yolu → `bad escape \p`; dilim birleştir.
 
 ## Cevaplanmamış / açık
 
-- Emülatörde oynatıcı açıldı ama görüntü gelmeden ana ekrana döndü (yukarıda).
-- Dean'in "sadece basılı tut ya da tek tek bas çalışıyor" cümlesi anlaşılmadı —
-  ne beklediği sorulmalı (tek basış 10 sn, basılı tutma hızlı: tasarım bu).
-- "Sağlayıcı & Kaynak" listesinde beş kayıt da "dil bilinmiyor" diyor, ikisi
-  yineleniyor (DiziPal ×2, Dizilla ×2). 17 Eylül'den beri açık, koda bakılmadı.
+- Oynatıcı emülatörde görüntü gelmeden kapanıyor (toast). TV'de oynuyor →
+  emülatör kusuru olabilir; TV'de de olursa: `docker logs netmovies-engine | grep resolve:`
+  ve `curl -s localhost:3310/api/v1/client_log`.
+- Kartta ▲ (ORTA/özet) yalnız özeti uzatıyor — Dean başka bir şey istemiş olabilir.
+- "değişebilir şekilde ekle" (Dean) — kart tuşları buton eşlemeye bağlanmadı,
+  sabit. İstenirse `input/RemoteInput.kt` üzerinden eşlenebilir.
+- "Sağlayıcı & Kaynak" listesinde beş kayıt da "dil bilinmiyor", ikisi yineleniyor
+  (DiziPal ×2, Dizilla ×2). 17 Eylül'den beri açık, koda bakılmadı.
 - SezonlukDizi ekli ve çalışıyor: domain `sezonlukdizi.cc` (`.org` değil).
 
 ## Yeniden başlangıç promptu (yapıştır)
 
 ```
-NetMovies (D:\projects\netmovies, dal fix/general-stability @ 28c2b17, 0 kirli
-dosya, push edildi). Bu oturumda kapanan iş: (1) televizyonda oynatıcı ekranının
-hiç açılmamasının kök nedeni — kod değil dexleyici: AGP 8.9.1'in R8 8.9.x'i, 256'dan
-fazla register kullanan PlayerScreen için bozuk dex üretiyor, ART VerifyError ile
-reddediyordu; kök build'e R8 8.13.23 override'ı kondu (0.9.4). (2) Harici oynatıcı
-seçeneği kaldırıldı (0.9.5). (3) Çökme şeridi artık herhangi bir tuşla kapanıyor ve
-her açılışta tekrar gelmiyor, mesajı da kesilmiyor (0.9.6). TV/telefon 0.9.6 üç
-dağıtım yerinde yayında — TELEVİZYONDA DENENMEDİ.
+NetMovies (D:\projects\netmovies, dal fix/general-stability). Bu oturumda: (1)
+oynatıcıda AŞAĞI ok ölüydü — kök neden iki paralel düğme şeridi ve Compose odağının
+katman üstü düğmelere inmemesiydi; AŞAĞI artık QuickPad'i açıyor, sahte odaklanabilir
+düğmeler kaldırıldı. (2) Poster uzun-bas kartı yön-tuşlu üç sütuna dönüştü (sol
+bölümler · orta özet/dil · sağ listeler · alt oynat), emülatörde uçtan uca denendi.
+0.9.7 üç dağıtım yerinde yayında. OYNATICI İÇİ DAVRANIŞ CİHAZDA DENENMEDİ.
 
-Önce docs/HANDOFF.md oku ve içindeki "Doğrula" bloğunu koş; repo ile doküman
-çelişirse repo doğrudur. HANDOFF'taki "ARTIK EMÜLATÖR VAR" bloğu önemli: eva_test
-AVD ile cihaz beklemeden kurulum/çökme/ekran testi yapılabiliyor.
+Önce docs/HANDOFF.md oku ve "Doğrula" bloğunu koş; repo ile doküman çelişirse repo
+doğrudur. Emülatörü YATAY çevirmeden TV yerleşimine bakma.
 
 Ortam: yığın docker compose ile evde ayakta (yerel http://192.168.0.29:3310,
 tünel https://w.evaitec.com). Tünel 530 dönerse: docker compose --profile tunnel up -d.
-Yayın kuralı: geliştirme bitip kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub
-release --target main + evaglass-releases/apps.json), ne yayınladığını söyle.
+Yayın kuralı: kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub release --target
+main + evaglass-releases/apps.json), ne yayınladığını söyle.
 
-Öncelik sırası:
-1. SIRADAKİ İŞ — Dean 0.9.6'yı TV'ye kurup bir dizi açsın. Oynatıcı açılıyor mu,
-   görüntü geliyor mu? Sorun olursa ilk iş emülatör reçetesi, cihaz beklemek değil.
-2. Emülatörde oynatıcı açıldı ama görüntü gelmeden kapandı — TV'de de oluyorsa
-   kök neden: docker logs netmovies-engine | grep resolve: · /api/v1/client_log
-3. Dean bir kusur bildirirse onun kök nedeni.
-4. "Cevaplanmamış / açık" maddeleri — yalnız Dean isterse.
-
-Yeni iş açma: cihaz geri bildirimi gelmeden oynatıcı arayüzünde yeni özellik yok.
+Öncelik:
+1. Dean 0.9.7'yi TV'ye kursun: oynatıcıda AŞAĞI kumanda barını açıyor mu, poster
+   uzun-bas kartı TV ekranına oturuyor mu?
+2. Dean bir kusur bildirirse onun kök nedeni.
+3. "Cevaplanmamış / açık" maddeleri — yalnız Dean isterse.
 ```
 
 

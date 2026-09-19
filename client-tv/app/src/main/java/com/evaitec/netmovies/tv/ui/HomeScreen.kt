@@ -46,6 +46,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -542,28 +543,41 @@ private sealed interface Yoklama {
     }
 }
 
-// Poster uzun-bas menüsü — sayfa açmadan hızlı aksiyonlar.
+// Poster uzun-bas kartı — sayfa açmadan hızlı bakış + aksiyon.
+//
+// Yerleşim Dean'in tarifi (19 Eylül): SOL bölümler · SAĞ listeler · ORTA resim,
+// özet, dil · ALT oynat. Gezinme index'le yapılır, Compose odak ağacına
+// GÜVENİLMEZ: aynı hata oynatıcıda iki kez yaşandı (odak katman üstü karta
+// inmiyor), gezilebilir tek kanıtlı desen QuickPad'in index'i.
+private enum class KartOdak { BOLUM, ORTA, LISTE, OYNAT }
+
+/** Sağ sütundaki liste düğmeleri — sıra ekranda göründüğü sıradır. */
+private val LISTE_SIRASI = listOf(
+    Library.LISTE_IZLENECEK,
+    Library.LISTE_TAKIP,
+    "favori",
+)
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun PosterMenu(
     item: MediaItem,
-    library: com.evaitec.netmovies.tv.data.Library,
+    library: Library,
     onPlay: () -> Unit,
     onPlayEpisode: (Int) -> Unit,
     onClose: () -> Unit,
 ) {
-    // Bölüm listesi menü açılınca TEK istekle gelir (`load_item`). Film ise boş
-    // döner ve satır hiç çizilmez — "bölüm seç" deyip boş liste açmak yok.
-    var bolumler by remember(item.url) { mutableStateOf<List<com.evaitec.netmovies.tv.data.EpisodeItem>>(emptyList()) }
-    var bolumSeciyor by remember(item.url) { mutableStateOf(false) }
+    // Tek `load_item` isteği: bölümler DE özet DE buradan gelir. Film ise
+    // `episodes` boş döner ve sol sütun hiç çizilmez.
+    var detay by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
     LaunchedEffect(item.url) {
-        bolumler = runCatching { Network.api.loadItem(item.plugin, item.url).result?.episodes.orEmpty() }
-            .getOrDefault(emptyList())
+        detay = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
     }
+    val bolumler = detay?.episodes.orEmpty()
+
     // Seçilen bölüm ve onun kaynak yoklaması. Bölüm seçince DOĞRUDAN oynatmak,
     // kaynak yoksa oynatıcıyı açıp kapatıyordu — izleyen "bir şey oldu, kapandı"
-    // görüyordu (Dean, 17 Eylül). Artık seçim menüye döner, kaynak telefonda
-    // yoklanır ve sonuç Oynat satırında yazılı durur.
+    // görüyordu (Dean, 17 Eylül). Sonuç Oynat düğmesinde yazılı durur.
     var secilenBolum by remember(item.url) { mutableStateOf<Int?>(null) }
     var yoklama by remember(item.url) { mutableStateOf<Yoklama>(Yoklama.Baslamadi) }
 
@@ -576,14 +590,13 @@ private fun PosterMenu(
         }
         yoklama = Yoklama.Suruyor
         yoklama = runCatching {
-            val yanit = Network.api.resolveSources(
+            Network.api.resolveSources(
                 plugin = item.plugin,
                 encodedUrl = item.url,
                 title = item.title,
                 episode = secilenBolum?.let { it + 1 } ?: 0,
                 mode = "fast",
-            )
-            yanit.result?.sources.orEmpty()
+            ).result?.sources.orEmpty()
         }.fold(
             onSuccess = { kaynaklar ->
                 if (kaynaklar.isEmpty()) Yoklama.Yok
@@ -597,67 +610,263 @@ private fun PosterMenu(
         )
     }
 
-    if (bolumSeciyor) {
-        EpisodePickerModal(
-            episodes = bolumler,
-            onPick = { idx ->
-                secilenBolum = idx
-                bolumSeciyor = false
-            },
-            onClose = { bolumSeciyor = false },
-        )
-        return
-    }
-    // Liste durumları Library'den okunur: aynı kayıt hem raflara hem bu menüye
-    // besleniyor, ayrıca ağ isteği beklenmiyor (satır açılır açılmaz doğru yazıyor).
-    val bolumEtiketi = secilenBolum?.let { i ->
-        bolumler.getOrNull(i)?.let { " — S${it.season}B${it.episode ?: (i + 1)}" } ?: ""
-    } ?: ""
+    var odak by remember(item.url) { mutableStateOf(KartOdak.OYNAT) }
+    var bolumIdx by remember(item.url) { mutableStateOf(0) }
+    var listeIdx by remember(item.url) { mutableStateOf(0) }
+    val bolumState = rememberLazyListState()
 
-    ModalCard(title = item.title ?: "Seçenekler", onClose = onClose) {
-        MenuRow("▶  Oynat$bolumEtiketi${yoklama.kuyruk()}") {
-            secilenBolum?.let(onPlayEpisode) ?: onPlay()
+    // Seçili bölüm listenin görünmeyen yerine kayarsa kullanıcı neyi seçtiğini
+    // göremez: her adımda o satıra kaydırılır.
+    LaunchedEffect(bolumIdx, odak) {
+        if (odak == KartOdak.BOLUM && bolumler.isNotEmpty()) {
+            runCatching { bolumState.scrollToItem(bolumIdx.coerceIn(0, bolumler.lastIndex)) }
         }
-        if (bolumler.isNotEmpty()) {
-            MenuRow(
-                if (secilenBolum == null) "📑  Bölüm seç (${bolumler.size})"
-                else "📑  Başka bölüm (${bolumler.size})",
-            ) { bolumSeciyor = true }
+    }
+
+    fun oynat() {
+        secilenBolum?.let(onPlayEpisode) ?: onPlay()
+    }
+
+    fun listeUygula(i: Int) {
+        when (LISTE_SIRASI.getOrNull(i)) {
+            Library.LISTE_IZLENECEK -> library.toggleListe(item, Library.LISTE_IZLENECEK)
+            Library.LISTE_TAKIP     -> library.toggleListe(item, Library.LISTE_TAKIP)
+            else                    -> library.toggleFavorite(item)
         }
-        // Tek "favori" yerine anlamlı listeler. Devam edenler burada YOK: o raf
-        // izleme kaydından kendiliğinden doluyor, elle eklenmiyor.
-        MenuRow(
-            if (library.inIzlenecek(item)) "☆  İzleneceklerde ✓ — çıkar" else "☆  İzleneceklere ekle",
-        ) { library.toggleListe(item, com.evaitec.netmovies.tv.data.Library.LISTE_IZLENECEK) }
-        MenuRow(
-            if (library.inTakip(item)) "📋  Takipte ✓ — bırak" else "📋  Takip et",
-        ) { library.toggleListe(item, com.evaitec.netmovies.tv.data.Library.LISTE_TAKIP) }
-        MenuRow(
-            if (library.isFavorite(item)) "★  Beğendiklerimde ✓ — çıkar" else "★  Beğendiklerime ekle",
-        ) { library.toggleFavorite(item) }
-        MenuRow("Kapat", onClose)
+    }
+
+    // Kartın kendi tuş işleyicisi. `true` = tüketildi; arkadaki raflar hiçbir tuş
+    // görmez (modal açıkken `canFocus = false` zaten odak aramasını da kesiyor).
+    fun tus(code: Int): Boolean {
+        val bolumVar = bolumler.isNotEmpty()
+        when (code) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> odak = when (odak) {
+                KartOdak.LISTE -> KartOdak.OYNAT
+                KartOdak.OYNAT, KartOdak.ORTA -> if (bolumVar) KartOdak.BOLUM else odak
+                KartOdak.BOLUM -> KartOdak.BOLUM
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> odak = when (odak) {
+                KartOdak.BOLUM -> KartOdak.OYNAT
+                KartOdak.OYNAT, KartOdak.ORTA -> KartOdak.LISTE
+                KartOdak.LISTE -> KartOdak.LISTE
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_UP -> when (odak) {
+                // Sütun içinde yukarı gezer; en üstteyken sütundan çıkmaz —
+                // kazara ORTA'ya sıçrayıp seçimi kaybetmesin.
+                KartOdak.BOLUM -> bolumIdx = (bolumIdx - 1).coerceAtLeast(0)
+                KartOdak.LISTE -> listeIdx = (listeIdx - 1).coerceAtLeast(0)
+                KartOdak.OYNAT -> odak = KartOdak.ORTA
+                KartOdak.ORTA  -> Unit
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> when (odak) {
+                // Listenin sonunda AŞAĞI = Oynat. "Aşağı play" (Dean): nerede
+                // olursan ol, aşağı basmaya devam etmek oynat düğmesine indirir.
+                KartOdak.BOLUM -> if (bolumIdx >= bolumler.lastIndex) odak = KartOdak.OYNAT else bolumIdx++
+                KartOdak.LISTE -> if (listeIdx >= LISTE_SIRASI.lastIndex) odak = KartOdak.OYNAT else listeIdx++
+                KartOdak.ORTA  -> odak = KartOdak.OYNAT
+                KartOdak.OYNAT -> Unit
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+            android.view.KeyEvent.KEYCODE_ENTER,
+            android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> when (odak) {
+                // Bölüm seçmek oynatmaz: seçim karta döner, kaynak yoklanır,
+                // sonuç Oynat düğmesinde yazılı durur.
+                KartOdak.BOLUM -> { secilenBolum = bolumIdx; odak = KartOdak.OYNAT }
+                KartOdak.LISTE -> listeUygula(listeIdx)
+                else           -> oynat()
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    val kartFocus = remember { FocusRequester() }
+    // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
+    // olur; tuşlar o zaman hiçbir yere gitmez (oynatıcıda aynı tuzak yaşandı).
+    LaunchedEffect(item.url) {
+        repeat(8) {
+            if (runCatching { kartFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            withFrameNanos {}
+        }
+    }
+    NmBackHandler(enabled = true) { onClose() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // Opak zemin: yarı saydam scrim'de arkadaki raflar okunuyor, kartın
+            // üç sütunu dağınık görünüyordu (emülatör, 19 Eylül).
+            .background(NmColor.Background)
+            .zIndex(10f)
+            .focusRequester(kartFocus)
+            .onKeyEvent { ke ->
+                if (ke.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) true
+                else tus(ke.nativeKeyEvent.keyCode)
+            }
+            .focusable()
+            .padding(NmDim.SafeArea),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // SOL — bölümler. Filmde sütun hiç yok, orta genişler.
+                if (bolumler.isNotEmpty()) {
+                    Column(Modifier.weight(0.28f).fillMaxHeight()) {
+                        SutunBasligi("Bölümler (${bolumler.size})", odak == KartOdak.BOLUM)
+                        LazyColumn(state = bolumState, modifier = Modifier.fillMaxHeight()) {
+                            itemsIndexed(bolumler) { i, ep ->
+                                val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${i + 1}"
+                                val ad = ep.title?.takeIf { it.isNotBlank() }
+                                KartSatir(
+                                    label = if (ad != null) "$numara · $ad" else numara,
+                                    secili = odak == KartOdak.BOLUM && i == bolumIdx,
+                                    isaretli = i == secilenBolum,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ORTA — resim, künye, özet, dil.
+                Row(
+                    modifier = Modifier.weight(0.44f).fillMaxHeight(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .width(110.dp)
+                            .aspectRatio(2f / 3f)
+                            .clip(RoundedCornerShape(NmDim.CardRadius)),
+                    ) {
+                        PosterImage(poster = detay?.poster ?: item.poster, title = item.title)
+                    }
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        Text(
+                            text = detay?.title ?: item.title.orEmpty(),
+                            fontSize = NmType.RowTitle,
+                            fontWeight = FontWeight.Bold,
+                            color = NmColor.OnSurface,
+                        )
+                        val kunye = listOfNotNull(
+                            detay?.yearText?.takeIf { it.isNotBlank() },
+                            detay?.ratingText?.takeIf { it.isNotBlank() }?.let { "★ $it" },
+                            detay?.tagsText?.takeIf { it.isNotBlank() },
+                        ).joinToString("  ·  ")
+                        if (kunye.isNotBlank()) {
+                            Text(kunye, fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = detay?.description?.takeIf { it.isNotBlank() } ?: "Özet yok.",
+                            fontSize = NmType.Caption,
+                            color = NmColor.OnSurfaceMuted,
+                            // ORTA seçiliyken tam metin; değilken kart taşmasın.
+                            maxLines = if (odak == KartOdak.ORTA) 40 else 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        // Dil rozetleri: dublaj var mı, OYNAT'a basmadan görünsün.
+                        val diller = (yoklama as? Yoklama.Bulundu)?.diller.orEmpty()
+                        if (diller.isNotEmpty()) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                diller.forEach { Rozet(it) }
+                            }
+                        }
+                    }
+                }
+
+                // SAĞ — listeler.
+                Column(Modifier.weight(0.28f)) {
+                    SutunBasligi("Listeler", odak == KartOdak.LISTE)
+                    KartSatir(
+                        label = if (library.inIzlenecek(item)) "☆  İzleneceklerde ✓" else "☆  İzleneceklere ekle",
+                        secili = odak == KartOdak.LISTE && listeIdx == 0,
+                    )
+                    KartSatir(
+                        label = if (library.inTakip(item)) "📋  Takipte ✓" else "📋  Takip et",
+                        secili = odak == KartOdak.LISTE && listeIdx == 1,
+                    )
+                    KartSatir(
+                        label = if (library.isFavorite(item)) "★  Beğendiklerimde ✓" else "★  Beğendiklerime ekle",
+                        secili = odak == KartOdak.LISTE && listeIdx == 2,
+                    )
+                }
+            }
+
+            // ALT — oynat. Seçilen bölüm ve kaynak yoklaması burada yazılı durur.
+            val bolumEtiketi = secilenBolum?.let { i ->
+                bolumler.getOrNull(i)?.let { " — S${it.season}B${it.episode ?: (i + 1)}" } ?: ""
+            }.orEmpty()
+            Spacer(Modifier.height(10.dp))
+            KartSatir(
+                label = "▶  Oynat$bolumEtiketi${yoklama.kuyruk()}",
+                secili = odak == KartOdak.OYNAT,
+                buyuk = true,
+            )
+            Text(
+                text = "◀ bölümler   ▶ listeler   ▼ oynat   OK seç   GERİ kapat",
+                fontSize = NmType.Caption,
+                color = NmColor.OnSurfaceFaint,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
     }
 }
 
-// Bölüm seçici — uzun-bas menüsünün ikinci adımı. Sezon ayrımı yok: liste
-// kaynaktan geldiği sırada, etiketinde sezon/bölüm zaten yazıyor.
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun EpisodePickerModal(
-    episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
-    onPick: (Int) -> Unit,
-    onClose: () -> Unit,
+private fun SutunBasligi(text: String, aktif: Boolean) {
+    Text(
+        text = text,
+        fontSize = NmType.Caption,
+        fontWeight = FontWeight.Bold,
+        color = if (aktif) NmColor.Primary else NmColor.OnSurfaceMuted,
+        modifier = Modifier.padding(bottom = 6.dp),
+    )
+}
+
+/** Kart içindeki tek satır. Seçim index'ten gelir — Compose odağı kullanılmaz. */
+@Composable
+private fun KartSatir(
+    label: String,
+    secili: Boolean,
+    isaretli: Boolean = false,
+    buyuk: Boolean = false,
 ) {
-    ModalCard(title = "Bölüm seç (${episodes.size})", onClose = onClose) {
-        // Uzun listede kaydırma: modal zaten kendi içinde kaydırılabilir kabuk.
-        episodes.forEachIndexed { idx, ep ->
-            val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${idx + 1}"
-            val ad = ep.title?.takeIf { it.isNotBlank() }
-            MenuRow(if (ad != null) "$numara · $ad" else numara) { onPick(idx) }
-        }
-        MenuRow("Kapat", onClose)
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(shape)
+            .background(if (secili) NmColor.Primary else NmColor.ScrimSoft)
+            .nmFocusRing(secili, shape)
+            .padding(horizontal = 14.dp, vertical = if (buyuk) 14.dp else 9.dp),
+    ) {
+        Text(
+            text = if (isaretli) "•  $label" else label,
+            fontSize = if (buyuk) NmType.Body else NmType.Caption,
+            fontWeight = if (secili || buyuk) FontWeight.Bold else FontWeight.Medium,
+            color = if (secili) NmColor.OnPrimary else NmColor.OnSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
+
+@Composable
+private fun Rozet(text: String) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(NmDim.PillRadius))
+            .background(NmColor.ScrimSoft)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(text, fontSize = NmType.Caption, color = NmColor.OnSurface)
+    }
+}
+
 
 // Ortak modal kabuğu: scrim + panel + başlık. Menülerin görünümü tek yerden gelir.
 @OptIn(ExperimentalTvMaterial3Api::class)
