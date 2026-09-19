@@ -68,6 +68,12 @@ class MainActivity : ComponentActivity() {
     private var uzunGeriYapildi = false
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        // Cokme seridi acikken ilk tus onu kapatir — dugmesine odak gitmiyordu
+        // (Dean: "kapata basamiyoruz"). Odak sistemine hic guvenmiyoruz.
+        if (cokmeIzi != null && event.action == android.view.KeyEvent.ACTION_DOWN) {
+            cokmeIzi = null
+            return true
+        }
         val bekleyen = bekleyenUzak
         if (bekleyen == null) {
             // GERİ, Compose'un odak sistemine İNMEDEN önce ekranın işleyicisine
@@ -115,6 +121,10 @@ class MainActivity : ComponentActivity() {
             // ulaşmadı (`client_log` boş). Şerit televizyonda okunur, fotoğrafı
             // yeter (Dean, 19 Eylül: "yine patlıyor").
             cokmeIzi = satirlar
+            // Dosya OKUNUR OKUNMAZ silinir. Onceden "sunucuya ulasinca" siliniyordu;
+            // gonderim tutmayinca ayni serit HER acilista geliyordu (Dean, 19 Eylul).
+            // Satirlar bellekte, gonderim asagida yine 3 kez deneniyor.
+            com.evaitec.netmovies.tv.data.CrashLog.temizle(this)
             lifecycleScope.launch {
                 // Sunucu adresi açılışın ilk saniyelerinde henüz çözülmemiş olabilir:
                 // tek deneme sessizce kaybediyordu.
@@ -124,10 +134,7 @@ class MainActivity : ComponentActivity() {
                             mapOf("lines" to (listOf("=== ÖNCEKİ AÇILIŞTA ÇÖKME ===") + satirlar))
                         )
                     }.isSuccess
-                    if (gonderildi) {
-                        com.evaitec.netmovies.tv.data.CrashLog.temizle(this@MainActivity)
-                        return@launch
-                    }
+                    if (gonderildi) return@launch
                     kotlinx.coroutines.delay(4000)
                 }
             }
@@ -482,13 +489,15 @@ private fun CokmeSeridi(satirlar: List<String>, onKapat: () -> Unit) {
     ) {
         androidx.compose.foundation.layout.Column {
             androidx.tv.material3.Text(
-                text = "ÖNCEKİ AÇILIŞTA ÇÖKME — fotoğrafla, sonra OK ile kapat",
+                text = "ÖNCEKİ AÇILIŞTA ÇÖKME (kurulu: v${BuildConfig.VERSION_NAME}) — fotoğrafla, herhangi bir tuş kapatır",
                 color = androidx.compose.ui.graphics.Color.White,
                 fontSize = 13.sp,
             )
-            satirlar.take(6).forEach {
+            satirlar.take(8).forEach {
                 androidx.tv.material3.Text(
-                    text = it.take(160),
+                    // 160 karakter VerifyError mesajini tam ortasindan kesiyordu —
+                    // asil neden ("register vN has type ...") kesilen kisimdaydi.
+                    text = it.take(400),
                     color = androidx.compose.ui.graphics.Color(0xFFFECACA),
                     fontSize = 11.sp,
                 )
