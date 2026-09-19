@@ -7,38 +7,42 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 11:45
-**Dal:** `fix/general-stability` @ `3ad31fb` · **0 kirli dosya** · push EDİLDİ
-**Sürümler:** TV/telefon **0.9.3 (vc 903)** · saat `v0.1.15-poc` (bu oturumda dokunulmadı)
-**Katalog:** `evaglass-releases/apps.json` — netmovies-tv/phone **0.9.3**,
-APK GitHub'dan indirilip sha256 ile doğrulandı (`d68a3ab3…`).
-**Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
-**PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
+**Son güncelleme:** 19 Eylül 2026, 15:30
+**Dal:** `fix/general-stability` @ `fb05744` · push EDİLDİ
+**Sürümler:** TV/telefon **0.9.4 (vc 904)** · saat `v0.1.15-poc`
 
-## Doğrula
+## ÇÖZÜLDÜ — çökmenin kök nedeni dexleyici hatasıydı
 
-```bash
-git rev-parse --short HEAD                              # 3ad31fb
-bash scripts/smoke.sh                                   # kapı YEŞİL
-curl -s "localhost:3310/api/v1/app_update?target=tv"    # v0.9.3-poc
-curl -s localhost:3310/api/v1/client_log                # ÇÖKME İZİ buraya düşer
+`java.lang.VerifyError: Verifier rejected class ...PlayerScreenKt`. Tam mesaj
+emülatörde (API 35) `adb shell cmd package compile -m verify -f <paket>` ile alındı:
+
+```
+[0x3C6] register v258 has type Reference: kotlin.jvm.functions.Function0
+        but expected Boolean
 ```
 
-## 🚨 SIRADAKİ İŞ — çökme izini AL, sonra düzelt
+0x3C6'daki `invoke-static/range {v258}, Boolean.valueOf(Z)` sabit `false` yerine
+5. PARAMETRE register'ını (`onHome: Function0`) okuyor. `PlayerScreen` **264
+register** kullanıyor; AGP 8.9.1'in getirdiği **R8 8.9.x** 256 üstü register
+atamasında bozuk dex üretiyor. Kodda hata yok — dexleyicide.
 
-Dean iki kez "patlıyor, film/dizi açmıyor" dedi. **Tek bir yığın izi elde edilemedi**
-— `client_log` boş, ADB'de bağlı cihaz yok. Bu yüzden çökmenin nedeni
-**BİLİNMİYOR**; bu oturumdaki her teşhis Dean'in cümlelerine dayanıyor.
+**Düzeltme:** kök `client-tv/build.gradle.kts`'e `classpath("com.android.tools:r8:8.13.23")`.
+Aynı emülatör, aynı komut → verify hatası **0**, dex2oat PERFORMED.
 
-0.9.3 iki yol açtı:
-1. Çökme izi **ekranda** kırmızı şeritte gösteriliyor (ana ekranın üstü,
-   `MainActivity.CokmeSeridi`) — fotoğraflanabilir.
-2. Sunucuya gönderim 3 denemeli (4 sn ara); ulaşana kadar `filesDir/son_crash.txt`
-   silinmiyor.
+**Teşhis reçetesi (bir daha çökme gelirse ilk bu):**
+```bash
+emulator -avd eva_test & adb wait-for-device
+adb install -r -t <apk> && adb logcat -c
+adb shell cmd package compile -m verify -f com.evaitec.netmovies.tv
+adb logcat -d | grep -iE "Verification error|failed to verify"
+```
+Cihaza gitmeden, fotoğraf beklemeden tam yığın izi verir.
 
-**Dean'den istenecek:** 0.9.3'ü kur → patlat → uygulamayı bir daha aç → şeridi
-fotoğrafla (ya da `client_log`'a düşsün). İlk üç satır sınıf + satır numarası verir.
-**İz gelmeden kod değiştirme** — iki turdur tahminle gidiliyor.
+**Yayın:** yerel OTA `data/apk/NetMovies-TV-v0.9.4.apk` (`app_update?target=tv` → `v0.9.4-poc`),
+GitHub release `netmovies-tv-v0.9.4`, `evaglass-releases/apps.json` (tv+phone 0.9.4).
+İndirilen APK sha256 `2cda6b82…600b` = yerel dosya.
+
+**Cihazda denenmedi.** Dean 0.9.4'ü kurup oynatıcıyı açmalı.
 
 ## Bu oturumda yapılanlar (0.7.1 → 0.9.3)
 
