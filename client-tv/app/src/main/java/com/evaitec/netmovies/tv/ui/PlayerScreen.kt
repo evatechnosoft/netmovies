@@ -1664,6 +1664,8 @@ fun PlayerScreen(
         if (showStartPanel && panelAsList && episodes.isNotEmpty()) {
             BolumSecici(
                 title = item.title.orEmpty(),
+                poster = item.poster,
+                aciklama = details?.description,
                 episodes = episodes,
                 currentEpIndex = currentEpIndex,
                 secilenSezon = secilenSezon,
@@ -1730,8 +1732,8 @@ fun PlayerScreen(
                 tracks = tracks,
                 speed = speed,
                 panelFocus = panelFocus,
-                isFavorite = library.isFavorite(item),
-                onToggleFavorite = { library.toggleFavorite(item) },
+                library = library,
+                item = item,
                 onSelectSource = { idx ->
                     currentLinkIndex = idx
                     showSettings = false
@@ -2455,8 +2457,9 @@ private fun SettingsPanel(
     tracks: Tracks?,
     speed: Float,
     panelFocus: FocusRequester,
-    isFavorite: Boolean,
-    onToggleFavorite: () -> Unit,
+    /** Kitaplık sekmesi listeleri buradan okur/yazar (ana ekrandaki menüyle aynı). */
+    library: com.evaitec.netmovies.tv.data.Library,
+    item: com.evaitec.netmovies.tv.data.MediaItem,
     onSelectSource: (Int) -> Unit,
     onOpenEpisodes: () -> Unit = {},
     /** Panel doğrudan Bölümler sekmesinde açılsın (kumandadaki "Bölümler" girişi). */
@@ -2586,11 +2589,23 @@ private fun SettingsPanel(
                     verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
                 ) {
                     when (secili.second) {
-                        "Kitaplık" -> SettingRow(
-                            if (isFavorite) "★ Favorilerden çıkar" else "☆ Favorilere ekle",
-                            isFavorite,
-                            onToggleFavorite,
-                        )
+                        "Kitaplık" -> {
+                            val L = com.evaitec.netmovies.tv.data.Library
+                            SettingRow(
+                                if (library.inIzlenecek(item)) "☆ İzleneceklerde ✓ — çıkar"
+                                else "☆ İzleneceklere ekle",
+                                library.inIzlenecek(item),
+                            ) { library.toggleListe(item, L.LISTE_IZLENECEK) }
+                            SettingRow(
+                                if (library.inTakip(item)) "📋 Takipte ✓ — bırak" else "📋 Takip et",
+                                library.inTakip(item),
+                            ) { library.toggleListe(item, L.LISTE_TAKIP) }
+                            SettingRow(
+                                if (library.isFavorite(item)) "★ Beğendiklerimde ✓ — çıkar"
+                                else "★ Beğendiklerime ekle",
+                                library.isFavorite(item),
+                            ) { library.toggleFavorite(item) }
+                        }
 
                         "Bölümler" -> {
                             val sezonlar = remember(episodes) {

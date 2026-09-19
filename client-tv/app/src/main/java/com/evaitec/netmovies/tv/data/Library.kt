@@ -26,12 +26,18 @@ class Library(context: Context) {
     val favorites = mutableStateListOf<MediaItem>()
     /** Devam Et — sunucudaki tamamlanmamış izlemeler (en son izlenen üstte). */
     val watched = mutableStateListOf<MediaItem>()
+    /** İzlenecekler — elle işaretlenen, henüz başlanmamış içerikler. */
+    val izlenecek = mutableStateListOf<MediaItem>()
+    /** Takip ettiklerim — yeni bölümü çıkınca ajandada görünen diziler. */
+    val takip = mutableStateListOf<MediaItem>()
     /** url → izlenen oran (0..1). Poster üstündeki ince ilerleme çubuğu için. */
     val progress = mutableStateMapOf<String, Float>()
 
     init {
         favorites.addAll(read(KEY_FAV))
         watched.addAll(read(KEY_WATCHED))
+        izlenecek.addAll(read(KEY_IZLENECEK))
+        takip.addAll(read(KEY_TAKIP))
         sync()
     }
 
@@ -42,6 +48,11 @@ class Library(context: Context) {
 
             runCatching { Network.api.favorites().result }
                 .onSuccess { rows -> replace(favorites, rows.map(::toItem), KEY_FAV) }
+
+            runCatching { Network.api.userList(LISTE_IZLENECEK).result }
+                .onSuccess { rows -> replace(izlenecek, rows.map(::toItem), KEY_IZLENECEK) }
+            runCatching { Network.api.userList(LISTE_TAKIP).result }
+                .onSuccess { rows -> replace(takip, rows.map(::toItem), KEY_TAKIP) }
 
             runCatching { Network.api.continueWatching(limit = 30).result }
                 .onSuccess { rows ->
@@ -119,6 +130,33 @@ class Library(context: Context) {
         }
     }
 
+    fun inIzlenecek(item: MediaItem): Boolean = izlenecek.any { sameItem(it, item) }
+    fun inTakip(item: MediaItem): Boolean = takip.any { sameItem(it, item) }
+
+    /** Sunucudaki kullanıcı listesine ekler/çıkarır. Yerel liste hemen güncellenir:
+     *  raf ve menü satırı beklemeden doğru durumu gösterir. */
+    fun toggleListe(item: MediaItem, liste: String) {
+        val (hedef, anahtar) = when (liste) {
+            LISTE_IZLENECEK -> izlenecek to KEY_IZLENECEK
+            LISTE_TAKIP     -> takip to KEY_TAKIP
+            else            -> return
+        }
+        val idx = hedef.indexOfFirst { sameItem(it, item) }
+        if (idx >= 0) hedef.removeAt(idx) else hedef.add(0, item)
+        persist(anahtar, hedef.toList())
+        scope.launch {
+            runCatching {
+                Network.api.toggleList(
+                    listName = liste,
+                    title = item.title.orEmpty(),
+                    plugin = item.plugin,
+                    poster = item.poster.orEmpty(),
+                    contentUrl = rawUrl(item.url),
+                )
+            }
+        }
+    }
+
     /**
      * İzleme konumunu sunucuya yazar (oynatıcıdan periyodik + çıkışta çağrılır).
      * Library'nin kendi scope'unda koşar: ekran kapansa da istek tamamlanır.
@@ -161,9 +199,14 @@ class Library(context: Context) {
         persist(KEY_WATCHED, watched.toList())
     }
 
-    private companion object {
+    companion object {
         const val KEY_FAV = "favorites"
         const val KEY_WATCHED = "watched"
+        const val KEY_IZLENECEK = "izlenecek"
+        const val KEY_TAKIP = "takip"
+        // Sunucudaki liste adları (watch_store.ALLOWED_LISTS).
+        const val LISTE_IZLENECEK = "izlenecek"
+        const val LISTE_TAKIP = "takip"
         const val KEY_PUSHED = "favorites_pushed_v1"
         const val MAX_WATCHED = 30
     }

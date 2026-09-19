@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface NetMoviesApi {
@@ -220,6 +221,14 @@ interface NetMoviesApi {
     // Ajanda: "bu hafta ne var". `view` = week | month.
     @GET("api/v1/agenda")
     suspend fun agenda(@Query("view") view: String = "week"): AgendaResponse
+
+    // Kullanıcı listeleri: "izlenecek" ve "takip". Satırlar favorilerle aynı
+    // şekli taşıyor (content_key/plugin/title/poster/content_url).
+    @GET("api/v1/lists/{list_name}")
+    suspend fun userList(
+        @Path("list_name") listName: String,
+        @Query("limit") limit: Int = 100,
+    ): ProgressListResponse
 
     @POST("api/v1/lists/toggle")
     suspend fun toggleList(

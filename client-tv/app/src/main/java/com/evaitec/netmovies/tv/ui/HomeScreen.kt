@@ -193,10 +193,15 @@ private fun CategoryRows(
     // Kitaplık satırları en üstte (İzlenenler + Favoriler), sonra agregasyon kategorileri.
     // remember ŞART: bu liste 500+ öğe taşıyor ve her recomposition'da yeniden
     // kurulursa raflar arasında gezinmek takılıyor.
-    val sections = remember(groups, library.watched, library.favorites) {
+    // Tek "Favoriler" rafı vardı: her şey aynı torbaya giriyordu (Dean, 19 Eylül:
+    // "favori listelerine dönüştür, izlenecekler devam edenler gibi anlamlı").
+    // Devam edenler izleme kaydından KENDİLİĞİNDEN dolar; diğer üçü elle işaretlenir.
+    val sections = remember(groups, library.watched, library.favorites, library.izlenecek, library.takip) {
         buildList {
-            if (library.watched.isNotEmpty()) add("Devam Et" to library.watched.toList())
-            if (library.favorites.isNotEmpty()) add("Favoriler" to library.favorites.toList())
+            if (library.watched.isNotEmpty()) add("Devam edenler" to library.watched.toList())
+            if (library.izlenecek.isNotEmpty()) add("İzlenecekler" to library.izlenecek.toList())
+            if (library.takip.isNotEmpty()) add("Takip ettiklerim" to library.takip.toList())
+            if (library.favorites.isNotEmpty()) add("Beğendiklerim" to library.favorites.toList())
             groups.forEach { add(it.key to it.value) }
         }
     }
@@ -331,10 +336,9 @@ private fun CategoryRows(
         menuItem?.let { item ->
             PosterMenu(
                 item = item,
-                isFavorite = library.isFavorite(item),
+                library = library,
                 onPlay = { menuItem = null; onSelect(item) },
                 onPlayEpisode = { idx -> menuItem = null; onSelectEpisode(item, idx) },
-                onToggleFavorite = { library.toggleFavorite(item); menuItem = null },
                 onClose = { menuItem = null },
             )
         }
@@ -543,10 +547,9 @@ private sealed interface Yoklama {
 @Composable
 private fun PosterMenu(
     item: MediaItem,
-    isFavorite: Boolean,
+    library: com.evaitec.netmovies.tv.data.Library,
     onPlay: () -> Unit,
     onPlayEpisode: (Int) -> Unit,
-    onToggleFavorite: () -> Unit,
     onClose: () -> Unit,
 ) {
     // Bölüm listesi menü açılınca TEK istekle gelir (`load_item`). Film ise boş
@@ -605,17 +608,8 @@ private fun PosterMenu(
         )
         return
     }
-    // Takip: sunucudaki "takip" listesi (Listem ekranı bunu takvimle birleştirir).
-    // Durum menü açılınca okunur: kör bir "takip et / bırak" satırı içeriğin
-    // listede olup olmadığını göstermiyordu (Dean).
-    val scope = rememberCoroutineScope()
-    var takipte by remember(item.url) { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(item.url) {
-        takipte = runCatching {
-            val liste = Network.api.following().result
-            (liste.turkish + liste.foreign).any { it.title.equals(item.title.orEmpty(), ignoreCase = true) }
-        }.getOrNull()
-    }
+    // Liste durumları Library'den okunur: aynı kayıt hem raflara hem bu menüye
+    // besleniyor, ayrıca ağ isteği beklenmiyor (satır açılır açılmaz doğru yazıyor).
     val bolumEtiketi = secilenBolum?.let { i ->
         bolumler.getOrNull(i)?.let { " — S${it.season}B${it.episode ?: (i + 1)}" } ?: ""
     } ?: ""
@@ -630,30 +624,17 @@ private fun PosterMenu(
                 else "📑  Başka bölüm (${bolumler.size})",
             ) { bolumSeciyor = true }
         }
-        MenuRow(if (isFavorite) "★  Favoride ✓ — çıkar" else "☆  Favorilere ekle", onToggleFavorite)
+        // Tek "favori" yerine anlamlı listeler. Devam edenler burada YOK: o raf
+        // izleme kaydından kendiliğinden doluyor, elle eklenmiyor.
         MenuRow(
-            when (takipte) {
-                true  -> "📋  Takipte ✓ — bırak"
-                false -> "📋  Takip et"
-                null  -> "📋  Takip durumu okunuyor…"
-            },
-            onClick = {
-                scope.launch {
-                    // Sunucu yeni durumu döndürüyor: satır kapanmadan güncellenir,
-                    // kullanıcı ne olduğunu görür.
-                    val yeni = runCatching {
-                        Network.api.toggleList(
-                            listName = "takip",
-                            title = item.title.orEmpty(),
-                            plugin = item.plugin,
-                            poster = item.poster.orEmpty(),
-                            contentUrl = com.evaitec.netmovies.tv.data.rawUrl(item.url),
-                        ).result.saved
-                    }.getOrNull()
-                    if (yeni != null) takipte = yeni
-                }
-            },
-        )
+            if (library.inIzlenecek(item)) "☆  İzleneceklerde ✓ — çıkar" else "☆  İzleneceklere ekle",
+        ) { library.toggleListe(item, com.evaitec.netmovies.tv.data.Library.LISTE_IZLENECEK) }
+        MenuRow(
+            if (library.inTakip(item)) "📋  Takipte ✓ — bırak" else "📋  Takip et",
+        ) { library.toggleListe(item, com.evaitec.netmovies.tv.data.Library.LISTE_TAKIP) }
+        MenuRow(
+            if (library.isFavorite(item)) "★  Beğendiklerimde ✓ — çıkar" else "★  Beğendiklerime ekle",
+        ) { library.toggleFavorite(item) }
         MenuRow("Kapat", onClose)
     }
 }

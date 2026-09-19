@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,7 +40,15 @@ import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 
-// Bölüm seçici: SAYFA SAYFA, tam genişlik SATIR listesi. Önce sezon sayfası,
+// Bölüm seçici: SAĞDA dar sütun, SOLDA seçili bölümün önizlemesi. Önce sezon
+// sayfası, seçilince o sezonun bölüm sayfası; GERİ bir sayfa geri alır.
+//
+// Liste eskiden TAM GENİŞLİKTİ: sekiz bölümlük dizide ekranı baştan başa mor
+// şeritler kaplıyordu, arkadaki görüntü tamamen gidiyordu (Dean, 19 Eylül:
+// "bu şekilde liste istemiyorum"). Dar sütun aynı satır düzenini korur —
+// numara solda, ad ortada — ama ekranın üçte birini kullanır.
+//
+// ESKİ NOT: SAYFA SAYFA, tam genişlik SATIR listesi. Önce sezon sayfası,
 // seçilince o sezonun bölüm sayfası; GERİ bir sayfa geri alır.
 //
 // Önce yatay sezon rafı + dikey bölüm listesi AYNI paneldeydi: D-pad aynı ekranda
@@ -52,6 +62,10 @@ import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 @Composable
 fun BolumSecici(
     title: String,
+    /** Sol önizleme için dizi afişi. */
+    poster: String? = null,
+    /** Bölüm özeti sağlayıcıdan gelmiyor; dizi açıklaması gösterilir. */
+    aciklama: String? = null,
     episodes: List<EpisodeItem>,
     currentEpIndex: Int,
     /** null = sezon sayfası açık. Durum DIŞARIDA: GERİ tuşu oynatıcıda işleniyor. */
@@ -75,27 +89,29 @@ fun BolumSecici(
         }
     }
 
+    // Sağdaki sütunda hangi satır odaklıysa solda o gösterilir.
+    var onizlenen by remember(secilenSezon) { mutableStateOf<Int?>(null) }
+
     Box(
         Modifier.fillMaxSize().background(NmColor.Scrim).focusGroup(),
         contentAlignment = Alignment.TopStart,
     ) {
-        Column(
+        Row(
             Modifier.fillMaxSize().padding(NmDim.SafeArea),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            Onizleme(
+                title = title,
+                poster = poster,
+                aciklama = aciklama,
+                bolum = onizlenen?.let { episodes.getOrNull(it) },
+                modifier = Modifier.weight(1f),
+            )
+
+        Column(
+            Modifier.width(380.dp).fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    fontSize = NmType.ScreenTitle,
-                    fontWeight = FontWeight.Bold,
-                    color = NmColor.OnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
                 // Hangi sayfadayız ve GERİ ne yapar — tek satırda yazılı.
                 Text(
                     text = when {
@@ -106,7 +122,6 @@ fun BolumSecici(
                     fontSize = NmType.Caption,
                     color = NmColor.OnSurfaceMuted,
                 )
-            }
 
             if (secilenSezon == null) {
                 // Odak hedefi TEK: "şu an oynayan sezon" varsa o, yoksa ilk sezon.
@@ -132,6 +147,7 @@ fun BolumSecici(
                             sagYazi = "$sayi bölüm",
                             secili = simdiki,
                             modifier = if (i == sezonHedef) Modifier.focusRequester(ilkOdak) else Modifier,
+                            onFocus = { onizlenen = episodes.indexOfFirst { e -> e.season == s } },
                         ) { onSezon(s) }
                     }
                 }
@@ -155,10 +171,61 @@ fun BolumSecici(
                             sagYazi = "${secilenSezon}x$no",
                             secili = oynayan,
                             modifier = if (i == seciliSira) Modifier.focusRequester(ilkOdak) else Modifier,
+                            onFocus = { onizlenen = idx },
                         ) { onSelect(idx); onClose() }
                     }
                 }
             }
+        }
+        }
+    }
+}
+
+/** Sol önizleme: afiş, dizi adı ve odaktaki bölümün künyesi. Bölüm özeti
+ *  sağlayıcılardan gelmiyor — dizi açıklaması gösterilir. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun Onizleme(
+    title: String,
+    poster: String?,
+    aciklama: String?,
+    bolum: EpisodeItem?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.width(200.dp).height(300.dp).clip(RoundedCornerShape(NmDim.PanelRadius))) {
+            PosterImage(poster = poster, title = title)
+        }
+        Text(
+            text = title,
+            fontSize = NmType.ScreenTitle,
+            fontWeight = FontWeight.Bold,
+            color = NmColor.OnSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        bolum?.let { ep ->
+            Text(
+                text = "S${ep.season}B${ep.episode ?: "?"}" +
+                    (ep.title?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""),
+                fontSize = NmType.Body,
+                fontWeight = FontWeight.SemiBold,
+                color = NmColor.OnSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        aciklama?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                fontSize = NmType.Caption,
+                color = NmColor.OnSurfaceMuted,
+                maxLines = 6,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -172,6 +239,7 @@ private fun Satir(
     sagYazi: String,
     secili: Boolean,
     modifier: Modifier = Modifier,
+    onFocus: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
@@ -188,7 +256,7 @@ private fun Satir(
                 }
             )
             .nmFocusRing(odakli, shape)
-            .onFocusChanged { odakli = it.isFocused }
+            .onFocusChanged { odakli = it.isFocused; if (it.isFocused) onFocus() }
             .clickable { onClick() }
             // Satir yuksekligi: 32 bolumluk dizide ekrana 8 satir sigiyordu, aranan
             // bolume inmek sayfalar suruyordu (Dean, 17 Eylul: "kocaman").
@@ -204,7 +272,7 @@ private fun Satir(
             color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(112.dp),
+            modifier = Modifier.width(84.dp),
         )
         Text(
             text = adYazi,
