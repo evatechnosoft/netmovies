@@ -169,6 +169,13 @@ fun PlayerScreen(
     // senkron kayması ve ses tamponu boşalması belirgin azalır. Destek cihaza
     // göre değişir — açılmıyorsa ilk hatada kalıcı kapanır (aşağıda).
     var tunneling by remember { mutableStateOf(oynaticiPrefs.getBoolean("tunneling", true)) }
+    // Orijinal oynatıcı: Media3'ün kendi kontrol çubuğu (useController). Özel
+    // kontroller çok şeye karışıyor (Dean: "bu şekilde çok bozuyorsun") — ikisi
+    // de kalsın, seçim Araçlar sekmesinde. Cihaza yazılır, oynatıcı her açılışta
+    // aynı tercihle gelir.
+    var orijinalKontrol by remember { mutableStateOf(oynaticiPrefs.getBoolean("orijinal_kontrol", false)) }
+    // Tuşları native görünüme iletmek için: orijinal modda kontrolü PlayerView yürütür.
+    var playerView by remember { mutableStateOf<PlayerView?>(null) }
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             setParameters(
@@ -1410,6 +1417,11 @@ fun PlayerScreen(
                         }
                         else -> false
                     }
+                    // Orijinal oynatıcı seçiliyse tuş sahipliği PlayerView'e geçer:
+                    // sarma, oynat/duraklat ve gezinme Media3'ün kendi çubuğunda.
+                    // Panel/pad açıkken devreye girmez — onlar hâlâ bizim ekranımız.
+                    orijinalKontrol && !showSettings && !showSeek && !showStartPanel && !showPad ->
+                        playerView?.dispatchKeyEvent(ke.nativeKeyEvent) ?: false
                     // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
                     // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
                     // basınca hiçbir şey olmuyordu (useController=false → ExoPlayer de
@@ -1505,11 +1517,20 @@ fun PlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exo
-                    useController = false             // tüm kontrol bizde (buton-eşleme)
+                    // Özel modda tüm kontrol bizde (buton-eşleme); orijinal modda
+                    // Media3'ün kendi çubuğu çizer ve tuşları o yürütür.
+                    useController = orijinalKontrol
                     keepScreenOn = true
-                    isFocusable = false
-                    isFocusableInTouchMode = false
+                    isFocusable = orijinalKontrol
+                    isFocusableInTouchMode = orijinalKontrol
+                    playerView = this
                 }
+            },
+            update = { v ->
+                v.useController = orijinalKontrol
+                v.isFocusable = orijinalKontrol
+                v.isFocusableInTouchMode = orijinalKontrol
+                if (!orijinalKontrol) v.hideController()
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -1542,7 +1563,7 @@ fun PlayerScreen(
         // Kontrol overlay: dokunmatikte etkileşimli butonlar; D-pad'de görsel bilgi.
         // Alt bar (QuickPad) açıkken çizilmez: ikisi de ekranın altına oturuyor,
         // üst üste gelince süre çubuğu düğmelerin ardında kalıyordu.
-        if (showControls && !scrubMode && !showPad) {
+        if (showControls && !scrubMode && !showPad && !orijinalKontrol) {
             ControlsOverlay(
                 isPlaying = isPlaying,
                 position = position,
@@ -1758,6 +1779,12 @@ fun PlayerScreen(
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
+                orijinalKontrol = orijinalKontrol,
+                onToggleOynatici = {
+                    orijinalKontrol = !orijinalKontrol
+                    oynaticiPrefs.edit().putBoolean("orijinal_kontrol", orijinalKontrol).apply()
+                    showControls = false
+                },
                 showReport = showReport,
                 onToggleReport = { showReport = !showReport },
                 showKeys = showKeys,
@@ -2448,6 +2475,9 @@ private fun SettingsPanel(
     onToggleReport: () -> Unit,
     showKeys: Boolean,
     onToggleKeys: () -> Unit,
+    /** Oynatıcı kontrolü Media3'ün kendi çubuğunda mı (orijinal) yoksa bizde mi (özel). */
+    orijinalKontrol: Boolean = false,
+    onToggleOynatici: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -2647,6 +2677,12 @@ private fun SettingsPanel(
                         }
 
                         else -> {
+                            SettingRow(
+                                if (orijinalKontrol) "Oynatıcı: orijinal (Media3 çubuğu)"
+                                else "Oynatıcı: özel (buton-eşleme)",
+                                orijinalKontrol,
+                                onToggleOynatici,
+                            )
                             SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
                             SettingRow(
                                 if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
