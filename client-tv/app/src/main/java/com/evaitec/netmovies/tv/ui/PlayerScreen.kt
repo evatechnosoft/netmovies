@@ -174,10 +174,6 @@ fun PlayerScreen(
     // de kalsın, seçim Araçlar sekmesinde. Cihaza yazılır, oynatıcı her açılışta
     // aynı tercihle gelir.
     var orijinalKontrol by remember { mutableStateOf(oynaticiPrefs.getBoolean("orijinal_kontrol", false)) }
-    // Tuşları native görünüme iletmek için: orijinal modda kontrolü PlayerView yürütür.
-    // State DEĞİL: AndroidView'ın factory'si bileşim sırasında koşuyor, oraya state
-    // yazmak yeniden bileşim tetikler.
-    val playerView = remember { java.util.concurrent.atomic.AtomicReference<PlayerView?>(null) }
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             setParameters(
@@ -1419,11 +1415,6 @@ fun PlayerScreen(
                         }
                         else -> false
                     }
-                    // Orijinal oynatıcı seçiliyse tuş sahipliği PlayerView'e geçer:
-                    // sarma, oynat/duraklat ve gezinme Media3'ün kendi çubuğunda.
-                    // Panel/pad açıkken devreye girmez — onlar hâlâ bizim ekranımız.
-                    orijinalKontrol && !showSettings && !showSeek && !showStartPanel && !showPad ->
-                        playerView.get()?.dispatchKeyEvent(ke.nativeKeyEvent) ?: false
                     // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
                     // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
                     // basınca hiçbir şey olmuyordu (useController=false → ExoPlayer de
@@ -1517,22 +1508,30 @@ fun PlayerScreen(
     ) {
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                // XML'den şişirilir: kontrol çubuğunun düzeni (alt bar) yalnız
+                // `controller_layout_id` özniteliğiyle verilebiliyor.
+                val v = android.view.LayoutInflater.from(ctx)
+                    .inflate(com.evaitec.netmovies.tv.R.layout.nm_player_view, null) as PlayerView
+                v.apply {
                     player = exo
-                    // Özel modda tüm kontrol bizde (buton-eşleme); orijinal modda
-                    // Media3'ün kendi çubuğu çizer ve tuşları o yürütür.
-                    useController = orijinalKontrol
                     keepScreenOn = true
-                    isFocusable = orijinalKontrol
-                    isFocusableInTouchMode = orijinalKontrol
-                    playerView.set(this)
+                    // Odağı ASLA almaz. Aldığında Compose odak ağacından kopuyor,
+                    // üstteki panele imleç hiç gitmiyor ve tuşlar Media3'e düşüp
+                    // arkada oynatmayı başlatıyordu (Dean, 19 Eylül).
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+                    // Kontrol çubuğunu bizim zamanlayıcımız yönetir.
+                    controllerAutoShow = false
+                    controllerShowTimeoutMs = 0
+                    controllerHideOnTouch = false
                 }
             },
             update = { v ->
+                // Orijinal mod: Media3'ün kendi çubuğu çizilir (görünüm onun),
+                // tuşlar yine BİZİM buton eşlemesinden geçer.
                 v.useController = orijinalKontrol
-                v.isFocusable = orijinalKontrol
-                v.isFocusableInTouchMode = orijinalKontrol
-                if (!orijinalKontrol) v.hideController()
+                if (orijinalKontrol && showControls) v.showController() else v.hideController()
             },
             modifier = Modifier.fillMaxSize(),
         )

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Media3 kontrol çubuğu, ALTTA.
+     Varsayılan düzende oynat/sar düğmeleri ekranın TAM ORTASINDA duruyor ve
+     görüntüyü kapatıyordu (Dean: "ortada durmasındansa bizdeki alt barda
+     dururlar"). Media3 düğmeleri kendi id'lerinden bulur; yerleşim bize ait.
+     Düğmeler odak ALMAZ: kumanda gezinmesi Compose tarafında, tuşlar buton
+     eşlemesinden geçiyor — iki odak sistemi çakışmasın. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layoutDirection="ltr">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#CC000000"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="28dp"
+        android:paddingEnd="28dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="14dp">
+
+        <ImageButton android:id="@id/exo_rew"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/exo_icon_rewind"
+            android:scaleType="fitCenter"
+            android:focusable="false" />
+
+        <ImageButton android:id="@id/exo_play_pause"
+            style="@style/ExoStyledControls.Button.Center.PlayPause"
+            android:focusable="false" />
+
+        <ImageButton android:id="@id/exo_ffwd"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/exo_icon_fastforward"
+            android:scaleType="fitCenter"
+            android:focusable="false" />
+
+        <TextView android:id="@id/exo_position"
+            style="@style/ExoStyledControls.TimeText.Position" />
+
+        <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress"
+            android:layout_width="0dp"
+            android:layout_height="26dp"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp" />
+
+        <TextView android:id="@id/exo_duration"
+            style="@style/ExoStyledControls.TimeText.Duration" />
+    </LinearLayout>
+</FrameLayout>
