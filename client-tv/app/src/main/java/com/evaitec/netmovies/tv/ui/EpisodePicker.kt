@@ -92,6 +92,19 @@ fun BolumSecici(
     // Sağdaki sütunda hangi satır odaklıysa solda o gösterilir.
     var onizlenen by remember(secilenSezon) { mutableStateOf<Int?>(null) }
 
+    // Bölüm özeti hiçbir sağlayıcıda yok; TMDB'de var (sezon başına tek istek,
+    // sunucuda 12 saat önbellekli). Gelmezse önizleme dizi açıklamasına düşer.
+    var ozetler by remember(title) {
+        mutableStateOf<Map<String, com.evaitec.netmovies.tv.data.EpisodeOverview>>(emptyMap())
+    }
+    LaunchedEffect(title, secilenSezon) {
+        val sezon = secilenSezon ?: return@LaunchedEffect
+        ozetler = runCatching {
+            com.evaitec.netmovies.tv.data.Network.api
+                .episodeOverviews(title = title, season = sezon).result.episodes
+        }.getOrDefault(emptyMap())
+    }
+
     Box(
         Modifier.fillMaxSize().background(NmColor.Scrim).focusGroup(),
         contentAlignment = Alignment.TopStart,
@@ -100,11 +113,13 @@ fun BolumSecici(
             Modifier.fillMaxSize().padding(NmDim.SafeArea),
             horizontalArrangement = Arrangement.spacedBy(28.dp),
         ) {
+            val onizlemeBolum = onizlenen?.let { episodes.getOrNull(it) }
             Onizleme(
                 title = title,
                 poster = poster,
                 aciklama = aciklama,
-                bolum = onizlenen?.let { episodes.getOrNull(it) },
+                bolum = onizlemeBolum,
+                tmdb = onizlemeBolum?.episode?.let { ozetler[it.toString()] },
                 modifier = Modifier.weight(1f),
             )
 
@@ -190,14 +205,22 @@ private fun Onizleme(
     poster: String?,
     aciklama: String?,
     bolum: EpisodeItem?,
+    /** TMDB'den o bölümün adı, özeti ve kare görseli — yoksa null. */
+    tmdb: com.evaitec.netmovies.tv.data.EpisodeOverview?,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.width(200.dp).height(300.dp).clip(RoundedCornerShape(NmDim.PanelRadius))) {
-            PosterImage(poster = poster, title = title)
+        val kare = tmdb?.still?.takeIf { it.isNotBlank() }
+        Box(
+            Modifier
+                .then(if (kare != null) Modifier.width(420.dp).height(236.dp)
+                      else Modifier.width(200.dp).height(300.dp))
+                .clip(RoundedCornerShape(NmDim.PanelRadius)),
+        ) {
+            PosterImage(poster = kare ?: poster, title = title)
         }
         Text(
             text = title,
@@ -208,9 +231,11 @@ private fun Onizleme(
             overflow = TextOverflow.Ellipsis,
         )
         bolum?.let { ep ->
+            // Bölüm adı sağlayıcıda boşsa TMDB'ninki yazılır.
+            val ad = ep.title?.takeIf { it.isNotBlank() }
+                ?: tmdb?.title?.takeIf { it.isNotBlank() }
             Text(
-                text = "S${ep.season}B${ep.episode ?: "?"}" +
-                    (ep.title?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""),
+                text = "S${ep.season}B${ep.episode ?: "?"}" + (ad?.let { "  ·  $it" } ?: ""),
                 fontSize = NmType.Body,
                 fontWeight = FontWeight.SemiBold,
                 color = NmColor.OnSurface,
@@ -218,7 +243,8 @@ private fun Onizleme(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        aciklama?.takeIf { it.isNotBlank() }?.let {
+        // Bölüm özeti varsa o; yoksa dizi açıklaması (eski davranış).
+        (tmdb?.overview?.takeIf { it.isNotBlank() } ?: aciklama)?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,
                 fontSize = NmType.Caption,

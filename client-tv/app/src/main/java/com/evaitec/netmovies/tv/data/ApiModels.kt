@@ -160,6 +160,23 @@ data class EpisodeItem(
     val url: String = "",
 )
 
+// /api/v1/episode_overviews yanıtı: sezonun bölüm özetleri (TMDB).
+@Serializable
+data class EpisodeOverview(
+    val title: String = "",
+    val overview: String = "",
+    val still: String = "",
+)
+
+@Serializable
+data class OverviewsResult(
+    val season: Int = 1,
+    val episodes: Map<String, EpisodeOverview> = emptyMap(),
+)
+
+@Serializable
+data class OverviewsResponse(val result: OverviewsResult = OverviewsResult())
+
 // /api/v1/resolve_sources yanıtı — oynatma zincirinin sunucudaki tek çıktısı.
 @Serializable
 data class ResolveResponse(

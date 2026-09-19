@@ -222,6 +222,13 @@ interface NetMoviesApi {
     @GET("api/v1/agenda")
     suspend fun agenda(@Query("view") view: String = "week"): AgendaResponse
 
+    // Bölüm özetleri (TMDB). Sağlayıcılarda özet yok; sezon başına tek istek.
+    @GET("api/v1/episode_overviews")
+    suspend fun episodeOverviews(
+        @Query("title") title: String,
+        @Query("season") season: Int,
+    ): OverviewsResponse
+
     // Kullanıcı listeleri: "izlenecek" ve "takip". Satırlar favorilerle aynı
     // şekli taşıyor (content_key/plugin/title/poster/content_url).
     @GET("api/v1/lists/{list_name}")
