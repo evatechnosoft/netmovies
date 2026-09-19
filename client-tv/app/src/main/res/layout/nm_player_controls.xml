@@ -22,6 +22,16 @@
         android:paddingTop="10dp"
         android:paddingBottom="14dp">
 
+        <!-- Bölüm geçişi Media3'te yok: onun prev/next'i çalma listesi içindir,
+             bizim bölümler ayrı kaynaklar. Kendi id'lerimiz, dinleyici kodda. -->
+        <ImageButton android:id="@+id/nm_prev_ep"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/exo_icon_previous"
+            android:scaleType="fitCenter"
+            android:focusable="false" />
+
         <ImageButton android:id="@id/exo_rew"
             android:layout_width="52dp"
             android:layout_height="52dp"
@@ -39,6 +49,14 @@
             android:layout_height="52dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/exo_icon_fastforward"
+            android:scaleType="fitCenter"
+            android:focusable="false" />
+
+        <ImageButton android:id="@+id/nm_next_ep"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/exo_icon_next"
             android:scaleType="fitCenter"
             android:focusable="false" />
 

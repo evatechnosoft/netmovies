@@ -1532,6 +1532,22 @@ fun PlayerScreen(
                 // tuşlar yine BİZİM buton eşlemesinden geçer.
                 v.useController = orijinalKontrol
                 if (orijinalKontrol && showControls) v.showController() else v.hideController()
+
+                // Bölüm geçişi Media3'ün işi değil (onun prev/next'i çalma listesi
+                // içindir) — düğmeler bizim, dinleyici burada. Dokunmatikte çalışır;
+                // kumandada AŞAĞI ok ile açılan alt bar (QuickPad) aynı işi yapar.
+                v.findViewById<android.widget.ImageButton>(com.evaitec.netmovies.tv.R.id.nm_prev_ep)
+                    ?.apply {
+                        visibility = if (prevEpIndex != null) android.view.View.VISIBLE
+                                     else android.view.View.GONE
+                        setOnClickListener { prevEpIndex?.let { goToEpisode(it) } }
+                    }
+                v.findViewById<android.widget.ImageButton>(com.evaitec.netmovies.tv.R.id.nm_next_ep)
+                    ?.apply {
+                        visibility = if (nextEpIndex != null) android.view.View.VISIBLE
+                                     else android.view.View.GONE
+                        setOnClickListener { nextEpIndex?.let { goToEpisode(it) } }
+                    }
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -1783,6 +1799,39 @@ fun PlayerScreen(
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
                 orijinalKontrol = orijinalKontrol,
+                onHariciOynat = {
+                    val link = links.getOrNull(currentLinkIndex)
+                    if (link == null) {
+                        PlaybackLog.warn("harici", "kaynak yok — devredilemedi")
+                    } else {
+                        // Kaldığın yer önce SUNUCUYA yazılır: harici oynatıcıdan
+                        // dönünce Devam Et doğru dakikayı göstersin.
+                        library.saveProgress(
+                            item = item,
+                            positionSeconds = position / 1000.0,
+                            durationSeconds = duration / 1000.0,
+                            episodeRef = episodes.getOrNull(currentEpIndex)
+                                ?.let { "S${it.season}B${it.episode ?: (currentEpIndex + 1)}" }
+                                .orEmpty(),
+                            isSerie = episodes.isNotEmpty(),
+                        )
+                        val niyet = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            setDataAndType(android.net.Uri.parse(link.url), "video/*")
+                            putExtra("title", item.title.orEmpty())
+                            // VLC ve MX kaldığın yeri bu ekstradan okur (ms).
+                            putExtra("position", position)
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent.createChooser(niyet, "Oynatıcı seç"),
+                            )
+                        }.onFailure {
+                            PlaybackLog.warn("harici", "oynatıcı açılamadı: ${it.message ?: "-"}")
+                        }
+                    }
+                    showSettings = false
+                },
                 onToggleOynatici = {
                     orijinalKontrol = !orijinalKontrol
                     oynaticiPrefs.edit().putBoolean("orijinal_kontrol", orijinalKontrol).apply()
@@ -2482,6 +2531,8 @@ private fun SettingsPanel(
     /** Oynatıcı kontrolü Media3'ün kendi çubuğunda mı (orijinal) yoksa bizde mi (özel). */
     orijinalKontrol: Boolean = false,
     onToggleOynatici: () -> Unit = {},
+    /** Akışı cihazdaki başka bir oynatıcıya (VLC, Nova, MX) devreder. */
+    onHariciOynat: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -2699,6 +2750,12 @@ private fun SettingsPanel(
                                 orijinalKontrol,
                                 onToggleOynatici,
                             )
+                            // Harici oynatıcı: akış cihazdaki VLC/Nova/MX'e devredilir.
+                            // Orada bölüm geçişi, kaynak değiştirme ve kaldığın yerin
+                            // kaydı YOK — uygulamadan çıkılıyor, bunu satır söylüyor.
+                            SettingRow("📤 Harici oynatıcıda aç — VLC · Nova · MX", false) {
+                                onHariciOynat()
+                            }
                             SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
                             SettingRow(
                                 if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
