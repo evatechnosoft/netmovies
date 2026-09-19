@@ -979,12 +979,20 @@ fun PlayerScreen(
             PlaybackLog.info("kuyruk", "$phase · +${fresh.size} kaynak (toplam ${links.size})")
         }
 
+        // Bölüm seçiliyse o bölümün KENDİ adresi gönderilir. Eskiden dizi sayfası +
+        // `episode` İNDEKSİ gidiyordu; indeks, engine'in kendi bölüm listesindeki
+        // sıraya göre çözülüyor ve listeler ayrıştığında sessizce başka bölüm
+        // açılıyordu (Dean: "3 bölüm seçiyorum 1'i oynatıyor"). Adres tekil,
+        // tahmin yok. Bölüm yoksa (film) eski yol.
+        val bolumUrl = episodes.getOrNull(currentEpIndex)?.url?.takeIf { it.isNotBlank() }
+        val cozumUrl = bolumUrl ?: aktifUrl
+
         // 1) Hızlı yol — seçili sağlayıcı.
         status = "$aktifPlugin deneniyor…"
         val fast = loggedOrNull("çözümleme", "resolve_sources · fast") {
             Network.api.resolveSources(
                 plugin = aktifPlugin,
-                encodedUrl = aktifUrl,
+                encodedUrl = cozumUrl,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "fast",
@@ -997,7 +1005,7 @@ fun PlayerScreen(
         val full = loggedOrNull("çözümleme", "resolve_sources · full") {
             Network.api.resolveSources(
                 plugin = aktifPlugin,
-                encodedUrl = aktifUrl,
+                encodedUrl = cozumUrl,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "full",
@@ -1468,6 +1476,11 @@ fun PlayerScreen(
                         if (ke.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) nextEpIndex?.let { goToEpisode(it) }
                         true
                     }
+                    // Kontroller açıkken AŞAĞI ok = odağı çubuktaki düğmelere indir
+                    // (Compose'un kendi odak gezinmesi). Kapalıyken eski davranış:
+                    // AŞAĞI alt kumanda barını (QuickPad) açar.
+                    showControls && !showPad && !scrubMode &&
+                        ke.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN -> false
                     scrubMode -> handleScrubKey(ke.nativeKeyEvent)
                     // Uzun basışla açılan panelin, tuş bırakılırken kendi kendini
                     // kapatmasını engeller — bırakma olayı controller'a aittir.
@@ -2259,15 +2272,33 @@ private fun MarkerBand(start: Float, end: Float) {
 // D-pad focus'unu bozmaz. accent=true → dolu mor (oynat/duraklat).
 @Composable
 private fun IconBtn(icon: ImageVector, box: androidx.compose.ui.unit.Dp, ic: androidx.compose.ui.unit.Dp, onTap: () -> Unit, accent: Boolean = false) {
+    // Düğmeler ODAK ALIR. Eskiden almıyordu (D-pad sol/sağ yalnız sarmaydı) ve
+    // gezilebilir takım ayrı bir şeritteydi — Dean, 19 Eylül: "d-pad gezmiyor,
+    // player üstünde odak yok". Kontroller açıkken AŞAĞI ok odağı buraya indirir.
+    var odakli by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .size(box)
             .clip(CircleShape)
-            .background(if (accent) NmColor.Primary else NmColor.ScrimSoft)
+            .background(
+                when {
+                    odakli -> NmColor.OnSurface
+                    accent -> NmColor.Primary
+                    else   -> NmColor.ScrimSoft
+                }
+            )
+            .onFocusChanged { odakli = it.isFocused }
+            .focusable()
+            .clickable { onTap() }
             .pointerInput(Unit) { detectTapGestures { onTap() } },
         contentAlignment = Alignment.Center,
     ) {
-        Image(icon, contentDescription = null, modifier = Modifier.size(ic), colorFilter = ColorFilter.tint(NmColor.OnPrimary))
+        Image(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(ic),
+            colorFilter = ColorFilter.tint(if (odakli) NmColor.Primary else NmColor.OnPrimary),
+        )
     }
 }
 
