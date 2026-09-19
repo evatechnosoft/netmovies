@@ -7,9 +7,13 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 15:30
-**Dal:** `fix/general-stability` @ `fb05744` · push EDİLDİ
-**Sürümler:** TV/telefon **0.9.4 (vc 904)** · saat `v0.1.15-poc`
+**Son güncelleme:** 19 Eylül 2026, 15:55
+**Dal:** `fix/general-stability` @ `1e852bb` · push EDİLDİ
+**Sürümler:** TV/telefon **0.9.5 (vc 905)** · saat `v0.1.15-poc`
+
+**0.9.5:** harici oynatıcı seçeneği (VLC/Nova/MX) kaldırıldı — Dean: "ayrı player'a
+gerek yok". Yayında: yerel OTA `v0.9.5-poc`, release `netmovies-tv-v0.9.5`, apps.json
+tv+phone 0.9.5, indirilen APK sha256 `0277b027…fade` = yerel dosya.
 
 ## ÇÖZÜLDÜ — çökmenin kök nedeni dexleyici hatasıydı
 
