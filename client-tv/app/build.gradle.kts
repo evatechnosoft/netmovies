@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.9.0"
+val appVersion = "0.9.1"
 
 plugins {
     id("com.android.application")
@@ -94,10 +94,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.11.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
     implementation("androidx.media3:media3-ui:1.11.0")
-    // Media3'un Compose/Material3 oynatici arayuzu: D-pad gezinmesi kutudan
-    // geliyor (her kontrol yuvasi focus group, sirali gecis). Kendi PlayerView
-    // + odak yonetimimiz televizyonda surekli kirilmisti.
-    implementation("androidx.media3:media3-ui-compose-material3:1.11.1")
 
     // Ağ (Retrofit + kotlinx.serialization)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

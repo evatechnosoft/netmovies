@@ -96,8 +96,6 @@ import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import androidx.media3.ui.compose.material3.PlayerDefaults
-import androidx.media3.ui.compose.material3.Player as Media3Player
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.Library
@@ -171,11 +169,6 @@ fun PlayerScreen(
     // senkron kayması ve ses tamponu boşalması belirgin azalır. Destek cihaza
     // göre değişir — açılmıyorsa ilk hatada kalıcı kapanır (aşağıda).
     var tunneling by remember { mutableStateOf(oynaticiPrefs.getBoolean("tunneling", true)) }
-    // Orijinal oynatıcı: Media3'ün kendi kontrol çubuğu (useController). Özel
-    // kontroller çok şeye karışıyor (Dean: "bu şekilde çok bozuyorsun") — ikisi
-    // de kalsın, seçim Araçlar sekmesinde. Cihaza yazılır, oynatıcı her açılışta
-    // aynı tercihle gelir.
-    var orijinalKontrol by remember { mutableStateOf(oynaticiPrefs.getBoolean("orijinal_kontrol", true)) }
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             setParameters(
@@ -1243,7 +1236,7 @@ fun PlayerScreen(
     LaunchedEffect(controlsTick, showControls) {
         // Orijinal modda kontroller arasında D-pad ile geziliyor: 3,5 sn gezinirken
         // ekranı kapatıyordu.
-        if (showControls) { delay(if (orijinalKontrol) 8000 else 3500); showControls = false }
+        if (showControls) { delay(3500); showControls = false }
     }
     // Sarma göstergesi otomatik gizleme.
     LaunchedEffect(hintTick) {
@@ -1261,11 +1254,8 @@ fun PlayerScreen(
     // `showStartPanel` de anahtar: tam ekran bölüm listesi kapanınca odağı kimse
     // geri istemiyordu, kök kutu odaksız kalıyor ve D-pad sarma tuşları hiçbir
     // yere gitmiyordu (Dean, 18 Eylül: "sağ sol sar ama olmuyor").
-    LaunchedEffect(showSettings, showSeek, showPad, showStartPanel, scrubMode, ready, showControls) {
+    LaunchedEffect(showSettings, showSeek, showPad, showStartPanel, scrubMode, ready) {
         if (showSeek || showPad || showStartPanel) return@LaunchedEffect   // bu ekranlar odağı kendi alır
-        // Orijinal oynatıcıda kontroller açıkken odak Media3'ün düğmelerinde
-        // kalmalı; geri almak D-pad gezinmesini ilk basışta öldürür.
-        if (orijinalKontrol && showControls && !showSettings) return@LaunchedEffect
         repeat(10) {
             val target = if (showSettings) panelFocus else rootFocus
             if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
@@ -1422,12 +1412,6 @@ fun PlayerScreen(
                         }
                         else -> false
                     }
-                    // Orijinal oynatıcı: kontroller AÇIKKEN tuş sahibi Media3'ün
-                    // kendi Compose arayüzü (odak gezinmesi onda, düğmeler odak
-                    // grubu). KAPALIYKEN bizim buton eşlememiz çalışır ve ilk tuş
-                    // kontrolleri açar. İki sistem aynı anda tuş dinlemez.
-                    orijinalKontrol && showControls && !showSettings && !showSeek &&
-                        !showStartPanel && !showPad && !scrubMode -> false
                     // Kumandanın oynatma tuşları (⏪ ⏩ ⏮ ⏭ ⏯). Bunlar D-pad değil,
                     // buton eşlemesine girmiyorlar ve hiçbir yere bağlı DEĞİLDİLER:
                     // basınca hiçbir şey olmuyordu (useController=false → ExoPlayer de
@@ -1519,94 +1503,19 @@ fun PlayerScreen(
                 }
             },
     ) {
-        if (orijinalKontrol) {
-            // Media3'ün kendi Compose arayüzü. D-pad gezinmesi ONUN işi: her
-            // kontrol yuvası bir focus group ve geçiş sırası üst → merkez → alt.
-            // Kendi PlayerView + odak yönetimimiz televizyonda sürekli kırılıyordu
-            // (Dean: "düzgün bir player yap artık").
-            //
-            // Bölüm geçişi Media3'ün PreviousButton/NextButton'ı DEĞİL: onlar çalma
-            // listesi komutlarına bakıyor, bizim bölümler ayrı kaynaklar. O iki yuva
-            // kendi düğmelerimizle dolduruldu.
-            Media3Player(
-                player = exo,
-                modifier = Modifier.fillMaxSize(),
-                showControls = showControls,
-                topControls = { p, gorunur ->
-                    PlayerDefaults.TopControls(p, gorunur, Modifier.fillMaxWidth()) {
-                        Text(
-                            text = simdikiEtiket ?: item.title.orEmpty(),
-                            fontSize = NmType.Body,
-                            fontWeight = FontWeight.SemiBold,
-                            color = NmColor.OnSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(NmDim.SafeArea),
-                        )
-                    }
-                },
-                centerControls = { p, gorunur ->
-                    PlayerDefaults.CenterControls(
-                        p,
-                        gorunur,
-                        Modifier.fillMaxWidth(),
-                        backSecondary = {
-                            BolumDugmesi(
-                                geri = true,
-                                etkin = prevEpIndex != null,
-                            ) { prevEpIndex?.let { goToEpisode(it) } }
-                        },
-                        forwardSecondary = {
-                            BolumDugmesi(
-                                geri = false,
-                                etkin = nextEpIndex != null,
-                            ) { nextEpIndex?.let { goToEpisode(it) } }
-                        },
-                    )
-                },
-            )
-        } else AndroidView(
+        AndroidView(
             factory = { ctx ->
-                // XML'den şişirilir: kontrol çubuğunun düzeni (alt bar) yalnız
-                // `controller_layout_id` özniteliğiyle verilebiliyor.
-                val v = android.view.LayoutInflater.from(ctx)
-                    .inflate(com.evaitec.netmovies.tv.R.layout.nm_player_view, null) as PlayerView
-                v.apply {
+                PlayerView(ctx).apply {
                     player = exo
+                    useController = false            // tüm kontrol bizde (buton-eşleme)
                     keepScreenOn = true
-                    // Odağı ASLA almaz. Aldığında Compose odak ağacından kopuyor,
-                    // üstteki panele imleç hiç gitmiyor ve tuşlar Media3'e düşüp
-                    // arkada oynatmayı başlatıyordu (Dean, 19 Eylül).
+                    // Odağı ASLA almaz: aldığında Compose odak ağacından kopuyor,
+                    // üstteki panele imleç gitmiyor ve tuşlar oynatmayı arkada
+                    // başlatıyordu (Dean, 19 Eylül).
                     isFocusable = false
                     isFocusableInTouchMode = false
                     descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
-                    // Kontrol çubuğunu bizim zamanlayıcımız yönetir.
-                    controllerAutoShow = false
-                    controllerShowTimeoutMs = 0
-                    controllerHideOnTouch = false
                 }
-            },
-            update = { v ->
-                // Orijinal mod: Media3'ün kendi çubuğu çizilir (görünüm onun),
-                // tuşlar yine BİZİM buton eşlemesinden geçer.
-                v.useController = orijinalKontrol
-                if (orijinalKontrol && showControls) v.showController() else v.hideController()
-
-                // Bölüm geçişi Media3'ün işi değil (onun prev/next'i çalma listesi
-                // içindir) — düğmeler bizim, dinleyici burada. Dokunmatikte çalışır;
-                // kumandada AŞAĞI ok ile açılan alt bar (QuickPad) aynı işi yapar.
-                v.findViewById<android.widget.ImageButton>(com.evaitec.netmovies.tv.R.id.nm_prev_ep)
-                    ?.apply {
-                        visibility = if (prevEpIndex != null) android.view.View.VISIBLE
-                                     else android.view.View.GONE
-                        setOnClickListener { prevEpIndex?.let { goToEpisode(it) } }
-                    }
-                v.findViewById<android.widget.ImageButton>(com.evaitec.netmovies.tv.R.id.nm_next_ep)
-                    ?.apply {
-                        visibility = if (nextEpIndex != null) android.view.View.VISIBLE
-                                     else android.view.View.GONE
-                        setOnClickListener { nextEpIndex?.let { goToEpisode(it) } }
-                    }
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -1639,7 +1548,7 @@ fun PlayerScreen(
         // Kontrol overlay: dokunmatikte etkileşimli butonlar; D-pad'de görsel bilgi.
         // Alt bar (QuickPad) açıkken çizilmez: ikisi de ekranın altına oturuyor,
         // üst üste gelince süre çubuğu düğmelerin ardında kalıyordu.
-        if (showControls && !scrubMode && !showPad && !orijinalKontrol) {
+        if (showControls && !scrubMode && !showPad) {
             ControlsOverlay(
                 isPlaying = isPlaying,
                 position = position,
@@ -1857,7 +1766,6 @@ fun PlayerScreen(
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
-                orijinalKontrol = orijinalKontrol,
                 onHariciOynat = {
                     val link = links.getOrNull(currentLinkIndex)
                     if (link == null) {
@@ -1890,11 +1798,6 @@ fun PlayerScreen(
                         }
                     }
                     showSettings = false
-                },
-                onToggleOynatici = {
-                    orijinalKontrol = !orijinalKontrol
-                    oynaticiPrefs.edit().putBoolean("orijinal_kontrol", orijinalKontrol).apply()
-                    showControls = false
                 },
                 showReport = showReport,
                 onToggleReport = { showReport = !showReport },
@@ -2587,9 +2490,6 @@ private fun SettingsPanel(
     onToggleReport: () -> Unit,
     showKeys: Boolean,
     onToggleKeys: () -> Unit,
-    /** Oynatıcı kontrolü Media3'ün kendi çubuğunda mı (orijinal) yoksa bizde mi (özel). */
-    orijinalKontrol: Boolean = false,
-    onToggleOynatici: () -> Unit = {},
     /** Akışı cihazdaki başka bir oynatıcıya (VLC, Nova, MX) devreder. */
     onHariciOynat: () -> Unit = {},
     onClose: () -> Unit,
@@ -2803,12 +2703,6 @@ private fun SettingsPanel(
                         }
 
                         else -> {
-                            SettingRow(
-                                if (orijinalKontrol) "Oynatıcı: yeni (Media3 · D-pad hazır)"
-                                else "Oynatıcı: klasik (buton-eşleme)",
-                                orijinalKontrol,
-                                onToggleOynatici,
-                            )
                             // Harici oynatıcı: akış cihazdaki VLC/Nova/MX'e devredilir.
                             // Orada bölüm geçişi, kaynak değiştirme ve kaldığın yerin
                             // kaydı YOK — uygulamadan çıkılıyor, bunu satır söylüyor.
@@ -3160,19 +3054,5 @@ private fun ActionRow(onAction: () -> Unit, actionLabel: String, onBack: () -> U
     ) {
         TouchButton(actionLabel, onAction, modifier = Modifier.focusRequester(firstFocus), accent = true)
         TouchButton("Geri", onBack)
-    }
-}
-
-/** Orijinal oynatıcının merkez şeridindeki bölüm düğmesi. Media3'ün
- *  PreviousButton/NextButton'ı çalma listesi komutlarına bakıyor; bizim
- *  bölümler ayrı kaynaklar, o yüzden kendi düğmemiz. */
-@Composable
-private fun BolumDugmesi(geri: Boolean, etkin: Boolean, onClick: () -> Unit) {
-    androidx.compose.material3.IconButton(onClick = onClick, enabled = etkin) {
-        androidx.compose.material3.Icon(
-            imageVector = if (geri) androidx.compose.material.icons.Icons.Filled.SkipPrevious
-                          else androidx.compose.material.icons.Icons.Filled.SkipNext,
-            contentDescription = if (geri) "Önceki bölüm" else "Sonraki bölüm",
-        )
     }
 }
