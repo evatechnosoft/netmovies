@@ -2227,7 +2227,7 @@ private fun ControlsOverlay(
             // bulunmuyordu (Dean, 17 Eylul: "sarma butonu playerda olacak, cursor
             // gezebilir olsun").
             Text(
-                text = "▼  Butonlar  ·  ◀ ▶ 10 sn sar  (basılı tut: hızlı)",
+                text = "◀ ▼ ▶  Butonlar  ·  ▲ Önizleme  ·  sarma tuşları ±30 sn",
                 color = NmColor.OnSurfaceMuted,
                 fontSize = NmType.Caption,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

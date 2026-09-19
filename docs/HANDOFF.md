@@ -7,8 +7,8 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 20:25
-**Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.8 (vc 908)** ·
+**Son güncelleme:** 19 Eylül 2026, 21:00
+**Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.9 (vc 909)** ·
 saat `v0.1.15-poc` (dokunulmadı)
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
 **PIN:** site `1234` · yönetim paneli Basic auth → `.env: ADMIN_PASS`
@@ -17,7 +17,7 @@ saat `v0.1.15-poc` (dokunulmadı)
 
 ```bash
 bash scripts/smoke.sh                                 # kapı YEŞİL (19 Eyl 19:40)
-curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.8-poc
+curl -s "localhost:3310/api/v1/app_update?target=tv"  # v0.9.9-poc
 ```
 
 > `smoke.sh` ilk koşuda `serie` boş diyebilir: `aggregate_new?type=serie` soğuk
@@ -44,16 +44,37 @@ EMU="$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe"; ADB="$LOCALAPPDATA/Androi
 gelmeden ana ekrana düşüyor (toast). Oynatıcı İÇİ davranış emülatörde
 doğrulanamıyor — o kısım cihaz ister.
 
-## 🚨 SIRADAKİ İŞ — 0.9.8'i TV'de dene
+## 🚨 SIRADAKİ İŞ — 0.9.9'u TV'de dene
 
 Oynatıcı içi hiçbir şey cihazda görülmedi (emülatör oynatıcıyı ayakta tutamıyor).
 TV'de bakılacaklar:
-1. AŞAĞI ok kumanda barını (QuickPad) açıyor mu?
-2. Film başlarken kendi kendine basılmış gibi oluyor mu? (olmamalı)
-3. Başlangıç panelinde GERİ artık çıkmıyor, OYNAT'a basılmış gibi davranıyor.
-4. Poster uzun-bas kartı TV ekranına oturuyor mu?
+1. SOL/SAĞ/AŞAĞI ok kumanda barını açıyor, oklar düğmeler arasında geziyor mu?
+2. Ok tuşları artık videoyu sarmıyor (sarma: bardaki düğmeler, kumandanın sarma
+   tuşları, YUKARI önizleme).
+3. Film başlarken kendi kendine basılmış gibi oluyor mu? (olmamalı)
+4. Başlangıç panelinde GERİ çıkmıyor, oynatıyor.
+5. Poster uzun-bas kartı TV ekranına oturuyor mu?
 
-## Bu oturumda kapanan iş (0.9.8)
+## Bu oturumda kapanan iş (0.9.9)
+
+**Ok tuşları oynatıcıda sarmaya bağlıydı, hiçbir yere gidilemiyordu** (Dean:
+"oklarla gezemiyorum, d-pad sarmayı kapatalım; ben istersem bar üzerinden ya da
+sar tuşuyla yaparım... butonlara rahat girelim basalım playerda yeter").
+`RemoteInput.DEFAULTS`: SOL/SAĞ tek basış `SEEK_BACK_10`/`SEEK_FWD_10` →
+**`OPEN_BAR`**, uzun basış `SEEK_HOLD_*` → `NONE`. Bar zaten açıkken SOL/SAĞ
+düğmeler arasında geziyordu (`showPad` dalı controller'dan önce), değişmedi.
+
+Sarma üç yoldan duruyor: bardaki −5dk/−30sn/+30sn/+5dk düğmeleri, kumandanın
+kendi `MEDIA_FAST_FORWARD`/`MEDIA_REWIND` tuşları (doğrudan bağlı, eşlemeden
+bağımsız), YUKARI ile açılan önizleme çubuğu. İsteyen Buton Eşleme'den
+`SEEK_BACK_10`/`SEEK_FWD_10`'u geri atayabilir — eylemler duruyor.
+
+> Varsayılanı değiştirmek KAYITLI eşlemeyi ezmez. Sunucuda `tv_keymap_*` anahtarı
+> **0 adet** (`curl -s localhost:3310/api/v1/prefs | grep -c tv_keymap_`), yani
+> elle eşleme yapılmamış — yeni varsayılan geçerli. Dean ileride eşleme kaydeder
+> ve sonra varsayılan değişirse, kayıt kazanır.
+
+## 0.9.8'de kapanan iş
 
 **Film kendi kendine başlıyordu — kök neden: yarım tuş olayı.** Bir ekranda
 basılan tuşun BIRAKILMASI, o basış yeni bir ekran açtıysa yeni ekrana düşüyor.
@@ -94,26 +115,28 @@ OK seç, GERİ kapat. Seçim yine index'le — Compose odağı kullanılmıyor.
 Bölüm seçmek oynatmaz: seçim karta döner, kaynak yoklanır, sonuç Oynat düğmesinde
 yazılı durur ("Oynat — S1B3 · 1 kaynak ✓ · Türkçe altyazı").
 
-**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.8.apk`
-(`app_update?target=tv` → `v0.9.8-poc`), GitHub release `netmovies-tv-v0.9.8`
-(indirme 200), `evaglass-releases/apps.json` tv+phone 0.9.8 / vc 908.
-sha256 `c793e46dbb2f762dac071db095c909c6f533f969b2e55570b69d6887d9ae799d`.
+**Yayında (üç yer):** yerel OTA `data/apk/NetMovies-TV-v0.9.9.apk`
+(`app_update?target=tv` → `v0.9.9-poc`), GitHub release `netmovies-tv-v0.9.9`
+(indirme 200), `evaglass-releases/apps.json` tv+phone 0.9.9 / vc 909.
+sha256 `bbd60667051a9990b8d11061f5797d58cbf14a5626a027f65f11dc4145897559`.
 
 ## Kanıt durumu
 
 **Doğrulandı:** `assembleDebug` + `testDebugUnitTest` BUILD SUCCESSFUL
-(`KeyPairGateTest` 5/5) · 0.9.8 emülatörde kuruldu: verify hatası 0, FATAL 0,
+(`KeyPairGateTest` 5/5) · 0.9.9 emülatörde kuruldu: verify hatası 0, FATAL 0,
 ana ekran temiz açıldı · emülatörde
 (yatay) kart açıldı, ◀ bölümler → ▼▼ → OK seçti → Oynat'a döndü → kaynak
 yoklandı ("1 kaynak ✓ · Türkçe altyazı") → ▶ listeler sütununa geçti · `smoke.sh`
 YEŞİL (movie 428 · serie 450 · live 236) · release indirme 200.
 
-**Doğrulanmadı:** oynatıcı İÇİ her şey — AŞAĞI→QuickPad, yarım tuş düzeltmesi,
-GERİ=OYNAT (emülatör oynatıcıyı ayakta tutamıyor, cihaz bekliyor) · kartın TV
+**Doğrulanmadı:** oynatıcı İÇİ her şey — ok tuşlarıyla bar gezinmesi, yarım tuş
+düzeltmesi, GERİ=OYNAT (emülatör oynatıcıyı ayakta tutamıyor, cihaz bekliyor) · kartın TV
 ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 
 ## Tekrarlanmayacak şeyler
 
+- **Oynatıcıda yön tuşlarını sarmaya bağlamak** — o zaman ekranda hiçbir yere
+  gidilemiyor. Yön tuşları GEZİNME, sarma kendi tuşunda/düğmesinde.
 - **Ekran değiştiren bir tuşun ACTION_UP'ını işlemek** — `KeyPairGate` var, her
   yeni tam ekran panelde aynı tuzak geçerli.
 - **Birim testte `KeyEvent(...)` nesnesi kurmak** — android.jar stub'ı
@@ -153,7 +176,8 @@ ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 ## Yeniden başlangıç promptu (yapıştır)
 
 ```
-NetMovies (D:\projects\netmovies, dal fix/general-stability). 0.9.8 yayında.
+NetMovies (D:\projects\netmovies, dal fix/general-stability). 0.9.9 yayında.
+Oynatıcıda ok tuşları artık sarma değil kumanda barı (Dean: "oklarla gezemiyorum").
 Bu oturumda: (0) film başlarken kendi kendine basılmış gibi olmasının kök nedeni —
 bir ekranda basılan tuşun ACTION_UP'ı yeni açılan ekrana düşüyordu (KeyPairGate);
 başlangıç panelinde GERİ artık çıkış değil OYNAT. (1)
@@ -172,9 +196,9 @@ Yayın kuralı: kanıt yeşilse SORMADAN yayınla (yerel OTA + GitHub release --
 main + evaglass-releases/apps.json), ne yayınladığını söyle.
 
 Öncelik:
-1. Dean 0.9.8'i TV'ye kursun: AŞAĞI kumanda barını açıyor mu, film kendi kendine
-   başlıyor mu (olmamalı), başlangıç panelinde GERİ oynatıyor mu, poster kartı
-   TV ekranına oturuyor mu?
+1. Dean 0.9.9'u TV'ye kursun: oklar düğmeler arasında geziyor mu, sarma
+   kalktı mı, film kendi kendine başlıyor mu (olmamalı), başlangıç panelinde
+   GERİ oynatıyor mu, poster kartı TV ekranına oturuyor mu?
 2. Dean bir kusur bildirirse onun kök nedeni.
 3. "Cevaplanmamış / açık" maddeleri — yalnız Dean isterse.
 ```

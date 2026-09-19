@@ -56,14 +56,18 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     fun k(key: RemoteKey, p: PressType) = "${key.keyCode}_${p.name}"
     put(k(RemoteKey.OK, PressType.SINGLE), RemoteAction.PLAY_PAUSE)
     put(k(RemoteKey.OK, PressType.LONG), RemoteAction.OPEN_SETTINGS)
-    put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.SEEK_BACK_10)
-    put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.SEEK_FWD_10)
-    // SOL/SAĞ'a çift basış ATANMAZ: çift basış tanımlıysa tek basış 300 ms
-    // bekletiliyordu ve art arda basmak 10+10 değil 60 sn sarıyordu (Dean:
-    // "basılı tutmadan ilerlemiyor"). Artık her basış anında +10 ekler,
-    // üst üste basışlar birikir (3 basış = 30 sn, tek seek).
-    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.SEEK_HOLD_BACK)
-    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.SEEK_HOLD_FWD)
+    // SOL/SAĞ = kumanda barı, SARMA DEĞİL. Ok tuşları sarmaya bağlıyken oynatıcıda
+    // hiçbir yere gidilemiyordu: her basış videoyu kaydırıyor, düğmeler arasında
+    // gezinmek mümkün olmuyordu (Dean: "oklarla gezemiyorum, d-pad sarmayı
+    // kapatalım; ben istersem bar üzerinden ya da sar tuşuyla yaparım").
+    // Sarma üç yoldan yapılabilir: bardaki −5dk/−30sn/+30sn/+5dk düğmeleri,
+    // kumandanın kendi ileri/geri sarma tuşları (MEDIA_FAST_FORWARD/REWIND,
+    // doğrudan bağlı), ve YUKARI ile açılan önizleme çubuğu.
+    // İsteyen Buton Eşleme'den SEEK_BACK_10/SEEK_FWD_10'u geri atayabilir.
+    put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.OPEN_BAR)
+    put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.OPEN_BAR)
+    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.NONE)
+    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.NONE)
     put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
     // Dizide bölüm listesi kumandada da tek harekette açılsın: YUKARI basılı tut.
     put(k(RemoteKey.UP, PressType.LONG), RemoteAction.OPEN_EPISODES)
