@@ -1779,39 +1779,6 @@ fun PlayerScreen(
                     }
                 },
                 onSelectSpeed = { s -> speed = s; exo.setPlaybackSpeed(s) },
-                onHariciOynat = {
-                    val link = links.getOrNull(currentLinkIndex)
-                    if (link == null) {
-                        PlaybackLog.warn("harici", "kaynak yok — devredilemedi")
-                    } else {
-                        // Kaldığın yer önce SUNUCUYA yazılır: harici oynatıcıdan
-                        // dönünce Devam Et doğru dakikayı göstersin.
-                        library.saveProgress(
-                            item = item,
-                            positionSeconds = position / 1000.0,
-                            durationSeconds = duration / 1000.0,
-                            episodeRef = episodes.getOrNull(currentEpIndex)
-                                ?.let { "S${it.season}B${it.episode ?: (currentEpIndex + 1)}" }
-                                .orEmpty(),
-                            isSerie = episodes.isNotEmpty(),
-                        )
-                        val niyet = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                            setDataAndType(android.net.Uri.parse(link.url), "video/*")
-                            putExtra("title", item.title.orEmpty())
-                            // VLC ve MX kaldığın yeri bu ekstradan okur (ms).
-                            putExtra("position", position)
-                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        runCatching {
-                            context.startActivity(
-                                android.content.Intent.createChooser(niyet, "Oynatıcı seç"),
-                            )
-                        }.onFailure {
-                            PlaybackLog.warn("harici", "oynatıcı açılamadı: ${it.message ?: "-"}")
-                        }
-                    }
-                    showSettings = false
-                },
                 showReport = showReport,
                 onToggleReport = { showReport = !showReport },
                 showKeys = showKeys,
@@ -2521,8 +2488,6 @@ private fun SettingsPanel(
     onToggleReport: () -> Unit,
     showKeys: Boolean,
     onToggleKeys: () -> Unit,
-    /** Akışı cihazdaki başka bir oynatıcıya (VLC, Nova, MX) devreder. */
-    onHariciOynat: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -2734,12 +2699,6 @@ private fun SettingsPanel(
                         }
 
                         else -> {
-                            // Harici oynatıcı: akış cihazdaki VLC/Nova/MX'e devredilir.
-                            // Orada bölüm geçişi, kaynak değiştirme ve kaldığın yerin
-                            // kaydı YOK — uygulamadan çıkılıyor, bunu satır söylüyor.
-                            SettingRow("📤 Harici oynatıcıda aç — VLC · Nova · MX", false) {
-                                onHariciOynat()
-                            }
                             SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
                             SettingRow(
                                 if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
