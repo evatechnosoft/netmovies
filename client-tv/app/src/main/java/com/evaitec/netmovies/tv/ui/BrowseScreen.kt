@@ -670,7 +670,7 @@ private fun ShelfRow(
                         }
                     }
                     val mod = Modifier
-                        .width(NmDim.PosterWidth)
+                        .width(com.evaitec.netmovies.tv.ui.theme.nmRafPosterGenisligi())
                         .then(if (i == targetCard) Modifier.focusRequester(firstFocus) else Modifier)
                         .onFocusChanged { if (it.isFocused) onCardFocused(i) }
                     BrowsePoster(item, modifier = mod) { onSelect(item) }
@@ -690,7 +690,7 @@ private fun ShelfSkeleton() {
         repeat(4) {
             Box(
                 Modifier
-                    .width(NmDim.PosterWidth)
+                    .width(com.evaitec.netmovies.tv.ui.theme.nmRafPosterGenisligi())
                     .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(NmDim.CardRadius))
                     .background(NmColor.Surface),

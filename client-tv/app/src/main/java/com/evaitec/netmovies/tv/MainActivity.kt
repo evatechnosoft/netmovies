@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.evaitec.netmovies.tv.ui.theme.NetMoviesTheme
 import com.evaitec.netmovies.tv.ui.theme.NmColor
@@ -32,6 +33,9 @@ import com.evaitec.netmovies.tv.ui.TouchButton
 import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
+
+    /** Önceki açılışta çökme olduysa yığın izi — ekrandaki şerit bunu gösterir. */
+    private var cokmeIzi by mutableStateOf<List<String>?>(null)
 
     // Telefon kumandasındaki tuşu GERÇEK bir kumanda tuşuna çevirir. Sentetik olay
     // normal tuş yolundan aktığı için odak, oynatıcı ve buton-eşleme ayarları
@@ -107,13 +111,25 @@ class MainActivity : ComponentActivity() {
         com.evaitec.netmovies.tv.data.CrashLog.kur(this)
         com.evaitec.netmovies.tv.data.CrashLog.bekleyen(this)?.let { satirlar ->
             satirlar.forEach { com.evaitec.netmovies.tv.data.PlaybackLog.warn("cokme", it) }
+            // Ekranda da göster: sunucuya gönderim ağa bağlı, iki turdur hiçbir iz
+            // ulaşmadı (`client_log` boş). Şerit televizyonda okunur, fotoğrafı
+            // yeter (Dean, 19 Eylül: "yine patlıyor").
+            cokmeIzi = satirlar
             lifecycleScope.launch {
-                val gonderildi = runCatching {
-                    com.evaitec.netmovies.tv.data.Network.api.clientLog(
-                        mapOf("lines" to (listOf("=== ÖNCEKİ AÇILIŞTA ÇÖKME ===") + satirlar))
-                    )
-                }.isSuccess
-                if (gonderildi) com.evaitec.netmovies.tv.data.CrashLog.temizle(this@MainActivity)
+                // Sunucu adresi açılışın ilk saniyelerinde henüz çözülmemiş olabilir:
+                // tek deneme sessizce kaybediyordu.
+                repeat(3) { deneme ->
+                    val gonderildi = runCatching {
+                        com.evaitec.netmovies.tv.data.Network.api.clientLog(
+                            mapOf("lines" to (listOf("=== ÖNCEKİ AÇILIŞTA ÇÖKME ===") + satirlar))
+                        )
+                    }.isSuccess
+                    if (gonderildi) {
+                        com.evaitec.netmovies.tv.data.CrashLog.temizle(this@MainActivity)
+                        return@launch
+                    }
+                    kotlinx.coroutines.delay(4000)
+                }
             }
         }
         setContent {
@@ -122,6 +138,7 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.foundation.layout.Box(
                         Modifier.fillMaxSize().background(NmColor.Background)
                     ) {
+
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
                         var showKeyMap by remember { mutableStateOf(false) }
                         var showRemote by remember { mutableStateOf(false) }
@@ -402,6 +419,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         bekleyenUzak?.let { UzakOnayKarti(it.title.orEmpty()) }
+
+                        // En üstte: önceki açılıştaki çökme izi.
+                        cokmeIzi?.let { satirlar ->
+                            CokmeSeridi(satirlar) { cokmeIzi = null }
+                        }
                     }
                 }
             }
@@ -441,6 +463,37 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(top = 6.dp).align(androidx.compose.ui.Alignment.CenterHorizontally),
                 )
             }
+        }
+    }
+}
+
+/** Önceki açılıştaki çökmenin ilk satırları. Televizyonda okunur boyutta:
+ *  sunucuya gönderim ağa bağlı, bu şerit fotoğraflanabiliyor. */
+@androidx.compose.runtime.Composable
+private fun CokmeSeridi(satirlar: List<String>, onKapat: () -> Unit) {
+    androidx.compose.foundation.layout.Box(
+        Modifier
+            .fillMaxWidth()
+            .zIndex(20f)
+            .padding(10.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(androidx.compose.ui.graphics.Color(0xFF7F1D1D))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        androidx.compose.foundation.layout.Column {
+            androidx.tv.material3.Text(
+                text = "ÖNCEKİ AÇILIŞTA ÇÖKME — fotoğrafla, sonra OK ile kapat",
+                color = androidx.compose.ui.graphics.Color.White,
+                fontSize = 13.sp,
+            )
+            satirlar.take(6).forEach {
+                androidx.tv.material3.Text(
+                    text = it.take(160),
+                    color = androidx.compose.ui.graphics.Color(0xFFFECACA),
+                    fontSize = 11.sp,
+                )
+            }
+            TouchButton("Kapat", onKapat)
         }
     }
 }

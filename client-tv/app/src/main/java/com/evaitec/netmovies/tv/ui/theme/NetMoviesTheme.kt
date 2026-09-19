@@ -60,6 +60,11 @@ object NmDim {
     val RowPadV = 6.dp    // raf içi dikey nefes payı (poster odakta KÜÇÜLDÜĞÜ için az yeter)
     val ItemGap = 10.dp   // liste satırları arası
 
+    // Rafa kaç poster sığacağı SABİT: kart genişliği ekrandan hesaplanır
+    // (Dean, 19 Eylül: "her sayfa eşit düzenlensin, 10 poster bir rafa sığsın").
+    // Sabit 130dp'de sayı ekrana/çözünürlüğe göre değişiyordu.
+    const val RafPosterAdedi = 10
+    /** Yalnız önizleme/yedek; gerçek genişlik `nmRafPosterGenisligi()`. */
     val PosterWidth   = 130.dp
     val GridPosterMin = 150.dp
     // Ajanda takvimdir: aynı satırda daha çok gün görünsün diye ana sayfa
@@ -180,4 +185,13 @@ fun NetMoviesTheme(content: @Composable () -> Unit) {
             content = content,
         )
     }
+}
+
+/** Bir rafa tam [adet] poster sığacak kart genişliği. Kenar boşluğu ve kartlar
+ *  arası aralık düşülür; çok dar ekranda 64dp'nin altına inmez. */
+@androidx.compose.runtime.Composable
+fun nmRafPosterGenisligi(adet: Int = NmDim.RafPosterAdedi): androidx.compose.ui.unit.Dp {
+    val ekran = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    return ((ekran - NmDim.SafeH * 2 - NmDim.CardGap * (adet - 1)) / adet)
+        .coerceAtLeast(64.dp)
 }

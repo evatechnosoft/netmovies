@@ -151,7 +151,9 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
                 // Poster ana sayfa rafından da küçük (110dp): ajanda bir takvim,
                 // kart değil satır okunur — küçük poster satıra daha çok gün
                 // sığdırıyor (Dean, 16 Eylül: "daha küçük, ana sayfa gibi").
-                columns = GridCells.Adaptive(minSize = NmDim.AgendaPoster),
+                // Ajanda da aynı ölçüyü kullanır: sayfalar arası kart boyu
+                // değişince ekran dağınık duruyordu (Dean: "her sayfa eşit").
+                columns = GridCells.Adaptive(minSize = com.evaitec.netmovies.tv.ui.theme.nmRafPosterGenisligi()),
                 contentPadding = PaddingValues(bottom = NmDim.SafeV),
                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                 verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),

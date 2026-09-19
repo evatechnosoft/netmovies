@@ -425,7 +425,7 @@ private fun PosterCard(
     val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
         modifier = modifier
-            .width(NmDim.PosterWidth)
+            .width(com.evaitec.netmovies.tv.ui.theme.nmRafPosterGenisligi())
             .aspectRatio(2f / 3f)
             .nmScale(scale)
             .zIndex(if (focused) 1f else 0f)
