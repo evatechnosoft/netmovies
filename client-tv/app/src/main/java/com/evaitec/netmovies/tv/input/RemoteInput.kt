@@ -66,13 +66,21 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     // İsteyen Buton Eşleme'den SEEK_BACK_10/SEEK_FWD_10'u geri atayabilir.
     put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.OPEN_BAR)
     put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.OPEN_BAR)
-    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.NONE)
-    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.NONE)
+    // Basılı tutma da barı açar: parmak ok üstünde biraz fazla kalınca hiçbir şey
+    // olmaması "tuş çalışmıyor" gibi okunuyordu (Dean: "sağ sol bas ve basılı tutma
+    // aktif"). Uzun basış tek sefer tetiklenir (OPEN_BAR repeatable değil).
+    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.OPEN_BAR)
+    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.OPEN_BAR)
     put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
     // Dizide bölüm listesi kumandada da tek harekette açılsın: YUKARI basılı tut.
     put(k(RemoteKey.UP, PressType.LONG), RemoteAction.OPEN_EPISODES)
     // AŞAĞI = alt bar. Ayarlar da oradaki bir düğme; tek giriş noktası olsun.
+    // Kısa ve uzun basış AYNI barı açar: ekranda iki şerit var (üstteki kontrol
+    // çubuğu D-pad ile gezilemez, yalnız bilgi) ve AŞAĞI bazen ölü şeritte
+    // bırakıyordu (Dean: "aşağı çekerken olan bara hiçbir işlem yaptırmıyor...
+    // aşağı basılı tutma o 2. barı açmalı").
     put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.OPEN_BAR)
+    put(k(RemoteKey.DOWN, PressType.LONG), RemoteAction.OPEN_BAR)
 }
 
 // Kalıcı tuş eşlemesi. Compose observable (mutableStateMap) → Buton Eşleme ekranı
