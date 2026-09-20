@@ -160,15 +160,31 @@ object ServerResolver {
 
 // İstekleri aktif sunucuya yönlendirir (scheme + host + port). Retrofit baseUrl'i
 // placeholder kalır; gerçek hedef burada belirlenir.
-class BaseUrlInterceptor : Interceptor {
+//
+// Seçilen adres kalıcı değil: sunucu PC'nin IP'si DHCP ile kayıyor (1.185 -> 0.29),
+// TV de ağ değiştirebiliyor. Seçim bir kez yapılıp cache'lendiği için, adres
+// altımızdan kayınca her istek ölü hedefe gidiyor ve ekranda "ağ hatası" kalıyordu —
+// kullanıcı elle "Tekrar dene"ye basana kadar kendini toparlamıyordu. Bağlantı
+// hatasında seçimi bir kez sıfırlayıp yeniden keşfediyoruz: yeni adres neyse oraya.
+class BaseUrlInterceptor(
+    // Varsayilanlar uretimde ServerResolver'a baglar; testte sahte adres verilebilir.
+    private val current: () -> HttpUrl = ServerResolver::activeBase,
+    private val rediscover: () -> HttpUrl = { ServerResolver.reset(); ServerResolver.activeBase() },
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val base = ServerResolver.activeBase()
-        val req  = chain.request()
-        val newUrl = req.url.newBuilder()
-            .scheme(base.scheme)
-            .host(base.host)
-            .port(base.port)
-            .build()
-        return chain.proceed(req.newBuilder().url(newUrl).build())
+        val base = current()
+        return try {
+            chain.proceed(retarget(chain.request(), base))
+        } catch (e: java.io.IOException) {
+            val fresh = rediscover()
+            // Yeniden keşif aynı adresi verdiyse sunucu gerçekten ulaşılamaz — hatayı yükselt.
+            if (fresh == base) throw e
+            chain.proceed(retarget(chain.request(), fresh))
+        }
     }
+
+    private fun retarget(req: Request, base: HttpUrl): Request =
+        req.newBuilder().url(
+            req.url.newBuilder().scheme(base.scheme).host(base.host).port(base.port).build()
+        ).build()
 }
