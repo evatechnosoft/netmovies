@@ -308,14 +308,30 @@ class RemoteWidget : AppWidgetProvider() {
             return if (sa > 0) "%d:%02d:%02d".format(sa, dk, sn) else "%d:%02d".format(dk, sn)
         }
 
-        private fun durumOku(context: Context): Durum {
+        /**
+         * Sunucunun ev ağındaki adresi DHCP ile kayıyor. Widget OkHttp kullanmadığı
+         * için oynatıcıdaki toparlanma (BaseUrlInterceptor) buraya gelmez: ilk deneme
+         * başarısızsa adresi BİR KEZ yeniden keşfedip tekrarla. Yoksa widget ölü
+         * adreste asılı kalır — ekranda "sunucuya ulaşılamadı", düğmeler sessiz.
+         */
+        private fun <T> tabanla(context: Context, basarisiz: T, islem: (String) -> T): T {
             ServerResolver.init(context)
-            val taban = runCatching { ServerResolver.activeBaseString() }.getOrNull()
-                ?: return durumdan(null)
-            val durum = durumdan(metinAl(taban + "/api/v1/remote/status"))
+            val ilk = runCatching { ServerResolver.activeBaseString() }.getOrNull() ?: return basarisiz
+            islem(ilk).takeIf { it != basarisiz }?.let { return it }
+            ServerResolver.reset()
+            val yeni = runCatching { ServerResolver.activeBaseString() }.getOrNull() ?: return basarisiz
+            return if (yeni == ilk) basarisiz else islem(yeni)
+        }
+
+        private fun durumOku(context: Context): Durum {
+            var kullanilan: String? = null
+            val govde = tabanla<String?>(context, null) { taban ->
+                metinAl("$taban/api/v1/remote/status")?.also { kullanilan = taban }
+            }
+            val durum = durumdan(govde)
             // Şerit ikinci bir istektir: durum gelmediyse sunucu zaten yok, deneme.
-            if (durum.alt == "sunucuya ulaşılamadı") return durum
-            return durum.copy(devam = devamKartlari(context, metinAl(taban + "/api/v1/continue_watching")))
+            if (durum.alt == "sunucuya ulaşılamadı" || kullanilan == null) return durum
+            return durum.copy(devam = devamKartlari(context, metinAl(kullanilan + "/api/v1/continue_watching")))
         }
 
         /** `/api/v1/continue_watching` -> ilk üç kart (poster indirilmiş). */
@@ -431,9 +447,9 @@ class RemoteWidget : AppWidgetProvider() {
          * Metni `/api/v1/voice`'a yollar. O uç niyeti kendisi çözüp televizyona
          * gönderiyor (`sent`), bu yüzden ayrıca bir komut atılmaz.
          */
-        fun sesleSoyle(context: Context, metin: String): Boolean = runCatching {
-            ServerResolver.init(context)
-            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/voice")
+        fun sesleSoyle(context: Context, metin: String): Boolean = tabanla(context, false) { taban ->
+          runCatching {
+            val conn = (URL(taban + "/api/v1/voice")
                 .openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
@@ -450,11 +466,12 @@ class RemoteWidget : AppWidgetProvider() {
             } finally {
                 conn.disconnect()
             }
-        }.getOrDefault(false)
+          }.getOrDefault(false)
+        }
 
-        private fun oynat(context: Context, sorgu: String): Boolean = runCatching {
-            ServerResolver.init(context)
-            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/remote/play?" + sorgu)
+        private fun oynat(context: Context, sorgu: String): Boolean = tabanla(context, false) { taban ->
+          runCatching {
+            val conn = (URL(taban + "/api/v1/remote/play?" + sorgu)
                 .openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
@@ -467,11 +484,12 @@ class RemoteWidget : AppWidgetProvider() {
             } finally {
                 conn.disconnect()
             }
-        }.getOrDefault(false)
+          }.getOrDefault(false)
+        }
 
-        private fun komutYolla(context: Context, govde: String): Boolean = runCatching {
-            ServerResolver.init(context)
-            val conn = (URL(ServerResolver.activeBaseString() + "/api/v1/remote/command")
+        private fun komutYolla(context: Context, govde: String): Boolean = tabanla(context, false) { taban ->
+          runCatching {
+            val conn = (URL(taban + "/api/v1/remote/command")
                 .openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
@@ -485,6 +503,7 @@ class RemoteWidget : AppWidgetProvider() {
             } finally {
                 conn.disconnect()
             }
-        }.getOrDefault(false)
+          }.getOrDefault(false)
+        }
     }
 }

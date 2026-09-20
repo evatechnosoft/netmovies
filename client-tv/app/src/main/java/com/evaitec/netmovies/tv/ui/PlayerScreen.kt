@@ -42,6 +42,8 @@ import androidx.compose.material.icons.filled.Replay30
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -263,6 +265,25 @@ fun PlayerScreen(
     // ileri geri sarma, bölüm seçme, hepsi orada"). Kumandada boşta duran bir
     // tuş (Netflix/Prime) açar — hangi tuş olduğunu uygulama bilmek zorunda değil,
     // BAŞKA BİR İŞE BAĞLI OLMAYAN her tuş açar.
+    // Ses: uygulamanın kendi ses çarpanı DEĞİL, cihazın gerçek medya sesi
+    // (AudioManager). Kumandanın ses tuşları zaten sisteme gidiyor; kapa/aç
+    // bardan da yapılabilsin diye (Dean: "sesi koyduğum gibi, android gerçek ses,
+    // kapa aç var mı"). FLAG_SHOW_UI → sistemin kendi ses göstergesi belirir.
+    val sesYonetici = remember {
+        context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+    }
+    var sesKapali by remember {
+        mutableStateOf(sesYonetici.isStreamMute(android.media.AudioManager.STREAM_MUSIC))
+    }
+    fun sesAcKapa() {
+        sesYonetici.adjustStreamVolume(
+            android.media.AudioManager.STREAM_MUSIC,
+            android.media.AudioManager.ADJUST_TOGGLE_MUTE,
+            android.media.AudioManager.FLAG_SHOW_UI,
+        )
+        sesKapali = sesYonetici.isStreamMute(android.media.AudioManager.STREAM_MUSIC)
+    }
+
     var showPad by remember { mutableStateOf(false) }
     // Pad'de seçili düğme İNDEKSLE tutulur, Compose odağıyla değil: odak sistemi
     // TV'de şeridin ilk düğmesini yakalayamayınca SOL/SAĞ kök kutuya düşüp sarma
@@ -584,6 +605,7 @@ fun PlayerScreen(
             8 -> { showPad = false; showSeek = true }          // çubuk üzerinde sarma
             9 -> { showPad = false; showSettings = true }
             10 -> { showPad = false; onHome() }
+            12 -> sesAcKapa()          // bar açık kalsın: ses ayarı deneme yanılmadır
             else -> showPad = false
         }
     }
@@ -1664,6 +1686,8 @@ fun PlayerScreen(
                 onOpenSettings = { showPad = false; showSettings = true },
                 onHome = { showPad = false; onHome() },
                 onClose = { showPad = false },
+                sesKapali = sesKapali,
+                onSesAcKapa = { sesAcKapa() },
             )
         }
 
@@ -1864,6 +1888,8 @@ private fun QuickPad(
     onOpenSettings: () -> Unit,
     onHome: () -> Unit,
     onClose: () -> Unit,
+    sesKapali: Boolean,
+    onSesAcKapa: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Column(
@@ -1929,6 +1955,11 @@ private fun QuickPad(
             // Sistemin HOME tuşu uygulamaya gelmiyor; "ana sayfa" burada bir düğme.
             PadBtn(Icons.Filled.Home, "Ana sayfa", secili == 10) { onHome() }
             PadBtn(Icons.Filled.Close, "Kapat", secili == 11) { onClose() }
+            PadBtn(
+                icon = if (sesKapali) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
+                label = if (sesKapali) "Sesi aç" else "Sesi kapat",
+                secili = secili == 12,
+            ) { onSesAcKapa() }
         }
         }
     }
@@ -2315,7 +2346,7 @@ private const val MIN_GECERLI_SURE_MS = 90_000L
 private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 
 // Pad şeridindeki düğme sayısı — `padCalistir` ve QuickPad çizimi ile AYNI olmalı.
-private const val padAdet = 12
+private const val padAdet = 13
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 // 90 sn erken çıkıyordu — kart hâlâ sahnenin ortasındayken beliriyor, jenerik
