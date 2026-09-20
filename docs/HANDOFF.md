@@ -7,7 +7,29 @@
 ---
 # 🧭 DEVİR — buradan devam et
 
-**Son güncelleme:** 19 Eylül 2026, 21:00
+**Son güncelleme:** 20 Eylül 2026, 15:20
+**Sürüm:** TV/telefon **0.9.10 (vc 910)** — üç dağıtım yerinde yayında
+**Yerel adres DEĞİŞTİ:** `http://192.168.1.185:3310` (eski 192.168.0.29 ölü; DHCP kayıyor)
+
+## 0.9.10 — "ağ hatası"nın kök nedeni
+Sunucu PC'nin LAN adresi DHCP ile kayıyor. `ServerResolver` adresi bir kez çözüp
+cache'liyordu; adres altından kayınca her istek ölü hedefe gidiyor, TV'de "ağ hatası"
+kalıcı oluyordu (elle "Tekrar dene" gerekiyordu). `BaseUrlInterceptor` artık
+IOException'da seçimi sıfırlayıp yeniden keşfediyor ve isteği yeni adrese bir kez
+tekrarlıyor; keşif aynı adresi verirse hata yükseliyor. `BaseUrlInterceptorTest` 2 test.
+**Cihazda doğrulanmadı** — TV'ye 0.9.10'u kurup bak.
+Kalıcı ikinci ayak: router'da sunucu PC'ye DHCP rezervasyonu (henüz yapılmadı).
+
+> **Uyarı:** `netmovies` reposunda 0.9.4–0.9.9 release'leri YOK (en yenisi v0.9.3-poc'tu,
+> şimdi v0.9.10-poc). Uygulama içi OTA o aralıkta güncelleme görmedi. `evaglass-releases`
+> tarafında 0.9.9 vardı — iki kanal ayrı, ikisini birden güncelle.
+
+## Temizlik (20 Eylül)
+Eski APK'lar silindi: `data/apk` 2.0 G → 65 M (TV son 3, saat son 2), repo kökündeki
+31 APK (589 MB, 12'si git'te takipli) silinip indeksden düşürüldü. `.git` 245 M —
+geçmişteki APK'lar duruyor, temizlemek `filter-repo` + force push ister.
+
+**Önceki güncelleme:** 19 Eylül 2026, 21:00
 **Dal:** `fix/general-stability` · **Sürümler:** TV/telefon **0.9.9 (vc 909)** ·
 saat `v0.1.15-poc` (dokunulmadı)
 **Adresler:** yerel `http://192.168.0.29:3310` · tünel `https://w.evaitec.com`
