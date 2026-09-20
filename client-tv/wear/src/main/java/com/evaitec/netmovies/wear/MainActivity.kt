@@ -116,6 +116,19 @@ private enum class HalkaKipi(val simge: String, val etiket: String) {
 /** Kipin kendiliğinden varsayılana döndüğü boşta kalma süresi. */
 private const val KIP_BOSTA_MS = 5_000L
 
+/**
+ * Saat uygulamasının giriş noktası. Manifest `.MainActivity` arıyor; sınıf bu
+ * dosyadan düşmüştü ve APK kuruluyor ama açılışta ClassNotFoundException ile
+ * ölüyordu (Dean: "saat uygulaması yükleniyor ama açılmıyor"). Ekrandaki her şey
+ * `MiniEkran`'da; burası yalnız onu kurar.
+ */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { MiniEkran() }
+    }
+}
+
 @Composable
 private fun MiniEkran() {
     val kapsam = rememberCoroutineScope()
