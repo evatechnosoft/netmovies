@@ -1,73 +1,53 @@
-# DEVİR — 20 Eylül 2026, 22:25 · saat düzeltmesi + OTA ayna + kutu gücü
+# DEVİR — 21 Eylül 2026, 18:30 · kutu gücü + Reacher film + oynatıcı şeridi
 
-**Dallar:** netmovies `fix/general-stability` · evaitec-appkit `feature/ota-ayna-indirme` (PR AÇILMADI)
-**Sürümler:** TV/telefon **0.9.12 (912)** · saat **0.1.16 (116)** ·
-evaitecOTA tv 0.1.13 / telefon 0.1.11 / saat 0.1.12
-**Yerel adres:** `http://192.168.1.185:3310` · kutu (Mi Box) **192.168.1.189**
+**Dal:** netmovies `fix/general-stability` (push'landı, PR yok — dal tek kaynak)
+**Sürümler:** TV/telefon **0.9.14 (914)** · saat **0.1.17 (117)**
+**Yerel adres:** `http://192.168.1.185:3310` · Mi Box `.189` (MAC 24:18:C6:B8:05:B8) ·
+TV AWOX webOS 5.6.0-20 `.188` (Wi-Fi MAC D0:A4:6F:C9:28:80), aygıt adı `evostv`
 
-## Bu oturumda kapanan işler
+## Bu oturumda kapananlar (hepsi commit + push)
 
-**0.9.10 — "ağ hatası":** sunucunun LAN adresi DHCP ile kayıyor, `ServerResolver`
-adresi yalnız açılışta çözüp cache'liyordu. `BaseUrlInterceptor` artık IOException'da
-seçimi sıfırlayıp yeniden keşfediyor, isteği yeni adrese bir kez tekrarlıyor.
-`BaseUrlInterceptorTest` 2 test.
+### 1. Kutu gücü — `589d84b` (kapatma çalışıyor, açma AĞDAN MÜMKÜN DEĞİL)
+- Eski "Docker NAT engeli" teşhisi YANLIŞTI: konteyner host'a ulaşıyor, yalnız
+  `host.docker.internal` adı çözülmüyordu (özel `dns:`). compose'a
+  `extra_hosts: host.docker.internal:host-gateway` eklendi. Ters-köprü planı iptal.
+- `POST /api/v1/remote/power` → host'taki `scripts/atv_power.py` (3311) → kutuya POWER.
+  `/rc` kumandasında güç düğmesi. Köprü kutu uykudayken de başlatılabiliyor (lazy
+  bağlantı); `netmovies-autostart.cmd` köprüyü de kaldırıyor.
+- KANIT: kutu açıkken POWER → 6466 kapandı. Uykudayken → `{"ok":false,"error":"kutu uykuda"}`.
+- Uykudaki kutu ağda HİÇ yok (ping bile geçmez, 6466/8008/8009 kapalı). WoL denendi
+  (Wi-Fi, WoWLAN yok) 30 sn uyanmadı → kod bırakılmadı. Cast/DIAL da uykuda kapalı.
+- TV (webOS): 3000/3001 kapalı, tek açık port 6668. Dean'in TV'de açması gerekenler:
+  SIMPLINK (HDMI-CEC) — kutu kapanınca TV de kapansın; "Mobil TV Açma" — WoL ile TV açılır,
+  CEC ile kutu uyanır. İkisi de TV menüsünde, uzaktan yapılamaz. İP sabitleme: TV `.180`e
+  geçmemiş (o adreste başka cihaz var: CC-8C-BF-24-86-7B), hâlâ `.188`.
 
-**0.9.11 — oynatıcı yön tuşları:** SOL/SAĞ/AŞAĞI'nın basılı tutması da `OPEN_BAR`.
-Ekranda iki şerit var: `ControlsOverlay` D-pad ile gezilemez (düğmeleri dokunmatik
-için), gezilebilir tek şerit `QuickPad`.
+### 2. Reacher S4E8 başka film açıyordu — `535b1b2`
+`baslik_uyusuyor` tek yönlü kapsama bakıyordu; "Reacher" → "Jack Reacher: Asla Geri
+Dönme" filmi zincire giriyordu. Artık adaydaki FAZLA kelimeler yapımı değiştiriyorsa red
+(sezon/bölüm/sayı muaf), iki dilli başlık " - " ile parçalanıp ayrı denenir.
+KANIT: engine tests 12/12; resolve_sources Reacher → yalnız DiziYou/Dizilla/DiziMom.
+Bölüm seçimi doğruydu (32 bölüm, S4E8 = index 31).
 
-**0.9.12 — ses + widget:** kumanda barına "Sesi kapat/aç" (AudioManager
-ADJUST_TOGGLE_MUTE + FLAG_SHOW_UI — cihazın gerçek medya sesi). Widget OkHttp
-kullanmadığı için adres toparlanması oraya gelmiyordu; `tabanla()` sarmalayıcısı
-eklendi (durum, komut, oynat, sesli komut).
-> Dean "ses kapa değil, BOX kapa aç" dedi — ses düğmesi istenmemişti, duruyor.
-> Kaldırılsın mı diye soruldu, cevap gelmedi.
+### 3. Oynatıcı: alt kumanda şeridi (QuickPad) KALDIRILDI — `a2580ba` (0.9.14)
+Dean: "her basım 2. bara düşüyor 30sn/5dk olan yere". Kök: varsayılan eşlemede
+SOL/SAĞ/AŞAĞI = OPEN_BAR + boşta duran her tuş şeridi açıyordu. Yeni: SOL/SAĞ 10 sn,
+basılı hızlı sarma, AŞAĞI süre bilgisi / basılı ayarlar, YUKARI önizleme / basılı bölümler.
+`RemoteAction.fromId("bar")` → SHOW_CONTROLS (kayıtlı eşleme ölmesin).
+KANIT: assembleDebug + testDebugUnitTest exit 0. **CİHAZDA DOĞRULANMADI.**
 
-**Saat 0.1.16 — açılmıyordu, KÖK NEDEN:** `MainActivity` sınıfı `MainActivity.kt`'den
-düşmüştü. Manifest `.MainActivity` arıyor, kaynakta sınıf yok, dex'te yalnız
-`MainActivityKt` var → kurulum başarılı, açılışta `ClassNotFoundException`.
-R8 suçlu değildi. Kanıt: emülatörde 0.1.15 FATAL, 0.1.16 FATAL yok + süreç ayakta.
+## Yayın (üçü de yapıldı, kanıt)
+- Yerel OTA `app_update?target=tv` → `v0.9.14-poc` (data/apk/NetMovies-TV-v0.9.14.apk)
+- GitHub `v0.9.14-poc` (netmovies, `--target fix/general-stability`)
+- evaglass-releases `netmovies-tv-v0.9.14` + apps.json tv/phone 914 (`546ab2e`, main)
+  NOT: apps.json rebase'de çakıştı → `reset --hard origin/main` üstüne yeniden uygulandı.
+sha256 `52d0c288a0dea71bb3ef7242c6af80daa8d8898345bc36eacda11df03acf93ac`
 
-**evaitecOTA ayna indirme (evaitec-appkit):** ölçüm — aynı 6,7 MB APK
-GitHub **147 KB/s** · Cloudflare tüneli **520 KB/s** · ev ağı **2.164 KB/s**.
-Katalog kaydına `mirrors` alanı eklendi, `CatalogClient.download` aday LİSTESİ
-alıyor, sırayla deniyor. Sıra: ev → tünel → GitHub (katalogdaki `downloadUrl` hep
-son çare). LAN düz HTTP olduğu için http yalnız özel IP aralıklarına açık.
-`apps.json`'da netmovies tv/phone/watch kayıtlarına 2'şer ayna yazıldı.
-appkit testleri 16/0.
-
-## Yarım kalan — KUTU GÜCÜ (sıradaki iş)
-
-Kutu kendini kapatamaz (DEVICE_POWER sistem izni). Çözüm Android TV Remote v2
-protokolü (6466/6467 — Google TV / Xiaomi Home'un kullandığı protokol).
-- **Eşleşme TAMAM:** Xiaomi MIBOX4, sertifikalar `data/atv/` (gitignored).
-- **Köprü:** `scripts/atv_power.py` — PC'de çalışır, `/saglik` · `/guc` · `/tus/<AD>`.
-  Doğrulandı: `{"ok": true, "acik": true, "cihaz": {... MIBOX4 ...}}`.
-- **ENGEL:** stream konteyneri köprüye ulaşamıyor. Docker Desktop NAT'ı LAN'a ve
-  host'a kapalı (`192.168.1.x` her portta timeout, `172.31.0.1:3311` refused,
-  `host.docker.internal` DNS yok).
-- **Planlanan çözüm:** yönü ters çevir — köprü sunucuyu yoklasın (poll), `power`
-  komutunu görünce kutuya bassın. Dışa giden bağlantı olduğu için firewall kuralı
-  gerekmez. Sunucuda `/api/v1/remote/command` type=power kuyruğu + widget düğmesi.
-- POWER tuşu CİHAZDA HİÇ DENENMEDİ (Dean izlerken uyutmamak için).
-
-## Doğrulanmadı
-- 0.9.10/0.9.11/0.9.12'nin TV'deki davranışı (oynatıcı içi hiçbir şey cihazda görülmedi).
-- Saat 0.1.16 gerçek saatte açılmadı (emülatörde açıldı).
-- evaitecOTA'nın ayna sırası gerçek cihazda denenmedi.
-- evaitec-appkit dalı push'landı ama **PR açılmadı, main'e girmedi**.
-
-## Tuzaklar
-- İki OTA kanalı ayrı: uygulama içi OTA `evatechnosoft/netmovies` `/releases`
-  (`vX.Y.Z-poc`), mağaza `evaglass-releases` (`netmovies-tv-vX.Y.Z` + `apps.json`).
-- evaitecOTA APK'ları **assembleRelease** ile üretilir (imzalı + R8). Debug build
-  20 kat büyük çıkıyor (TV 190 KB → 3 MB).
-- `gh release create --target main` bu repoda 422 → ana dal `master`.
-- evaglass-releases'e push'tan önce `git reset --hard origin/main` + değişikliği
-  yeniden uygula (apps.json'a başka projeler de yazıyor).
-- Docker konteynerinden ev ağına erişim YOK; LAN işi host'ta çalışmalı.
-- `docker exec` + Git Bash: yolları `MSYS_NO_PATHCONV=1` ile geç.
-
-## Temizlik
-`data/apk` 2,0 G → 65 M · repo kökündeki 31 APK (589 MB, 12'si takipliydi) silindi.
-`.git` 245 M — geçmişteki APK'lar duruyor, temizlik `filter-repo` + force push ister.
+## Açık konular / sıradaki
+1. Dean 0.9.14'ü TV'ye kursun: oklar sarıyor mu, şerit gerçekten yok mu, AŞAĞI bilgi.
+2. Dean'in araştırma isteği: AWOX webOS temizlik/uygulama ekleme. Cevap verildi:
+   Developer Mode (1000 sa) vs root (dejavuln-autoroot, 3. parti webOS Hub'da
+   doğrulanmamış). ÖNERİ: NetMovies web arayüzünü webOS .ipk olarak paketle → Mi Box
+   gereksiz olur. Dean cani.rootmy.tv'ye bakıyor; TV modeli `HD203024212K0447`,
+   firmware `5.6.0-20`.
+3. Kutu gücü "açma" tarafı: TV'de SIMPLINK + Mobil TV Açma açılınca WoL'u TV MAC'ine dene.
