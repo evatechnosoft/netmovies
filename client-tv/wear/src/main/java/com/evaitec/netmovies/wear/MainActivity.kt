@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -100,7 +101,9 @@ private val Vurgu2  = Color(0xFF22D3EE)
 
 /** Şerit yüksekliği SABİT: iki aşamalı yüklemede posterler sonradan gelince
  *  yerleşim kaymasın diye yer baştan ayrılır. */
-private val SeritYuksekligi = 50.dp
+private val SeritYuksekligi = 66.dp
+/** Yaydaki poster dairesinin çapı — hem çizim hem hizalama buradan okur. */
+private val PosterCap       = 38.dp
 private val YayYuksekligi   = 44.dp
 
 /** Halkanın (döner çerçeve) ne sürdüğü. Kip ARTIK ÜÇ AYRI DÜĞMEYLE seçilir:
@@ -375,7 +378,7 @@ private fun MiniEkran() {
         if (yukleniyor) CerceveHalkasi()
 
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+            Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
@@ -420,6 +423,11 @@ private fun MiniEkran() {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            // Kontroller kadranın ALT yarısına itilir: üstte yay + seçili başlık,
+            // altta düğmeler. Aradaki boşluk esner, ikisi birbirine girmez
+            // (Dean: "aşağı al kontrolleri").
+            Spacer(Modifier.weight(1f))
 
             // Beş düğme kadranda kalabalıktı (Dean: "bu kadar fazla gerek yok,
             // uzun basma ekleriz"). İkiye indi, ikinci işler uzun basışta:
@@ -677,12 +685,16 @@ private fun PosterYayi(ogeler: List<KatalogOgesi>, secim: Float, onClick: (Int) 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val genislikPx = with(yogunluk) { maxWidth.toPx() }
         val yukseklikPx = with(yogunluk) { maxHeight.toPx() }
-        val yaricapKat = 2.2f   // ince şeritte yay daha yayvan olmalı
+        // Kavis: yarıçap küçüldükçe yay belirginleşir. 2.2 neredeyse düz bir
+        // sıraydı, posterler de 5°'lik adımla üst üste biniyordu (Dean: "çok iç içe").
+        val yaricapKat = 1.6f
         val yaricap = genislikPx * yaricapKat
         val merkezX = genislikPx / 2f
-        val merkezY = yukseklikPx + yaricap - yukseklikPx * 0.15f
-        val aciAdimi = 5f  // derece — komşu poster arası açı
-        val yaricapAcikGorunen = 3f // bu değerden uzak ögeler çizilmez
+        // Yayın TEPESİ şeridin üst üçte birine oturur: eskiden 0.85h idi, posterler
+        // kutunun dibinde duruyor ve alttaki başlık/düğmelerle çakışıyordu.
+        val merkezY = yaricap + yukseklikPx * 0.34f
+        val aciAdimi = 9f  // derece — komşu poster arası açı (~47dp yatay aralık)
+        val yaricapAcikGorunen = 2.2f // bu değerden uzak ögeler çizilmez
 
         ogeler.forEachIndexed { i, oge ->
             val uzaklik = i - secim
@@ -697,7 +709,12 @@ private fun PosterYayi(ogeler: List<KatalogOgesi>, secim: Float, onClick: (Int) 
 
             Box(
                 Modifier
-                    .offset(with(yogunluk) { (x - 18f).toDp() }, with(yogunluk) { (y - 18f).toDp() })
+                    // Daire MERKEZİ yayın üstüne otursun: eskiden px'ten 18f
+                    // çıkarılıyordu ama 18 dp düşünülmüştü — poster sola/yukarı kaçıktı.
+                    .offset(
+                        with(yogunluk) { (x - PosterCap.toPx() / 2f).toDp() },
+                        with(yogunluk) { (y - PosterCap.toPx() / 2f).toDp() },
+                    )
                     .graphicsLayer { scaleX = olcek; scaleY = olcek; alpha = 0.3f + 0.7f * yakinlik }
                     // Büyüyen (yakın) poster diğerlerinin üstünde çizilsin, kesişmesin.
                     .zIndex(yakinlik),
@@ -710,29 +727,21 @@ private fun PosterYayi(ogeler: List<KatalogOgesi>, secim: Float, onClick: (Int) 
 
 @Composable
 private fun PosterDairesi(oge: KatalogOgesi, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(Kart)
-                .clickable(onClick = onClick),
-        ) {
-            AsyncImage(
-                model = Sunucu.taban() + "/proxy/image?url=" +
-                    URLEncoder.encode(oge.poster, "UTF-8") + "&title=" + URLEncoder.encode(oge.title, "UTF-8"),
-                contentDescription = oge.title,
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
-            )
-        }
-        Text(
-            text = oge.title,
-            color = Soluk,
-            fontSize = 8.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.size(width = 44.dp, height = 11.dp),
-            textAlign = TextAlign.Center,
+    // Yalnız daire. Her posterin altındaki başlık komşusunun üstüne biniyordu
+    // (Dean: "çok iç içe") — seçili öğenin adı zaten yayın altındaki durum
+    // satırında tam genişlikte yazıyor, ikinci kez yazmanın anlamı yok.
+    Box(
+        Modifier
+            .size(PosterCap)
+            .clip(CircleShape)
+            .background(Kart)
+            .clickable(onClick = onClick),
+    ) {
+        AsyncImage(
+            model = Sunucu.taban() + "/proxy/image?url=" +
+                URLEncoder.encode(oge.poster, "UTF-8") + "&title=" + URLEncoder.encode(oge.title, "UTF-8"),
+            contentDescription = oge.title,
+            modifier = Modifier.fillMaxSize().clip(CircleShape),
         )
     }
 }
