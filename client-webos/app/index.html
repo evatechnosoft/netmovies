@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><title>NetMovies</title>
+<style>html,body{margin:0;height:100%;background:#0d0f13;color:#8b94a5;font:28px system-ui;display:flex;align-items:center;justify-content:center}</style>
+</head><body><div id="d">NetMovies açılıyor…</div>
+<script>
+// webOS sarmalayıcı: uygulamanın kendisi web arayüzü (stream). Önce ev ağı
+// (LAN'dan PIN sorulmaz), 3 sn içinde cevap yoksa tünel (PIN bir kez, çerezle kalır).
+var ADRESLER = ["http://192.168.1.185:3310", "https://w.evaitec.com"];
+function dene(i) {
+  if (i >= ADRESLER.length) { document.getElementById("d").textContent = "Sunucuya ulaşılamadı"; return setTimeout(function(){dene(0)}, 5000); }
+  var c = new AbortController(); var t = setTimeout(function(){c.abort()}, 3000);
+  fetch(ADRESLER[i] + "/api/v1/health", {signal: c.signal, mode: "no-cors"})
+    .then(function(){ clearTimeout(t); location.replace(ADRESLER[i] + "/"); })
+    .catch(function(){ clearTimeout(t); dene(i + 1); });
+}
+dene(0);
+</script></body></html>

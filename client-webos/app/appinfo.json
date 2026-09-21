@@ -1,0 +1,14 @@
+{
+  "id": "com.evaitec.netmovies",
+  "version": "0.1.0",
+  "vendor": "evaitec",
+  "type": "web",
+  "main": "index.html",
+  "title": "NetMovies",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0d0f13",
+  "iconColor": "#0d0f13",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": false
+}
