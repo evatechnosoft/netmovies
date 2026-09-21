@@ -65,3 +65,26 @@ KANIT: resolve Tuzlu Kahve → 1 kaynak, Daha 17 → 1 kaynak; tests 20/20; smok
    gereksiz olur. Dean cani.rootmy.tv'ye bakıyor; TV modeli `HD203024212K0447`,
    firmware `5.6.0-20`.
 3. Kutu gücü "açma" tarafı: TV'de SIMPLINK + Mobil TV Açma açılınca WoL'u TV MAC'ine dene.
+
+## TEK SONRAKİ EYLEM (Dean, 21:10 — düzeltilmiş anlayış)
+Saat DEĞİL. TV/TELEFON uygulaması (client-tv, telefonda): posterde BASILI TUTMA eskiden
+"ekranda gezinme" kipini (telefon = TV için touchpad/mousepad, imleç TV ekranında)
+açıyordu; şimdi basınca doğrudan karta giriyor, kip açılmıyor. 0.9.14'te mi bozuldu
+(QuickPad kaldırma yalnız PlayerScreen'deydi) yoksa daha önce mi — DOĞRULANMADI.
+Yapılacak: client-tv'de long-press / touchpad / gezinme / mouse kodunu bul
+(MainActivity.kt `menuOnTap = !isTv`, RemoteScreen.kt, içerik kartları), telefon
+kipinde poster onLongClick neyi tetikliyor, `git log -S` ile hangi sürümde değişti.
+Düzelt → 0.9.15 → üç yere yayınla (yerel OTA, GitHub v0.9.15-poc, evaglass apps.json).
+
+İkinci istek (yeni özellik): SAAT uygulamasında posterden bağımsız bir DÜĞME ile
+mousepad benzeri gezinme yüzeyi (parmakla TV imlecini sür). wear/MainActivity.kt'ye
+düğme + `/api/v1/remote/command` (type=key) ile imleç komutları — tasarım Dean'le.
+Saat 0.1.17 yay geometrisi şüphesi GEÇERSİZ; o iş yok. Saat OTA sunucuda görünüyor
+(20:41 `target=wear` → v0.1.17-poc, kurulu sürümle aynı = güncelleme yok, normal).
+
+## Tekrarlama / tuzaklar
+- Köprüyü ters çevirme, kutuya WoL, Cast/DIAL ile uyandırma: denendi, tutmaz.
+- TV'ye `.180` verme (dolu). apps.json'ı rebase etme; `reset --hard origin/main` üstüne yaz.
+- Saat APK'sı `:wear:assembleDebug` (release imzasız/büyük).
+- webOS ipk: `client-webos/`, kurulum Developer Mode passphrase ister (Dean'de).
+- cani.rootmy.tv: `<65AUX… model kodu> 5.6.0-20`; "sonuç yok" = bilinmiyor.
