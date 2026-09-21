@@ -361,6 +361,9 @@ fun PlayerScreen(
     // koymuş olabilir. True olunca sonraki bölüme otomatik geçiş tamamen kilitlenir —
     // STATE_ENDED gelse bile akisBitti/sonrakiTeklif bunu "izlendi" saymaz.
     var akisGecersiz by remember(item.url, currentEpIndex) { mutableStateOf(false) }
+    // Bölüm geçişi istendi, yeni kaynak henüz açılmadı. Bölüme göre SIFIRLANMAZ —
+    // kilidin amacı tam da geçiş anında ikinci atlamayı engellemek.
+    var gecisBekleyen by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(item.url) {
         details = runCatching { Network.api.loadItem(aktifPlugin, aktifUrl).result }.getOrNull()
@@ -539,6 +542,13 @@ fun PlayerScreen(
     }
 
     fun goToEpisode(idx: Int) {
+        // Geçiş sürerken ikinci istek YOK. Yeni kaynak çözülene kadar ekranda
+        // hâlâ ESKİ akış var: süre/konum eski bölümün, teklif kartı da öyle
+        // görünür kalıyordu. Kumandanın tuş tekrarı ya da ikinci basış tek
+        // seferde 2-3 bölüm atlatıyordu (Dean: "yanlış basarsak 2-3 bölüm
+        // birden atlıyor"). Kilit STATE_READY'de ya da çözümleme bitince açılır.
+        if (gecisBekleyen != null) return
+        gecisBekleyen = idx
         carryOverMs = 0L
         currentEpIndex = idx        // çözümleme efektinin anahtarı → yeni kaynak zinciri
         playRequested = true
@@ -764,6 +774,7 @@ fun PlayerScreen(
                         }
                     } else {
                         ready = true; status = null
+                        gecisBekleyen = null   // yeni bölüm açıldı: geçiş kilidi kalkar
                         kaynakBildir(links.getOrNull(currentLinkIndex), true)
                     }
                 }
@@ -774,7 +785,11 @@ fun PlayerScreen(
                 // sayım zaten daha önce, jenerik başlarken başlamıştır.
                 // `akisGecersiz` iken sayılmaz: bu akış zaten kısa klip olduğu için
                 // durduruldu, "bitti" değil "geçersiz" — sıradaki bölüme atlamamalı.
-                if (state == Player.STATE_ENDED && !akisGecersiz) akisBitti = true
+                // `gecisBekleyen == null`: geçiş istendikten sonra ESKİ akış birkaç
+                // saniye daha oynayıp biterse bu "bitti" işareti artık yeni bölümün
+                // durumuna yazılır ve yeni bölüm açılır açılmaz geri sayım başlardı —
+                // bir bölüm daha atlanırdı.
+                if (state == Player.STATE_ENDED && !akisGecersiz && gecisBekleyen == null) akisBitti = true
             }
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlayerError(e: PlaybackException) {
@@ -1060,6 +1075,9 @@ fun PlayerScreen(
         absorb(full, "full")
 
         searching = false
+        // Zincir bitti: oynasa da oynamasa da kilit burada mutlaka kalkar,
+        // yoksa kaynağı bulunamayan bölüm sonraki geçişleri de kilitler.
+        gecisBekleyen = null
         if (links.isEmpty()) {
             PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir kaynak vermedi")
             status = KAYNAK_YOK
@@ -1369,7 +1387,8 @@ fun PlayerScreen(
     // `!akisGecersiz`: kısa klip STATE_ENDED'e ulaşsa bile bu gerçek izleme değil,
     // otomatik geçişin ikinci savunması — kök neden STATE_READY'de engellense de
     // burada da kapalı tutulur.
-    val sayimBaslasin = nextEpIndex != null && !otoGecisIptal && !akisGecersiz && (jenerikte || akisBitti)
+    val sayimBaslasin = nextEpIndex != null && !otoGecisIptal && !akisGecersiz &&
+        gecisBekleyen == null && (jenerikte || akisBitti)
 
     LaunchedEffect(sayimBaslasin, nextEpIndex) {
         if (!sayimBaslasin || nextEpIndex == null) { geriSayim = null; return@LaunchedEffect }
@@ -1390,7 +1409,7 @@ fun PlayerScreen(
     // "bitmeye az kaldı" penceresine girer — teklif kartı içerik açılır açılmaz
     // çıkardı. `!akisGecersiz` STATE_READY'deki kök-neden engelinin ikinci savunması.
     val sonrakiTeklif = nextEpIndex != null && duration >= MIN_GECERLI_SURE_MS && jenerikBas == null &&
-        geriSayim == null && !akisGecersiz &&
+        geriSayim == null && !akisGecersiz && gecisBekleyen == null &&
         (duration - position) in 0..NEXT_EPISODE_WINDOW_MS && !panelAcik
 
     Box(
