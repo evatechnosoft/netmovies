@@ -23,11 +23,16 @@ enum class RemoteAction(val id: String, val label: String, val repeatable: Boole
     SHOW_CONTROLS("controls", "Kontrolleri Göster"),
     TOGGLE_SCRUB("scrub", "Önizleme / Scrub"),
     OPEN_EPISODES("episodes", "Bölüm listesi"),
-    OPEN_BAR("bar", "Alt kumanda barı"),
     BACK("back", "Geri / Çık");
 
     companion object {
-        fun fromId(id: String): RemoteAction = entries.firstOrNull { it.id == id } ?: NONE
+        // "bar" eskiden alt kumanda şeridiydi. Şerit kaldırıldı (odak orada
+        // takılıyor, sarma tuşları şeridi açıyordu); kayıtlı eşlemesi olan
+        // kullanıcıda tuş ÖLMESİN diye eski kimlik bilgi göstermeye bağlanır.
+        fun fromId(id: String): RemoteAction = when (id) {
+            "bar" -> SHOW_CONTROLS
+            else  -> entries.firstOrNull { it.id == id } ?: NONE
+        }
     }
 }
 
@@ -56,31 +61,23 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     fun k(key: RemoteKey, p: PressType) = "${key.keyCode}_${p.name}"
     put(k(RemoteKey.OK, PressType.SINGLE), RemoteAction.PLAY_PAUSE)
     put(k(RemoteKey.OK, PressType.LONG), RemoteAction.OPEN_SETTINGS)
-    // SOL/SAĞ = kumanda barı, SARMA DEĞİL. Ok tuşları sarmaya bağlıyken oynatıcıda
-    // hiçbir yere gidilemiyordu: her basış videoyu kaydırıyor, düğmeler arasında
-    // gezinmek mümkün olmuyordu (Dean: "oklarla gezemiyorum, d-pad sarmayı
-    // kapatalım; ben istersem bar üzerinden ya da sar tuşuyla yaparım").
-    // Sarma üç yoldan yapılabilir: bardaki −5dk/−30sn/+30sn/+5dk düğmeleri,
-    // kumandanın kendi ileri/geri sarma tuşları (MEDIA_FAST_FORWARD/REWIND,
-    // doğrudan bağlı), ve YUKARI ile açılan önizleme çubuğu.
-    // İsteyen Buton Eşleme'den SEEK_BACK_10/SEEK_FWD_10'u geri atayabilir.
-    put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.OPEN_BAR)
-    put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.OPEN_BAR)
-    // Basılı tutma da barı açar: parmak ok üstünde biraz fazla kalınca hiçbir şey
-    // olmaması "tuş çalışmıyor" gibi okunuyordu (Dean: "sağ sol bas ve basılı tutma
-    // aktif"). Uzun basış tek sefer tetiklenir (OPEN_BAR repeatable değil).
-    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.OPEN_BAR)
-    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.OPEN_BAR)
+    // SOL/SAĞ = SARMA. Bir ara bunlar alt kumanda şeridini açıyordu (oynatıcıda
+    // düğmeler arasında gezinebilmek için); şerit ise odağı üstünde tutup asıl
+    // işi engelledi — sarmak için basılan ok her seferinde şeridi açıyordu
+    // (Dean: "her basım 2. bara düşüyor, 30sn 5dk olan yere"). Şerit kaldırıldı,
+    // oklar doğrudan sarıyor. Oynatıcıda gezilecek bir düğme kalmadığı için
+    // okların başka işi de yok.
+    put(k(RemoteKey.LEFT, PressType.SINGLE), RemoteAction.SEEK_BACK_10)
+    put(k(RemoteKey.RIGHT, PressType.SINGLE), RemoteAction.SEEK_FWD_10)
+    // Basılı tutma hızlanan sarma: basış boyunca hedef birikir, bırakınca tek atlama.
+    put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.SEEK_HOLD_BACK)
+    put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.SEEK_HOLD_FWD)
     put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
     // Dizide bölüm listesi kumandada da tek harekette açılsın: YUKARI basılı tut.
     put(k(RemoteKey.UP, PressType.LONG), RemoteAction.OPEN_EPISODES)
-    // AŞAĞI = alt bar. Ayarlar da oradaki bir düğme; tek giriş noktası olsun.
-    // Kısa ve uzun basış AYNI barı açar: ekranda iki şerit var (üstteki kontrol
-    // çubuğu D-pad ile gezilemez, yalnız bilgi) ve AŞAĞI bazen ölü şeritte
-    // bırakıyordu (Dean: "aşağı çekerken olan bara hiçbir işlem yaptırmıyor...
-    // aşağı basılı tutma o 2. barı açmalı").
-    put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.OPEN_BAR)
-    put(k(RemoteKey.DOWN, PressType.LONG), RemoteAction.OPEN_BAR)
+    // AŞAĞI: süre/ilerleme bilgisi kısa süre görünür, basılı tutma ayarları açar.
+    put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.SHOW_CONTROLS)
+    put(k(RemoteKey.DOWN, PressType.LONG), RemoteAction.OPEN_SETTINGS)
 }
 
 // Kalıcı tuş eşlemesi. Compose observable (mutableStateMap) → Buton Eşleme ekranı
