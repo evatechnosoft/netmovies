@@ -147,6 +147,21 @@ def poster_attr(node: HTMLHelper, selectors: tuple[str, ...]) -> str | None:
     return None
 
 
+def iframe_src(node: HTMLHelper, selectors: tuple[str, ...]) -> str | None:
+    """Oynatıcı iframe adresi: önce tembel yükleme öznitelikleri, sonra `src`.
+
+    Posterdeki tuzağın aynısı oynatıcıda: DiziMom `src="about:blank"` koyup asıl
+    adresi `data-src`e yazıyor. `src` okuyan eklenti `about:blank`ı iframe sanıp
+    hiç kaynak vermiyordu (Dean, 21 Eylül: "hiçbiri açılmıyor" — Tuzlu Kahve,
+    Daha 17). Yer tutucular (`about:blank`, `data:`) atlanır.
+    """
+    for oznitelik in _TEMBEL_OZNITELIKLER:
+        deger = first_attr(node, selectors, oznitelik)
+        if deger and not deger.lower().startswith(("about:", "data:", "javascript:")):
+            return deger
+    return None
+
+
 def season_episode(value: str) -> tuple[int, int | None]:
     season_match = re.search(r"(\d+)\s*\.\s*Sezon", value, re.IGNORECASE)
     episode_match = re.search(r"(\d+)\s*\.\s*Bölüm", value, re.IGNORECASE)

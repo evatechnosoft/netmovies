@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import os
 import re
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, poster_attr, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, fireplayer_sources, first_attr, first_text, normalize_url, poster_attr, season_episode, iframe_src
 from Plugins.__kekik_domain import discover_main_url
 
 # Domain zinciri: dizimom.plus → .work → .food → .diy. Upstream .kt hâlâ ölü .plus'ı
@@ -127,7 +129,7 @@ class DiziMom(PluginBase):
                 continue
             page_url = absolute(self.main_url, page) or page
             page_selector = HTMLHelper(await fetch_html(self.httpx, page_url, headers=headers))
-            iframe = first_attr(page_selector, ("div.video p iframe", "iframe"), "src")
+            iframe = iframe_src(page_selector, ("div.video p iframe", "iframe"))
             iframe_url = absolute(page_url, iframe)
             if iframe_url:
                 iframe_html = await fetch_html(self.httpx, iframe_url, headers=headers)
@@ -138,9 +140,22 @@ class DiziMom(PluginBase):
                 # denendiği için 1. sezon bölümleri (embed veren sayfalar) hiç
                 # kaynak vermiyordu — oysa aynı çözücü orada da çalışıyor.
                 if "/video/" in iframe_url or "/embed/" in iframe_url:
-                    try:
-                        results.extend(await fireplayer_sources(self.httpx, iframe_url, f"{self.name} | Kaynak", f"{self.main_url}/"))
-                    except Exception:
-                        pass
+                    # Oynatıcı `r` parametresinde sitenin O ANKİ alan adını ister.
+                    # Keşfedilen ana adres (dizimom.diy) ile katalogdaki bölüm adresi
+                    # (dizimom.beer) farklı olunca yalnız biri kabul ediliyor, öbürü 4xx
+                    # → yerli diziler hiç kaynak vermiyordu. Adaylar sırayla denenir.
+                    adaylar = []
+                    for aday in (url, page_url, self.main_url):
+                        parca = urlsplit(aday or "")
+                        if parca.netloc:
+                            adaylar.append(f"{parca.scheme}://{parca.netloc}/")
+                    for site in dict.fromkeys(adaylar):
+                        try:
+                            bulunan = await fireplayer_sources(self.httpx, iframe_url, f"{self.name} | Kaynak", site)
+                        except Exception:
+                            bulunan = []
+                        if bulunan:
+                            results.extend(bulunan)
+                            break
                 self.collect_results(results, await self.extract(iframe_url, referer=page_url))
         return self.deduplicate(results)

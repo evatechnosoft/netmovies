@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from KekikStream.Core import HTMLHelper
 from Plugins.__dizi_common import poster_attr
 
 
@@ -61,3 +62,15 @@ class PosterAttrTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IframeSrcTest(unittest.TestCase):
+    def test_tembel_iframe_data_src(self):
+        from Plugins.__dizi_common import iframe_src
+        html = '<div class="video"><p><iframe data-lazyloaded="1" src="about:blank" data-src="https://p.example/tv/video/abc"></iframe></p></div>'
+        self.assertEqual(iframe_src(HTMLHelper(html), ("div.video p iframe", "iframe")), "https://p.example/tv/video/abc")
+
+    def test_duz_iframe(self):
+        from Plugins.__dizi_common import iframe_src
+        self.assertEqual(iframe_src(HTMLHelper('<iframe src="https://x/y"></iframe>'), ("iframe",)), "https://x/y")
+        self.assertIsNone(iframe_src(HTMLHelper('<iframe src="about:blank"></iframe>'), ("iframe",)))

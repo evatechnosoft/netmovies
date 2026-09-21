@@ -19,7 +19,7 @@ from urllib.parse import quote_plus
 
 import httpx
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import (
+from Plugins.__dizi_common import (iframe_src, 
     absolute,
     decode_body,
     extract_embedded_sources,
@@ -197,7 +197,7 @@ class SezonlukDizi(PluginBase):
             embed_html = await self._post(embed_url, {"id": source["id"]})
         except Exception:
             return []
-        iframe = first_attr(HTMLHelper(embed_html), ("iframe",), "src")
+        iframe = iframe_src(HTMLHelper(embed_html), ("iframe",))
         iframe_url = absolute(self.main_url, iframe)
         # reCAPTCHA arkasindaki oynatici (Pixel) tarayicisiz cozulmuyor.
         if not iframe_url or "reCAPTCHA" in iframe_url:

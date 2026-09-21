@@ -18,7 +18,7 @@ from KekikStream.Core import (
     SeriesInfo,
 )
 
-from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, poster_attr, season_episode
+from Plugins.__dizi_common import absolute, extract_embedded_sources, fetch_html, first_attr, first_text, normalize_url, poster_attr, season_episode, iframe_src
 from Plugins.__kekik_domain import discover_main_url
 
 
@@ -163,7 +163,7 @@ class DiziBox(PluginBase):
                 continue
             page_text = await self._get(page)
             page_selector = HTMLHelper(page_text)
-            iframe = first_attr(page_selector, ("div#video-area iframe", "iframe"), "src")
+            iframe = iframe_src(page_selector, ("div#video-area iframe", "iframe"))
             if not iframe:
                 continue
             iframe_url = absolute(page, iframe)
@@ -174,7 +174,7 @@ class DiziBox(PluginBase):
             # king.php yalnızca bir SARMALAYICI: gerçek oynatıcı içindeki ikinci
             # iframe'de (molystream). Eskiden bu katman atlandığı için load_links
             # hep boş dönüyordu ("Oynatılacak kaynak bulunamadı").
-            nested = absolute(iframe_url, first_attr(HTMLHelper(iframe_text), ("iframe",), "src"))
+            nested = absolute(iframe_url, iframe_src(HTMLHelper(iframe_text), ("iframe",)))
             if nested and nested != iframe_url:
                 results.extend(await self._molystream(nested, referer=iframe_url))
                 if not results:
