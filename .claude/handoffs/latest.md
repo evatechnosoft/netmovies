@@ -1,3 +1,18 @@
+# DEVİR — 21 Eylül 2026, 21:55 · /rc yüzey tuşu + saat mousepad 0.1.18 YAYINDA
+
+**Dal:** `fix/general-stability` @ `aa1b85d` (push'landı). Saat **0.1.18 (118)**, TV/telefon 0.9.14.
+- "Posterde basılı tut → gezinme kipi" regresyon DEĞİL: hiçbir sürümde yoktu (`git log -S`).
+  Kip `/rc`'de "dokunmatik" düğmesiydi (12 px, gözden kaçtı). Basılı tut = TV'de oynat aynen.
+- `/rc` D-pad sağ-alt köşe: **☰ yüzey** tuşu → aynı `#mod` tıklaması. Stream rebuild + cloudflared
+  recreate edildi; LAN `/rc` modpad=3 eşleşme, tünel 303 (login). CİHAZDA DOĞRULANMADI.
+- Saat: ✥ tuşu (üçüncü yuvarlak düğme) → `YuzeyEkrani`: 40 px kayma = yön, dokun = OK, basılı
+  tut = GERİ, alt ✕ çıkış. Yayın: `data/apk` + `app_update?target=wear` → v0.1.18-poc,
+  evaglass `netmovies-wear-v0.1.18`, apps.json 118 (`515bc38`). sha256 76d79c1b…535ad.
+  CİHAZDA DOĞRULANMADI — Dean saatte güncelleyip ✥'yi denesin.
+- Sıradaki: Dean'in TV'de 0.9.14 + saatte 0.1.18 geri bildirimi; AWOX webOS ipk kurulumu.
+
+---
+
 # DEVİR — 21 Eylül 2026, 21:05 · yerli dizi kaynağı + saat dokunma REGRESYONU
 
 **Dal:** netmovies `fix/general-stability` (push'landı, PR yok — dal tek kaynak)
