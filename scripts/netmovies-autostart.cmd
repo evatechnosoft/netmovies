@@ -25,6 +25,11 @@ cd /d "%PROJECT%"
 docker compose up -d >>"%LOG%" 2>&1
 echo %DATE% %TIME% yigin baslatildi>>"%LOG%"
 
+REM 3b) Kutu kumanda koprusu (Mi Box guc tusu). Konteyner LAN'a TCP acamiyor,
+REM     bu yuzden kutuyla HOST'taki bu surec konusur; stream ona
+REM     host.docker.internal:3311 uzerinden ugrar. Bagimlilik: pip install androidtvremote2
+start "netmovies-atv" /min cmd /c python "%PROJECT%\scripts\atv_power.py" ^>^>"%PROJECT%\atv-kopru.log" 2^>^&1
+
 REM 4) Kaynak raporu: domaini tasinan/olen eklentiyi ayni gun gor.
 REM    Kaynak sessizce kuruyunca katalog kucululyor ama hata vermiyor; tek
 REM    uyari isareti KAYNAK-UYARI.txt dosyasinin VARLIGI olsun.

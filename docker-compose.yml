@@ -125,6 +125,11 @@ services:
       - 172.31.0.53          # DoH resolver
       - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
       - 8.8.8.8              # Fallback 2 (Google Public DNS)
+    # Kutu gücü köprüsü (scripts/atv_power.py) HOST'ta çalışır: konteyner LAN'a
+    # TCP açamıyor ama host'a açabiliyor. Özel `dns:` yüzünden Docker'ın kendi
+    # DNS'i devrede değil, bu yüzden isim /etc/hosts'a yazılıyor.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "3310:3310"
     environment:

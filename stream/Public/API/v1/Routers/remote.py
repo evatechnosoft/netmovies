@@ -12,7 +12,10 @@
 # vermeyen eski istemciler eski davranışı (anında dön) aynen görür.
 
 import asyncio
+import os
 import time
+
+import httpx
 
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
@@ -235,3 +238,27 @@ async def remote_status(request: Request):
         "pending"     : _queue.qsize(),
         "now_playing" : now_playing(),
     }}
+
+
+# Kutunun GÜCÜ kuyruktan geçmez: TV uygulaması kapalıyken de çalışması gerekir,
+# dolayısıyla komutu yoklayacak bir istemci yok. Onun yerine host'ta çalışan köprü
+# (scripts/atv_power.py) Android TV Remote protokolüyle kutuya doğrudan konuşur —
+# konteyner LAN'a TCP açamıyor, host'a (host.docker.internal) açabiliyor.
+_KOPRU_URL = os.getenv("ATV_BRIDGE_URL", "http://host.docker.internal:3311")
+
+
+@api_v1_router.post("/remote/power")
+async def remote_power(request: Request):
+    """Kumanda çağırır: kutuyu KAPAT. Açmak ağdan mümkün değil — uykudaki kutu
+    hiçbir portu dinlemiyor (bkz. scripts/atv_power.py: Kopru.guc)."""
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.0, read=10.0, write=3.0, pool=3.0)) as istemci:
+            yanit = await istemci.get(f"{_KOPRU_URL}/guc")
+        govde = yanit.json()
+    except Exception as hata:
+        # Köprü host'ta elle başlatılır; kapalıysa kullanıcı bunu görmeli.
+        return _err(f"kopru yanit vermedi: {type(hata).__name__}")
+
+    if not govde.get("ok"):
+        return _err(str(govde.get("hata") or "kutuya ulasilamadi"))
+    return {**api_v1_global_message, "result": {"ok": True, **govde}}

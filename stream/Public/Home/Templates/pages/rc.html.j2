@@ -186,6 +186,7 @@
   <symbol id="i-yildiz" viewBox="0 0 24 24"><path d="m12 4 2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></symbol>
   <symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 3l4 3 4-3"/></symbol>
   <symbol id="i-mikrofon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-guc" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M7.5 6.5a7 7 0 1 0 9 0"/></symbol>
   <symbol id="i-kumanda" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6.5v3M10.5 8h3M12 14h.01M12 17.5h.01"/></symbol>
 </defs></svg>
 
@@ -224,11 +225,12 @@
     </div>
 </div>
 
-    <div class="blok" data-blok="tuslar" data-ad="Geri · Ana · Menü">
+    <div class="blok" data-blok="tuslar" data-ad="Geri · Ana · Menü · Kapat">
 <div class="satir">
       <button class="dugme" data-key="BACK" aria-label="Geri"><svg class="ic"><use href="#i-geri"/></svg></button>
       <button class="dugme" data-key="HOME" aria-label="Ana"><svg class="ic"><use href="#i-ev"/></svg></button>
       <button class="dugme" data-key="MENU" aria-label="Menü"><svg class="ic"><use href="#i-menu"/></svg></button>
+      <button class="dugme" id="guc" aria-label="Kutuyu kapat"><svg class="ic"><use href="#i-guc"/></svg></button>
     </div>
 </div>
 
@@ -374,6 +376,23 @@
       return !!d?.result?.ok;
     } catch (_) { return false; }
   }
+
+  // Güç kuyruğa girmez — TV uygulaması kapalıyken de çalışmalı, o yüzden ayrı uç
+  // (host'taki köprü kutuya doğrudan konuşur). Tekrar göndermeye kapalı: kutunun
+  // aç/kapa tuşu tek basışta durum değiştirir, ikinci basış hemen geri kapatır.
+  $('guc')?.addEventListener('click', async () => {
+    titre();
+    const dugme = $('guc');
+    dugme.disabled = true;
+    try {
+      const r = await fetch('/api/v1/remote/power', { method: 'POST' });
+      const d = await r.json();
+      durum.textContent = d?.result?.ok
+        ? '⏻ Güç tuşu yollandı'
+        : ('Kapatılamadı — ' + (d?.result?.error || 'köprü kapalı olabilir'));
+    } catch (_) { durum.textContent = 'Güç gönderilemedi — sunucuya ulaşılamadı'; }
+    setTimeout(() => { dugme.disabled = false; }, 1500);
+  });
 
   // Basılı tutunca tekrar: menüde uzun listeyi tek tek dürtmek yerine kayarak gez.
   document.querySelectorAll('[data-key]').forEach((btn) => {
