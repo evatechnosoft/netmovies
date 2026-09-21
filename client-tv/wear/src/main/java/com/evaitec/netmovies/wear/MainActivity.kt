@@ -155,6 +155,8 @@ private fun MiniEkran() {
     var seciliDizi by remember { mutableStateOf<KatalogOgesi?>(null) }
     var seciliBolumler by remember { mutableStateOf<List<BolumOgesi>>(emptyList()) }
     var aramaAcik by remember { mutableStateOf(false) }
+    // Mousepad kipi: posterden bağımsız, tüm kadran TV imlecini sürer (Dean).
+    var yuzeyAcik by remember { mutableStateOf(false) }
     val halkaOdak = remember { FocusRequester() }
     // Kendi kendini guncelleme: evaitecOTA bileklikte APK kuramiyordu.
     var guncelleme by remember { mutableStateOf<Guncelleme.Bilgi?>(null) }
@@ -297,6 +299,11 @@ private fun MiniEkran() {
             onSec    = { sira -> seciliDizi = null; gonder(dizi, sira) },
             onKapat  = { seciliDizi = null },
         )
+        return
+    }
+
+    if (yuzeyAcik) {
+        YuzeyEkrani(komut = ::komut, onKapat = { yuzeyAcik = false })
         return
     }
 
@@ -454,6 +461,9 @@ private fun MiniEkran() {
                     renk   = Vurgu,
                     onUzun = { komut("""{"type":"nav","screen":"home"}""") },
                 ) { titre(); aramaAcik = true }
+
+                // Mousepad: tüm kadran yüzey olur, poster yayı araya girmez.
+                YuvarlakDugme(yazi = "✥", boyut = 46.dp) { titre(); yuzeyAcik = true }
             }
 
             KipYayi(
@@ -758,6 +768,57 @@ private fun jsonKacis(metin: String): String =
 //
 // Gemini yoksa (anahtar girilmemiş, 503) ya da ulaşılamıyorsa düz aramaya
 // düşülür: sesli komut çalışmasa bile arama çalışmaya devam etsin.
+/**
+ * Mousepad kipi: kadranın tamamı dokunmatik yüzey. Her ESIK px kayma bir yön tuşu
+ * (sürekli sürükle = tekrar, /rc'deki yüzeyle aynı his), kısa dokunuş OK, uzun basış
+ * GERİ. Ana ekrandaki orta-alan yüzeyi poster yayına dokununca oynatıyordu; burada
+ * poster yok, yanlış oynatma da yok. Çıkış: alt kenardaki küçük düğme.
+ */
+@Composable
+private fun YuzeyEkrani(komut: (String) -> Unit, onKapat: () -> Unit) {
+    val esik = 40f
+    var sonYon by remember { mutableStateOf("") }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Zemin)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { sonYon = "OK"; komut("""{"type":"key","key":"CENTER"}""") },
+                    onLongPress = { sonYon = "GERİ"; komut("""{"type":"key","key":"BACK"}""") },
+                )
+            }
+            .pointerInput(Unit) {
+                var dx = 0f
+                var dy = 0f
+                detectDragGestures(onDragStart = { dx = 0f; dy = 0f }) { _, sur ->
+                    dx += sur.x; dy += sur.y
+                    val yon = when {
+                        kotlin.math.abs(dx) >= esik && kotlin.math.abs(dx) >= kotlin.math.abs(dy) -> if (dx > 0) "RIGHT" else "LEFT"
+                        kotlin.math.abs(dy) >= esik -> if (dy > 0) "DOWN" else "UP"
+                        else -> null
+                    }
+                    if (yon != null) {
+                        dx = 0f; dy = 0f
+                        sonYon = yon
+                        komut("""{"type":"key","key":"$yon"}""")
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (sonYon.isBlank()) "kaydır: yön · dokun: OK\nbasılı tut: geri" else sonYon,
+            color = Soluk,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+        )
+        Box(Modifier.fillMaxSize().padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
+            YuvarlakDugme(yazi = "✕", boyut = 34.dp, onClick = onKapat)
+        }
+    }
+}
+
 @Composable
 private fun AramaEkrani(onSec: (KatalogOgesi) -> Unit, onKapat: () -> Unit, onDurum: (String) -> Unit) {
     val kapsam = rememberCoroutineScope()

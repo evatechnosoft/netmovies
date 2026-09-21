@@ -106,6 +106,8 @@
     /* Kenar şeridi: parmak burada beklerse yön tekrar eder. */
     #tp::after { content:""; position:absolute; inset:0; border-radius:18px; pointer-events:none;
                  box-shadow:inset 0 0 0 22px rgba(255,255,255,.035); }
+    .pad .modpad { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:20px; color:var(--soluk); border-style:dashed; }
+    .pad .modpad small { font-size:11px; }
     #mod { background:none; border:1px solid var(--cizgi); color:var(--soluk); border-radius:8px; padding:6px 10px; font-size:12px; }
 
     /* ---- Bilgi sayfası: karta tek dokunuş. Özet, sezon sekmeleri, bölüm listesi. ---- */
@@ -221,7 +223,9 @@
       <button data-key="RIGHT">▶</button>
       <div class="bos"></div>
       <button data-key="DOWN">▼</button>
-      <div class="bos"></div>
+      <!-- Dokunmatik kipe geçiş D-pad'in içinde: başlıktaki 12 px'lik "dokunmatik"
+           yazısı gözden kaçıyordu (Dean kipi bulamadı). Aynı #mod tıklamasını tetikler. -->
+      <button class="modpad" type="button" aria-label="Dokunmatik yüzey" onclick="document.getElementById('mod').click()">☰<small>yüzey</small></button>
     </div>
 </div>
 
