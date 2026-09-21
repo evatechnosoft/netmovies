@@ -48,6 +48,22 @@ class BaslikUyusuyorTest(unittest.TestCase):
         self.assertTrue(baslik_uyusuyor("Örümcek Adam: Yepyeni Bir Gün", "Örümcek Adam Yepyeni Bir Gün izle"))
         self.assertTrue(baslik_uyusuyor("Inception", "Başlangıç - Inception Türkçe Dublaj"))
 
+    def test_dizi_ararken_ayni_adi_tasiyan_film_elenir(self):
+        # Dean: "reacher 4x8 baska bir film aciyor". Hedef tek kelime olunca
+        # kapsama sinavi yetmiyordu; adaydaki FAZLA kelimeler baska yapim demek.
+        self.assertFalse(baslik_uyusuyor("Reacher", "Jack Reacher: Asla Geri Dönme"))
+        self.assertFalse(baslik_uyusuyor("Reacher", "Jack Reacher: Asla Geri Dönme - Jack Reacher: Never Go Back"))
+        self.assertFalse(baslik_uyusuyor("Şeytan Çocuk", "Şeytan Çocuk Karanlık Doğuş"))
+
+    def test_sezon_bolum_eki_yapimi_degistirmez(self):
+        self.assertTrue(baslik_uyusuyor("Reacher", "Reacher 4. Sezon"))
+        self.assertTrue(baslik_uyusuyor("Reacher", "Reacher 4. Sezon 8. Bölüm izle"))
+        self.assertTrue(baslik_uyusuyor("Reacher", "Reacher (2022)"))
+
+    def test_iki_dilli_baslik_parcalanir(self):
+        # Saglayici Turkce ve orijinal adi tek satirda veriyor.
+        self.assertTrue(baslik_uyusuyor("Dark Matter", "Karanlık Madde - Dark Matter"))
+
     def test_bos_aday(self):
         self.assertFalse(baslik_uyusuyor("Inception", ""))
         self.assertFalse(baslik_uyusuyor("", "Inception"))

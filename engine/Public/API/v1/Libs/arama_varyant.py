@@ -66,16 +66,48 @@ def _anlamli_kelimeler(metin: str) -> set[str]:
     }
 
 
+# Sağlayıcı başlığına eklenen sıra/bölüm sözcükleri yapımı değiştirmez.
+_EKLER = {"sezon", "sezonu", "bolum", "bolumu", "son", "kisim", "part", "season", "episode"}
+
+
+def _aday_parcalari(aday_baslik: str | None) -> list[str]:
+    """Sağlayıcılar Türkçe ve orijinal adı TEK satırda veriyor:
+    "Başlangıç - Inception", "Jack Reacher: Asla Geri Dönme - Jack Reacher:
+    Never Go Back". Parçalar ayrı ayrı denenir; ":" bölünmez, alt başlık
+    yapımın kendi parçasıdır."""
+    ham      = clean_title(aday_baslik)
+    parcalar = [ham]
+    for ayrac in (" - ", " – ", " — ", "|"):
+        if ayrac in ham:
+            parcalar.extend(p.strip() for p in ham.split(ayrac))
+    return [p for p in parcalar if p]
+
+
 def baslik_uyusuyor(aranan: str, aday_baslik: str | None) -> bool:
     """Kısaltılmış varyantla bulunan sonucu ASIL başlığa karşı doğrular.
 
     Varyantlar kasten geniş: "Örümcek Adam: Yepyeni Bir Gün" için "örümcek adam"
     da aranıyor. Sonucu doğrulamadan kabul etmek yanlış film açıyordu (Dean:
-    "örümcek adam açıyorum çizgi film çıkıyor"). Kural: asıl başlığın anlamlı
-    kelimelerinin TAMAMI adayda geçmeli. Noktalama ve site eki ("izle") farkı
-    tolere edilir, farklı yapım elenir.
+    "örümcek adam açıyorum çizgi film çıkıyor"). İki yönlü kural:
+
+    1. Asıl başlığın anlamlı kelimelerinin TAMAMI adayda geçmeli.
+    2. Adayda KALAN kelimeler yapımı değiştirmemeli — "Reacher" (dizi) arayıp
+       "Jack Reacher: Asla Geri Dönme" (film) bulmak tam olarak buydu: hedef
+       tek kelime olduğu için kapsama sınavını geçiyor, ama başka yapım.
+       Sezon/bölüm eki ve yıl/sıra sayıları muaf.
+
+    Noktalama ve site eki ("izle") farkı tolere edilir.
     """
     hedef = _anlamli_kelimeler(aranan)
     if not hedef:
         return False
-    return hedef <= _anlamli_kelimeler(clean_title(aday_baslik))
+
+    for parca in _aday_parcalari(aday_baslik):
+        aday = _anlamli_kelimeler(parca)
+        if not hedef <= aday:
+            continue
+        fazla = {k for k in aday - hedef if not k.isdigit() and k not in _EKLER}
+        if not fazla:
+            return True
+
+    return False
