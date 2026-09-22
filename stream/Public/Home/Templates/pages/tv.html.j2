@@ -305,7 +305,12 @@
         // OK ile aynı. Odak JS'te tutulduğu için fare de aynı kapıdan geçmeli.
         (function (ri2, ki2) {
           k.addEventListener("mouseenter", function () { if (ekran === "ana") odakla(ri2, ki2, false); });
-          k.addEventListener("click", function () { if (ekran === "ana") { odakla(ri2, ki2, false); sec(); } });
+          k.addEventListener("click", function () {
+            // Uzun basış favoriyi işledi: bırakışta gelen tıklama içeriği açmasın.
+            if (okBasildi) { okBasildi = false; return; }
+            if (ekran === "ana") { odakla(ri2, ki2, false); sec(); }
+          });
+          basiliBagla(k, function () { return raflar[ri2].kartlar[ki2]; });
         })(ri, ki);
         serit.appendChild(k);
       });
@@ -623,7 +628,11 @@
       k.appendChild(p); k.appendChild(ad);
       (function (i2) {
         k.addEventListener("mouseenter", function () { sonucOdak(i2); });
-        k.addEventListener("click", function () { sonucOdak(i2); sonucSec(); });
+        k.addEventListener("click", function () {
+          if (okBasildi) { okBasildi = false; return; }
+          sonucOdak(i2); sonucSec();
+        });
+        basiliBagla(k, function () { return sonuclar[i2]; });
       })(i);
       kok.appendChild(k);
     });
@@ -654,6 +663,23 @@
   // OK'a BASILI TUTMAK listeye ekler/çıkarır; kısa basış açar. Kumandada ayrı
   // tuş yok, aramada bulduğunu her seferinde yeniden aramak zorunda kalmamak
   // için tek yol bu.
+  // Magic Remote imleci açıkken kumandanın OK'u sayfaya keydown olarak GELMİYOR,
+  // fare olayına dönüşüyor: favori için kullanılan keydown.repeat hiç tetiklenmiyor
+  // ve poster basılı tutmak işlemiyordu. Fare tarafı kendi süresini ölçer.
+  var basSayac = 0;
+
+  function basiliBagla(el, kartAl) {
+    el.addEventListener("mousedown", function () {
+      if (basSayac) clearTimeout(basSayac);
+      basSayac = setTimeout(function () {
+        basSayac = 0; okBasildi = true; favoriDegistir(kartAl());
+      }, 600);
+    });
+    el.addEventListener("mouseup", function () {
+      if (basSayac) { clearTimeout(basSayac); basSayac = 0; }
+    });
+  }
+
   function favoriDegistir(kart) {
     if (!kart) return;
     var yol = "/api/v1/favorites/toggle?title=" + encodeURIComponent(kart.title || "") +

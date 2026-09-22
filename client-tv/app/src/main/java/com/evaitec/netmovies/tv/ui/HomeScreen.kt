@@ -422,6 +422,12 @@ private fun PosterCard(
     // D-pad focus → "büyüteç": kart büyür, beyaz odak halkası, üstte kalır.
     // combinedClickable → OK tek bas = oynat, OK basılı tut = menü (favori vb.).
     var focused by remember { mutableStateOf(false) }
+    // `combinedClickable(onLongClick=)` yalnız DOKUNMADA tetikleniyor: kumandanın
+    // OK'unu basılı tutmak hiçbir şey yapmıyordu (Dean, hem LG hem Mi Box).
+    // Framework uzun basışta ACTION_DOWN'u FLAG_LONG_PRESS / repeatCount>0 ile
+    // tekrarlar; bırakıştaki ACTION_UP yutulur, yoksa menü açılır açılmaz
+    // arkasından kart da açılır.
+    var uzunBasildi by remember { mutableStateOf(false) }
     val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "posterScale")
     val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
@@ -434,7 +440,40 @@ private fun PosterCard(
             .background(NmColor.SurfaceHigh)
             .nmFocusRingOnly(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(onClick = onClick, onLongClick = onLongPress),
+            .combinedClickable(
+                // Uzun basış işlendiyse bırakıştaki tek-bas yutulur. Tuş olayını
+                // kimin önce gördüğü (clickable mı, aşağıdaki onKeyEvent mi)
+                // sıraya bağlı; iki yol da aynı bayrağa bakınca sonuç tek eylem.
+                onClick     = { if (uzunBasildi) uzunBasildi = false else onClick() },
+                onLongClick = onLongPress,
+            )
+            // Zincirde clickable'dan SONRA: tuş olayı önce buraya gelir, uzun
+            // basışta tüketilir ve clickable'ın "tek bas" yoluna hiç düşmez.
+            .onKeyEvent { ke ->
+                val ne = ke.nativeKeyEvent
+                if (ne.keyCode != android.view.KeyEvent.KEYCODE_DPAD_CENTER &&
+                    ne.keyCode != android.view.KeyEvent.KEYCODE_ENTER
+                ) {
+                    false
+                } else when (ne.action) {
+                    android.view.KeyEvent.ACTION_DOWN ->
+                        if ((ne.isLongPress || ne.repeatCount > 0) && !uzunBasildi) {
+                            uzunBasildi = true
+                            onLongPress()
+                            true
+                        } else {
+                            false
+                        }
+                    android.view.KeyEvent.ACTION_UP ->
+                        if (uzunBasildi) {
+                            uzunBasildi = false
+                            true
+                        } else {
+                            false
+                        }
+                    else -> false
+                }
+            },
     ) {
         PosterImage(poster = item.poster, title = item.title)
         // Başlık degradesi — poster ne olursa olsun yazı okunur kalsın.
