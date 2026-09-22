@@ -187,6 +187,22 @@ class Library(context: Context) {
         }
     }
 
+    /**
+     * İzleme sırasında uygulama arka planda öldürülürse (Android TV'de Ayarlar'a
+     * çıkmak yetiyor) açılışta ana ekrana düşülüyordu. Son izleme `maxYasSn`
+     * içindeyse o içerik döner — çağıran "devam edelim mi?" kartını gösterir.
+     * Yeni başlamış (<30 sn) ve bitmek üzere olan (%92+) kayıtlar atlanır.
+     */
+    suspend fun sonKalinanYer(maxYasSn: Long): MediaItem? {
+        val row = runCatching { Network.api.continueWatching(limit = 1).result }
+            .getOrNull()?.firstOrNull() ?: return null
+        val yas = System.currentTimeMillis() / 1000 - row.updatedAt
+        if (row.updatedAt <= 0L || yas < 0 || yas > maxYasSn) return null
+        if (row.positionSeconds < 30) return null
+        if (row.durationSeconds > 0 && row.positionSeconds > row.durationSeconds * 0.92) return null
+        return toItem(row)
+    }
+
     /** Kayıtlı konumu okur (kaldığın yerden devam). Kayıt/ağ yoksa null. */
     suspend fun loadProgress(title: String, isSerie: Boolean = false): ProgressRow? =
         runCatching { Network.api.getProgress(title, mediaType(isSerie)).result }.getOrNull()

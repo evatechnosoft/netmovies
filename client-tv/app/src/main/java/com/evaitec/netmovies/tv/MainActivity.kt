@@ -34,6 +34,12 @@ import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** Acilista "devam edelim mi" sorulan en buyuk kayit yasi (sn). Daha eski
+         *  izleme kazayla kesilmis sayilmaz; Devam Et rafindan acilir. */
+        private const val DEVAM_PENCERESI_SN = 30L * 60
+    }
+
     /** Önceki açılışta çökme olduysa yığın izi — ekrandaki şerit bunu gösterir. */
     private var cokmeIzi by mutableStateOf<List<String>?>(null)
 
@@ -63,6 +69,9 @@ class MainActivity : ComponentActivity() {
     // kutusu odağı geri alsa da kart tuşsuz kalmaz. Ekran boşsa eski davranış: hemen açılır.
     private var selected by mutableStateOf<MediaItem?>(null)
     private var bekleyenUzak by mutableStateOf<MediaItem?>(null)
+
+    /** Kart telefondan gelen içeriği değil, açılıştaki "kaldığın yer"i soruyor. */
+    private var bekleyenDevam by mutableStateOf(false)
 
     /** GERİ basılı tutulup çıkış tetiklendi mi — bırakma olayı ikinci kez işlenmesin. */
     private var uzunGeriYapildi = false
@@ -104,6 +113,13 @@ class MainActivity : ComponentActivity() {
             android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ->
                 { bekleyenUzak = null; selected = bekleyen }
             android.view.KeyEvent.KEYCODE_BACK -> bekleyenUzak = null
+            // Açılıştaki devam kartı ana ekranın ÜSTÜNDE duruyor: başka bir tuşa
+            // basmak kartı kapatıp tuşu ana ekrana geçirir, kullanıcı kilitlenmez.
+            // Telefondan gelen kartta bu yok — oynayan filme tuş sızmamalı.
+            else -> if (bekleyenDevam) {
+                bekleyenUzak = null
+                return super.dispatchKeyEvent(event)
+            }
         }
         return true   // kart açıkken diğer tuşlar oynatıcıya sızmaz
     }
@@ -281,7 +297,7 @@ class MainActivity : ComponentActivity() {
                                             )
                                             // Bir şey oynuyorsa sormadan kesme (Dean: "film
                                             // çalışırken direkt geçiş yapıyor").
-                                            if (selected != null) bekleyenUzak = gelen else selected = gelen
+                                            if (selected != null) { bekleyenDevam = false; bekleyenUzak = gelen } else selected = gelen
                                         }
 
                                         "key" -> when (cmd.key) {
@@ -325,6 +341,19 @@ class MainActivity : ComponentActivity() {
                         // başka bir TV'de aynı düzen gelsin (Dean: "her yüklemede sıfırlanıyor").
                         androidx.compose.runtime.LaunchedEffect(Unit) { bindings.sunucudanYukle() }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
+
+                        // Izlerken uygulama arka planda oldurulurse (Ayarlar'a Bluetooth icin
+                        // cikmak yetiyor) acilista ana ekrana dusuluyordu. Konum zaten sunucuda
+                        // (15 sn'de bir yaziliyor): taze kayit varsa kart cikar, OK kaldigin
+                        // yerden surdurur. Telefonda sorulmaz - orada oynatma yok.
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            if (isTv && selected == null && bekleyenUzak == null) {
+                                library.sonKalinanYer(DEVAM_PENCERESI_SN)?.let {
+                                    bekleyenDevam = true
+                                    bekleyenUzak = it
+                                }
+                            }
+                        }
                         val current = selected
                         when {
                             current != null ->
@@ -425,7 +454,7 @@ class MainActivity : ComponentActivity() {
                                 }
                         }
 
-                        bekleyenUzak?.let { UzakOnayKarti(it.title.orEmpty()) }
+                        bekleyenUzak?.let { UzakOnayKarti(it.title.orEmpty(), bekleyenDevam) }
 
                         // En üstte: önceki açılıştaki çökme izi.
                         cokmeIzi?.let { satirlar ->
@@ -441,7 +470,7 @@ class MainActivity : ComponentActivity() {
     // Cevapsız kalırsa 30 sn sonra kendi kapanır; film kesintisiz sürer.
     @OptIn(ExperimentalTvMaterial3Api::class)
     @androidx.compose.runtime.Composable
-    private fun UzakOnayKarti(baslik: String) {
+    private fun UzakOnayKarti(baslik: String, devam: Boolean) {
         androidx.compose.runtime.LaunchedEffect(baslik) {
             kotlinx.coroutines.delay(30_000)
             bekleyenUzak = null
@@ -458,13 +487,13 @@ class MainActivity : ComponentActivity() {
             ) {
                 // Yazı yok, simge var (Dean): OK = ⏭ yeni içeriğe geç · GERİ = ▶ sürdür.
                 androidx.tv.material3.Text(
-                    "📱  $baslik",
+                    if (devam) "▶  $baslik" else "📱  $baslik",
                     color = NmColor.OnSurface,
                     fontSize = 22.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 )
                 androidx.tv.material3.Text(
-                    "OK ⏭        GERİ ▶",
+                    if (devam) "OK ▶ devam        GERİ ✕" else "OK ⏭        GERİ ▶",
                     color = NmColor.Primary,
                     fontSize = 20.sp,
                     modifier = Modifier.padding(top = 6.dp).align(androidx.compose.ui.Alignment.CenterHorizontally),

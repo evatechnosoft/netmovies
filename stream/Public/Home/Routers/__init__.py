@@ -41,6 +41,7 @@ from . import (
     rc,
     ajanda,
     mini,
+    tv,
     giris,
     izle,
     admin,

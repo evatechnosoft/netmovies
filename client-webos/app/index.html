@@ -10,7 +10,7 @@ function dene(i) {
   if (i >= ADRESLER.length) { document.getElementById("d").textContent = "Sunucuya ulaşılamadı"; return setTimeout(function(){dene(0)}, 5000); }
   var c = new AbortController(); var t = setTimeout(function(){c.abort()}, 3000);
   fetch(ADRESLER[i] + "/api/v1/health", {signal: c.signal, mode: "no-cors"})
-    .then(function(){ clearTimeout(t); location.replace(ADRESLER[i] + "/"); })
+    .then(function(){ clearTimeout(t); location.replace(ADRESLER[i] + "/tv?v=" + Date.now()); })
     .catch(function(){ clearTimeout(t); dene(i + 1); });
 }
 dene(0);

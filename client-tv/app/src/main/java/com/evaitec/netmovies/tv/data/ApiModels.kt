@@ -246,6 +246,8 @@ data class ProgressRow(
     val episode: String = "",
     @SerialName("position_seconds") val positionSeconds: Double = 0.0,
     @SerialName("duration_seconds") val durationSeconds: Double = 0.0,
+    // Sunucudaki son yazma anı (unix sn). Açılışta "bu izleme taze mi" kararı bunu okur.
+    @SerialName("updated_at") val updatedAt: Long = 0L,
 )
 
 @Serializable
