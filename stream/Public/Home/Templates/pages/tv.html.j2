@@ -304,8 +304,8 @@
         // Magic Remote: imleç kartın üstüne gelince odak oraya taşınır, tıklama
         // OK ile aynı. Odak JS'te tutulduğu için fare de aynı kapıdan geçmeli.
         (function (ri2, ki2) {
-          k.addEventListener("mouseenter", function () { if (ekran === "ana") odakla(ri2, ki2); });
-          k.addEventListener("click", function () { if (ekran === "ana") { odakla(ri2, ki2); sec(); } });
+          k.addEventListener("mouseenter", function () { if (ekran === "ana") odakla(ri2, ki2, false); });
+          k.addEventListener("click", function () { if (ekran === "ana") { odakla(ri2, ki2, false); sec(); } });
         })(ri, ki);
         serit.appendChild(k);
       });
@@ -321,7 +321,10 @@
     p.appendChild(y);
   }
 
-  function odakla(ri, ki) {
+  // `kaydirma=false`: odak fareden geldi. İmleç kartın üstündeyken şeridi
+  // kaydırmak kartı imlecin altından çekiyor, bir sonraki karta atlıyor ve
+  // liste imleç durmadan akıyordu (Dean: "yağ gibi durmuyor").
+  function odakla(ri, ki, kaydirma) {
     var eski = document.querySelector(".kart.odak");
     if (eski) eski.className = "kart";
     rafIdx = Math.max(0, Math.min(ri, raflar.length - 1));
@@ -329,14 +332,16 @@
     var k = $("k" + rafIdx + "_" + kartIdx);
     if (k) k.className = "kart odak";
 
-    // Yatay: odaklı kart soldan üçüncü sıraya oturur (ilk ikisinde kaydırma yok).
-    var kartGenislik = 200 + 18;
-    var serit = $("serit" + rafIdx);
-    if (serit) serit.style.transform = "translateX(-" + (Math.max(0, kartIdx - 2) * kartGenislik) + "px)";
+    if (kaydirma !== false) {
+      // Yatay: odaklı kart soldan üçüncü sıraya oturur (ilk ikisinde kaydırma yok).
+      var kartGenislik = 200 + 18;
+      var serit = $("serit" + rafIdx);
+      if (serit) serit.style.transform = "translateX(-" + (Math.max(0, kartIdx - 2) * kartGenislik) + "px)";
 
-    // Dikey: etkin raf üstten ikinci sıraya oturur.
-    var rafYukseklik = 300 + 12 + 40 + 12;
-    $("kaydir").style.transform = "translateY(-" + (Math.max(0, rafIdx - 1) * rafYukseklik) + "px)";
+      // Dikey: etkin raf üstten ikinci sıraya oturur.
+      var rafYukseklik = 300 + 12 + 40 + 12;
+      $("kaydir").style.transform = "translateY(-" + (Math.max(0, rafIdx - 1) * rafYukseklik) + "px)";
+    }
 
     for (var i = 0; i < raflar.length; i++) {
       var e = $("raf" + i);
@@ -412,6 +417,13 @@
     var d = $("b" + bolumIdx);
     if (d) d.className = "bolum odak";
     $("bolum-kaydir").style.transform = "translateY(-" + (Math.max(0, bolumIdx - 5) * 72) + "px)";
+    var b = bolumler[bolumIdx];
+    if (b) {
+      $("bolum-ad").textContent = acilan.title + "  ·  " +
+        "S" + (b.season || 1) + " B" +
+        ((b.episode === null || b.episode === undefined) ? (bolumIdx + 1) : b.episode) +
+        "  (" + (bolumIdx + 1) + "/" + bolumler.length + ")  ·  ←→ 10 atla";
+    }
   }
 
   function oynat(kart, bolumSira, bolumRef) {
@@ -707,8 +719,11 @@
 
     if (ekran === "bolumler") {
       if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC) { geriGit(); o.preventDefault(); return; }
-      if (k === TUS.ASAGI)  { bolumOdak(bolumIdx + 1); o.preventDefault(); return; }
-      if (k === TUS.YUKARI) { bolumOdak(bolumIdx - 1); o.preventDefault(); return; }
+      if (k === TUS.ASAGI)  { bolumOdak(bolumIdx + 1);  o.preventDefault(); return; }
+      if (k === TUS.YUKARI) { bolumOdak(bolumIdx - 1);  o.preventDefault(); return; }
+      // Uzun dizilerde (43 bölüm) tek tek inmek yerine onar atla.
+      if (k === TUS.SAG)    { bolumOdak(bolumIdx + 10); o.preventDefault(); return; }
+      if (k === TUS.SOL)    { bolumOdak(bolumIdx - 10); o.preventDefault(); return; }
       if (k === TUS.OK) { if (!o.repeat) bolumOynat(); o.preventDefault(); return; }
       return;
     }
@@ -752,6 +767,17 @@
       }
       o.preventDefault(); return;
     }
+  });
+
+  // Magic Remote açıkken kumandanın OK'u sayfaya `keydown` olarak DEĞİL, imlecin
+  // bulunduğu yere `click` olarak geliyor — oynatıcıda duraklatma bu yüzden
+  // çalışmıyordu (Dean: "mouse aktifken orta tuş durdurmuyor"). Video alanına
+  // gelen tıklama da aynı işi yapar.
+  $("oynatici").addEventListener("click", function () {
+    if (ekran !== "oynatici") return;
+    var v = $("video");
+    if (v.paused) { v.play(); } else { v.pause(); }
+    kaplamaGoster();
   });
 
   // Açma işi BIRAKMADA: basılı tutma favoriye gittiği için kısa basış ancak
