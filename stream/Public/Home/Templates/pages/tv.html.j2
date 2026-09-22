@@ -80,6 +80,17 @@
   }
   .bolum.odak { border-color: #fff; background: #262b36; }
 
+  /* Arama */
+  #arama { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 40px 48px; overflow: hidden; }
+  #q {
+    width: 100%; padding: 18px 22px; font-size: 26px; border-radius: 12px;
+    border: 3px solid #3a3f4b; background: var(--kart); color: var(--yazi); outline: none;
+  }
+  #q:focus { border-color: #fff; }
+  #arama-bilgi { margin: 14px 2px 18px; font-size: 19px; color: var(--sonuk); }
+  #sonuclar { white-space: normal; }
+  #sonuclar .kart { margin-bottom: 18px; }
+
   /* Oynatıcı */
   #oynatici { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #000; }
   #video { width: 100%; height: 100%; background: #000; }
@@ -104,9 +115,15 @@
 </head>
 <body>
 
-<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · GERİ: geri</span></div>
+<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · OK basılı tut: ★ favori · YUKARI: ara · GERİ: geri</span></div>
 
 <div id="raflar"><div id="kaydir"></div></div>
+
+<div id="arama" class="gizli">
+  <input id="q" type="text" placeholder="Film veya dizi ara…" autocomplete="off">
+  <div id="arama-bilgi">Yaz ve OK'a bas · GERİ ile çık</div>
+  <div id="sonuclar"></div>
+</div>
 
 <div id="bolumler" class="gizli">
   <h2 id="bolum-ad"></h2>
@@ -147,6 +164,10 @@
   var kaplamaZaman = 0;
   var sarHedef = null;        // birikmiş sarma hedefi (sn); null = sarma yok
   var sarZaman = 0;
+  var sonuclar = [];          // arama sonucu kartları
+  var sonucIdx = 0;
+  var SUTUN    = 6;           // arama ızgarasında satır başına kart
+  var okBasildi = false;      // OK basılı tutuldu mu (favori) — bırakışta "aç" yutulur
 
   function durum(metin) {
     var d = $("durum");
@@ -191,7 +212,7 @@
       poster : ham.poster || "",
       url    : ham.url || "",
       ham    : ham.content_url || decodeURIComponent(ham.url || ""),
-      tur    : tur,
+      tur    : ham.tur_sat || tur,
       oran   : ham.oran || 0
     };
   }
@@ -216,10 +237,23 @@
 
   function katalogKartlari(y) { return ((y.result || {}).items) || []; }
 
+  // Favori kaydı Devam Et ile aynı şekli taşır; tür kayıtta yazılı olduğu için
+  // rafın genel türü yerine satırın kendi türü kullanılır.
+  function favoriKartlari(y) {
+    return (y.result || []).map(function (r) {
+      return {
+        plugin: r.plugin, title: r.title, poster: r.poster,
+        url: encodeURIComponent(r.content_url || ""), content_url: r.content_url,
+        tur_sat: r.media_type === "serie" ? "serie" : "movie"
+      };
+    });
+  }
+
   function veriYukle() {
     durum("Yükleniyor…");
     return Promise.all([
       rafGetir("Devam Et",      "movie", "/api/v1/continue_watching?limit=20",        devamKartlari),
+      rafGetir("Favorilerim",   "movie", "/api/v1/favorites",                          favoriKartlari),
       rafGetir("Yeni Filmler",  "movie", "/api/v1/aggregate_new?type=movie&page=1",   katalogKartlari),
       rafGetir("Yeni Diziler",  "serie", "/api/v1/aggregate_new?type=serie&page=1",   katalogKartlari),
       rafGetir("Türk Dizileri", "serie", "/api/v1/aggregate_new?type=serie_local&page=1", katalogKartlari),
@@ -267,6 +301,12 @@
         var ad2 = document.createElement("div");
         ad2.className = "kart-ad"; ad2.textContent = kart.title;
         k.appendChild(p); k.appendChild(ad2);
+        // Magic Remote: imleç kartın üstüne gelince odak oraya taşınır, tıklama
+        // OK ile aynı. Odak JS'te tutulduğu için fare de aynı kapıdan geçmeli.
+        (function (ri2, ki2) {
+          k.addEventListener("mouseenter", function () { if (ekran === "ana") odakla(ri2, ki2); });
+          k.addEventListener("click", function () { if (ekran === "ana") { odakla(ri2, ki2); sec(); } });
+        })(ri, ki);
         serit.appendChild(k);
       });
 
@@ -355,6 +395,10 @@
       var s = b.season || 1;
       var e = (b.episode === null || b.episode === undefined) ? (i + 1) : b.episode;
       d.textContent = "S" + s + " B" + e + (b.title ? " · " + b.title : "");
+      (function (i2) {
+        d.addEventListener("mouseenter", function () { bolumOdak(i2); });
+        d.addEventListener("click", function () { bolumOdak(i2); bolumOynat(); });
+      })(i);
       kok.appendChild(d);
     });
     bolumIdx = 0;
@@ -469,12 +513,159 @@
     }).catch(function () { /* kayıt yoksa baştan oynar */ });
   }
 
+  function bolumOynat() {
+    var b = bolumler[bolumIdx];
+    if (!b) return;
+    // Bölüm kaydı SIRA değil, "S4B8" biçiminde yazılır: liste değişince
+    // "123. bölüm" diye kayda geçmesin.
+    var ref = "S" + (b.season || 1) + "B" +
+              ((b.episode === null || b.episode === undefined) ? (bolumIdx + 1) : b.episode);
+    oynat(acilan, bolumIdx, ref);
+  }
+
+  // --- arama -------------------------------------------------------------
+  // Ana ekranın EN ÜST rafındayken YUKARI: televizyon arayüzlerinin alışılmış
+  // yeri. Ayrı bir tuş yok — kumandada renkli tuşlara güvenilmiyor.
+  function aramaAc() {
+    ekran = "arama";
+    $("raflar").className = "gizli";
+    $("arama").className = "";
+    var q = $("q");
+    q.value = "";
+    $("sonuclar").innerHTML = "";
+    sonuclar = []; sonucIdx = 0;
+    $("arama-bilgi").textContent = "Yaz ve OK'a bas · GERİ ile çık";
+    // Odak girişte: webOS sanal klavyesi böyle açılır.
+    setTimeout(function () { q.focus(); }, 60);
+  }
+
+  function aramaYap() {
+    var q = $("q").value.trim();
+    if (!q) return;
+    $("q").blur();
+    $("arama-bilgi").textContent = "Aranıyor: " + q;
+    api("/api/v1/search_all?query=" + encodeURIComponent(q)).then(function (y) {
+      var ham = y.result || [];
+      // Tip kartın kendisinden gelir: bölüm sayısı olan dizidir, bölüm listesi
+      // açılır; olmayan doğrudan oynar.
+      sonuclar = ham.map(function (h) {
+        return kartYap(h, (h.episode_count || h.season_count) ? "serie" : "movie");
+      });
+      $("arama-bilgi").textContent = sonuclar.length
+        ? sonuclar.length + " sonuç · OK aç, GERİ çık"
+        : "Sonuç yok: " + q;
+      sonucCiz();
+    }).catch(function () { $("arama-bilgi").textContent = "Arama başarısız — sunucuya ulaşılamadı"; });
+  }
+
+  function sonucCiz() {
+    var kok = $("sonuclar");
+    kok.innerHTML = "";
+    sonuclar.forEach(function (kart, i) {
+      var k = document.createElement("div");
+      k.className = "kart"; k.id = "s" + i;
+      var p = document.createElement("div");
+      p.className = "poster";
+      if (kart.poster) {
+        var img = document.createElement("img");
+        img.src = kart.poster;
+        img.onerror = function () { p.removeChild(img); yazili(p, kart.title); };
+        p.appendChild(img);
+      } else { yazili(p, kart.title); }
+      var ad = document.createElement("div");
+      ad.className = "kart-ad"; ad.textContent = kart.title;
+      k.appendChild(p); k.appendChild(ad);
+      (function (i2) {
+        k.addEventListener("mouseenter", function () { sonucOdak(i2); });
+        k.addEventListener("click", function () { sonucOdak(i2); sonucSec(); });
+      })(i);
+      kok.appendChild(k);
+    });
+    sonucIdx = 0;
+    if (sonuclar.length) sonucOdak(0);
+  }
+
+  function sonucOdak(i) {
+    var eski = document.querySelector("#sonuclar .kart.odak");
+    if (eski) eski.className = "kart";
+    sonucIdx = Math.max(0, Math.min(i, sonuclar.length - 1));
+    var k = $("s" + sonucIdx);
+    if (k) k.className = "kart odak";
+    // Izgara üçüncü satırdan sonra kayar; giriş kutusu ekranda kalsın diye
+    // konteyner değil sonuç listesi kaydırılır.
+    var satir = Math.floor(sonucIdx / SUTUN);
+    $("sonuclar").style.transform = "translateY(-" + (Math.max(0, satir - 1) * 340) + "px)";
+  }
+
+  function sonucSec() {
+    var kart = sonuclar[sonucIdx];
+    if (!kart) return;
+    if (kart.tur === "serie") { bolumAc(kart); return; }
+    oynat(kart, 0, "0");
+  }
+
+  // --- favori ------------------------------------------------------------
+  // OK'a BASILI TUTMAK listeye ekler/çıkarır; kısa basış açar. Kumandada ayrı
+  // tuş yok, aramada bulduğunu her seferinde yeniden aramak zorunda kalmamak
+  // için tek yol bu.
+  function favoriDegistir(kart) {
+    if (!kart) return;
+    var yol = "/api/v1/favorites/toggle?title=" + encodeURIComponent(kart.title || "") +
+              "&plugin=" + encodeURIComponent(kart.plugin || "") +
+              "&poster=" + encodeURIComponent(kart.poster || "") +
+              "&media_type=" + (kart.tur === "serie" ? "serie" : "movie") +
+              "&content_url=" + encodeURIComponent(kart.ham || "");
+    bildir("★ " + kart.title + " → listeye işleniyor…");
+    fetch(yol, { method: "POST", credentials: "same-origin" })
+      .then(function (y) { return y.json(); })
+      .then(function (j) {
+        var eklendi = !!(j && j.result && j.result.is_favorite);
+        bildir(eklendi ? "★ Favorilere eklendi: " + kart.title
+                       : "☆ Favorilerden çıkarıldı: " + kart.title);
+        favoriRafiTazele();
+      })
+      .catch(function () { bildir("Favori kaydedilemedi — sunucuya ulaşılamadı"); });
+  }
+
+  var bildirimZaman = 0;
+  function bildir(metin) {
+    durum(metin);
+    if (bildirimZaman) clearTimeout(bildirimZaman);
+    bildirimZaman = setTimeout(function () { durum(""); bildirimZaman = 0; }, 2200);
+  }
+
+  // Favori rafı yerinde tazelenir: ekleme sonrası tüm katalog yeniden çekilmez,
+  // ana ekrana dönünce liste güncel olsun yeter.
+  function favoriRafiTazele() {
+    api("/api/v1/favorites").then(function (y) {
+      var kartlar = (y.result || []).map(function (r) {
+        return kartYap({
+          plugin: r.plugin, title: r.title, poster: r.poster,
+          url: encodeURIComponent(r.content_url || ""), content_url: r.content_url
+        }, r.media_type === "serie" ? "serie" : "movie");
+      });
+      var yer = -1;
+      for (var i = 0; i < raflar.length; i++) if (raflar[i].ad === "Favorilerim") { yer = i; break; }
+      if (!kartlar.length) { if (yer >= 0) raflar.splice(yer, 1); }
+      else if (yer >= 0) { raflar[yer].kartlar = kartlar; }
+      else { raflar.splice(1, 0, { ad: "Favorilerim", tur: "movie", kartlar: kartlar }); }
+      var eskiRaf = rafIdx, eskiKart = kartIdx;
+      ciz();
+      odakla(Math.min(eskiRaf, raflar.length - 1), eskiKart);
+    }).catch(function () { /* ağ yoksa raf olduğu gibi kalır */ });
+  }
+
   // Geri: tek karar noktası. Hem kumandanın GERİ tuşu hem de webOS'un geçmiş
   // olayı (popstate) buraya düşer — `disableBackHistoryAPI` kapalı kalan bir
   // webOS sürümünde tuş sayfaya keydown olarak hiç gelmiyor, sistem geçmişi
   // geri alıyor. İki yol da aynı işi yapsın diye ayrıldı.
   function geriGit() {
     if (ekran === "oynatici") { oynatmaKapat(); return; }
+    if (ekran === "arama") {
+      ekran = "ana";
+      $("arama").className = "gizli"; $("raflar").className = "";
+      return;
+    }
     if (ekran === "bolumler") {
       acilan = null; ekran = "ana";
       $("bolumler").className = "gizli"; $("raflar").className = "";
@@ -503,6 +694,7 @@
     if (ekran === "oynatici") {
       if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC || k === TUS.STOP) { geriGit(); o.preventDefault(); return; }
       if (k === TUS.OK || k === TUS.OYNATDURAKLAT || k === TUS.OYNAT || k === TUS.DURAKLAT) {
+        if (o.repeat) { o.preventDefault(); return; }
         var v = $("video");
         if (v.paused) { v.play(); } else { v.pause(); }
         kaplamaGoster(); o.preventDefault(); return;
@@ -517,12 +709,28 @@
       if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC) { geriGit(); o.preventDefault(); return; }
       if (k === TUS.ASAGI)  { bolumOdak(bolumIdx + 1); o.preventDefault(); return; }
       if (k === TUS.YUKARI) { bolumOdak(bolumIdx - 1); o.preventDefault(); return; }
+      if (k === TUS.OK) { if (!o.repeat) bolumOynat(); o.preventDefault(); return; }
+      return;
+    }
+
+    if (ekran === "arama") {
+      if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC) { geriGit(); o.preventDefault(); return; }
+      // Giriş kutusundayken oklar imleci hareket ettirir, sonuçlara karışmaz.
+      if (document.activeElement === $("q")) {
+        if (k === TUS.OK && !o.repeat) { aramaYap(); o.preventDefault(); }
+        return;
+      }
+      if (!sonuclar.length) { if (k === TUS.OK || k === TUS.YUKARI) { $("q").focus(); o.preventDefault(); } return; }
+      if (k === TUS.SAG)    { sonucOdak(sonucIdx + 1); o.preventDefault(); return; }
+      if (k === TUS.SOL)    { sonucOdak(sonucIdx - 1); o.preventDefault(); return; }
+      if (k === TUS.ASAGI)  { sonucOdak(sonucIdx + SUTUN); o.preventDefault(); return; }
+      if (k === TUS.YUKARI) {
+        // İlk satırdan yukarı = arama kutusuna dön.
+        if (sonucIdx < SUTUN) { $("q").focus(); } else { sonucOdak(sonucIdx - SUTUN); }
+        o.preventDefault(); return;
+      }
       if (k === TUS.OK) {
-        var b = bolumler[bolumIdx];
-        // Bölüm kaydı SIRA değil, "S4B8" biçiminde yazılır: liste değişince
-        // "123. bölüm" diye kayda geçmesin.
-        var ref = "S" + (b.season || 1) + "B" + ((b.episode === null || b.episode === undefined) ? (bolumIdx + 1) : b.episode);
-        oynat(acilan, bolumIdx, ref);
+        if (o.repeat) { if (!okBasildi) { okBasildi = true; favoriDegistir(sonuclar[sonucIdx]); } }
         o.preventDefault(); return;
       }
       return;
@@ -532,8 +740,29 @@
     if (k === TUS.SAG)    { odakla(rafIdx, kartIdx + 1); o.preventDefault(); return; }
     if (k === TUS.SOL)    { odakla(rafIdx, kartIdx - 1); o.preventDefault(); return; }
     if (k === TUS.ASAGI)  { odakla(rafIdx + 1, 0);       o.preventDefault(); return; }
-    if (k === TUS.YUKARI) { odakla(rafIdx - 1, 0);       o.preventDefault(); return; }
-    if (k === TUS.OK)     { sec();                        o.preventDefault(); return; }
+    if (k === TUS.YUKARI) {
+      if (rafIdx === 0) { aramaAc(); } else { odakla(rafIdx - 1, 0); }
+      o.preventDefault(); return;
+    }
+    if (k === TUS.OK) {
+      // Tekrar eden keydown = basılı tutma. Bırakışta (keyup) "aç" çalışmasın
+      // diye bayrak bırakılır.
+      if (o.repeat) {
+        if (!okBasildi) { okBasildi = true; favoriDegistir(raflar[rafIdx].kartlar[kartIdx]); }
+      }
+      o.preventDefault(); return;
+    }
+  });
+
+  // Açma işi BIRAKMADA: basılı tutma favoriye gittiği için kısa basış ancak
+  // tuş bırakıldığında ayırt edilebiliyor.
+  document.addEventListener("keyup", function (o) {
+    if (o.keyCode !== TUS.OK) return;
+    if (okBasildi) { okBasildi = false; o.preventDefault(); return; }
+    if (ekran === "ana" && raflar.length) { sec(); o.preventDefault(); return; }
+    if (ekran === "arama" && sonuclar.length && document.activeElement !== $("q")) {
+      sonucSec(); o.preventDefault(); return;
+    }
   });
 
   // --- döngüler ----------------------------------------------------------
