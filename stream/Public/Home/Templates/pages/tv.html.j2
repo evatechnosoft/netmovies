@@ -428,6 +428,18 @@
 
   function oynat(kart, bolumSira, bolumRef) {
     durum("Kaynak aranıyor…");
+    // YouTube zincirden geçmez: tek adresi yt-dlp çözer ve HLS master döner —
+    // 1080p/4K rendition'ları televizyonun kendi medya motoru seçer.
+    if (kart.plugin === "youtube") {
+      api("/api/v1/ytdlp-extract?url=" + encodeURIComponent(kart.ham)).then(function (y) {
+        var r = y.result || {};
+        oynatKaynakla(kart, r.stream_url ? [{ url: r.stream_url }] : [], "0");
+      }).catch(function () {
+        durum("YouTube kaynağı alınamadı");
+        setTimeout(function () { durum(""); }, 2500);
+      });
+      return;
+    }
     api(zincirYolu(kart, bolumSira)).then(function (y) {
       oynatKaynakla(kart, ((y.result || {}).sources) || [], bolumRef);
     }).catch(function () { durum("Kaynak alınamadı"); setTimeout(function () { durum(""); }, 2500); });
@@ -568,6 +580,28 @@
         : "Sonuç yok: " + q;
       sonucCiz();
     }).catch(function () { $("arama-bilgi").textContent = "Arama başarısız — sunucuya ulaşılamadı"; });
+
+    // YouTube ayrı ve yavaş: katalog sonuçları beklemez, gelince listenin sonuna
+    // eklenir. Odak korunur, yoksa gezinirken imleç başa sıçrar.
+    api("/api/v1/youtube_search?query=" + encodeURIComponent(q) + "&limit=18").then(function (y) {
+      var videolar = y.result || [];
+      if (!videolar.length || $("q").value.trim() !== q) return;
+      videolar.forEach(function (v) {
+        sonuclar.push({
+          plugin : "youtube",
+          title  : "▶ " + v.title,
+          poster : v.poster || "",
+          url    : encodeURIComponent(v.url),
+          ham    : v.url,
+          tur    : "movie",
+          oran   : 0
+        });
+      });
+      var odak = sonucIdx;
+      sonucCiz();
+      sonucOdak(odak);
+      $("arama-bilgi").textContent = sonuclar.length + " sonuç (YouTube dahil) · OK aç, GERİ çık";
+    }).catch(function () { /* YouTube yoksa katalog sonuçları yeterli */ });
   }
 
   function sonucCiz() {

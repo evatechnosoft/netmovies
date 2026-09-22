@@ -44,6 +44,10 @@ RUN python3 -m pip install --upgrade pip && \
     python3 -m pip install --no-cache-dir -U setuptools wheel && \
     python3 -m pip install --no-cache-dir -Ur requirements.txt
 
+# * Deno — yt-dlp'nin YouTube JS challenge (nsig) çözücüsü.
+#   Olmadan YouTube formatları eksik gelir; imaja gömülü değilse her rebuild'de kaybolur.
+RUN curl -fsSL https://github.com/denoland/deno/releases/download/v2.9.7/deno-x86_64-unknown-linux-gnu.zip -o /tmp/deno.zip &&     python3 -c "import zipfile; zipfile.ZipFile('/tmp/deno.zip').extractall('/usr/local/bin')" &&     chmod +x /usr/local/bin/deno &&     rm /tmp/deno.zip &&     deno --version
+
 # * Sağlık Kontrolü
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://127.0.0.1:3310/api/v1/health || exit 1

@@ -26,6 +26,7 @@ from . import (
     load_links,
     extract,
     ytdlp_extract,
+    youtube_search,
     plugin_health,
     aggregate_new,
     quick_channels,

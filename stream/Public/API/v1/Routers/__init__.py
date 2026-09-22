@@ -45,4 +45,5 @@ from . import (
     unwatched,
     episodes_best,
     app_update,
+    youtube_search,
 )
