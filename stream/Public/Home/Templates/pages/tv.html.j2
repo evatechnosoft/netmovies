@@ -256,8 +256,7 @@
       rafGetir("Favorilerim",   "movie", "/api/v1/favorites",                          favoriKartlari),
       rafGetir("Yeni Filmler",  "movie", "/api/v1/aggregate_new?type=movie&page=1",   katalogKartlari),
       rafGetir("Yeni Diziler",  "serie", "/api/v1/aggregate_new?type=serie&page=1",   katalogKartlari),
-      rafGetir("Türk Dizileri", "serie", "/api/v1/aggregate_new?type=serie_local&page=1", katalogKartlari),
-      rafGetir("Canlı TV",      "live",  "/api/v1/aggregate_new?type=live&page=1",    katalogKartlari)
+      rafGetir("Türk Dizileri", "serie", "/api/v1/aggregate_new?type=serie_local&page=1", katalogKartlari)
     ]).then(function (sonuc) {
       raflar = sonuc.filter(function (r) { return r.kartlar.length > 0; });
       if (!raflar.length) { durum("İçerik yüklenemedi — sunucuya ulaşılamıyor"); return; }

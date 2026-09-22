@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import math
 import sqlite3
 import threading
 import unicodedata
@@ -218,6 +219,14 @@ def upsert_progress(
     now: int | None = None,
 ) -> None:
     """İzleme ilerlemesini kaydeder/günceller (content_key birincil anahtar)."""
+    # Canlı yayında `video.duration` Infinity: oynatıcı bunu olduğu gibi yolluyordu,
+    # SQLite `inf` kabul ediyor ve `continue_watching` JSON'a çevirirken 500 veriyordu
+    # ("Out of range float values are not JSON compliant") — Devam Et rafı komple ölü.
+    # Sonlu olmayan değer sıfıra düşer: canlı yayının kaldığı yer zaten anlamsız.
+    if not math.isfinite(float(duration_seconds or 0.0)):
+        duration_seconds = 0.0
+    if not math.isfinite(float(position_seconds or 0.0)):
+        position_seconds = 0.0
     ts = _now(now)
     with _LOCK:
         conn = _connect()
