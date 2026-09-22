@@ -405,3 +405,16 @@ data class AgendaResult(
 
 @Serializable
 data class AgendaResponse(val result: AgendaResult = AgendaResult())
+
+// TMDB önerileri — katalogda karşılığı olmayabilir; seçilince normal aramaya düşer.
+@Serializable
+data class SimilarItem(
+    val title: String = "",
+    val poster: String = "",
+    val year: String = "",
+    val rating: Double = 0.0,
+    val type: String = "",
+)
+
+@Serializable
+data class SimilarResponse(val result: List<SimilarItem> = emptyList())

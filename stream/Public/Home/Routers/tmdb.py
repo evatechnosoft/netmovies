@@ -137,3 +137,60 @@ async def tmdb_poster(title: str = "", year: str = "", type: str = ""):
         status_code = 302,
         headers     = {"Cache-Control": "public, max-age=604800"},  # 7 gün
     )
+
+
+# Benzer yapımlar: TMDB'nin kendi önerisi. Katalogda karşılığı olmayabilir —
+# istemci seçince normal aramaya düşer, zincir başlıkla zaten çalışıyor.
+# temiz-başlık(lower) -> öneri listesi (boş liste = negatif cache)
+_similar_cache: dict[str, list[dict]] = {}
+
+
+@home_router.get("/similar")
+async def similar(title: str = "", type: str = ""):
+    if not TMDB_API_KEY:
+        return {"result": []}
+
+    clean = _clean_title(title)
+    if not clean:
+        return {"result": []}
+
+    key = clean.lower()
+    if key in _similar_cache:
+        return {"result": _similar_cache[key]}
+
+    try:
+        arama = await _client.get(_TMDB_SEARCH, params={
+            "api_key": TMDB_API_KEY, "query": clean, "language": "tr-TR",
+        })
+        adaylar = [
+            s for s in (arama.json().get("results") or [])
+            if s.get("media_type") in ("movie", "tv")
+        ]
+        if not adaylar:
+            _similar_cache[key] = []
+            return {"result": []}
+
+        ilk  = adaylar[0]
+        tur  = "tv" if ilk.get("media_type") == "tv" else "movie"
+        oner = await _client.get(
+            f"https://api.themoviedb.org/3/{tur}/{ilk['id']}/recommendations",
+            params={"api_key": TMDB_API_KEY, "language": "tr-TR"},
+        )
+        sonuc = [
+            {
+                "title"  : s.get("title") or s.get("name") or "",
+                "poster" : f"{_IMG_BASE}{s['poster_path']}" if s.get("poster_path") else "",
+                "year"   : (s.get("release_date") or s.get("first_air_date") or "")[:4],
+                "rating" : round(float(s.get("vote_average") or 0.0), 1),
+                "type"   : "serie" if tur == "tv" else "movie",
+            }
+            for s in (oner.json().get("results") or [])[:20]
+            if (s.get("title") or s.get("name"))
+        ]
+    except Exception:
+        return {"result": []}
+
+    if len(_similar_cache) > _CACHE_MAX:
+        _similar_cache.clear()
+    _similar_cache[key] = sonuc
+    return {"result": sonuc}

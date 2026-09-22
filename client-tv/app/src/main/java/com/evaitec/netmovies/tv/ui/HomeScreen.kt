@@ -340,6 +340,9 @@ private fun CategoryRows(
                 library = library,
                 onPlay = { menuItem = null; onSelect(item) },
                 onPlayEpisode = { idx -> menuItem = null; onSelectEpisode(item, idx) },
+                // Benzer seçimi aramadan bir katalog kartı döndürür: pad kapanmaz,
+                // o içeriğe geçer — "benzerinin benzeri" zinciri tek ekranda gezilir.
+                onOpenItem = { bulunan -> menuItem = bulunan },
                 onClose = { menuItem = null },
             )
         }
@@ -582,15 +585,19 @@ private sealed interface Yoklama {
     }
 }
 
-// Poster uzun-bas kartı — sayfa açmadan hızlı bakış + aksiyon.
+// Poster uzun-bas pad'i — tam sayfa DEĞİL. Dean (22 Eylül): "koca bir liste
+// açıyor... 4 yön tuşu gibi pad, hiçbir özellik tam sayfa olmasın."
+// Merkez oynatır, her yön kendi küçük katmanını açar, GERİ bir katman geri alır.
 //
-// Yerleşim Dean'in tarifi (19 Eylül): SOL bölümler · SAĞ listeler · ORTA resim,
-// özet, dil · ALT oynat. Gezinme index'le yapılır, Compose odak ağacına
-// GÜVENİLMEZ: aynı hata oynatıcıda iki kez yaşandı (odak katman üstü karta
-// inmiyor), gezilebilir tek kanıtlı desen QuickPad'in index'i.
-private enum class KartOdak { BOLUM, ORTA, LISTE, OYNAT }
+//            ▲ Bölümler
+//   ◀ Özet   ▶ OYNAT   Benzerleri ▶
+//            ▼ Listeler
+//
+// Gezinme index'le yapılır, Compose odak ağacına GÜVENİLMEZ: aynı hata oynatıcıda
+// iki kez yaşandı (odak katman üstü karta inmiyor).
+private enum class PadMod { PAD, BOLUM, LISTE, OZET, BENZER }
 
-/** Sağ sütundaki liste düğmeleri — sıra ekranda göründüğü sıradır. */
+/** Alt sıradaki liste düğmeleri — sıra ekranda göründüğü sıradır. */
 private val LISTE_SIRASI = listOf(
     Library.LISTE_IZLENECEK,
     Library.LISTE_TAKIP,
@@ -604,10 +611,11 @@ private fun PosterMenu(
     library: Library,
     onPlay: () -> Unit,
     onPlayEpisode: (Int) -> Unit,
+    onOpenItem: (MediaItem) -> Unit,
     onClose: () -> Unit,
 ) {
     // Tek `load_item` isteği: bölümler DE özet DE buradan gelir. Film ise
-    // `episodes` boş döner ve sol sütun hiç çizilmez.
+    // `episodes` boş döner ve YUKARI yönü hiç çizilmez.
     var detay by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
     LaunchedEffect(item.url) {
         detay = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
@@ -616,7 +624,7 @@ private fun PosterMenu(
 
     // Seçilen bölüm ve onun kaynak yoklaması. Bölüm seçince DOĞRUDAN oynatmak,
     // kaynak yoksa oynatıcıyı açıp kapatıyordu — izleyen "bir şey oldu, kapandı"
-    // görüyordu (Dean, 17 Eylül). Sonuç Oynat düğmesinde yazılı durur.
+    // görüyordu (Dean, 17 Eylül). Sonuç OYNAT'ın üstünde yazılı durur.
     var secilenBolum by remember(item.url) { mutableStateOf<Int?>(null) }
     var yoklama by remember(item.url) { mutableStateOf<Yoklama>(Yoklama.Baslamadi) }
 
@@ -649,16 +657,41 @@ private fun PosterMenu(
         )
     }
 
-    var odak by remember(item.url) { mutableStateOf(KartOdak.OYNAT) }
+    // Benzerler yalnız SAĞ'a basınca yüklenir: her kart açılışında TMDB'ye gitmek,
+    // çoğu açılışta hiç bakılmayan bir liste için istek demek.
+    var benzerler by remember(item.url) { mutableStateOf<List<com.evaitec.netmovies.tv.data.SimilarItem>?>(null) }
+    var benzerDurum by remember(item.url) { mutableStateOf("") }
+    var benzerIdx by remember(item.url) { mutableStateOf(0) }
+
+    var mod by remember(item.url) { mutableStateOf(PadMod.PAD) }
     var bolumIdx by remember(item.url) { mutableStateOf(0) }
     var listeIdx by remember(item.url) { mutableStateOf(0) }
     val bolumState = rememberLazyListState()
+    val benzerState = rememberLazyListState()
+    val ozetState = rememberScrollState()
+    val kapsam = rememberCoroutineScope()
 
-    // Seçili bölüm listenin görünmeyen yerine kayarsa kullanıcı neyi seçtiğini
+    LaunchedEffect(mod) {
+        if (mod == PadMod.BENZER && benzerler == null) {
+            benzerDurum = "Benzerler aranıyor…"
+            benzerler = runCatching {
+                Network.api.similar(item.title.orEmpty(), if (bolumler.isNotEmpty()) "serie" else "movie").result
+            }.getOrElse { emptyList() }
+            benzerDurum = if (benzerler.isNullOrEmpty()) "Benzer bulunamadı" else ""
+        }
+    }
+
+    // Seçili satır listenin görünmeyen yerine kayarsa kullanıcı neyi seçtiğini
     // göremez: her adımda o satıra kaydırılır.
-    LaunchedEffect(bolumIdx, odak) {
-        if (odak == KartOdak.BOLUM && bolumler.isNotEmpty()) {
+    LaunchedEffect(bolumIdx, mod) {
+        if (mod == PadMod.BOLUM && bolumler.isNotEmpty()) {
             runCatching { bolumState.scrollToItem(bolumIdx.coerceIn(0, bolumler.lastIndex)) }
+        }
+    }
+    LaunchedEffect(benzerIdx, mod) {
+        val adet = benzerler?.size ?: 0
+        if (mod == PadMod.BENZER && adet > 0) {
+            runCatching { benzerState.scrollToItem(benzerIdx.coerceIn(0, adet - 1)) }
         }
     }
 
@@ -674,47 +707,65 @@ private fun PosterMenu(
         }
     }
 
+    /** Benzer seçimi katalog kartı değil, bir BAŞLIK: aramaya beslenir. */
+    fun benzerAc(secim: com.evaitec.netmovies.tv.data.SimilarItem) {
+        benzerDurum = "Aranıyor: " + secim.title
+        kapsam.launch {
+            val bulunan = runCatching {
+                Network.api.searchAll(secim.title).result.orEmpty().firstOrNull()
+            }.getOrNull()
+            if (bulunan == null) benzerDurum = "Katalogda yok: " + secim.title
+            else onOpenItem(bulunan)
+        }
+    }
+
     // Kartın kendi tuş işleyicisi. `true` = tüketildi; arkadaki raflar hiçbir tuş
     // görmez (modal açıkken `canFocus = false` zaten odak aramasını da kesiyor).
     fun tus(code: Int): Boolean {
         val bolumVar = bolumler.isNotEmpty()
-        when (code) {
-            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> odak = when (odak) {
-                KartOdak.LISTE -> KartOdak.OYNAT
-                KartOdak.OYNAT, KartOdak.ORTA -> if (bolumVar) KartOdak.BOLUM else odak
-                KartOdak.BOLUM -> KartOdak.BOLUM
+        when (mod) {
+            PadMod.PAD -> when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP    -> if (bolumVar) mod = PadMod.BOLUM
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN  -> mod = PadMod.LISTE
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> mod = PadMod.OZET
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> mod = PadMod.BENZER
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER      -> oynat()
+                else -> return false
             }
-            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> odak = when (odak) {
-                KartOdak.BOLUM -> KartOdak.OYNAT
-                KartOdak.OYNAT, KartOdak.ORTA -> KartOdak.LISTE
-                KartOdak.LISTE -> KartOdak.LISTE
+            PadMod.BOLUM -> when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP   -> if (bolumIdx == 0) mod = PadMod.PAD else bolumIdx--
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> bolumIdx = (bolumIdx + 1).coerceAtMost(bolumler.lastIndex)
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER     -> { secilenBolum = bolumIdx; onPlayEpisode(bolumIdx) }
+                android.view.KeyEvent.KEYCODE_BACK      -> mod = PadMod.PAD
+                else -> return false
             }
-            android.view.KeyEvent.KEYCODE_DPAD_UP -> when (odak) {
-                // Sütun içinde yukarı gezer; en üstteyken sütundan çıkmaz —
-                // kazara ORTA'ya sıçrayıp seçimi kaybetmesin.
-                KartOdak.BOLUM -> bolumIdx = (bolumIdx - 1).coerceAtLeast(0)
-                KartOdak.LISTE -> listeIdx = (listeIdx - 1).coerceAtLeast(0)
-                KartOdak.OYNAT -> odak = KartOdak.ORTA
-                KartOdak.ORTA  -> Unit
+            PadMod.LISTE -> when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> listeIdx = (listeIdx - 1).coerceAtLeast(0)
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> listeIdx = (listeIdx + 1).coerceAtMost(LISTE_SIRASI.lastIndex)
+                android.view.KeyEvent.KEYCODE_DPAD_UP    -> mod = PadMod.PAD
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER      -> listeUygula(listeIdx)
+                android.view.KeyEvent.KEYCODE_BACK       -> mod = PadMod.PAD
+                else -> return false
             }
-            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> when (odak) {
-                // Listenin sonunda AŞAĞI = Oynat. "Aşağı play" (Dean): nerede
-                // olursan ol, aşağı basmaya devam etmek oynat düğmesine indirir.
-                KartOdak.BOLUM -> if (bolumIdx >= bolumler.lastIndex) odak = KartOdak.OYNAT else bolumIdx++
-                KartOdak.LISTE -> if (listeIdx >= LISTE_SIRASI.lastIndex) odak = KartOdak.OYNAT else listeIdx++
-                KartOdak.ORTA  -> odak = KartOdak.OYNAT
-                KartOdak.OYNAT -> Unit
+            PadMod.OZET -> when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_UP    -> kapsam.launch { ozetState.scrollTo((ozetState.value - 120).coerceAtLeast(0)) }
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN  -> kapsam.launch { ozetState.scrollTo(ozetState.value + 120) }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
+                android.view.KeyEvent.KEYCODE_BACK       -> mod = PadMod.PAD
+                else -> return false
             }
-            android.view.KeyEvent.KEYCODE_DPAD_CENTER,
-            android.view.KeyEvent.KEYCODE_ENTER,
-            android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> when (odak) {
-                // Bölüm seçmek oynatmaz: seçim karta döner, kaynak yoklanır,
-                // sonuç Oynat düğmesinde yazılı durur.
-                KartOdak.BOLUM -> { secilenBolum = bolumIdx; odak = KartOdak.OYNAT }
-                KartOdak.LISTE -> listeUygula(listeIdx)
-                else           -> oynat()
+            PadMod.BENZER -> when (code) {
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> if (benzerIdx == 0) mod = PadMod.PAD else benzerIdx--
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT ->
+                    benzerIdx = (benzerIdx + 1).coerceAtMost(((benzerler?.size ?: 1) - 1).coerceAtLeast(0))
+                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                android.view.KeyEvent.KEYCODE_ENTER      -> benzerler?.getOrNull(benzerIdx)?.let { benzerAc(it) }
+                android.view.KeyEvent.KEYCODE_BACK       -> mod = PadMod.PAD
+                else -> return false
             }
-            else -> return false
         }
         return true
     }
@@ -728,127 +779,213 @@ private fun PosterMenu(
             withFrameNanos {}
         }
     }
-    NmBackHandler(enabled = true) { onClose() }
+    NmBackHandler(enabled = true) { if (mod == PadMod.PAD) onClose() else mod = PadMod.PAD }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Opak zemin: yarı saydam scrim'de arkadaki raflar okunuyor, kartın
-            // üç sütunu dağınık görünüyordu (emülatör, 19 Eylül).
-            .background(NmColor.Background)
+            // Yarı saydam zemin: pad küçük, arkadaki raflar görünür kalsın —
+            // "hiçbir özellik tam sayfa olmasın".
+            .background(NmColor.ScrimSoft)
             .zIndex(10f)
             .focusRequester(kartFocus)
             .onKeyEvent { ke ->
                 if (ke.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) true
                 else tus(ke.nativeKeyEvent.keyCode)
             }
-            .focusable()
-            .padding(NmDim.SafeArea),
+            .focusable(),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                // SOL — bölümler. Filmde sütun hiç yok, orta genişler.
-                if (bolumler.isNotEmpty()) {
-                    Column(Modifier.weight(0.28f).fillMaxHeight()) {
-                        SutunBasligi("Bölümler (${bolumler.size})", odak == KartOdak.BOLUM)
-                        LazyColumn(state = bolumState, modifier = Modifier.fillMaxHeight()) {
-                            itemsIndexed(bolumler) { i, ep ->
-                                val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${i + 1}"
-                                val ad = ep.title?.takeIf { it.isNotBlank() }
-                                KartSatir(
-                                    label = if (ad != null) "$numara · $ad" else numara,
-                                    secili = odak == KartOdak.BOLUM && i == bolumIdx,
-                                    isaretli = i == secilenBolum,
+        Column(
+            modifier = Modifier
+                .width(620.dp)
+                .wrapContentHeight()
+                .clip(RoundedCornerShape(NmDim.PanelRadius))
+                .background(NmColor.SurfaceHigh)
+                .padding(18.dp),
+        ) {
+            // Künye — hangi içerikte olduğun her katmanda görünür.
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    Modifier
+                        .width(62.dp)
+                        .aspectRatio(2f / 3f)
+                        .clip(RoundedCornerShape(NmDim.CardRadius)),
+                ) {
+                    PosterImage(poster = detay?.poster ?: item.poster, title = item.title)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = detay?.title ?: item.title.orEmpty(),
+                        fontSize = NmType.RowTitle,
+                        fontWeight = FontWeight.Bold,
+                        color = NmColor.OnSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val kunye = listOfNotNull(
+                        detay?.yearText?.takeIf { it.isNotBlank() },
+                        detay?.ratingText?.takeIf { it.isNotBlank() }?.let { "★ " + it },
+                        detay?.tagsText?.takeIf { it.isNotBlank() },
+                    ).joinToString("  ·  ")
+                    if (kunye.isNotBlank()) {
+                        Text(
+                            text = kunye,
+                            fontSize = NmType.Caption,
+                            color = NmColor.OnSurfaceMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    val diller = (yoklama as? Yoklama.Bulundu)?.diller.orEmpty()
+                    if (diller.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { diller.forEach { Rozet(it) } }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            when (mod) {
+                // Merkez: yön işaretleri. Hangi yönde ne var, ezberlenmesin diye yazılı.
+                PadMod.PAD -> {
+                    val bolumEtiketi = secilenBolum?.let { i ->
+                        bolumler.getOrNull(i)?.let { " — S" + it.season + "B" + (it.episode ?: (i + 1)) } ?: ""
+                    }.orEmpty()
+                    if (bolumler.isNotEmpty()) {
+                        Text(
+                            text = "▲  Bölümler (" + bolumler.size + ")",
+                            fontSize = NmType.Caption,
+                            color = NmColor.OnSurfaceMuted,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("◀  Özet", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+                        Box(Modifier.weight(1f)) {
+                            KartSatir(
+                                label = "▶  Oynat" + bolumEtiketi + yoklama.kuyruk(),
+                                secili = true,
+                                buyuk = true,
+                            )
+                        }
+                        Text("Benzerleri  ▶", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+                    }
+                    Text(
+                        text = "▼  Listeler",
+                        fontSize = NmType.Caption,
+                        color = NmColor.OnSurfaceMuted,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                }
+
+                // YUKARI: bölümler — küçük liste, pad'in içinde kalır.
+                PadMod.BOLUM -> {
+                    SutunBasligi("Bölümler (" + bolumler.size + ")", true)
+                    LazyColumn(state = bolumState, modifier = Modifier.heightIn(max = 260.dp)) {
+                        itemsIndexed(bolumler) { i, ep ->
+                            val numara = ep.episode?.let { "S" + ep.season + "B" + it } ?: ("Bölüm " + (i + 1))
+                            val ad = ep.title?.takeIf { it.isNotBlank() }
+                            KartSatir(
+                                label = if (ad != null) numara + " · " + ad else numara,
+                                secili = i == bolumIdx,
+                                isaretli = i == secilenBolum,
+                            )
+                        }
+                    }
+                }
+
+                // AŞAĞI: üç düğme yan yana — izleneceklerim, takip, beğendiklerim.
+                PadMod.LISTE -> {
+                    SutunBasligi("Listeler", true)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            KartSatir(
+                                label = if (library.inIzlenecek(item)) "☆ İzleneceklerde ✓" else "☆ İzleneceklere",
+                                secili = listeIdx == 0,
+                            )
+                        }
+                        Box(Modifier.weight(1f)) {
+                            KartSatir(
+                                label = if (library.inTakip(item)) "📋 Takipte ✓" else "📋 Takip et",
+                                secili = listeIdx == 1,
+                            )
+                        }
+                        Box(Modifier.weight(1f)) {
+                            KartSatir(
+                                label = if (library.isFavorite(item)) "★ Beğendim ✓" else "★ Beğendim",
+                                secili = listeIdx == 2,
+                            )
+                        }
+                    }
+                }
+
+                // SOL: özet — orta boy, kaydırılabilir.
+                PadMod.OZET -> {
+                    SutunBasligi("Özet", true)
+                    Column(Modifier.heightIn(max = 240.dp).verticalScroll(ozetState)) {
+                        Text(
+                            text = detay?.description?.takeIf { it.isNotBlank() } ?: "Özet yok.",
+                            fontSize = NmType.Caption,
+                            color = NmColor.OnSurfaceMuted,
+                        )
+                    }
+                }
+
+                // SAĞ: benzerleri — yatay şerit. Katalog kartı değil, TMDB başlığı.
+                PadMod.BENZER -> {
+                    SutunBasligi("Benzerleri", true)
+                    if (benzerDurum.isNotBlank()) {
+                        Text(benzerDurum, fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+                    }
+                    LazyRow(
+                        state = benzerState,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        itemsIndexed(benzerler.orEmpty()) { i, b ->
+                            Column(Modifier.width(92.dp)) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(2f / 3f)
+                                        .clip(RoundedCornerShape(NmDim.CardRadius))
+                                        .nmFocusRing(i == benzerIdx, RoundedCornerShape(NmDim.CardRadius)),
+                                ) {
+                                    PosterImage(poster = b.poster, title = b.title)
+                                }
+                                Text(
+                                    text = b.title,
+                                    fontSize = NmType.Caption,
+                                    color = if (i == benzerIdx) NmColor.OnSurface else NmColor.OnSurfaceMuted,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
                     }
                 }
-
-                // ORTA — resim, künye, özet, dil.
-                Row(
-                    modifier = Modifier.weight(0.44f).fillMaxHeight(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    Box(
-                        Modifier
-                            .width(110.dp)
-                            .aspectRatio(2f / 3f)
-                            .clip(RoundedCornerShape(NmDim.CardRadius)),
-                    ) {
-                        PosterImage(poster = detay?.poster ?: item.poster, title = item.title)
-                    }
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                        Text(
-                            text = detay?.title ?: item.title.orEmpty(),
-                            fontSize = NmType.RowTitle,
-                            fontWeight = FontWeight.Bold,
-                            color = NmColor.OnSurface,
-                        )
-                        val kunye = listOfNotNull(
-                            detay?.yearText?.takeIf { it.isNotBlank() },
-                            detay?.ratingText?.takeIf { it.isNotBlank() }?.let { "★ $it" },
-                            detay?.tagsText?.takeIf { it.isNotBlank() },
-                        ).joinToString("  ·  ")
-                        if (kunye.isNotBlank()) {
-                            Text(kunye, fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = detay?.description?.takeIf { it.isNotBlank() } ?: "Özet yok.",
-                            fontSize = NmType.Caption,
-                            color = NmColor.OnSurfaceMuted,
-                            // ORTA seçiliyken tam metin; değilken kart taşmasın.
-                            maxLines = if (odak == KartOdak.ORTA) 40 else 6,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        // Dil rozetleri: dublaj var mı, OYNAT'a basmadan görünsün.
-                        val diller = (yoklama as? Yoklama.Bulundu)?.diller.orEmpty()
-                        if (diller.isNotEmpty()) {
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                diller.forEach { Rozet(it) }
-                            }
-                        }
-                    }
-                }
-
-                // SAĞ — listeler.
-                Column(Modifier.weight(0.28f)) {
-                    SutunBasligi("Listeler", odak == KartOdak.LISTE)
-                    KartSatir(
-                        label = if (library.inIzlenecek(item)) "☆  İzleneceklerde ✓" else "☆  İzleneceklere ekle",
-                        secili = odak == KartOdak.LISTE && listeIdx == 0,
-                    )
-                    KartSatir(
-                        label = if (library.inTakip(item)) "📋  Takipte ✓" else "📋  Takip et",
-                        secili = odak == KartOdak.LISTE && listeIdx == 1,
-                    )
-                    KartSatir(
-                        label = if (library.isFavorite(item)) "★  Beğendiklerimde ✓" else "★  Beğendiklerime ekle",
-                        secili = odak == KartOdak.LISTE && listeIdx == 2,
-                    )
-                }
             }
 
-            // ALT — oynat. Seçilen bölüm ve kaynak yoklaması burada yazılı durur.
-            val bolumEtiketi = secilenBolum?.let { i ->
-                bolumler.getOrNull(i)?.let { " — S${it.season}B${it.episode ?: (i + 1)}" } ?: ""
-            }.orEmpty()
-            Spacer(Modifier.height(10.dp))
-            KartSatir(
-                label = "▶  Oynat$bolumEtiketi${yoklama.kuyruk()}",
-                secili = odak == KartOdak.OYNAT,
-                buyuk = true,
-            )
             Text(
-                text = "◀ bölümler   ▶ listeler   ▼ oynat   OK seç   GERİ kapat",
+                text = when (mod) {
+                    PadMod.PAD    -> "OK oynat   ◀▲▶▼ yönler   GERİ kapat"
+                    PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
+                    PadMod.LISTE  -> "◀▶ seç   OK ekle/çıkar   GERİ pad"
+                    PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
+                    PadMod.BENZER -> "◀▶ gez   OK ara ve aç   GERİ pad"
+                },
                 fontSize = NmType.Caption,
                 color = NmColor.OnSurfaceFaint,
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = 10.dp),
             )
         }
     }

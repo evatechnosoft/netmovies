@@ -92,6 +92,13 @@ interface NetMoviesApi {
         @Query("group") group: Int? = null,
     ): MainPageResponse
 
+    // Benzer yapımlar (TMDB). Katalog ucu değil: sonuç başlıkları aramaya beslenir.
+    @GET("similar")
+    suspend fun similar(
+        @Query("title") title: String,
+        @Query("type") type: String = "",
+    ): SimilarResponse
+
     // Tek eklentide arama — ham liste, süzme YOK. Yeni yerde kullanma.
     @GET("api/v1/search")
     suspend fun search(
