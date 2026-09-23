@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -48,7 +49,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -770,6 +773,13 @@ private fun PosterMenu(
         return true
     }
 
+    // Pad'i AÇAN uzun basış hâlâ basılı: framework OK'un ACTION_DOWN tekrarlarını
+    // yeni odaklanan düğüme — yani pad'e — göndermeye devam ediyor. Pad o tekrarı
+    // "OK'a basıldı" sayıp ORTA düğmeyi (Oynat) anında çalıştırıyordu: kullanıcı
+    // henüz parmağını kaldırmadan komut gidiyordu. Pad, kendi gördüğü ilk
+    // BIRAKMAYA kadar hiçbir tuşu işlemez.
+    var tusHazir by remember(item.url) { mutableStateOf(false) }
+
     val kartFocus = remember { FocusRequester() }
     // Tek `requestFocus()` ilk karede henüz yerleşmemiş düğümde sessizce başarısız
     // olur; tuşlar o zaman hiçbir yere gitmez (oynatıcıda aynı tuzak yaşandı).
@@ -790,98 +800,107 @@ private fun PosterMenu(
             .zIndex(10f)
             .focusRequester(kartFocus)
             .onKeyEvent { ke ->
-                if (ke.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) true
-                else tus(ke.nativeKeyEvent.keyCode)
+                val ne = ke.nativeKeyEvent
+                when (ne.action) {
+                    android.view.KeyEvent.ACTION_UP -> { tusHazir = true; true }
+                    // Pad'i açan basışın tekrarları yutulur (bkz. `tusHazir`).
+                    android.view.KeyEvent.ACTION_DOWN -> if (tusHazir) tus(ne.keyCode) else true
+                    else -> true
+                }
             }
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier = Modifier
-                .width(620.dp)
+                // PAD küçük bir yoncadır, tam sayfa kart değil (Dean: "çok saçma bir
+                // kart açılıyor"). Alt modlar liste/özet taşıdığı için geniş kalır.
+                .width(if (mod == PadMod.PAD) 250.dp else 620.dp)
                 .wrapContentHeight()
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .background(NmColor.SurfaceHigh)
                 .padding(18.dp),
         ) {
-            // Künye — hangi içerikte olduğun her katmanda görünür.
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    Modifier
-                        .width(62.dp)
-                        .aspectRatio(2f / 3f)
-                        .clip(RoundedCornerShape(NmDim.CardRadius)),
-                ) {
-                    PosterImage(poster = detay?.poster ?: item.poster, title = item.title)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = detay?.title ?: item.title.orEmpty(),
-                        fontSize = NmType.RowTitle,
-                        fontWeight = FontWeight.Bold,
-                        color = NmColor.OnSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val kunye = listOfNotNull(
-                        detay?.yearText?.takeIf { it.isNotBlank() },
-                        detay?.ratingText?.takeIf { it.isNotBlank() }?.let { "★ " + it },
-                        detay?.tagsText?.takeIf { it.isNotBlank() },
-                    ).joinToString("  ·  ")
-                    if (kunye.isNotBlank()) {
+            // PAD modunda künye TEK SATIR: yonca küçük kalsın. Alt modlarda
+            // (bölüm listesi, özet) afişli künye bağlamı taşır.
+            if (mod == PadMod.PAD) {
+                Text(
+                    text = detay?.title ?: item.title.orEmpty(),
+                    fontSize = NmType.RowTitle,
+                    fontWeight = FontWeight.Bold,
+                    color = NmColor.OnSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+            } else {
+                // Künye — hangi içerikte olduğun her katmanda görünür.
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier
+                            .width(62.dp)
+                            .aspectRatio(2f / 3f)
+                            .clip(RoundedCornerShape(NmDim.CardRadius)),
+                    ) {
+                        PosterImage(poster = detay?.poster ?: item.poster, title = item.title)
+                    }
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            text = kunye,
-                            fontSize = NmType.Caption,
-                            color = NmColor.OnSurfaceMuted,
+                            text = detay?.title ?: item.title.orEmpty(),
+                            fontSize = NmType.RowTitle,
+                            fontWeight = FontWeight.Bold,
+                            color = NmColor.OnSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    }
-                    val diller = (yoklama as? Yoklama.Bulundu)?.diller.orEmpty()
-                    if (diller.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { diller.forEach { Rozet(it) } }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            when (mod) {
-                // Merkez: yön işaretleri. Hangi yönde ne var, ezberlenmesin diye yazılı.
-                PadMod.PAD -> {
-                    val bolumEtiketi = secilenBolum?.let { i ->
-                        bolumler.getOrNull(i)?.let { " — S" + it.season + "B" + (it.episode ?: (i + 1)) } ?: ""
-                    }.orEmpty()
-                    if (bolumler.isNotEmpty()) {
-                        Text(
-                            text = "▲  Bölümler (" + bolumler.size + ")",
-                            fontSize = NmType.Caption,
-                            color = NmColor.OnSurfaceMuted,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("◀  Özet", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
-                        Box(Modifier.weight(1f)) {
-                            KartSatir(
-                                label = "▶  Oynat" + bolumEtiketi + yoklama.kuyruk(),
-                                secili = true,
-                                buyuk = true,
+                        val kunye = listOfNotNull(
+                            detay?.yearText?.takeIf { it.isNotBlank() },
+                            detay?.ratingText?.takeIf { it.isNotBlank() }?.let { "★ " + it },
+                            detay?.tagsText?.takeIf { it.isNotBlank() },
+                        ).joinToString("  ·  ")
+                        if (kunye.isNotBlank()) {
+                            Text(
+                                text = kunye,
+                                fontSize = NmType.Caption,
+                                color = NmColor.OnSurfaceMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        Text("Benzerleri  ▶", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+                        val diller = (yoklama as? Yoklama.Bulundu)?.diller.orEmpty()
+                        if (diller.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { diller.forEach { Rozet(it) } }
+                        }
                     }
-                    Text(
-                        text = "▼  Listeler",
-                        fontSize = NmType.Caption,
-                        color = NmColor.OnSurfaceMuted,
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    )
+                }
+
+                Spacer(Modifier.height(14.dp))
+            }
+
+            when (mod) {
+                // YONCA: dört küçük ikon + ortada oynat. Yazı yok — Dean: "isim
+                // yazmasına gerek yok, küçük sadece ikon". Ne olduğu alt satırdaki
+                // ipucu şeridinde yazar, düğmenin üstünde değil.
+                PadMod.PAD -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        // Detay gelmediyse kol soluk ama "bölüm yok" demek değil.
+                        YoncaKol("☰", aktif = bolumler.isNotEmpty() || detay == null)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            YoncaKol("ℹ")
+                            YoncaOrta()
+                            YoncaKol("✧")
+                        }
+                        YoncaKol("☆")
+                    }
                 }
 
                 // YUKARI: bölümler — küçük liste, pad'in içinde kalır.
@@ -977,7 +996,7 @@ private fun PosterMenu(
 
             Text(
                 text = when (mod) {
-                    PadMod.PAD    -> "OK oynat   ◀▲▶▼ yönler   GERİ kapat"
+                    PadMod.PAD    -> "▶ oynat · ☰ bölüm · ℹ özet · ✧ benzer · ☆ liste"
                     PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
                     PadMod.LISTE  -> "◀▶ seç   OK ekle/çıkar   GERİ pad"
                     PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
@@ -985,7 +1004,8 @@ private fun PosterMenu(
                 },
                 fontSize = NmType.Caption,
                 color = NmColor.OnSurfaceFaint,
-                modifier = Modifier.padding(top = 10.dp),
+                textAlign = if (mod == PadMod.PAD) TextAlign.Center else TextAlign.Start,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             )
         }
     }
@@ -1000,6 +1020,40 @@ private fun SutunBasligi(text: String, aktif: Boolean) {
         color = if (aktif) NmColor.Primary else NmColor.OnSurfaceMuted,
         modifier = Modifier.padding(bottom = 6.dp),
     )
+}
+
+/** Yoncanın bir yön kolu: tek ikon, küçük kare. Pasifse soluk çizilir. */
+@Composable
+private fun YoncaKol(ikon: String, aktif: Boolean = true) {
+    Box(
+        modifier = Modifier
+            .size(58.dp)
+            .clip(RoundedCornerShape(NmDim.RowRadius))
+            .background(NmColor.ScrimSoft),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = ikon,
+            fontSize = NmType.Body,
+            color = if (aktif) NmColor.OnSurface else NmColor.OnSurfaceFaint,
+        )
+    }
+}
+
+/** Yoncanın ortası: OK'un doğrudan çalıştırdığı eylem (oynat), hep vurgulu. */
+@Composable
+private fun YoncaOrta() {
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Box(
+        modifier = Modifier
+            .size(58.dp)
+            .clip(shape)
+            .background(NmColor.Primary)
+            .nmFocusRing(true, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("▶", fontSize = NmType.Body, fontWeight = FontWeight.Bold, color = NmColor.OnPrimary)
+    }
 }
 
 /** Kart içindeki tek satır. Seçim index'ten gelir — Compose odağı kullanılmaz. */
