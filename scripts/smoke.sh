@@ -86,12 +86,6 @@ for kind in movie serie serie_local serie_foreign live; do
   fi
 done
 
-# 5) Canlı kanal ucu — TV istemcisinin canlı rafı bu uçtan besleniyor.
-step "Canlı kanallar (quick_channels)"
-channels="$(curl -s --max-time 60 "${AUTH_ARGS[@]}" "$BASE/api/v1/quick_channels" \
-  | "$PY" -c 'import json,sys; print(len(json.load(sys.stdin).get("result") or []))' 2>/dev/null || echo 0)"
-[[ "$channels" -gt 0 ]] && ok "$channels kanal" || fail "kanal listesi boş"
-
 # 6) Oynatma zinciri — TV, telefon ve web'in ortak ucu.
 step "Oynatma zinciri (resolve_sources)"
 first="$(curl -s --max-time 60 "${AUTH_ARGS[@]}" "$BASE/api/v1/aggregate_new?type=movie"   | "$PY" -c 'import json,sys; items=(json.load(sys.stdin).get("result") or {}).get("items") or []; i=items[0] if items else {}; print(i.get("plugin",""));print(i.get("url",""));print(i.get("title",""))' 2>/dev/null)"

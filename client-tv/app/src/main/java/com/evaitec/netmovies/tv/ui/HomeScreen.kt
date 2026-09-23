@@ -49,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -405,7 +406,6 @@ private fun TopBar(
         // kalmasın"). Gözat aramanın hemen yanında, başta.
         TvTopBarButton("🔎", onClick = onOpenSearch, compact = true)
         TvTopBarButton("▦", onClick = onOpenBrowse, compact = true)
-        TvTopBarButton("📡", onClick = onOpenChannels, compact = true)
         TvTopBarButton("🗓", onClick = onOpenAgenda, compact = true)
         TvTopBarButton("★", onClick = onOpenFollowing, compact = true)
         Spacer(Modifier.weight(1f))
@@ -415,6 +415,9 @@ private fun TopBar(
 }
 
 // 📱: tek dokunuş, uygulama içinde RemoteScreen (tarayıcıya atmaz).
+
+// OK bu süre basılı kalırsa posterde joystick açılır (kumanda tekrar yollamasa da).
+private const val UZUN_BASIS_MS = 500L
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -435,6 +438,18 @@ private fun PosterCard(
     // tekrarlar; bırakıştaki ACTION_UP yutulur, yoksa menü açılır açılmaz
     // arkasından kart da açılır.
     var uzunBasildi by remember { mutableStateOf(false) }
+    // Kumanda yolu: onKeyEvent clickable'dan SONRA duruyordu — odak hedefinin altında
+    // kaldığı için olay ona hiç ulaşmıyordu; uzun basış Mi Box'ta hiç açılmadı.
+    // onPreviewKeyEvent clickable'dan ÖNCE: OK'un tamamı burada, tek-bas/uzun-bas
+    // kararı tek yerde. Tekrar göndermeyen kumanda için süre dolunca da açılır.
+    val scope = rememberCoroutineScope()
+    var uzunZamanlayici by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val uzunBas = {
+        if (!uzunBasildi) {
+            uzunBasildi = true
+            onLongPress()
+        }
+    }
     val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "posterScale")
     val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
@@ -447,40 +462,37 @@ private fun PosterCard(
             .background(NmColor.SurfaceHigh)
             .nmFocusRingOnly(focused, shape)
             .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(
-                // Uzun basış işlendiyse bırakıştaki tek-bas yutulur. Tuş olayını
-                // kimin önce gördüğü (clickable mı, aşağıdaki onKeyEvent mi)
-                // sıraya bağlı; iki yol da aynı bayrağa bakınca sonuç tek eylem.
-                onClick     = { if (uzunBasildi) uzunBasildi = false else onClick() },
-                onLongClick = onLongPress,
-            )
-            // Zincirde clickable'dan SONRA: tuş olayı önce buraya gelir, uzun
-            // basışta tüketilir ve clickable'ın "tek bas" yoluna hiç düşmez.
-            .onKeyEvent { ke ->
+            .onPreviewKeyEvent { ke ->
                 val ne = ke.nativeKeyEvent
                 if (ne.keyCode != android.view.KeyEvent.KEYCODE_DPAD_CENTER &&
-                    ne.keyCode != android.view.KeyEvent.KEYCODE_ENTER
+                    ne.keyCode != android.view.KeyEvent.KEYCODE_ENTER &&
+                    ne.keyCode != android.view.KeyEvent.KEYCODE_NUMPAD_ENTER
                 ) {
                     false
-                } else when (ne.action) {
-                    android.view.KeyEvent.ACTION_DOWN ->
-                        if ((ne.isLongPress || ne.repeatCount > 0) && !uzunBasildi) {
-                            uzunBasildi = true
-                            onLongPress()
-                            true
-                        } else {
-                            false
-                        }
-                    android.view.KeyEvent.ACTION_UP ->
-                        if (uzunBasildi) {
+                } else {
+                    when (ne.action) {
+                        android.view.KeyEvent.ACTION_DOWN ->
+                            if (ne.repeatCount == 0) {
+                                uzunBasildi = false
+                                uzunZamanlayici?.cancel()
+                                uzunZamanlayici = scope.launch {
+                                    kotlinx.coroutines.delay(UZUN_BASIS_MS)
+                                    uzunBas()
+                                }
+                            } else if (ne.isLongPress || ne.repeatCount > 0) {
+                                uzunBas()
+                            }
+                        android.view.KeyEvent.ACTION_UP -> {
+                            uzunZamanlayici?.cancel()
+                            if (!uzunBasildi) onClick()
                             uzunBasildi = false
-                            true
-                        } else {
-                            false
                         }
-                    else -> false
+                    }
+                    true
                 }
-            },
+            }
+            // Dokunma yolu (telefon): uzun basış pointer'la burada.
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
         PosterImage(poster = item.poster, title = item.title)
         // Başlık degradesi — poster ne olursa olsun yazı okunur kalsın.
@@ -1272,7 +1284,6 @@ private fun SettingsMenu(
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
-        MenuRow("📡  Canlı TV", onClick = { onClose(); onOpenChannels() })
         MenuRow("📋  Listem — Takip Ettiklerim", onClick = { onClose(); onOpenFollowing() })
         MenuRow("🗓  Ajanda — Bu Hafta Ne Var", onClick = { onClose(); onOpenAgenda() })
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })

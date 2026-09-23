@@ -55,17 +55,6 @@ async def ana_sayfa(request: Request):
             except Exception:
                 return []  # kaynak yeni-çıkanlar veremezse ana sayfa yine açılsın
 
-        async def _quick_channels() -> list:
-            try:
-                if provider_url:
-                    return (await asyncio.wait_for(client.get_quick_channels(), timeout=3))[:60]
-                quick_payload = await fuck_dmca(
-                    "/quick_channels", timeout=3, client_headers=get_client_headers(request)
-                )
-                return quick_payload[:60] if isinstance(quick_payload, list) else []
-            except Exception:
-                return []
-
         async def _home_categories() -> list:
             # Sabit kategori kartları — içerik gerektirmez, her zaman tıklanabilir.
             try:
@@ -82,13 +71,11 @@ async def ana_sayfa(request: Request):
             yeni_filmler,
             yeni_turk_diziler,
             yeni_yabanci_diziler,
-            quick_channels,
             home_categories,
         ) = await asyncio.gather(
             _aggregate("movie"),
             _aggregate("serie_local"),
             _aggregate("serie_foreign"),
-            _quick_channels(),
             _home_categories(),
         )
 
@@ -106,7 +93,6 @@ async def ana_sayfa(request: Request):
             "yeni_filmler" : yeni_filmler,
             "yeni_turk_diziler" : yeni_turk_diziler,
             "yeni_yabanci_diziler" : yeni_yabanci_diziler,
-            "quick_channels": quick_channels,
         })
 
         response = home_template.TemplateResponse(request=request, name="pages/home.html.j2", context=context)

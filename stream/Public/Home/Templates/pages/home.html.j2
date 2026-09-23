@@ -126,7 +126,6 @@
     <button type="button" class="qn-btn tv-focusable" data-panel="izlenecek"><i class="fas fa-bookmark"></i><span>İzlenecek</span></button>
     <span class="qn-sep" aria-hidden="true"></span>
     <button type="button" class="qn-btn tv-focusable" data-panel="kaynaklar"><i class="fas fa-plug"></i><span>Kaynaklar</span></button>
-    <button type="button" class="qn-btn tv-focusable" data-panel="kanallar"><i class="fas fa-broadcast-tower"></i><span>Kanallar</span></button>
 </nav>
 
 {# Panel gövdeleri — varsayılan gizli, üstteki buton toggle eder. #}
@@ -170,24 +169,6 @@
             </a>
             {% endfor %}
         </div>
-    </section>
-    <section class="qn-panel is-hidden" data-panel-body="kanallar">
-        <div class="qn-panel-head"><h2><i class="fas fa-broadcast-tower"></i> Kanallar <span class="section-count">{{ quick_channels | length }}</span></h2></div>
-        {% if quick_channels %}
-        <ul class="channels-list">
-            {% for channel in quick_channels %}
-            <li>
-                <a class="channels-list-item tv-focusable" href="/izle/{{ channel.plugin }}?url={{ channel.url | urlencode }}&baslik={{ channel.title | urlencode }}" aria-label="{{ channel.title }}">
-                    <i class="fas fa-broadcast-tower"></i><span class="channels-list-title">{{ channel.title }}</span>
-                    {%- if channel.simdi and channel.simdi.program %}
-                    {# Yayın rehberi (EPG): kanal listesinde asıl merak edilen "şu an ne oynuyor". #}
-                    <span class="channels-list-now">▶ {{ channel.simdi.program }}{% if channel.simdi.sonraki %} <span class="channels-list-next">› {{ channel.simdi.sonraki }}</span>{% endif %}</span>
-                    {%- endif %}
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}<p class="qn-empty">Kanal kaynağı tanımlı değil (M3U_SOURCES / RECTV_URL).</p>{% endif %}
     </section>
 </div>
 

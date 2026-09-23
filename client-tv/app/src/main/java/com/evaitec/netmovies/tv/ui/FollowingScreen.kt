@@ -70,13 +70,6 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
         runCatching { Network.api.following().result }
             .onSuccess { turkish = it.turkish; foreign = it.foreign }
             .onFailure { error = it.message ?: "Liste alınamadı" }
-        favKanallar = runCatching {
-            val secilen = okuFavoriler(Network.api.prefsGet().result)
-            val trSira = java.text.Collator.getInstance(java.util.Locale("tr", "TR"))
-            Network.api.quickChannels().result
-                .filter { it.url in secilen }
-                .sortedWith { a, b -> trSira.compare(a.title.orEmpty(), b.title.orEmpty()) }
-        }.getOrDefault(emptyList())
         loading = false
     }
 
