@@ -357,7 +357,7 @@ fun PlayerScreen(
     var gecisBekleyen by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(item.url) {
-        details = runCatching { Network.api.loadItem(aktifPlugin, aktifUrl).result }.getOrNull()
+        details = runCatching { Network.api.loadItem(aktifPlugin, aktifUrl, item.title, item.mediaType.ifBlank { null }).result }.getOrNull()
         // Bölüm listesi zincirden ÖNCE gelir: load_item tek istek, resolve_sources
         // ise sağlayıcı taraması. Panel böylece bölümleri anında gösterir ve
         // sıralama da uyumlu — sunucu bölümü aynı listeden indeksliyor

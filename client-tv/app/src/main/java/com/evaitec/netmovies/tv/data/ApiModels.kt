@@ -43,6 +43,9 @@ data class MediaItem(
     // Canlı kanallarda yayın rehberi (EPG): "şu an ne oynuyor". Rehberde
     // olmayan kanalda null gelir — kart yine çizilir, satır boş kalır.
     val simdi: NowPlaying? = null,
+    // İçerik türü ("serie"/"movie"). Kayıtlı listelerden gelen kartta dolu olur;
+    // sunucu, kayıtlı adres çürüdüğünde başlıktan kurtarmak için bunu kullanır.
+    @SerialName("media_type") val mediaType: String = "",
 )
 
 // /api/v1/quick_channels → kanal başına yayın rehberi satırı.

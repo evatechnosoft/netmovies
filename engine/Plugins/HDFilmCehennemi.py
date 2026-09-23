@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import random
 import re
 
@@ -36,21 +37,29 @@ from KekikStream.Core import (
 )
 
 try:
-    from Plugins.__kekik_domain import discover_main_url
+    from Plugins.__kekik_domain import discover_main_url, _is_alive
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
-    from __kekik_domain import discover_main_url
+    from __kekik_domain import discover_main_url, _is_alive
 
-# Upstream (Kekik-cloudstream) hâlâ ölü `.nl` adresini gösteriyor; `.nl` 403,
-# `.now` 200 döndüğü için bu aile override edilir. HDFC_URL ile elle sabitlenebilir.
-_MAIN_URL = discover_main_url(
-    "HDFilmCehennemi/src/main/kotlin/com/keyiflerolsun/HDFilmCehennemi.kt",
+# Upstream (Kekik-cloudstream) hâlâ ölü `.nl` adresini gösteriyor. Site TLD
+# atlıyor (.nl -> .now -> .land); tek adrese SABİTLEMEK ölünce sağlayıcıyı komple
+# düşürüyordu. Canlı olan ilk aday alınır, hiçbiri yoksa keşfe düşülür.
+# HDFC_URL ile elle sabitlenebilir.
+_TLD_ADAYLARI = (
+    "https://www.hdfilmcehennemi.land",
     "https://www.hdfilmcehennemi.now",
+    "https://www.hdfilmcehennemi.nl",
+)
+_MAIN_URL = os.getenv("HDFC_URL") or next(
+    (aday for aday in _TLD_ADAYLARI if _is_alive(aday, signature="hdfilmcehennemi")),
+    "",
+) or discover_main_url(
+    "HDFilmCehennemi/src/main/kotlin/com/keyiflerolsun/HDFilmCehennemi.kt",
+    "https://www.hdfilmcehennemi.land",
     "HDFC_URL",
 )
-if "hdfilmcehennemi" in _MAIN_URL and not _MAIN_URL.endswith(".now"):
-    _MAIN_URL = "https://www.hdfilmcehennemi.now"
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 

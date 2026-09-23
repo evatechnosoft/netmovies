@@ -618,7 +618,7 @@ private fun PosterMenu(
     // `episodes` boş döner ve YUKARI yönü hiç çizilmez.
     var detay by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ItemDetails?>(null) }
     LaunchedEffect(item.url) {
-        detay = runCatching { Network.api.loadItem(item.plugin, item.url).result }.getOrNull()
+        detay = runCatching { Network.api.loadItem(item.plugin, item.url, item.title, item.mediaType.ifBlank { null }).result }.getOrNull()
     }
     val bolumler = detay?.episodes.orEmpty()
 

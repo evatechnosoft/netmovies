@@ -12,7 +12,9 @@ class NetMoviesApiContractTest {
         val queryAnnotations = method.parameterAnnotations
             .flatMap { annotations -> annotations.filterIsInstance<Query>() }
 
-        assertEquals(listOf("plugin", "encoded_url"), queryAnnotations.map(Query::value))
+        // `title`/`type` kurtarma parametreleri: kayıtlı adres çürüdüğünde sunucu
+        // içeriği başlıktan başka sağlayıcıda bulur.
+        assertEquals(listOf("plugin", "encoded_url", "title", "type"), queryAnnotations.map(Query::value))
         assertTrue(queryAnnotations.single { it.value == "encoded_url" }.encoded)
     }
 }

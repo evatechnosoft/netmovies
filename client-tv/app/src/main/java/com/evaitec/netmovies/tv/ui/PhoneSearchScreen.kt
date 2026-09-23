@@ -243,7 +243,7 @@ private fun BilgiKarti(oge: MediaItem, onKapat: () -> Unit) {
     // Kart açılınca: bölüm listesi + açıklama (tek istek), sonra kaynak yoklaması.
     LaunchedEffect(saglayici, adres, secilenBolum) {
         kaynaklar = null
-        val detay = runCatching { Network.api.loadItem(saglayici, adres).result }.getOrNull()
+        val detay = runCatching { Network.api.loadItem(saglayici, adres, oge.title, oge.mediaType.ifBlank { null }).result }.getOrNull()
         bolumler = detay?.episodes.orEmpty()
         aciklama = detay?.description.orEmpty()
         // Dizide bölüm seçilmeden zincir taranmaz: hangi bölüm olduğu belli değil.

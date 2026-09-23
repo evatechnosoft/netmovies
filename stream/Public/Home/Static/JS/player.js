@@ -5,7 +5,7 @@ import { renderSimilarContent } from './utils/similar.min.js';
 
 // ── Next Episode ──────────────────────────────────────────────
 export async function initNextEpisode(meta, providerQueryAmp, apiBase) {
-    const { pluginName, contentUrl, season, episode } = meta;
+    const { pluginName, contentUrl, season, episode, contentTitle } = meta;
 
     if (!pluginName || !contentUrl) return;
 
@@ -13,7 +13,10 @@ export async function initNextEpisode(meta, providerQueryAmp, apiBase) {
     const currentEpisode = parseInt(episode, 10) || 0;
 
     try {
-        const apiUrl = `${apiBase}/api/v1/load_item?plugin=${encodeURIComponent(pluginName)}&encoded_url=${encodeURIComponent(contentUrl)}`;
+        // Başlık da gider: sağlayıcı adresi çürüdüyse sunucu içeriği başlıktan
+        // başka sağlayıcıda bulur, "sonraki bölüm" sessizce kaybolmaz.
+        const baslikParam = contentTitle ? `&title=${encodeURIComponent(contentTitle)}&type=serie` : '';
+        const apiUrl = `${apiBase}/api/v1/load_item?plugin=${encodeURIComponent(pluginName)}&encoded_url=${encodeURIComponent(contentUrl)}${baslikParam}`;
         const data   = await fetchJSON(apiUrl);
         const episodes = data?.result?.episodes ?? data?.episodes ?? [];
         if (!episodes.length) return;

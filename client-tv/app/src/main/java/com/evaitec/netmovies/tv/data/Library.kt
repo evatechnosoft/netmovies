@@ -98,6 +98,7 @@ class Library(context: Context) {
         title = row.title,
         url = encodedUrl(row.contentUrl),
         poster = row.poster.takeIf { it.isNotBlank() },
+        mediaType = row.mediaType,
     )
 
     private fun read(key: String): List<MediaItem> =

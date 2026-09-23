@@ -264,9 +264,14 @@ interface NetMoviesApi {
     suspend fun saveAdminConfig(@Body body: JsonObject): JsonObject
 
     // Dizi detayları ve bölüm listesi (dizi linki seçildiğinde bölümleri listelemek için)
+    // `title`/`type` isteğe bağlı: kayıtlı adres çürüdüğünde (sağlayıcı domain
+    // değiştirdi ya da kayıt bölüm sayfasını tutuyor) sunucu aynı içeriği
+    // başlıktan başka sağlayıcıda bulup döndürür.
     @GET("api/v1/load_item")
     suspend fun loadItem(
         @Query("plugin") plugin: String,
         @Query("encoded_url", encoded = true) url: String,
+        @Query("title") title: String? = null,
+        @Query("type") type: String? = null,
     ): ItemResponse
 }

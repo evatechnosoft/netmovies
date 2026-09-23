@@ -181,7 +181,11 @@ async function openSeries(item) {
     const card = item.card;
     card.classList.add('is-loading');
     try {
-        const response = await fetch(`/api/v1/load_item?plugin=${encode(item.plugin)}&encoded_url=${encode(item.url)}`);
+        // Başlık + tür de gider: kayıtlı adres çürüdüyse (sağlayıcı domain değiştirdi,
+        // ya da kayıt bölüm sayfasını tutuyor) sunucu aynı içeriği başka
+        // sağlayıcıda bulup döndürür — yoksa liste kartı kalıcı "bulunamadı".
+        const kurtarma = `&title=${encode(item.title || '')}&type=${encode(item.media_type || '')}`;
+        const response = await fetch(`/api/v1/load_item?plugin=${encode(item.plugin)}&encoded_url=${encode(item.url)}${kurtarma}`);
         const payload = await response.json();
         const content = payload?.result || payload;
         const episodes = Array.isArray(content?.episodes) ? content.episodes.filter(Boolean) : [];
