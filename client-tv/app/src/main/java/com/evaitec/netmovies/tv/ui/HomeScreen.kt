@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -813,28 +814,20 @@ private fun PosterMenu(
     ) {
         Column(
             modifier = Modifier
-                // PAD küçük bir yoncadır, tam sayfa kart değil (Dean: "çok saçma bir
-                // kart açılıyor"). Alt modlar liste/özet taşıdığı için geniş kalır.
-                .width(if (mod == PadMod.PAD) 250.dp else 620.dp)
+                // PAD: panel YOK. Dean: "arka alan ve açıklamaya gerek yok, küçük bir
+                // joystick gibi yeterli" — beş ikon ekranın üstünde serbest durur.
+                // Alt modlar (bölüm listesi, özet, benzerler) panelde kalır.
+                .then(if (mod == PadMod.PAD) Modifier.wrapContentWidth() else Modifier.width(620.dp))
                 .wrapContentHeight()
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
-                .background(NmColor.SurfaceHigh)
-                .padding(18.dp),
+                .then(
+                    if (mod == PadMod.PAD) Modifier
+                    else Modifier.background(NmColor.SurfaceHigh).padding(18.dp),
+                ),
         ) {
-            // PAD modunda künye TEK SATIR: yonca küçük kalsın. Alt modlarda
-            // (bölüm listesi, özet) afişli künye bağlamı taşır.
-            if (mod == PadMod.PAD) {
-                Text(
-                    text = detay?.title ?: item.title.orEmpty(),
-                    fontSize = NmType.RowTitle,
-                    fontWeight = FontWeight.Bold,
-                    color = NmColor.OnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(10.dp))
-            } else {
+            // PAD modunda künye de yok: joystick tek başına. Alt modlarda afişli
+            // künye hangi içerikte olduğunu taşır.
+            if (mod != PadMod.PAD) {
                 // Künye — hangi içerikte olduğun her katmanda görünür.
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
@@ -994,19 +987,22 @@ private fun PosterMenu(
                 }
             }
 
-            Text(
-                text = when (mod) {
-                    PadMod.PAD    -> "▶ oynat · ☰ bölüm · ℹ özet · ✧ benzer · ☆ liste"
-                    PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
-                    PadMod.LISTE  -> "◀▶ seç   OK ekle/çıkar   GERİ pad"
-                    PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
-                    PadMod.BENZER -> "◀▶ gez   OK ara ve aç   GERİ pad"
-                },
-                fontSize = NmType.Caption,
-                color = NmColor.OnSurfaceFaint,
-                textAlign = if (mod == PadMod.PAD) TextAlign.Center else TextAlign.Start,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            )
+            // İpucu şeridi PAD modunda yok: joystick açıklamasız durur.
+            if (mod != PadMod.PAD) {
+                Text(
+                    text = when (mod) {
+                        PadMod.PAD    -> "▶ oynat · ☰ bölüm · ℹ özet · ✧ benzer · ☆ liste"
+                        PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
+                        PadMod.LISTE  -> "◀▶ seç   OK ekle/çıkar   GERİ pad"
+                        PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
+                        PadMod.BENZER -> "◀▶ gez   OK ara ve aç   GERİ pad"
+                    },
+                    fontSize = NmType.Caption,
+                    color = NmColor.OnSurfaceFaint,
+                    textAlign = if (mod == PadMod.PAD) TextAlign.Center else TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                )
+            }
         }
     }
 }
@@ -1029,7 +1025,7 @@ private fun YoncaKol(ikon: String, aktif: Boolean = true) {
         modifier = Modifier
             .size(58.dp)
             .clip(RoundedCornerShape(NmDim.RowRadius))
-            .background(NmColor.ScrimSoft),
+            .background(NmColor.SurfaceHigh),   // panelsiz joystickte yarı saydam zemin afişte kayboluyordu
         contentAlignment = Alignment.Center,
     ) {
         Text(
