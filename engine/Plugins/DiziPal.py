@@ -37,19 +37,23 @@ _SIGNATURE = "dp-card"
 
 
 def _serves_content(url: str) -> bool:
-    try:
-        req = urllib.request.Request(f"{url}/diziler", headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            return _SIGNATURE in resp.read(200_000).decode("utf-8", "ignore")
-    except Exception:
-        return False
+    # The first connection of a cold process often times out; one retry keeps
+    # discovery from pinning a dead fallback for the whole engine lifetime.
+    req = urllib.request.Request(f"{url}/diziler", headers={"User-Agent": "Mozilla/5.0"})
+    for _ in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                return _SIGNATURE in resp.read(200_000).decode("utf-8", "ignore")
+        except Exception:
+            continue
+    return False
 
 
 def _discover() -> str:
     manual = os.getenv("DIZIPAL_URL")
     if manual:
         return manual.rstrip("/")
-    fallback = "https://dizipal2220.com"
+    fallback = "https://dizipal2221.com"
     if os.getenv("AUTO_DISCOVER_DOMAINS", "0").lower() not in ("1", "true", "yes"):
         return fallback
     if _serves_content(fallback):
@@ -63,6 +67,13 @@ def _discover() -> str:
             return hedef
     except Exception:
         pass
+    # Redirect chain stalls on an old number; probe the next ones by signature.
+    # ponytail: sequential 20-step scan at import, widen if the site jumps further.
+    start = int(re.search(r"(\d+)", fallback).group(1))
+    for n in range(start + 1, start + 21):
+        aday = f"https://dizipal{n}.com"
+        if _serves_content(aday):
+            return aday
     return fallback
 
 
