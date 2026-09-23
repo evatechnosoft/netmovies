@@ -357,12 +357,23 @@
   // `encoded_url` sunucuya OLDUĞU GİBİ gider. Katalog değeri zaten quote_plus ile
   // kodlu; URLSearchParams onu bir kez daha kodlayınca (%3A → %253A) engine adresi
   // çözemiyor ve zincir sessizce boş dönüyor — ekranda "kaynak bulunamadı".
-  function zincirYolu(kart, bolumSira) {
+  function zincirYolu(kart, bolumSira, mod) {
     return "/api/v1/resolve_sources?plugin=" + encodeURIComponent(kart.plugin) +
            "&encoded_url=" + kart.url +
            "&title=" + encodeURIComponent(kart.title || "") +
            "&episode=" + (bolumSira || 0) +
-           "&mode=fast";
+           "&mode=" + (mod || "fast");
+  }
+
+  // Seçili sağlayıcı çökünce (ör. site 522) fast boş döner; APK gibi alternatif
+  // sağlayıcılara (mode=full) düş, yoksa ekranda "kaynak bulunamadı" kalıyordu.
+  function zincir(kart, bolumSira) {
+    return api(zincirYolu(kart, bolumSira, "fast")).then(function (y) {
+      var r = y.result || {};
+      if ((r.sources || []).length || (r.episodes || []).length) return y;
+      durum("Alternatif sağlayıcılar aranıyor…");
+      return api(zincirYolu(kart, bolumSira, "full"));
+    });
   }
 
   function sec() {
@@ -376,7 +387,7 @@
   // diziyi çözerken bölümleri de döndürüyor.
   function bolumAc(kart) {
     durum("Bölümler alınıyor…");
-    api(zincirYolu(kart, 0)).then(function (y) {
+    zincir(kart, 0).then(function (y) {
       var r = (y.result || {});
       bolumler = r.episodes || [];
       if (!bolumler.length) {
@@ -444,7 +455,7 @@
       });
       return;
     }
-    api(zincirYolu(kart, bolumSira)).then(function (y) {
+    zincir(kart, bolumSira).then(function (y) {
       oynatKaynakla(kart, ((y.result || {}).sources) || [], bolumRef);
     }).catch(function () { durum("Kaynak alınamadı"); setTimeout(function () { durum(""); }, 2500); });
   }
