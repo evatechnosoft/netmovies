@@ -8,7 +8,7 @@ else { Write-Host "  silindi" -ForegroundColor Green }
 
 Write-Host "== 2/3  Docker sanal diski sikistiriliyor (~35 GB)" -ForegroundColor Cyan
 $vhdx = "$env:LOCALAPPDATA\Docker\wsl\disk\docker_data.vhdx"
-Get-Process "Docker Desktop" -EA SilentlyContinue | Stop-Process -Force
+Get-Process "Docker Desktop","com.docker.*" -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 8
 wsl --shutdown
 Start-Sleep -Seconds 6
