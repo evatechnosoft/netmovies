@@ -31,6 +31,7 @@ object ServerResolver {
     private const val KEY_LAST   = "last_local"
     private const val PORT       = 3310
     private const val SCAN_MISS_TTL_MS = 5 * 60 * 1000L
+    private const val LOCAL_RECHECK_MS = 60 * 1000L
 
     // Ev ağları. Cihazın kendi alt ağı ayrıca eklenir; burada olmayan bir ağa
     // taşınsa bile kendi /24'ü taranır.
@@ -51,6 +52,7 @@ object ServerResolver {
     @Volatile private var active: HttpUrl? = null
     @Volatile private var prefs: SharedPreferences? = null
     @Volatile private var lastScanMissAt = 0L
+    @Volatile private var lastLocalRecheckAt = 0L
 
     /** Uygulama açılışında bir kez: son çalışan adresin hatırlanabilmesi için. */
     fun init(context: Context) {
@@ -77,7 +79,17 @@ object ServerResolver {
 
     /** Aktif sunucu adresi (cache'li). İlk çağrıda yerel adayları yoklar, gerekirse ağı tarar. */
     fun activeBase(): HttpUrl {
-        active?.let { return it }
+        active?.let { cur ->
+            // Tünel yapışkandı: sunucu yeniden başlarken yerel port birkaç saniye
+            // kapanınca TV tünele düşüyor, tünel çalıştığı için bir daha hata
+            // almayıp hiç dönmüyordu — video Cloudflare'den akıp takılıyordu.
+            // Uzaktaysak dakikada bir hızlı yerel yoklama (tarama değil) yap.
+            if (cur.host != BuildConfig.BASE_URL.toHttpUrl().host) return cur
+            val now = System.currentTimeMillis()
+            if (now - lastLocalRecheckAt < LOCAL_RECHECK_MS) return cur
+            lastLocalRecheckAt = now
+            return quickLocal()?.also { active = it } ?: cur
+        }
         return synchronized(this) {
             active ?: run {
                 val remote = BuildConfig.BASE_URL.toHttpUrl()
@@ -88,10 +100,14 @@ object ServerResolver {
         }
     }
 
-    private fun discoverLocal(): HttpUrl? {
+    private fun quickLocal(): HttpUrl? {
         val remembered = prefs?.getString(KEY_LAST, null)?.toHttpUrlOrNull()
         val quick = listOfNotNull(remembered) + localCandidates(BuildConfig.LOCAL_URL)
-        firstAlive(quick, probe)?.let { return it.also(::remember) }
+        return firstAlive(quick, probe)?.also(::remember)
+    }
+
+    private fun discoverLocal(): HttpUrl? {
+        quickLocal()?.let { return it }
 
         // Tarama pahalı (≤508 bağlantı); ev dışında her yeniden yüklemede tekrarlanmasın.
         if (System.currentTimeMillis() - lastScanMissAt < SCAN_MISS_TTL_MS) return null
