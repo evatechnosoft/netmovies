@@ -30,12 +30,77 @@ class PlayerUiState {
     var keyHint by mutableStateOf<String?>(null)
     var keyTick by mutableIntStateOf(0)
 
-    fun flashControls(): Unit = TODO("keys")
+    fun flashControls() { showControls = true; controlsTick++ }
+
+    /** Eski `panelAcik`: açılış atla / sonraki bölüm teklifi bu panellerde devre dışı. */
+    fun panelAcik(core: PlayerCore): Boolean =
+        core.showStartPanel || showSettings || showSeek || scrubMode
 
     /**
      * GERİ önceliği (eski PlayerScreen:643-666 ile birebir): geri sayım → iptal;
      * scrub → kapat; başlangıç paneli → liste/sezon kapat, kaynak varsa OYNAT, yoksa
      * çık; ayarlar → kapat (+paneli geri getir); kontroller → gizle; yoksa [onExit].
      */
-    fun onBack(core: PlayerCore, onExit: () -> Unit): Unit = TODO("keys")
+    fun onBack(core: PlayerCore, onExit: () -> Unit) {
+        val cokSezon = core.episodes.map { it.season }.distinct().size > 1
+        when (
+            geriEylemi(
+                geriSayimVar = core.geriSayim != null,
+                scrub = scrubMode,
+                baslangicPaneli = core.showStartPanel,
+                liste = panelAsList,
+                bolumSayfasi = secilenSezon != null && cokSezon,
+                kaynakVar = core.links.isNotEmpty(),
+                ayarlar = showSettings,
+                kontroller = showControls,
+            )
+        ) {
+            GeriEylem.SAYIMI_IPTAL -> core.otoGecisIptal = true
+            GeriEylem.SCRUB_KAPAT -> scrubMode = false
+            GeriEylem.SEZONLARA_DON -> secilenSezon = null
+            GeriEylem.LISTEYI_KAPAT -> { core.showStartPanel = false; panelAsList = false }
+            GeriEylem.OYNAT -> core.panelOynat()
+            GeriEylem.AYARLARI_KAPAT -> {
+                showSettings = false
+                if (panelGeriGelsin) { panelGeriGelsin = false; core.showStartPanel = true }
+            }
+            GeriEylem.KONTROLLERI_GIZLE -> showControls = false
+            GeriEylem.CIK -> onExit()
+        }
+    }
+}
+
+internal enum class GeriEylem {
+    SAYIMI_IPTAL, SCRUB_KAPAT, SEZONLARA_DON, LISTEYI_KAPAT, OYNAT, AYARLARI_KAPAT, KONTROLLERI_GIZLE, CIK,
+}
+
+/**
+ * GERİ kararı — saf fonksiyon (test: GeriEylemTest). Eski iki yolun birleşimi:
+ * NmBackHandler sırası + onPreviewKeyEvent'teki "bölüm sayfası → sezon sayfası" adımı.
+ */
+internal fun geriEylemi(
+    geriSayimVar: Boolean,
+    scrub: Boolean,
+    baslangicPaneli: Boolean,
+    liste: Boolean,
+    bolumSayfasi: Boolean,
+    kaynakVar: Boolean,
+    ayarlar: Boolean,
+    kontroller: Boolean,
+): GeriEylem = when {
+    // Geri sayım sürerken GERİ = "geçme, jeneriği izliyorum"; bölümden çıkarmaz.
+    geriSayimVar -> GeriEylem.SAYIMI_IPTAL
+    scrub -> GeriEylem.SCRUB_KAPAT
+    // Başlangıç panelinde GERİ = OYNAT (Dean). Kaynak yoksa oynatacak bir şey yok → çıkış.
+    // Oynarken açılan bölüm listesinde arkada film var: GERİ önce sezon sayfasına,
+    // sonra listeyi kapatır.
+    baslangicPaneli -> when {
+        liste && bolumSayfasi -> GeriEylem.SEZONLARA_DON
+        liste -> GeriEylem.LISTEYI_KAPAT
+        kaynakVar -> GeriEylem.OYNAT
+        else -> GeriEylem.CIK
+    }
+    ayarlar -> GeriEylem.AYARLARI_KAPAT
+    kontroller -> GeriEylem.KONTROLLERI_GIZLE
+    else -> GeriEylem.CIK
 }
