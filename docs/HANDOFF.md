@@ -5,7 +5,26 @@
 > Altındaki oturum günlükleri = kararların gerekçesi (neden böyle yapıldı).
 
 ---
-# 🧭 DEVİR — buradan devam et
+# 🧭 DEVİR — 24 Eylül 2026 · TV 0.9.22 (UX turu)
+
+**Yayında (üç yer):** `data/apk/NetMovies-TV-v0.9.22.apk` · GitHub `v0.9.22-poc` ·
+evaglass-releases `netmovies-tv-v0.9.22` + apps.json vc 922 (sha256 `5641cef3…`, indirme 200).
+**Kanıt:** 47 birim test yeşil, smoke YEŞİL, emülatörde 1920×1080/320dpi ekran görüntüsü.
+**Mi Box'ta doğrulanmadı.**
+
+Yeni: `.claude/agents/tv-ux.md` — TV UX persona ajanı (ölçüler, korunan Dean kararları,
+kanıt kapısı, backlog). TV arayüz işini ona ver.
+
+0.9.22: rafta 7 poster + 16sp başlık, yazı ölçeği 14/16/17/18sp, overscan 48/27dp ·
+sarma ekranında GERİ artık filmden çıkarmıyor · Gözat/Listem/Ajanda/Arama hatasında odak
+alan "Tekrar dene" + insan dilinde mesaj · üst barda odaktaki ikonun adı · ana sayfada
+tek GERİ'de "basılı tut" ipucu · Ayarlar'da kopya satırlar kalktı.
+
+Açık bulgu: emülatörde soğuk açılışta ilk kare 7-13 sn (yayındaki 0.9.21'de de aynı;
+dex doğrulama/JIT, Mi Box'ta ölçülmedi). Backlog: tv-ux.md sonu.
+
+---
+# 🧭 DEVİR (önceki) — buradan devam et
 
 **Son güncelleme:** 20 Eylül 2026, 15:20
 **Sürüm:** TV/telefon **0.9.10 (vc 910)** — üç dağıtım yerinde yayında
