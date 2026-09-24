@@ -21,7 +21,6 @@ Tablo Samsung dokümanından — **cihazda doğrulanmadı**. Monitörün modeli/
 4K, Wi-Fi, `developerMode: 0`, `DMP_DRM_WIDEVINE: false` (bizim HLS'e engel değil).
 
 Kalan kontrol:
-- Model adı (arkadaki etiket: `LS32BM70…` gibi) ve Ayarlar → Destek → Bu Cihaz Hakkında.
 - Monitör tarayıcısında `http://192.168.1.185:3310/tv` aç. Raflar geliyor ve film oynuyorsa
   kabuk yazmadan bile kullanılabilir; Faz 2 yalnız "ikon + doğrudan açılış" kazancıdır.
 
