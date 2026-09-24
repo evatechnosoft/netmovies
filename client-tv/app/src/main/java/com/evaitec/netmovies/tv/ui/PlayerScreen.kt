@@ -133,10 +133,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 
 // Oynatma hızı seçenekleri (çark → Hız).
-private val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+internal val SPEEDS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 // Kumandanın oynatma tuşları — D-pad'den ayrı, eşlemeye girmez, oynatıcıda sabit.
-private val MEDIA_KEYS = setOf(
+internal val MEDIA_KEYS = setOf(
     KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
     KeyEvent.KEYCODE_MEDIA_REWIND,
     KeyEvent.KEYCODE_MEDIA_NEXT,
@@ -1791,7 +1791,7 @@ fun PlayerScreen(
 }
 
 // Hızlı pad'i AÇMAYACAK tuşlar: sistemin kendi işleri ve zaten bir işi olanlar.
-private val PAD_DISI = setOf(
+internal val PAD_DISI = setOf(
     KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE,
     KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_TV_POWER, KeyEvent.KEYCODE_SLEEP,
     KeyEvent.KEYCODE_WAKEUP, KeyEvent.KEYCODE_SOFT_SLEEP,
@@ -1802,14 +1802,14 @@ private val PAD_DISI = setOf(
 
 /** Başka bir işe bağlı OLMAYAN tuş süre bilgisini gösterir: kumandada boşta
  *  duran tuşa basınca hiçbir şey olmaması "uygulama kilitlendi" gibi okunur. */
-private fun bilgiGosterirMi(code: Int): Boolean =
+internal fun bilgiGosterirMi(code: Int): Boolean =
     RemoteKey.from(code) == null && code !in MEDIA_KEYS && code !in PAD_DISI
 
 
 // Basılan tuşun ekranda görünen karşılığı: "MEDIA_FAST_FORWARD (90) → +30 sn".
 // Kod numarası da yazar — kumandanın ürettiği tuş bilinmeyen bir şeyse eşleme
 // ekranında aranacak değer budur.
-private fun keyLabel(code: Int, bindings: KeyBindings): String {
+internal fun keyLabel(code: Int, bindings: KeyBindings): String {
     val ad = KeyEvent.keyCodeToString(code).removePrefix("KEYCODE_")
     val karsilik = when {
         RemoteKey.from(code) != null -> {
@@ -1842,7 +1842,7 @@ private fun keyLabel(code: Int, bindings: KeyBindings): String {
 // Sol üstte küçük şerit. TV güvenli alanı içinde, video akışını kapatmayacak kadar dar.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun KeyHintChip(text: String) {
+internal fun KeyHintChip(text: String) {
     Box(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
         Box(
             Modifier
@@ -1862,7 +1862,7 @@ private fun KeyHintChip(text: String) {
 }
 
 // .vtt / .srt uzantısından MIME tahmini (bilinmiyorsa VTT).
-private fun guessSubtitleMime(url: String): String {
+internal fun guessSubtitleMime(url: String): String {
     val u = url.lowercase()
     return when {
         u.endsWith(".srt") -> MimeTypes.APPLICATION_SUBRIP
@@ -1871,7 +1871,7 @@ private fun guessSubtitleMime(url: String): String {
     }
 }
 
-private fun fmtTime(ms: Long): String {
+internal fun fmtTime(ms: Long): String {
     if (ms <= 0) return "0:00"
     val total = ms / 1000
     val h = total / 3600
@@ -1895,7 +1895,7 @@ internal fun fmtDelta(ms: Long): String {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ControlsOverlay(
+internal fun ControlsOverlay(
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -2098,12 +2098,12 @@ private fun TextPill(label: String, onTap: () -> Unit) {
 
 // Kaynak aramasının SONUÇSUZ bittiğini söyleyen tek mesaj. Sabit olmasının sebebi
 // görünüm: bu durumda dönen halka değil ✕ gösterilir ve ekran kendiliğinden kapanır.
-private const val KAYNAK_YOK = "Çalışan kaynak bulunamadı — kapanıyor…"
+internal const val KAYNAK_YOK = "Çalışan kaynak bulunamadı — kapanıyor…"
 
 // Mesaj okunacak kadar durur, sonra içerikten çıkılır. Kullanıcıyı boş ekranda
 // GERİ'ye basmayı beklemek anlamsız: yapacak bir şey yok (Dean: "geri kendi atsın,
 // bulamadığında bekletme").
-private const val KAYNAK_YOK_CIKIS_MS = 2500L
+internal const val KAYNAK_YOK_CIKIS_MS = 2500L
 
 // Bir bölüm/film için "gerçek içerik" sayılacak en kısa süre. Sağlayıcılar
 // kaldırılmış bölümün yerine on-yirmi saniyelik tutundurma/uyarı klibi koyabiliyor
@@ -2112,10 +2112,10 @@ private const val KAYNAK_YOK_CIKIS_MS = 2500L
 // bile kısa tutundurma klipleri ayırt etmeye yeter; gerçek içerik bundan kısa
 // olmaz. Aynı büyüklükte olması tesadüf: NEXT_EPISODE_WINDOW_MS ayrı bir amaca
 // (bitiş penceresi) hizmet eder, kasıtlı olarak burada tekrar tanımlanır.
-private const val MIN_GECERLI_SURE_MS = 90_000L
+internal const val MIN_GECERLI_SURE_MS = 90_000L
 
 // Kuyruktaki hiçbir kaynak 90 sn eşiğini geçemedi: bölüm sağlayıcıda gerçekten yok.
-private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
+internal const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 
 // Jenerik işareti BULUNAMAYAN bölümde teklif penceresi: bitmeye bu kadar kala.
 // 90 sn erken çıkıyordu — kart hâlâ sahnenin ortasındayken beliriyor, jenerik
@@ -2123,11 +2123,11 @@ private const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 // jenerik 70 sn kala). Sessizlik/konuşma temelli tespit denenmedi: dizi ve filmde
 // sahne içinde de uzun sessizlik oluyor, yanlış yerde tetiklerdi. Jenerik işareti
 // varsa bu pencere zaten hiç kullanılmaz.
-private const val NEXT_EPISODE_WINDOW_MS = 70_000L
+internal const val NEXT_EPISODE_WINDOW_MS = 70_000L
 
 // Jenerik başlayınca sonraki bölüme geçmeden önce beklenen süre. Son sahneyi
 // kaçırmamak için var: GERİ basan kişi jeneriği sonuna kadar izler.
-private const val NEXT_COUNTDOWN_SEC = 10
+internal const val NEXT_COUNTDOWN_SEC = 10
 
 // Bölüm sonu kartı — sağ altta, oynatmayı kesmeden. Kumandada SAĞ ok kabul eder
 // (tuş işleme oynatıcıda; kart odak almaz ki D-pad sarma/kontrol akışı bozulmasın),
@@ -2136,7 +2136,7 @@ private const val NEXT_COUNTDOWN_SEC = 10
 // GERİ sayımı durdurur. countdown == null → yalnız teklif, kendiliğinden geçiş yok.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun NextEpisodeCard(label: String, countdown: Int?, onPlay: () -> Unit) {
+internal fun NextEpisodeCard(label: String, countdown: Int?, onPlay: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
         Column(
             modifier = Modifier
@@ -2172,7 +2172,7 @@ private fun NextEpisodeCard(label: String, countdown: Int?, onPlay: () -> Unit) 
 // kumandada SAĞ ok, dokunmatikte dokunuş.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SkipIntroCard(onSkip: () -> Unit) {
+internal fun SkipIntroCard(onSkip: () -> Unit) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomEnd) {
         Row(
             modifier = Modifier
@@ -2191,14 +2191,14 @@ private fun SkipIntroCard(onSkip: () -> Unit) {
 
 // Kuyruk tükendiğinde kaç kez otomatik yeniden çözümleme yapılır. Ölü kaynakta
 // sonsuz döngüye girmemek için sınırlı.
-private const val MAX_AUTO_REFRESH = 2
+internal const val MAX_AUTO_REFRESH = 2
 
 
 // Scrub/önizleme overlay'i: küçük preview oynatıcı karesi (thumbnail) imleç konumunda +
 // ilerleme çubuğu. Süre imlecin altında.
 @OptIn(UnstableApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) {
+internal fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) {
     val fraction = if (duration > 0) (scrubPos.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -2267,7 +2267,7 @@ private fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long) 
 
 @OptIn(UnstableApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SettingsPanel(
+internal fun SettingsPanel(
     links: List<StreamLink>,
     currentLinkIndex: Int,
     episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem> = emptyList(),
@@ -2573,7 +2573,7 @@ private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifi
 @OptIn(ExperimentalTvMaterial3Api::class)
 // Bölüm etiketi: kaynak başlığı bölüm numarasını taşımıyor ("Red Flags"), sezon/bölüm
 // bilgisi ayrı alanlarda geliyor. İkisi birleşmezse listede hangi bölüm olduğu okunmuyor.
-private fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: Int): String {
+internal fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: Int): String {
     val numara = ep.episode?.let { "S${ep.season}B$it" } ?: "Bölüm ${index + 1}"
     val ad     = ep.title?.takeIf { it.isNotBlank() }
     return if (ad != null) "$numara · $ad" else numara
@@ -2585,7 +2585,7 @@ private fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: I
 // resolve_sources yanıtından geliyor.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun StartPanel(
+internal fun StartPanel(
     title: String,
     details: com.evaitec.netmovies.tv.data.ItemDetails?,
     rating: Double?,
@@ -2784,7 +2784,7 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
 // loader=false → arama bitmiş ve sonuç yok; dönen halka yerine ✕.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CornerStatus(message: String, loader: Boolean) {
+internal fun CornerStatus(message: String, loader: Boolean) {
     Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.BottomStart) {
         Row(
             modifier = Modifier
