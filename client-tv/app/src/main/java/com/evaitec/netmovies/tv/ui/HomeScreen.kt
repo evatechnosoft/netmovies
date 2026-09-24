@@ -245,12 +245,13 @@ private fun CategoryRows(
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
     // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
     val modalOpen = showSettingsMenu || menuItem != null
+    val context = androidx.compose.ui.platform.LocalContext.current
     NmBackHandler(enabled = !modalOpen) {
         if (atTop) {
             // Ana ekranda tek GERİ artık çıkmıyor; çıkış GERİ'yi BASILI TUTMAK
             // (MainActivity.dispatchKeyEvent) ya da HOME. Yanlışlıkla bir basış
-            // uygulamayı kapatıyordu (Dean).
-            Unit
+            // uygulamayı kapatıyordu (Dean). Sessiz kalınca GERİ "bozuk" sanılıyor.
+            android.widget.Toast.makeText(context, "Çıkmak için GERİ'yi basılı tut", android.widget.Toast.LENGTH_SHORT).show()
         } else {
             position.toTop()   // odak isteyicisi ilk postere taşınsın
             scope.launch {
@@ -357,8 +358,6 @@ private fun CategoryRows(
                 onOpenKeyMap = onOpenKeyMap,
                 onOpenVault = onOpenVault,
                 onOpenAdmin = onOpenAdmin,
-                onOpenFollowing = onOpenFollowing,
-                onOpenAgenda = onOpenAgenda,
                 onOpenChannels = onOpenChannels,
                 onClose = { showSettingsMenu = false }
             )
@@ -404,13 +403,25 @@ private fun TopBar(
         // Hepsi yalnız İKON: metinli düğmeler dar ekranda satır sarıyor ve
         // "Aja/nda" gibi kırpılmış etiketler çıkıyordu (Dean: "üstte yazılar
         // kalmasın"). Gözat aramanın hemen yanında, başta.
-        TvTopBarButton("🔎", onClick = onOpenSearch, compact = true)
-        TvTopBarButton("▦", onClick = onOpenBrowse, compact = true)
-        TvTopBarButton("🗓", onClick = onOpenAgenda, compact = true)
-        TvTopBarButton("★", onClick = onOpenFollowing, compact = true)
-        Spacer(Modifier.weight(1f))
-        TvTopBarButton("📱", onClick = onOpenRemote, compact = true)
-        TvTopBarButton("⚙", onClick = onOpenSettings, compact = true)
+        // İkonun adı yalnız odaktayken, ikonların sağında tek yerde yazılır: kalıcı
+        // yazı yok (Dean'in isteği), ama "🗓 neydi?" diye basıp denemek de gerekmez.
+        var odakAdi by remember { mutableStateOf<String?>(null) }
+        fun ad(isim: String) = Modifier.onFocusChanged {
+            if (it.isFocused) odakAdi = isim else if (odakAdi == isim) odakAdi = null
+        }
+        TvTopBarButton("🔎", onClick = onOpenSearch, compact = true, modifier = ad("Ara"))
+        TvTopBarButton("▦", onClick = onOpenBrowse, compact = true, modifier = ad("Kaynaklar"))
+        TvTopBarButton("🗓", onClick = onOpenAgenda, compact = true, modifier = ad("Ajanda"))
+        TvTopBarButton("★", onClick = onOpenFollowing, compact = true, modifier = ad("Listem"))
+        Text(
+            text = odakAdi.orEmpty(),
+            fontSize = NmType.Label,
+            color = NmColor.OnSurfaceMuted,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        TvTopBarButton("📱", onClick = onOpenRemote, compact = true, modifier = ad("Telefon kumandası"))
+        TvTopBarButton("⚙", onClick = onOpenSettings, compact = true, modifier = ad("Ayarlar"))
     }
 }
 
@@ -1204,8 +1215,6 @@ private fun SettingsMenu(
     onOpenKeyMap: () -> Unit,
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
-    onOpenFollowing: () -> Unit,
-    onOpenAgenda: () -> Unit,
     onOpenChannels: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
@@ -1214,7 +1223,13 @@ private fun SettingsMenu(
     ModalCard(title = "Ayarlar", onClose = onClose) {
         // Yüklü sürüm hep görünür: "güncelleme geldi mi" sorusu tahminle değil,
         // ekrandaki numarayla cevaplanır.
-        MenuRow("ℹ  Sürüm: ${BuildConfig.RELEASE_TAG}", onClick = {})
+        // Düz yazı: satır odak alıyor ama OK hiçbir şey yapmıyordu.
+        Text(
+            "Sürüm: ${BuildConfig.RELEASE_TAG}",
+            fontSize = NmType.Label,
+            color = NmColor.OnSurfaceMuted,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
         // Güncelleme şeridi ekranın en üstünde; oraya ulaşmak için D-pad ile iki kez
         // yukarı çıkmak gerekiyordu. Aynı eylem burada da, doğrudan erişilebilir.
         // Durum satırı menüde KALIR: eskiden kontrol menüyü kapatıyor, sonuç ana
@@ -1239,8 +1254,7 @@ private fun SettingsMenu(
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
-        MenuRow("📋  Listem — Takip Ettiklerim", onClick = { onClose(); onOpenFollowing() })
-        MenuRow("🗓  Ajanda — Bu Hafta Ne Var", onClick = { onClose(); onOpenAgenda() })
+        // Listem ve Ajanda üst barda (★ / 🗓); burada ikinci kopyaları vardı.
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })

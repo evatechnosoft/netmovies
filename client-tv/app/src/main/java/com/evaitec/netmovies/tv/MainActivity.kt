@@ -441,11 +441,11 @@ class MainActivity : ComponentActivity() {
                                         // Ana ekranda GERİ: liste aşağıdaysa en üste döner,
                                         // en üstteyken uygulamadan çıkar (TV alışkanlığı).
                                         onExit = { finish() },
-                                        onOpenBrowse = { browseVaultMode = false; showBrowse = true },
+                                        onOpenBrowse = { browseVaultMode = false; browseState.results = null; showBrowse = true },
                                         onOpenSearch = { showSearch = true },
                                         onOpenKeyMap = { showKeyMap = true },
                                         onOpenRemote = { showRemote = true },
-                                        onOpenVault = { browseVaultMode = true; showBrowse = true },
+                                        onOpenVault = { browseVaultMode = true; browseState.results = null; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
                                         onOpenFollowing = { showFollowing = true },
                                         onOpenAgenda = { showAgenda = true },

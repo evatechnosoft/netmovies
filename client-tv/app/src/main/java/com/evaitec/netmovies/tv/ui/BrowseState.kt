@@ -26,4 +26,8 @@ class BrowseState {
     /** Çekilmiş raf içerikleri — dönüşte yeniden indirilmesin. */
     val cache = mutableStateMapOf<String, List<MediaItem>>()
     val started = mutableSetOf<String>()
+
+    /** Arama sonuçları — oynatıcıdan dönünce liste yeniden aranmadan dursun. */
+    var results by mutableStateOf<List<MediaItem>?>(null)
+    var resultsTitle by mutableStateOf("")
 }

@@ -206,8 +206,8 @@ fun BrowseScreen(
 
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<MediaItem>?>(null) }
-    var resultsTitle by remember { mutableStateOf("") }
+    var results by state::results
+    var resultsTitle by state::resultsTitle
     var resultsLoading by remember { mutableStateOf(false) }
     var acilacakBaslik by remember { mutableStateOf<String?>(null) }
     // Yıldızlı kaynaklar SUNUCUDA (prefs): kanal favorileriyle aynı yer, aynı
