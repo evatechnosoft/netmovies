@@ -50,7 +50,6 @@ import com.evaitec.netmovies.tv.data.languageLabel
 import com.evaitec.netmovies.tv.data.loggedOrNull
 import com.evaitec.netmovies.tv.ui.BOLUM_YOK
 import com.evaitec.netmovies.tv.ui.KAYNAK_YOK
-import com.evaitec.netmovies.tv.ui.KAYNAK_YOK_CIKIS_MS
 import com.evaitec.netmovies.tv.ui.MAX_AUTO_REFRESH
 import com.evaitec.netmovies.tv.ui.MIN_GECERLI_SURE_MS
 import com.evaitec.netmovies.tv.ui.NEXT_COUNTDOWN_SEC
@@ -164,6 +163,13 @@ class PlayerCore(
     internal var carryOverMs by mutableLongStateOf(0L)
     internal var retryKey by mutableIntStateOf(0)
     internal var autoRefresh by mutableIntStateOf(0)
+    /** Kaynak zinciri bölüm belli olunca başlar (eski PlayerScreen'deki detayHazir gerekçesi). */
+    var detayHazir by mutableStateOf(false)
+    /** Oynayan kaynak açılmadı, arama sürüyor: yeni kaynak gelince ona geçilir. */
+    internal var siradakiBekleniyor by mutableStateOf(false)
+
+    /** KAYNAK_YOK ekranındaki "Tekrar dene". */
+    fun tekrarDene() { autoRefresh = 0; carryOverMs = 0L; retryKey++ }
     // Bölüm geçişi istendi, yeni kaynak henüz açılmadı. Bölüme göre SIFIRLANMAZ.
     internal var gecisBekleyen by mutableStateOf<Int?>(null)
     internal var akisBitti by mutableStateOf(false)
@@ -474,7 +480,8 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
 
     // C — ayrıntı + bölüm listesi zincirden ÖNCE; bölüm sayfası kartı; kayıttan bölüm.
     LaunchedEffect(core) {
-        val c = core
+      val c = core
+      try {
         c.details = runCatching {
             Network.api.loadItem(c.aktifPlugin, c.aktifUrl, item.title, item.mediaType.ifBlank { null }).result
         }.getOrNull()
@@ -506,6 +513,9 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
             exo.playWhenReady = false
             c.showStartPanel = true
         }
+      } finally {
+        c.detayHazir = true
+      }
     }
 
     // K — yönetim panelindeki kalite tavanı; süreç ömrü boyunca bir kez çekilir.
@@ -589,6 +599,8 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                     val next = c.links[c.currentLinkIndex]
                     c.status = "Kaynak açılmadı, sıradaki deneniyor (${c.currentLinkIndex + 1}/${c.links.size}) · ${languageLabel(next)}"
                 } else if (c.searching) {
+                    c.siradakiBekleniyor = true
+                    c.carryOverMs = exo.currentPosition.coerceAtLeast(0L)
                     c.status = "Kaynak açılmadı, başka sağlayıcı aranıyor…"
                 } else if (c.autoRefresh < MAX_AUTO_REFRESH) {
                     // Proxy jetonu bayatlayınca tüm linkler birlikte ölür: bağlantıyı tazele.
@@ -717,8 +729,10 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
     LaunchedEffect(core, core.aktifUrl, core.currentEpIndex) { core.autoRefresh = 0 }
 
     // S — kaynak kuyruğu: zincir SUNUCUDA (fast → full).
-    LaunchedEffect(core, core.aktifUrl, core.aktifPlugin, core.currentEpIndex, core.retryKey) {
+    LaunchedEffect(core, core.aktifUrl, core.aktifPlugin, core.currentEpIndex, core.retryKey, core.detayHazir) {
         val c = core
+        if (!c.detayHazir) return@LaunchedEffect
+        c.siradakiBekleniyor = false
         c.ready = false
         c.links = emptyList()
         c.currentLinkIndex = 0
@@ -745,7 +759,13 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                 return
             }
             // Oynayan link yerinde kalır.
+            val ilkYeni = c.links.size
             c.links = c.links.take(c.currentLinkIndex + 1) + c.links.drop(c.currentLinkIndex + 1) + fresh
+            if (c.siradakiBekleniyor) {
+                c.siradakiBekleniyor = false
+                c.currentLinkIndex = ilkYeni
+                c.status = "Sıradaki kaynak deneniyor (${ilkYeni + 1}/${c.links.size}) · ${languageLabel(c.links[ilkYeni])}"
+            }
             PlaybackLog.info("kuyruk", "$phase · +${fresh.size} kaynak (toplam ${c.links.size})")
         }
 
@@ -900,8 +920,7 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
     LaunchedEffect(core, core.status) {
         if (core.status != KAYNAK_YOK) return@LaunchedEffect
         if (core.position > 0L) return@LaunchedEffect
-        delay(KAYNAK_YOK_CIKIS_MS)
-        onExitRef.value()
+        // Kapanmıyor: ekran KaynakYokEkrani ile "Tekrar dene" sunar (Dean, 24 Eylül).
     }
 
     // AC — işaretler: süre öğrenilir öğrenilmez, kaynağın altyazısından.

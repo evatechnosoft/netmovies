@@ -35,6 +35,8 @@ import com.evaitec.netmovies.tv.ui.ControlsOverlay
 import com.evaitec.netmovies.tv.ui.CornerStatus
 import com.evaitec.netmovies.tv.ui.KAYNAK_YOK
 import com.evaitec.netmovies.tv.ui.KeyHintChip
+import com.evaitec.netmovies.tv.ui.KaynakYokEkrani
+import com.evaitec.netmovies.tv.ui.PlayerLoadingScreen
 import com.evaitec.netmovies.tv.ui.NextEpisodeCard
 import com.evaitec.netmovies.tv.ui.ScrubOverlay
 import com.evaitec.netmovies.tv.ui.SeekScreen
@@ -137,6 +139,14 @@ fun PlayerScreen2(
       },
       modifier = Modifier.fillMaxSize(),
     )
+
+    // Hiç oynamadan beklenirken tam ekran geçiş; bulunamadıysa tekrar dene ekranı.
+    val acilisBekleniyor = !core.ready && core.position == 0L && !ui.showSettings
+    when {
+      acilisBekleniyor && core.status == KAYNAK_YOK && !core.showStartPanel ->
+        KaynakYokEkrani(item.poster, item.title) { core.tekrarDene() }
+      acilisBekleniyor -> PlayerLoadingScreen(item.poster, item.title, core.status)
+    }
 
     // Sarma göstergesi — sağ alt; kontrol çubuğu açıkken onun üstünde.
     core.seekHint?.let {
@@ -318,6 +328,7 @@ fun PlayerScreen2(
     // Kaynak bulunamadıysa dönen halka yerine ✕ (arama bitti).
     val status = core.status
     when {
+      acilisBekleniyor -> Unit
       !core.ready && !ui.showSettings ->
         CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK && status != BOLUM_YOK)
       status != null && !ui.showSettings ->

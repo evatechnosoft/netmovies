@@ -229,6 +229,10 @@ fun PlayerScreen(
     // bekler, çıkmak isterse GERİ tuşuna kendi basar.
     var status by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
+    // Oynayan kaynak açılmadı ama arama sürüyor: yeni kaynak gelince ona geçilecek.
+    // Eskiden yeni kaynaklar kuyruğa eklenip bırakılıyordu, oynatıcı ölü linkte
+    // bekliyordu (ekranda hiçbir şey olmuyor).
+    var siradakiBekleniyor by remember { mutableStateOf(false) }
 
     // Oynatıcı UI durumu.
     var showSettings by remember { mutableStateOf(false) }
@@ -354,8 +358,14 @@ fun PlayerScreen(
     // Bölüm geçişi istendi, yeni kaynak henüz açılmadı. Bölüme göre SIFIRLANMAZ —
     // kilidin amacı tam da geçiş anında ikinci atlamayı engellemek.
     var gecisBekleyen by remember { mutableStateOf<Int?>(null) }
+    // Kaynak zinciri bölüm belli olmadan BAŞLAMAZ. Bölüm sayfasından açılan kartta
+    // (DiziMom) önce indeks 0 ile, detay gelince asıl bölümle ikinci kez çözülüyordu:
+    // ikisi de aynı tek kullanımlık oynatma adresini aldı, ilki jetonu yaktı, ikincisi
+    // reddedildi → "çalışan kaynak bulunamadı" (Dean, 24 Eylül: "ilk girişte").
+    var detayHazir by remember(item.url) { mutableStateOf(false) }
 
     LaunchedEffect(item.url) {
+      try {
         details = runCatching { Network.api.loadItem(aktifPlugin, aktifUrl, item.title, item.mediaType.ifBlank { null }).result }.getOrNull()
         // Bölüm listesi zincirden ÖNCE gelir: load_item tek istek, resolve_sources
         // ise sağlayıcı taraması. Panel böylece bölümleri anında gösterir ve
@@ -406,6 +416,9 @@ fun PlayerScreen(
             exo.playWhenReady = false
             showStartPanel = true
         }
+      } finally {
+        detayHazir = true
+      }
     }
 
 
@@ -792,6 +805,8 @@ fun PlayerScreen(
                     val next = links[currentLinkIndex]
                     status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size}) · ${languageLabel(next)}"
                 } else if (searching) {
+                    siradakiBekleniyor = true
+                    carryOverMs = exo.currentPosition.coerceAtLeast(0L)
                     status = "Kaynak açılmadı, başka sağlayıcı aranıyor…"
                 } else if (autoRefresh < MAX_AUTO_REFRESH) {
                     // Proxy jetonu bayatlayınca kuyruktaki TÜM linkler aynı anda ölür —
@@ -973,10 +988,12 @@ fun PlayerScreen(
     // sonra full (alternatif sağlayıcılar, arka planda kuyruğa eklenir).
     // Arama/eşleştirme/dil sıralaması burada TEKRARLANMAZ — TV, telefon ve web
     // aynı listeyi aynı sırada görür.
-    LaunchedEffect(aktifUrl, aktifPlugin, currentEpIndex, retryKey) {
+    LaunchedEffect(aktifUrl, aktifPlugin, currentEpIndex, retryKey, detayHazir) {
+        if (!detayHazir) return@LaunchedEffect
         ready = false
         links = emptyList()
         currentLinkIndex = 0
+        siradakiBekleniyor = false
         searching = true
         status = "Kaynak aranıyor…"
         // Açılış sebebi günlüğe: `autoplay` yalnız telefon/saat komutuyla ya da
@@ -1004,7 +1021,13 @@ fun PlayerScreen(
                 return
             }
             // Oynayan link yerinde kalır; sunucu sırası kuyruğun kalanına uygulanır.
+            val ilkYeni = links.size
             links = links.take(currentLinkIndex + 1) + links.drop(currentLinkIndex + 1) + fresh
+            if (siradakiBekleniyor) {
+                siradakiBekleniyor = false
+                currentLinkIndex = ilkYeni
+                status = "Sıradaki kaynak deneniyor (${ilkYeni + 1}/${links.size}) · ${languageLabel(links[ilkYeni])}"
+            }
             PlaybackLog.info("kuyruk", "$phase · +${fresh.size} kaynak (toplam ${links.size})")
         }
 
@@ -1314,8 +1337,7 @@ fun PlayerScreen(
         // (Dean, 18 Eylül: "çalışan dizi niye kapansın ki"). Açılışta hiç kaynak
         // bulunamadıysa kapanmak doğru: ekranda yapacak bir şey yok.
         if (position > 0L) return@LaunchedEffect
-        delay(KAYNAK_YOK_CIKIS_MS)
-        onBack()
+        // Kapanmıyor: KaynakYokEkrani "Tekrar dene" sunar (Dean, 24 Eylül).
     }
 
     // İşaretleri çek: süre öğrenilir öğrenilmez, kaynağın altyazısından. Anahtarda
@@ -1547,6 +1569,18 @@ fun PlayerScreen(
             },
             modifier = Modifier.fillMaxSize(),
         )
+
+        // Hiç oynamadan beklenirken tam ekran geçiş; bulunamadıysa tekrar dene ekranı.
+        // Başlangıç paneli açıkken de arka plan poster olur (panel sağda, üstte çizilir).
+        val acilisBekleniyor = !ready && position == 0L && !showSettings
+        when {
+            acilisBekleniyor && status == KAYNAK_YOK && !showStartPanel -> KaynakYokEkrani(item.poster, item.title) {
+                autoRefresh = 0
+                carryOverMs = 0L
+                retryKey++
+            }
+            acilisBekleniyor -> PlayerLoadingScreen(item.poster, item.title, status)
+        }
 
         // Sarma göstergesi — sağ altta, ama kontrol çubuğu açikken onun ÜSTÜNDE:
         // ikisi de BottomEnd olunca sayaç toplam süre yazısının üzerine biniyordu
@@ -1780,6 +1814,7 @@ fun PlayerScreen(
         // Kaynak bulunamadıysa dönen halka yanlış bilgi verir: arama BİTTİ, dönecek
         // bir şey yok. O durumda halka yerine ✕.
         when {
+            acilisBekleniyor -> Unit
             !ready && !showSettings -> CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK && status != BOLUM_YOK)
             status != null && !showSettings -> CornerStatus(status!!, loader = status != KAYNAK_YOK && status != BOLUM_YOK)
         }
@@ -2098,7 +2133,7 @@ private fun TextPill(label: String, onTap: () -> Unit) {
 
 // Kaynak aramasının SONUÇSUZ bittiğini söyleyen tek mesaj. Sabit olmasının sebebi
 // görünüm: bu durumda dönen halka değil ✕ gösterilir ve ekran kendiliğinden kapanır.
-internal const val KAYNAK_YOK = "Çalışan kaynak bulunamadı — kapanıyor…"
+internal const val KAYNAK_YOK = "Çalışan kaynak bulunamadı"
 
 // Mesaj okunacak kadar durur, sonra içerikten çıkılır. Kullanıcıyı boş ekranda
 // GERİ'ye basmayı beklemek anlamsız: yapacak bir şey yok (Dean: "geri kendi atsın,
