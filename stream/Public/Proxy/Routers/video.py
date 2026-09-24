@@ -22,6 +22,17 @@ PREFETCH_COUNT   = 3
 ZINCIR_ILERI     = 2
 _ZINCIR_TAVANI   = 4000
 _segment_zinciri : dict[str, str] = {}
+# Manifestte #EXTINF'ten sonra gelen her adres segmenttir — uzantısı ne olursa olsun.
+# Kimi kaynak (hdplayersystem/DiziMom) segmenti `.js` adıyla veriyor; uzantıya bakan
+# `is_hls_segment` bunları tanımıyordu: ön-yükleme zinciri ve segment cache hiç
+# devreye girmiyor, her segment izlenirken tek tek iniyordu. Upstream dalgalanınca
+# segment 2 sn'den geç geliyor, oynatıcı tampon bekliyordu (Dean: "çok dönüyor").
+_bilinen_segmentler: set[str] = set()
+
+
+def segment_mi(url: str) -> bool:
+    """Uzantıdan ya da daha önce görülen manifestten segment olduğu biliniyor mu."""
+    return is_hls_segment(url) or url in _bilinen_segmentler
 # Gövdeye bakarak manifest tespiti yapılırken okunacak üst sınır: segmentler
 # megabaytlarca, manifest en fazla birkaç yüz KB (718 segmentlik varyant ~60 KB).
 _MANIFEST_TAVANI = 1_000_000
@@ -53,6 +64,8 @@ def zinciri_kaydet(segmentler: list[str]):
         # ponytail: tüm zinciri at, tek sözlük; LRU gerekirse eklenir. Zincir
         # yeni manifest istendiğinde zaten yeniden kurulur.
         _segment_zinciri.clear()
+        _bilinen_segmentler.clear()
+    _bilinen_segmentler.update(segmentler)
     for onceki, sonraki in zip(segmentler, segmentler[1:]):
         _segment_zinciri[onceki] = sonraki
 
@@ -80,13 +93,19 @@ def prefetch_segments(manifest: bytes, manifest_url: str, request_headers: dict)
     onları eler, o yüzden ayrıca ayrım yapmaya gerek yok.
     """
     tum_segmentler: list[str] = []
+    extinf_sonrasi = False
     for line in manifest.decode("utf-8", "ignore").splitlines():
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line:
+            continue
+        if line.startswith("#"):
+            if line.startswith("#EXTINF"):
+                extinf_sonrasi = True
             continue
         segment_url = urljoin(manifest_url, line)
-        if is_hls_segment(segment_url):
+        if extinf_sonrasi or is_hls_segment(segment_url):
             tum_segmentler.append(segment_url)
+        extinf_sonrasi = False
     if not tum_segmentler:
         return
     zinciri_kaydet(tum_segmentler)
@@ -111,7 +130,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
     is_force_proxy       = force_proxy == "1"
 
     # HLS segment ise cache'i kontrol et
-    if is_hls_segment(target_url):
+    if segment_mi(target_url):
         cached_content = await segment_cache.get(target_url)
         if cached_content:
             # konsol.print(f"[green]✓ Cache HIT:[/green] {target_url[-50:]}")
@@ -169,7 +188,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
         onden_okunan: bytes | None = None
         # Segment adresi manifest olamaz: 1 MB'a kadar tam okuma yalnız akışı
         # geciktirirdi.
-        if not is_hls and not is_hls_segment(target_url):
+        if not is_hls and not segment_mi(target_url):
             uzunluk = response.headers.get("content-length")
             # Segmentler megabaytlarca; manifest en fazla birkaç yüz KB. Boyut
             # bilinmiyorsa da okunur — chunked manifest de var.
@@ -239,7 +258,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             )
 
         # HLS segment ise ve cache'in tekil sınırına sığıyorsa belleğe al, aksi halde stream et
-        if is_hls_segment(target_url):
+        if segment_mi(target_url):
             content_length = int(response.headers.get("content-length", "0"))
             # Sınır cache'in kendi ayarı (SEGMENT_ITEM_MB): burada 5MB sabiti vardı,
             # gerçek segmentler 3–8MB olduğu için çoğu hiç cache'lenmiyordu.

@@ -80,6 +80,34 @@ class SegmentZinciriTest(unittest.TestCase):
         self.assertEqual(video._segment_zinciri[satirlar[1]], satirlar[2])
         self.assertTrue(manifest.startswith(b"#EXTM3U"))
 
+    def test_uzantisiz_segment_manifestten_taninir(self):
+        # hdplayersystem segmenti `.js` adıyla veriyor; uzantıya bakan tespit
+        # bunu kaçırıyordu → ön-yükleme ve cache hiç çalışmıyordu.
+        import asyncio
+
+        async def bos(_urls, _headers):
+            return None
+
+        eski = video._prefetch
+        video._prefetch = bos
+        try:
+            async def calis():
+                video.prefetch_segments(
+                    b"#EXTM3U\n#EXTINF:2.0,\n/r/a.js\n#EXTINF:2.0,\n/r/b.js\n",
+                    "https://cdn.example/hls/index.m3u8", {},
+                )
+                video.prefetch_segments(
+                    b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nalt.m3u8?x=1\n",
+                    "https://cdn.example/hls/master.m3u8", {},
+                )
+                await asyncio.sleep(0)
+            asyncio.run(calis())
+        finally:
+            video._prefetch = eski
+        self.assertEqual(video._segment_zinciri["https://cdn.example/r/a.js"], "https://cdn.example/r/b.js")
+        self.assertTrue(video.segment_mi("https://cdn.example/r/b.js"))
+        self.assertFalse(video.segment_mi("https://cdn.example/hls/alt.m3u8?x=1"))
+
 
 if __name__ == "__main__":
     unittest.main()
