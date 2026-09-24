@@ -5,7 +5,8 @@
 <script>
 // webOS sarmalayıcı: uygulamanın kendisi web arayüzü (stream). Önce ev ağı
 // (LAN'dan PIN sorulmaz), 3 sn içinde cevap yoksa tünel (PIN bir kez, çerezle kalır).
-var ADRESLER = ["http://192.168.1.185:3310", "https://w.evaitec.com"];
+// 0.11 = TP-Link'in Netmaster ağındaki adresi; 3310 sunucuya yönlendirildi (Huntercjx ağındaki TV için).
+var ADRESLER = ["http://192.168.1.185:3310", "http://192.168.0.11:3310", "https://w.evaitec.com"];
 function dene(i) {
   if (i >= ADRESLER.length) { document.getElementById("d").textContent = "Sunucuya ulaşılamadı"; return setTimeout(function(){dene(0)}, 5000); }
   var c = new AbortController(); var t = setTimeout(function(){c.abort()}, 3000);
