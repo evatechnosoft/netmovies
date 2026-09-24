@@ -15,7 +15,12 @@ bağımlılıksız" hedefiyle yazıldı. Tizen = **yeni kabuk + üç tuş kodu**
 
 Tablo Samsung dokümanından — **cihazda doğrulanmadı**. Monitörün modeli/Tizen sürümü Faz 0'da öğrenilir.
 
-## Faz 0 — Cihazı tanı (Dean, 2 dk)
+## Faz 0 — Cihazı tanı
+**Bulundu (24 Eylül, `http://192.168.1.184:8001/api/v2/`):** 43" Smart Monitor M7,
+`LS43BM700UPXUF`, model kodu `22_NIKEL_SMT` (2022 → Tizen 6.5, Chromium 85 — sürüm doğrulanmadı),
+4K, Wi-Fi, `developerMode: 0`, `DMP_DRM_WIDEVINE: false` (bizim HLS'e engel değil).
+
+Kalan kontrol:
 - Model adı (arkadaki etiket: `LS32BM70…` gibi) ve Ayarlar → Destek → Bu Cihaz Hakkında.
 - Monitör tarayıcısında `http://192.168.1.185:3310/tv` aç. Raflar geliyor ve film oynuyorsa
   kabuk yazmadan bile kullanılabilir; Faz 2 yalnız "ikon + doğrudan açılış" kazancıdır.
