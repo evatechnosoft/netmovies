@@ -1,5 +1,6 @@
 package com.evaitec.netmovies.tv.ui
 
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,7 +72,7 @@ fun ChannelsScreen(
     LaunchedEffect(Unit) {
         runCatching { Network.api.quickChannels().result }
             .onSuccess { all = it; onKanallar(it) }
-            .onFailure { error = it.message ?: "Kanallar alınamadı" }
+            .onFailure { error = it.kullaniciMesaji("Kanallar alınamadı") }
         favUrls = runCatching { okuFavoriler(Network.api.prefsGet().result) }.getOrDefault(emptySet())
         loading = false
     }

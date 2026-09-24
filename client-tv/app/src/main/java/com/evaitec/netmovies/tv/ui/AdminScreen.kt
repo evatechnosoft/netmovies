@@ -1,5 +1,6 @@
 package com.evaitec.netmovies.tv.ui
 
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,7 +67,7 @@ fun AdminScreen(onBack: () -> Unit) {
         runCatching {
             plugins = Network.api.getAllPlugins().result.map { it.name }
             config  = Network.api.adminConfig()
-        }.onFailure { error = it.message ?: "Ayarlar okunamadı" }
+        }.onFailure { error = it.kullaniciMesaji("Ayarlar okunamadı") }
     }
 
     // Tam config geri yazılır; yalnız tek alan değiştirilir.
@@ -76,7 +77,7 @@ fun AdminScreen(onBack: () -> Unit) {
         scope.launch {
             runCatching { Network.api.saveAdminConfig(JsonObject(mevcut + (alan to deger))) }
                 .onSuccess { config = it; error = null }
-                .onFailure { error = it.message ?: "Kaydedilemedi" }
+                .onFailure { error = it.kullaniciMesaji("Kaydedilemedi") }
             saving = false
         }
     }

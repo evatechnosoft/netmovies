@@ -571,7 +571,7 @@ private fun PosterCard(
             text = item.title.orEmpty(),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            fontSize = NmType.Caption,
+            fontSize = NmType.Label,
             color = NmColor.OnSurface,
             fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier
@@ -1187,18 +1187,6 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
             color = if (isFocused) NmColor.OnPrimary else NmColor.OnSurface,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
         )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ErrorWithRetry(message: String, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize().padding(NmDim.SafeArea), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
-            Spacer(Modifier.height(16.dp))
-            TouchButton("Tekrar dene", onRetry, accent = true)
-        }
     }
 }
 

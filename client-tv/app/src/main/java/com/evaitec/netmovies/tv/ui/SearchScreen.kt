@@ -1,5 +1,6 @@
 package com.evaitec.netmovies.tv.ui
 
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -98,6 +99,9 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
         if (state.results != null) state.results = null else onBack()
     }
 
+    // Ağ hatası "sonuç yok" gibi görünmesin: ayrı mesaj + Tekrar dene.
+    var aramaHatasi by remember { mutableStateOf<String?>(null) }
+
     fun ara(terim: String) {
         val temiz = terim.trim()
         if (temiz.isEmpty()) return
@@ -105,10 +109,13 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
         state.typing = false
         state.results = emptyList()
         state.loading = true
+        aramaHatasi = null
         history.add(temiz)
         gecmis = history.all()
         scope.launch {
-            state.results = runCatching { Network.api.searchAll(temiz).result }.getOrDefault(emptyList())
+            state.results = runCatching { Network.api.searchAll(temiz).result }
+                .onFailure { aramaHatasi = it.kullaniciMesaji("Arama yapılamadı") }
+                .getOrDefault(emptyList())
             state.loading = false
         }
     }
@@ -139,7 +146,10 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
                     color = NmColor.OnSurface,
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
-                if (state.results!!.isEmpty() && !state.loading) {
+                val hata = aramaHatasi
+                if (hata != null && !state.loading) {
+                    ErrorWithRetry(hata) { ara(state.query) }
+                } else if (state.results!!.isEmpty() && !state.loading) {
                     Kutu("Sonuç bulunamadı — başka bir yazım deneyin.")
                 } else {
                     LazyVerticalGrid(

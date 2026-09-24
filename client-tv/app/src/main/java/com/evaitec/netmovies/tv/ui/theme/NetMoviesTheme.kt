@@ -49,9 +49,10 @@ object NmColor {
 }
 
 object NmDim {
-    // TV overscan güvenli alanı — 1080p/320dpi'de ekran ~640x360dp, %5-6 kenar payı.
-    val SafeH = 30.dp
-    val SafeV = 12.dp
+    // TV overscan güvenli alanı — Mi Box 1080p/320dpi'de ekran ~960x540dp;
+    // Android TV rehberinin %5 kenar payı: 48dp yatay, 27dp dikey.
+    val SafeH = 48.dp
+    val SafeV = 27.dp
     val SafeArea = PaddingValues(horizontal = SafeH, vertical = SafeV)
 
     // Dean: "çok boşluğa ve büyük başlıklara gerek yok" — ekrana daha çok raf sığsın.
@@ -61,9 +62,9 @@ object NmDim {
     val ItemGap = 10.dp   // liste satırları arası
 
     // Rafa kaç poster sığacağı SABİT: kart genişliği ekrandan hesaplanır
-    // (Dean, 19 Eylül: "her sayfa eşit düzenlensin, 10 poster bir rafa sığsın").
-    // Sabit 130dp'de sayı ekrana/çözünürlüğe göre değişiyordu.
-    const val RafPosterAdedi = 10
+    // (Dean, 19 Eylül: "her sayfa eşit düzenlensin"). 10 posterde kart ~79dp,
+    // başlık 3 metreden okunmuyordu → 7 (Dean, 24 Eylül).
+    const val RafPosterAdedi = 7
     val GridPosterMin = 150.dp
 
     val FocusRingWidth = 3.dp
@@ -86,10 +87,11 @@ object NmDim {
 object NmType {
     val Wordmark    = 26.sp
     val ScreenTitle = 22.sp
-    val RowTitle    = 15.sp
-    val Body        = 16.sp
-    val Label       = 15.sp
-    val Caption     = 13.sp
+    // 3 metreden okunurluk: en küçük yazı 14sp, poster başlığı (Label) 16sp.
+    val RowTitle    = 17.sp
+    val Body        = 18.sp
+    val Label       = 16.sp
+    val Caption     = 14.sp
 }
 
 private const val FOCUS_ANIM_MS = 140

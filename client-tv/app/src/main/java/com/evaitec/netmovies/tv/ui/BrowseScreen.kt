@@ -1,5 +1,7 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.runtime.mutableIntStateOf
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -128,6 +130,7 @@ fun BrowseScreen(
     var rawPlugins by remember { mutableStateOf<List<PluginInfo>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var deneme by remember { mutableIntStateOf(0) }
 
     // Ozel Koleksiyon filtresi. Yeni bir kaynak eklendiginde anahtar kelimesi
     // BURAYA eklenir; listede olmayan eklenti normal raflarda gorunur (sessiz
@@ -215,11 +218,11 @@ fun BrowseScreen(
             .getOrDefault(emptySet())
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(deneme) {
         try {
             rawPlugins = Network.api.getAllPlugins().result
         } catch (e: Exception) {
-            error = e.message ?: "Eklentiler yüklenemedi"
+            error = e.kullaniciMesaji("Kaynaklar yüklenemedi")
         }
         loading = false
     }
@@ -348,7 +351,7 @@ fun BrowseScreen(
                     onSelect = onSelect,
                 )
                 loading      -> Center("Eklentiler yükleniyor…")
-                error != null -> Center(error!!)
+                error != null -> ErrorWithRetry(error!!) { error = null; loading = true; deneme++ }
                 shelves.isEmpty() -> Center(
                     if (vaultMode) "Bu koleksiyonda kaynak yok"
                     else "Kaynak bulunamadı",

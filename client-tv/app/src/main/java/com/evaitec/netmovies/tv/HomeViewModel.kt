@@ -1,5 +1,6 @@
 package com.evaitec.netmovies.tv
 
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.MediaItem
@@ -47,7 +48,7 @@ class HomeViewModel : ViewModel() {
                 val all = movie + rest
                 if (all.isEmpty()) HomeState.Error("İçerik yok") else HomeState.Ready(all)
             } catch (e: Exception) {
-                HomeState.Error(e.message ?: "Bilinmeyen hata")
+                HomeState.Error(e.kullaniciMesaji("İçerik yüklenemedi"))
             }
         }
     }

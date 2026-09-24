@@ -1,5 +1,7 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.runtime.mutableIntStateOf
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,6 +60,7 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
     var foreign by remember { mutableStateOf<List<FollowedShow>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var deneme by remember { mutableIntStateOf(0) }
 
     NmBackHandler { onBack() }
 
@@ -66,10 +69,10 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
     // tutulmuyor, Canlı TV ekranında yıldızlanan kanal burada da çıkıyor.
     var favKanallar by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(deneme) {
         runCatching { Network.api.following().result }
             .onSuccess { turkish = it.turkish; foreign = it.foreign }
-            .onFailure { error = it.message ?: "Liste alınamadı" }
+            .onFailure { error = it.kullaniciMesaji("Liste alınamadı") }
         loading = false
     }
 
@@ -89,7 +92,7 @@ fun FollowingScreen(onSelect: (MediaItem) -> Unit, onBack: () -> Unit) {
 
         when {
             loading -> Center("Yükleniyor…")
-            error != null -> Center(error!!)
+            error != null -> ErrorWithRetry(error!!) { error = null; loading = true; deneme++ }
             turkish.isEmpty() && foreign.isEmpty() && favKanallar.isEmpty() -> Center(
                 "Henüz takip ettiğin dizi yok — bir dizinin posterini uzun basıp \"Takip et\" de.",
             )

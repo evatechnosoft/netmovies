@@ -1,5 +1,7 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.runtime.mutableIntStateOf
+import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -71,6 +73,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     var adim by remember { mutableStateOf(AjandaAdimi.HAFTA) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var deneme by remember { mutableIntStateOf(0) }
 
     NmBackHandler { onBack() }
 
@@ -92,7 +95,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
 
     // Geçmiş adımı aylık turdan süzülür: haftalık yanıt yalnız bugün+7'ye kadar
     // geliyor, geçmiş günler ikisinde de aynı (bugün-7).
-    LaunchedEffect(adim) {
+    LaunchedEffect(adim, deneme) {
         loading = true
         error = null
         val gorunum = if (adim == AjandaAdimi.HAFTA) "week" else "month"
@@ -111,7 +114,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
                 gunler = suzulmus
                 toplam = suzulmus.sumOf { it.ogeler.size }
             }
-            .onFailure { error = it.message ?: "Ajanda alınamadı" }
+            .onFailure { error = it.kullaniciMesaji("Ajanda alınamadı") }
         loading = false
     }
 
@@ -141,7 +144,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
 
         when {
             loading -> AjandaBos("Yükleniyor…")
-            error != null -> AjandaBos(error!!)
+            error != null -> ErrorWithRetry(error!!) { error = null; loading = true; deneme++ }
             gunler.isEmpty() -> AjandaBos(
                 if (adim == AjandaAdimi.GECMIS) "Son bir haftada yayınlanan yok."
                 else "Bu aralıkta yayın yok."
