@@ -84,6 +84,10 @@ fun PlayerScreen2(
   LaunchedEffect(ui.ayarBolumler) {
     if (ui.ayarBolumler) core.requestBestEpisodes()
   }
+  // Ayarlar kapanınca bir sonraki açılış varsayılan sekmeden başlasın (eski 1273).
+  LaunchedEffect(ui.showSettings) {
+    if (!ui.showSettings) ui.ayarBolumler = false
+  }
 
   // Odak sahipliği: kök kutu odaksızsa D-pad controller'a gelmez. Tek requestFocus
   // ilk karede sessizce başarısız olabiliyor → 10 kare dene (eski AA 1297-1304).
