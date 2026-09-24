@@ -357,6 +357,17 @@ class MainActivity : ComponentActivity() {
                         }
                         val current = selected
                         when {
+                            // Oynatıcı 2 deneme aşamasında: Ayarlar'daki anahtar açıksa o,
+                            // değilse eski oynatıcı (yedek). Bkz. docs/PLAYER2-PLAN.md.
+                            current != null && com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(this@MainActivity) ->
+                                com.evaitec.netmovies.tv.ui.player2.PlayerScreen2(
+                                    item = current,
+                                    bindings = bindings,
+                                    library = library,
+                                    onBack = { selected = null },
+                                    kanallar = kanalListesi,
+                                    onKanal = { selected = it },
+                                )
                             current != null ->
                                 PlayerScreen(
                                     item = current,
