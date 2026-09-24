@@ -1,6 +1,6 @@
 package com.evaitec.netmovies.tv.ui
 
-import androidx.activity.compose.BackHandler
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -72,7 +72,7 @@ fun SeekScreen(
             withFrameNanos { }
         }
     }
-    BackHandler { onClose() }
+    NmBackHandler { onClose() }
 
     fun git() {
         val minutes = minuteInput.toLongOrNull() ?: return

@@ -64,12 +64,7 @@ object NmDim {
     // (Dean, 19 Eylül: "her sayfa eşit düzenlensin, 10 poster bir rafa sığsın").
     // Sabit 130dp'de sayı ekrana/çözünürlüğe göre değişiyordu.
     const val RafPosterAdedi = 10
-    /** Yalnız önizleme/yedek; gerçek genişlik `nmRafPosterGenisligi()`. */
-    val PosterWidth   = 130.dp
     val GridPosterMin = 150.dp
-    // Ajanda takvimdir: aynı satırda daha çok gün görünsün diye ana sayfa
-    // rafından (130dp) da küçük.
-    val AgendaPoster  = 110.dp
 
     val FocusRingWidth = 3.dp
     val IdleRingWidth  = 1.dp

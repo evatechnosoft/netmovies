@@ -259,6 +259,7 @@ class MainActivity : ComponentActivity() {
                         val anaSayfa = {
                             selected = null; showBrowse = false; showAdmin = false
                             showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
+                            showSearch = false; showRemote = false
                         }
 
                         // ---------------------------------------------------- TELEFON KUMANDASI

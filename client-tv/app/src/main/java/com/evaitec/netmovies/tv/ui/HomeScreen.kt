@@ -1210,39 +1210,6 @@ private fun Center(text: String) {
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-fun HomeSearchBarButton(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    val scale = nmFocusScale(isFocused, NmDim.FocusScaleRow, label = "searchScale")
-    val shape = RoundedCornerShape(NmDim.PillRadius)
-
-    Box(
-        modifier = modifier
-            .nmScale(scale)
-            .clip(shape)
-            .background(if (isFocused) NmColor.SurfaceHigh else NmColor.Surface)
-            .nmFocusRing(isFocused, shape)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 11.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        // Tek satır: uzun placeholder dar ekranda ikinci satıra sarıp pill'i şişiriyordu.
-        Text(
-            text = "🔎  Film, dizi veya tür ara…",
-            color = if (isFocused) NmColor.OnSurface else NmColor.OnSurfaceFaint,
-            fontWeight = FontWeight.Medium,
-            fontSize = NmType.Label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SettingsMenu(

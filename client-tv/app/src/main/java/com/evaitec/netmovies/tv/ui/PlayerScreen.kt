@@ -209,7 +209,6 @@ fun PlayerScreen(
     // yalnız scrub başlayınca kurulur, scrub bitince bırakılır.
     var previewExo by remember { mutableStateOf<ExoPlayer?>(null) }
 
-    var error by remember { mutableStateOf<String?>(null) }
     var ready by remember { mutableStateOf(false) }
     var retryKey by remember { mutableIntStateOf(0) }
 
@@ -975,7 +974,6 @@ fun PlayerScreen(
     // Arama/eşleştirme/dil sıralaması burada TEKRARLANMAZ — TV, telefon ve web
     // aynı listeyi aynı sırada görür.
     LaunchedEffect(aktifUrl, aktifPlugin, currentEpIndex, retryKey) {
-        error = null
         ready = false
         links = emptyList()
         currentLinkIndex = 0
@@ -1081,7 +1079,7 @@ fun PlayerScreen(
             trackSelector.setParameters(trackSelector.buildUponParameters().setMaxVideoSize(g, y))
         }
         try {
-            ready = false; error = null
+            ready = false
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
             val ua = link.userAgent.ifBlank { "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)" }
             val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -1441,9 +1439,6 @@ fun PlayerScreen(
             }
             .onKeyEvent { ke ->
                 when {
-                    // Hata ekranında tuşları tüketme: overlay butonları (Tekrar dene / Geri)
-                    // arası d-pad navigasyonu ve BACK, Compose'a serbest kalsın.
-                    error != null -> false
                     // Telefon kumandasındaki "Menü": oynatıcı ayarlarını (altyazı,
                     // kalite, kaynak) açar. TV kumandalarının çoğunda bu tuş yok,
                     // bu yüzden buton eşlemesine değil doğrudan buraya bağlı.
@@ -2032,12 +2027,10 @@ private fun ControlsOverlay(
                 }
                 Text(fmtTime(duration), color = NmColor.OnSurfaceMuted, fontSize = NmType.Caption)
             }
-            // Cubuktaki uc ikon odak ALMAZ (D-pad sol/sag sarmadir). Gezilebilir
-            // buton takimi QuickPad'de ve ASAGI ok ile aciliyor — yazmayinca
-            // bulunmuyordu (Dean, 17 Eylul: "sarma butonu playerda olacak, cursor
-            // gezebilir olsun").
+            // Cubuktaki ikonlar odak ALMAZ (D-pad sol/sag sarmadir). Tus eslemesi
+            // yazmayinca bulunmuyor — varsayilan eslemeyle (RemoteInput DEFAULTS) ayni kalmali.
             Text(
-                text = "◀ ▼ ▶  Butonlar  ·  ▲ Önizleme  ·  sarma tuşları ±30 sn",
+                text = "◀ ▶ ±10 sn  ·  ▲ Önizleme  ·  ▲ basılı Bölümler  ·  OK basılı Ayarlar",
                 color = NmColor.OnSurfaceMuted,
                 fontSize = NmType.Caption,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -2815,50 +2808,5 @@ private fun CornerStatus(message: String, loader: Boolean) {
                 modifier = Modifier.widthIn(max = 420.dp),
             )
         }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun PlayerOverlay(
-    title: String,
-    message: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    onBack: () -> Unit,
-) {
-    val shape = RoundedCornerShape(NmDim.PanelRadius)
-    Box(
-        Modifier.fillMaxSize().background(NmColor.Scrim).padding(NmDim.SafeArea),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .clip(shape)
-                .background(NmColor.SurfaceDialog)
-                .padding(32.dp),
-        ) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = NmType.ScreenTitle, color = NmColor.Primary)
-            Text(message, color = NmColor.OnSurfaceMuted, fontSize = NmType.Label)
-            ActionRow(onAction = onAction, actionLabel = actionLabel, onBack = onBack)
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ActionRow(onAction: () -> Unit, actionLabel: String, onBack: () -> Unit) {
-    val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        runCatching { firstFocus.requestFocus() }
-    }
-    Row(
-        modifier = Modifier.focusGroup(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        TouchButton(actionLabel, onAction, modifier = Modifier.focusRequester(firstFocus), accent = true)
-        TouchButton("Geri", onBack)
     }
 }
