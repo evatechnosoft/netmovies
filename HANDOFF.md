@@ -1,118 +1,50 @@
-# Handoff: saat kumandası UI + TV liste satırları
-
-> 2026-09-16 21:05 · `fix/general-stability` @ `07bde9c` · 0 kirli dosya · push EDİLDİ
-> Katalog `evaglass-releases` @ `d457d83` · 0 kirli · push EDİLDİ
+# Handoff: TV 0.9.24 — cihaz geri bildirimi bekleniyor
+> 2026-09-24 18:40 · `fix/general-stability` @ `f7ab9a6` (push'lu) · kirli: yalnız `.claude/handoffs/*`, `.claude/worktrees/`, `atv-kopru.log`
+> Katalog `evaglass-releases` @ `fdfd6d3` (push'lu)
 
 ## Goal
-
-Dean'in cihazda gördüğü UI şikâyetlerini kök nedeniyle kapatmak: televizyonda
-bölüm ızgarası okunmuyordu, saatte ana ekran açılışta kayıp üst üste biniyordu.
-Uzun devir günlüğü ve mimari: `docs/HANDOFF.md`. Bu oturumun gerekçe kaydı:
-`.claude/handoffs/2026-09-16-2038-tv-list-tile-ui.md`.
+Reklamsız TV uygulamasını (client-tv, Mi Box) 3 metreden rahat kullanılır ve kesintisiz izlenir hâle getirmek. Kurallar/persona: `.claude/agents/tv-ux.md`. Oynatıcı 2 planı: `docs/PLAYER2-PLAN.md`.
 
 ## State
-
-**Yayınlandı — üç dağıtım yeri de canlı (yerel OTA · GitHub release · apps.json):**
-- **NetMovies TV 0.3.9** (vc 309) — bölüm seçici tam genişlik satır listesi,
-  Ayarlar menüsü tam yükseklik. Commit `bc3f529`.
-- **NetMovies Mini 0.1.10** (vc 110) — sabit ince şerit, üç kip düğmesi,
-  mikrofon öne, TV ana ekranı uzun basışta. Commit `07bde9c` (0.1.9 = `dbc29c7`).
-
-Kanıt (komut çıktıları):
-- `aapt2 dump badging` → TV `versionCode='309' versionName='0.3.9'`,
-  saat `versionCode='110' versionName='0.1.10'`
-- `/api/v1/app_update?target=tv` → `v0.3.9-poc` · `?target=wear` → `v0.1.10-poc`
-- release asset sha256 = yerel APK: TV `403e2583…`, saat `4d343fd3…`
-- `evatechnosoft.github.io/evaglass-releases/apps.json` → `netmovies-tv 0.3.9/309`,
-  `netmovies-phone 0.3.9/309`, `netmovies-mini-watch 0.1.10/110`
-- saat imzası `20319a76…02d841` — 0.1.4'ten beri aynı, güncelleme imzadan düşmez
-- `./gradlew :app:assembleDebug`, `:app:testDebugUnitTest`, `:wear:assembleDebug`
-  → hepsi BUILD SUCCESSFUL
-
-**HİÇBİRİ CİHAZDA GÖRÜLMEDİ.** Sunucu tarafı kanıtlı, ekran değil. `adb devices`
-boş, `client_log` boş.
-
-**KIRMIZI — bu oturumun işiyle ilgisiz, açık kalan:** `bash scripts/smoke.sh`
-→ `[HATA] DiziPal · zincir kaynak vermedi`. Motor günlüğü sebebi söylüyor:
-`resolve: link — DiziPal · ConnectError:` (adres `dizipal2220.com`). Katalog,
-kanallar ve `stream/tests` YEŞİL; yalnız bu sağlayıcı düşük. Desen tanıdık:
-domain taşınması / SNI blok (`memory/plugin-domain-moves.md`).
-
-**Tünel:** oturum başında 530'du, `docker compose --profile tunnel up -d` ile
-kaldırıldı → `w.evaitec.com/api/v1/health` 200.
+- **APK 0.9.24 yayında (üç yer):** `data/apk` → `app_update?target=tv` = `v0.9.24-poc`; GitHub `v0.9.24-poc`; evaglass `netmovies-tv-v0.9.24` + apps.json vc 924, sha `50fb2e72…`. İki indirme 200.
+- Yığın: yerel ve `w.evaitec.com` health 200 (18:40). Birim test 55/55; gateway 168 OK (proxy fix sırasında).
+- Bu gün yapılanlar (ayrıntı commit mesajlarında, `git log 2180d16..f7ab9a6`):
+  - 0.9.22 okunurluk (7 poster, 14–18sp, overscan 48/27), Tekrar dene ekranları, sarma ekranında GERİ fix.
+  - `eaabab7` proxy: `.js` uzantılı segmentler ön-yüklenmiyordu → DiziMom'da sürekli tamponlama. Ölçümle doğrulandı.
+  - Oynatıcı 2 (`ui/player2/`) Ayarlar anahtarıyla, **varsayılan KAPALI** (eski oynatıcı yedek).
+  - 0.9.24: ilk açılışta çift çözümleme (tek kullanımlık adres yanıyordu) → `detayHazir` kapısı; açılmayan kaynak + gelen yeni kaynağa geçiş; KAYNAK_YOK'ta kapanma yerine `KaynakYokEkrani`; tam ekran `PlayerLoadingScreen`. İki oynatıcıda da.
+- **unverified:** hiçbiri Mi Box'ta denenmedi. `KaynakYokEkrani` emülatörde tetiklenemedi. Oynatıcı 2'de dizi bölüm geçişi / geri sayım / scrub önizleme / canlı denenmedi.
 
 ## Next
-
-1. **Dean cihazda denesin** (tek kişilik adım, kod değil): televizyonda
-   evaitecOTA → NetMovies 0.3.9; saatte ana ekranın en altındaki
-   "⬆ 0.1.10 güncelle" şeridi. Geri bildirim gelene kadar saat/TV UI'sine
-   dokunma — ölçü ayarı (yay yayvanlığı, düğme boyu) ekranı görmeden tahmindir.
-2. **DiziPal'i ayağa kaldır:** `docker logs netmovies-engine | grep -i dizipal`
-   ile güncel adresi gör, `python scripts/chain_scan.py --n 2` ile doğrula.
-   Adres taşınmışsa `.env` override ile sabitle (desen: `DiziMom→dizimom.food`).
-   `bash scripts/smoke.sh` yeşile dönene kadar bitmedi.
-3. Dean'den yeni UI geri bildirimi gelirse onu önceliklendir.
+1. Dean'in Mi Box geri bildirimini bekle (0.9.24: ilk açılışta "bulunamadı" geçti mi, yükleme ekranı, DiziMom akıcı mı). Sorun bildirirse önce: `curl -s localhost:3310/api/v1/client_log` (TV günlüğü — emülatör çalıştırmadan oku, tek slot, emülatör ezer).
+2. Dean yeni oynatıcıyı onaylarsa: `data/OynaticiSecimi.kt` varsayılanı `true`, bir sürüm sonra `ui/PlayerScreen.kt` eski oynatıcıyı sil (PLAYER2-PLAN § Entegrasyon).
+3. Temizlik: birleşmiş ajan worktree'leri — `git worktree remove .claude/worktrees/agent-*` + `git branch -D worktree-agent-*` (commit'leri cherry-pick edildi: 15e1f5d, b0f017d, adbfdd1).
 
 ## Don't repeat
-
-- **Saat için ADB taraması** — cihaz ağda görünmüyor, "Wi-Fi üzerinden hata
-  ayıklama" kapalı. Dean IP vermeden `scripts/saat-kur.sh` boşa koşar.
-- **Saat OTA zincirini yeniden doğrulama** — yerel APK / release / katalog
-  sha256'ları ve imza bu oturumda uçtan uca eşleşti; kalan belirsizlik yalnız
-  cihazın kendisinde.
-- **Sezon rafı + bölüm listesini aynı ekrana koymak** — denendi, "çok karışık"
-  diye geri alındı (D-pad aynı ekranda iki yön). Sayfa-sayfa akış korunacak.
-- **Saatte tek düğmeyle dönen kip** (gezinme→sarma→ses) — hangi kipte olunduğu
-  akılda tutulamıyordu; üç ayrı düğmeye çevrildi.
-- **`gh release create "dosya#ad"` ile yeniden adlandırma** — `#` sadece etiket,
-  dosya adı değişmez. Önce doğru adla kopyala, sonra yükle.
-- Yeni release asset'i **~40 sn 404 döner** (CDN); 404 görünce yayını bozuk sanma.
-- **Bash heredoc + Türkçe kesme işareti** bu kabukta parse hatası veriyor
-  (`unexpected EOF looking for matching '`). Çok satırlı Türkçe içerik için
-  betiği önce Write ile dosyaya yaz, sonra `python <dosya>` ile koştur.
+- TV davranışını `eva_test` (telefon AVD) ile test etme: telefon kipinde poster gerçek TV'ye `remote/play` yollar. `tv_test` AVD kullan (Android TV API 34): `emulator -avd tv_test -no-snapshot -no-audio -gpu swiftshader_indirect` (run_in_background). Ekran görüntüsünde video karışık kare gösterebilir — emülatör GPU kusuru.
+- Dean izlerken (remote/state `playing:true`) onun içeriğini emülatörde açma — ilerlemesini ezer.
+- Stream rebuild sonrası tünel: `docker compose stop cloudflared; docker compose --profile tunnel up -d` (hemen 530, ~15 sn sonra 200).
+- Emülatörde açılış 7–13 sn donuyor, yayındaki eski sürümde de aynı — değişiklikten bağımsız, Mi Box'ta ölçülmedi; kök neden araştırılmadı.
 
 ## Read first
-
-1. `docs/HANDOFF.md` — proje sözleşmesi, doğrulama komutları, mimari
-2. `client-tv/wear/src/main/java/com/evaitec/netmovies/wear/MainActivity.kt`
-   — saat ana ekranı (`KipYayi`, `PosterYayi`, kip geri dönüş `LaunchedEffect`)
-3. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/EpisodePicker.kt`
-   — bölüm seçici satır listesi
-4. `memory/plugin-domain-moves.md` — Next #2'nin deseni
+1. `.claude/agents/tv-ux.md` — ölçüler + korunan Dean kararları
+2. `docs/PLAYER2-PLAN.md` — oynatıcı 2 sözleşmesi
+3. `client-tv/.../ui/PlayerScreen.kt` `detayHazir` / `siradakiBekleniyor` — son düzeltmenin yeri
 
 ## Verify
+git rev-parse --short HEAD                                   # expect f7ab9a6
+curl -s "localhost:3310/api/v1/app_update?target=tv"         # expect tag v0.9.24-poc
+cd client-tv && ./gradlew testDebugUnitTest -q               # expect exit 0 (55 test)
+bash scripts/smoke.sh                                        # expect kapı YEŞİL
 
-```bash
-git rev-parse --short HEAD              # beklenen: 07bde9c (değilse: git log 07bde9c..HEAD --oneline)
-git status --porcelain | wc -l          # beklenen: 0
-bash scripts/smoke.sh                   # beklenen: DiziPal KIRMIZI, gerisi yeşil
-curl -s "localhost:3310/api/v1/app_update?target=tv"    # beklenen: v0.3.9-poc
-curl -s "localhost:3310/api/v1/app_update?target=wear"  # beklenen: v0.1.10-poc
-curl -s -o /dev/null -w "%{http_code}\n" https://w.evaitec.com/api/v1/health  # beklenen: 200
+## <yeniden başlangıç> promptu (yapıştır)
 ```
-Tünel 530 dönerse: `docker compose --profile tunnel up -d` (cloudflared ağ ad
-alanı stream'e pinli, stream her yeniden kurulduğunda tünel kopuyor).
-
-## Yeniden başlangıç promptu (yapıştır)
-
-```
-NetMovies projesinde çalışıyoruz (D:\projects\netmovies, dal fix/general-stability).
-Geçen oturumda TV 0.3.9 ve saat kumandası 0.1.10 yayınlandı: televizyonda bölüm
-seçici tam genişlik satır listesine geçti ve Ayarlar menüsü tam yüksekliğe çıktı;
-saatte ana ekran açılışta kaymayı bitiren sabit ince şerit, üç kip düğmesi
-(saatte gezin / sarma / ses, 5 sn sonra varsayılana döner), mikrofon öne ve TV
-ana ekranı uzun basışa taşındı. Her ikisi de üç dağıtım yerinde canlı ve sunucu
-tarafı kanıtlı, ama HİÇBİRİ cihazda denenmedi. İki repo da temiz ve push edilmiş.
-
+NetMovies TV (D:\projects\netmovies, dal fix/general-stability @ f7ab9a6). 0.9.24 üç yerde yayında:
+okunurluk turu, DiziMom tamponlama proxy düzeltmesi, ilk açılışta "kaynak bulunamadı"/kapanma
+düzeltmesi, tam ekran yükleme; Oynatıcı 2 Ayarlar'da deneme anahtarıyla (varsayılan kapalı).
+Hiçbiri Mi Box'ta doğrulanmadı.
 Önce HANDOFF.md'yi oku ve Verify bloğunu çalıştır.
-
-Öncelik sırası:
-1. smoke.sh'deki tek kırmızıyı çöz: DiziPal zinciri ConnectError veriyor
-   (dizipal2220.com). Kök neden domain taşınması mı, SNI blok mu — motor
-   günlüğünden teşhis et, chain_scan ile doğrula, gerekirse .env override.
-2. Dean cihaz geri bildirimi verirse (TV 0.3.9 / saat 0.1.10 ekran görüntüsü)
-   onu önceliklendir; ekranı görmeden saat/TV ölçülerini kurcalama.
-
-Yeni iş açma, HANDOFF.md'deki Next listesinin dışına çıkma. Bir şey bozuksa kök
-nedeni bul, semptomu yamalama. Her iddianın arkasında komut çıktısı olsun.
+Öncelik: (1) Dean'in cihaz geri bildirimi → kök neden (client_log'u emülatör çalıştırmadan oku);
+(2) onaylarsa yeni oynatıcıyı varsayılan yap; (3) ajan worktree temizliği.
+TV testi yalnız tv_test AVD'de. Dean istemeden yeni iş açma.
 ```
