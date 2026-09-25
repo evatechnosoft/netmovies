@@ -69,7 +69,8 @@ async def fetch_html(
     aynı bozuk yoldan gidip ~18sn donuyor ve gateway 30sn'de 504 veriyordu.
     """
     h = dict(headers or {})
-    if "User-Agent" not in h and "user-agent" not in h:
+    forced_ua = "User-Agent" not in h and "user-agent" not in h
+    if forced_ua:
         h["User-Agent"] = _DEFAULT_UA
 
     attempts = [client]
@@ -88,6 +89,17 @@ async def fetch_html(
         last_response = resp
         if resp.status_code == 200 and len(resp.content) > 300:
             return decode_body(resp, encoding)
+
+    # Cloudflare challenges the forced Chrome UA (httpx TLS doesn't look like Chrome) but
+    # passes the client's own UA — DiziBox served "Just a moment" to every shelf.
+    if forced_ua:
+        try:
+            resp = await client.get(url, headers={k: v for k, v in h.items() if k != "User-Agent"},
+                                    cookies=cookies, timeout=7.0)
+            if resp.status_code == 200 and len(resp.content) > 300:
+                return decode_body(resp, encoding)
+        except Exception as error:
+            last_error = error
 
     if last_response is not None:
         return decode_body(last_response, encoding)
