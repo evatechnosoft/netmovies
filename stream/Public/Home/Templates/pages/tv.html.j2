@@ -107,6 +107,39 @@
   #dolu { height: 100%; width: 0; background: var(--vurgu); border-radius: 4px; }
   #sure { margin-top: 12px; font-size: 26px; color: var(--yazi); }
 
+  #atla {
+    position: absolute; right: 96px; bottom: 190px; padding: 16px 28px; border-radius: 12px;
+    background: rgba(255,255,255,.92); color: #000; font-size: 28px; font-weight: 700;
+  }
+  #ipucu2 { margin-top: 10px; font-size: 21px; color: var(--sonuk); }
+  video::cue { font-size: 42px; background: rgba(0,0,0,.65); }
+
+  /* Uzun basış pad'i ve yan panel (bilgi / dil / altyazı listesi) */
+  #pad, #panel { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 8; background: rgba(0,0,0,.55); }
+  #pad-ad { position: absolute; top: 250px; left: 0; right: 0; text-align: center; font-size: 30px; font-weight: 700; }
+  .pd {
+    position: absolute; width: 260px; margin-left: -130px; padding: 18px 0; text-align: center;
+    border-radius: 14px; background: #262b36; border: 3px solid #fff; font-size: 26px; cursor: pointer;
+  }
+  .pd.bos { opacity: .35; border-color: transparent; }
+  #pd-yukari { left: 50%; top: 330px; }
+  #pd-orta   { left: 50%; top: 470px; background: var(--vurgu); }
+  #pd-asagi  { left: 50%; top: 610px; }
+  #pd-sol    { left: 50%; top: 470px; margin-left: -430px; }
+  #pd-sag    { left: 50%; top: 470px; margin-left: 170px; }
+  #panel-ic {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 760px; padding: 48px;
+    background: #14171d; box-shadow: -10px 0 40px rgba(0,0,0,.6); overflow: hidden;
+  }
+  #panel-baslik { font-size: 34px; font-weight: 700; margin-bottom: 18px; }
+  #panel-metin { font-size: 24px; line-height: 1.45; color: var(--yazi); white-space: pre-line; margin-bottom: 18px; }
+  .satir {
+    padding: 14px 20px; margin-bottom: 10px; border-radius: 10px; background: var(--kart);
+    font-size: 25px; border: 4px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .satir.odak { border-color: #fff; background: #2e2a4a; }
+  #bolum-bilgi { font-size: 22px; color: var(--sonuk); margin: -12px 0 20px; max-height: 96px; overflow: hidden; }
+
   /* Durum / yükleniyor */
   #durum {
     position: absolute; top: 50%; left: 0; right: 0; margin-top: -30px;
@@ -118,7 +151,7 @@
 </head>
 <body>
 
-<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · basılı tut: ★ · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et</span></div>
+<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · basılı tut: menü · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et · <b style="color:#3b82f6">●</b> bilgi</span></div>
 
 <div id="raflar"><div id="kaydir"></div></div>
 
@@ -130,6 +163,7 @@
 
 <div id="bolumler" class="gizli">
   <h2 id="bolum-ad"></h2>
+  <div id="bolum-bilgi"></div>
   <div id="bolum-kaydir"></div>
 </div>
 
@@ -139,8 +173,25 @@
     <div id="oynatilan"></div>
     <div id="cubuk"><div id="dolu"></div></div>
     <div id="sure"></div>
+    <div id="ipucu2"><b style="color:#e5484d">●</b> altyazı · <b style="color:#30a46c">●</b> dil/kaynak · <b style="color:#f5d90a">●</b> bilgi · <b style="color:#3b82f6">●</b> sonraki kaynak · 0-9 atla · CH ±1 dk</div>
   </div>
+  <div id="atla" class="gizli">Açılışı geç ▶▶ OK</div>
 </div>
+
+<div id="pad" class="gizli">
+  <div id="pad-ad"></div>
+  <div class="pd" id="pd-yukari">▲ Bölümler</div>
+  <div class="pd" id="pd-sol">◀ Bilgi</div>
+  <div class="pd" id="pd-orta">OK ▶ Oynat</div>
+  <div class="pd" id="pd-sag">Dil / kaynak ▶</div>
+  <div class="pd" id="pd-asagi">▼ ★ Favori</div>
+</div>
+
+<div id="panel" class="gizli"><div id="panel-ic">
+  <div id="panel-baslik"></div>
+  <div id="panel-metin"></div>
+  <div id="panel-liste"></div>
+</div></div>
 
 <div id="durum">Yükleniyor…</div>
 
@@ -177,6 +228,14 @@
   var okBasildi = false;      // OK basılı tutuldu mu (favori) — bırakışta "aç" yutulur
   var sonKlavye = 0;          // son tuş/tekerlek zamanı — hover odağı çalmasın
   var sonFare   = 0;          // son GERÇEK fare hareketi
+  var katman    = null;       // ekranın üstündeki katman: null | "pad" | "panel"
+  var padKart   = null;       // pad'in açıldığı kart
+  var padHazir  = false;      // pad'i açan basış bırakıldı mı (basili-tus-yeni-odaga-akar)
+  var yutKeyup  = false;      // katmanda işlenen OK'un bırakışı arkadaki kartı açmasın
+  var panelSec  = null, panelIdx = 0, panelAdet = 0;
+  var bilgiBellek = {};       // load_item yanıtları, plugin|url anahtarıyla
+  var bekleMetin  = "Tamponlanıyor…";
+  var isaret      = null;     // {intro_start, intro_end} — /api/v1/markers
 
   function durum(metin) {
     var d = $("durum");
@@ -222,7 +281,8 @@
       url    : ham.url || "",
       ham    : ham.content_url || decodeURIComponent(ham.url || ""),
       tur    : ham.tur_sat || tur,
-      oran   : ham.oran || 0
+      oran   : ham.oran || 0,
+      kalinan: ham.kalinan || ""
     };
   }
 
@@ -233,13 +293,20 @@
     }).catch(function () { return { ad: ad, tur: tur, kartlar: [] }; });
   }
 
+  var DIZI_ADRES = /\/(dizi|diziler|series?)\/|sezon|bolum|episode/i;
+
   function devamKartlari(y) {
     return (y.result || []).map(function (r) {
       var oran = r.duration_seconds > 0 ? r.position_seconds / r.duration_seconds : 0;
+      // Tür kayıttan; /tv eski sürümü dizileri "movie" diye yazmıştı, adres
+      // dizi/bölüm yolu taşıyorsa dizi sayılır.
+      // ponytail: adres kalıbı sezgisel; kayıtlar düzelince yalnız media_type yeter.
+      var dizi = r.media_type === "serie" || DIZI_ADRES.test(r.content_url || "");
       return {
         plugin: r.plugin, title: r.title, poster: r.poster,
         url: encodeURIComponent(r.content_url || ""),
-        content_url: r.content_url, oran: oran
+        content_url: r.content_url, oran: oran,
+        tur_sat: dizi ? "serie" : "movie", kalinan: r.episode || ""
       };
     });
   }
@@ -437,6 +504,9 @@
       durum("");
       acilan = kart;
       bolumCiz();
+      $("bolum-bilgi").textContent = "";
+      bilgiGetir(kart).then(function (b) { if (acilan === kart) $("bolum-bilgi").textContent = bilgiMetni(b); })
+        .catch(function () { /* bilgi yoksa liste yeter */ });
       ekran = "bolumler";
       $("raflar").className = "gizli";
       $("bolumler").className = "";
@@ -445,6 +515,7 @@
 
   function bolumCiz() {
     var kok = $("bolum-kaydir");
+    var bas = 0;
     kok.innerHTML = "";
     $("bolum-ad").textContent = acilan.title;
     bolumler.forEach(function (b, i) {
@@ -452,15 +523,18 @@
       d.className = "bolum"; d.id = "b" + i;
       var s = b.season || 1;
       var e = (b.episode === null || b.episode === undefined) ? (i + 1) : b.episode;
-      d.textContent = "S" + s + " B" + e + (b.title ? " · " + b.title : "");
+      var kalinan = acilan.kalinan && acilan.kalinan === "S" + s + "B" + e;
+      if (kalinan) bas = i;
+      d.textContent = (kalinan ? "▶ " : "") + "S" + s + " B" + e + (b.title ? " · " + b.title : "") +
+                      (kalinan ? "  — kaldığın bölüm" : "");
       (function (i2) {
         d.addEventListener("mouseenter", function () { if (fareSahip()) bolumOdak(i2); });
         d.addEventListener("click", function () { bolumOdak(i2); bolumOynat(); });
       })(i);
       kok.appendChild(d);
     });
-    bolumIdx = 0;
-    bolumOdak(0);
+    bolumIdx = bas;
+    bolumOdak(bas);
   }
 
   function bolumOdak(i) {
@@ -499,17 +573,19 @@
     }).catch(function () { durum("Kaynak alınamadı"); setTimeout(function () { durum(""); }, 2500); });
   }
 
-  function oynatKaynakla(kart, kaynaklar, bolumRef) {
+  function oynatKaynakla(kart, kaynaklar, bolumRef, sira) {
     if (!kaynaklar.length) {
       durum("Oynatılabilir kaynak bulunamadı");
       setTimeout(function () { durum(""); }, 3000);
       return;
     }
     durum("");
-    oynayan = { kart: kart, bolumRef: bolumRef || "0", kaynaklar: kaynaklar, sira: 0, tekrar: 0, tekrarKonum: 0 };
+    sira = sira || 0;
+    oynayan = { kart: kart, bolumRef: bolumRef || "0", kaynaklar: kaynaklar, sira: sira, tekrar: 0, tekrarKonum: 0 };
     var v = $("video");
     // webOS'un kendi medya motoru HLS'i doğrudan açar; hls.js gerekmiyor.
-    v.src = kaynaklar[0].url;
+    v.src = kaynaklar[sira].url;
+    altyaziKur();
     gunlukYaz("BAŞLA " + kart.plugin + " · " + kart.title + " · " + kaynakHost(v.src) + " · " + kaynaklar.length + " kaynak");
     $("oynatilan").textContent = kart.title + (bolumRef && bolumRef !== "0" ? " · " + bolumRef : "");
     ekran = "oynatici";
@@ -527,6 +603,7 @@
     var v = $("video");
     oynayan.sira = sira;
     v.src = oynayan.kaynaklar[sira].url;
+    altyaziKur();
     var git = function () {
       v.removeEventListener("loadedmetadata", git);
       if (konum > 1) v.currentTime = konum;
@@ -540,10 +617,215 @@
     if (!oynayan || !oynayan.kaynaklar) return;
     var n = oynayan.kaynaklar.length;
     var sira = (oynayan.sira + 1) % n;
-    bildir("Kaynak " + (sira + 1) + "/" + n);
+    kaynakSec(sira);
+  }
+
+  // Kaynak değişince ekranda ne olduğu yazsın: "Tamponlanıyor" tek başına
+  // tuşun ne yaptığını anlatmıyordu (Dean: "basınca tamponlanıyor diyor").
+  function kaynakSec(sira) {
+    var n = oynayan.kaynaklar.length;
+    bekleMetin = "Kaynak değiştiriliyor: " + kaynakEtiket(oynayan.kaynaklar[sira], sira) + "  (" + (sira + 1) + "/" + n + ")";
+    durum(bekleMetin);
     gunlukYaz("KAYNAK DEĞİŞ → " + (sira + 1) + "/" + n);
     oynayan.tekrar = 0;
     kaynakKur(sira, $("video").currentTime);
+  }
+
+  function kaynakEtiket(k, i) {
+    var dil = (k.language && k.language.label) || "dil bilinmiyor";
+    var ad = String(k.name || "").split("|").pop().trim();
+    return (i + 1) + ". " + dil + (ad ? " · " + ad : "") + ((k.subtitles || []).length ? " · altyazılı" : "");
+  }
+
+  // --- altyazı -----------------------------------------------------------
+  // Kaynağın altyazıları <track> olur (sunucu jetonlu proxy_url verir: aynı
+  // köken + TV DNS'i sorunu yok). Türkçe varsa açık başlar.
+  function altyazilar() {
+    var k = oynayan && oynayan.kaynaklar[oynayan.sira];
+    return ((k && k.subtitles) || []).filter(function (a) { return a && a.proxy_url; });
+  }
+
+  function turkceMi(a) { return /t[uü]rk|\btr\b|\btur\b/i.test((a.name || "") + " " + (a.url || "")); }
+
+  function altyaziKur() {
+    var v = $("video");
+    var eski = v.querySelectorAll("track");
+    for (var i = 0; i < eski.length; i++) v.removeChild(eski[i]);
+    isaret = null;
+    $("atla").className = "gizli";
+    var liste = altyazilar();
+    liste.forEach(function (a) {
+      var t = document.createElement("track");
+      t.kind = "subtitles"; t.label = a.name || "Altyazı"; t.src = a.proxy_url;
+      // srclang verilmez: Chrome dil tercihine göre kendisi de bir iz açıyor,
+      // iki Türkçe altyazı üst üste çıkıyordu (LG'de ölçüldü).
+      v.appendChild(t);
+    });
+    var tr = -1;
+    for (var j = 0; j < liste.length; j++) if (turkceMi(liste[j])) { tr = j; break; }
+    altyaziSec(tr);
+    // Tarayıcının kendi otomatik seçimi izler eklendikten sonra çalışıyor: seçim
+    // meta veri gelince bir kez daha uygulanır.
+    var yeniden = function () { v.removeEventListener("loadedmetadata", yeniden); altyaziSec(oynayan ? oynayan.altyazi : tr); };
+    v.addEventListener("loadedmetadata", yeniden);
+    isaretGetir(liste[tr >= 0 ? tr : 0]);
+  }
+
+  function altyaziSec(i) {
+    var tt = $("video").textTracks;
+    for (var j = 0; j < tt.length; j++) tt[j].mode = j === i ? "showing" : "disabled";
+    if (oynayan) oynayan.altyazi = i;
+  }
+
+  // --- açılışı geç -------------------------------------------------------
+  // client-tv ile aynı kaynak: /api/v1/markers altyazıdan açılış aralığını çıkarır.
+  // Altyazısız kaynakta işaret yok, düğme de çıkmaz.
+  function isaretGetir(a) {
+    if (!a || !a.url) return;
+    var v = $("video");
+    var sor = function () {
+      v.removeEventListener("loadedmetadata", sor);
+      if (!v.duration) return;
+      api("/api/v1/markers?url=" + encodeURIComponent(a.url) + "&duration=" + Math.round(v.duration))
+        .then(function (y) {
+          var r = y.result || {};
+          isaret = (r.intro_end ? r : null);
+          gunlukYaz("İŞARET açılış=" + (r.intro_start === null || r.intro_start === undefined ? "-" : Math.round(r.intro_start)) +
+                    "–" + (r.intro_end ? Math.round(r.intro_end) : "-") + " (" + (r.source || "") + ")");
+        }).catch(function () { /* işaret yoksa düğme yok */ });
+    };
+    if (v.duration) sor(); else v.addEventListener("loadedmetadata", sor);
+  }
+
+  function acilistaMi() {
+    var v = $("video");
+    if (!isaret || !isaret.intro_end) return false;
+    var bas = isaret.intro_start || 0;
+    return v.currentTime >= bas - 1 && v.currentTime < isaret.intro_end - 2;
+  }
+
+  // --- panel (bilgi / dil / altyazı listesi) ------------------------------
+  function panelAc(baslik, metin, ogeler, secili, sec) {
+    katman = "panel"; panelSec = sec; panelAdet = (ogeler || []).length;
+    $("panel-baslik").textContent = baslik;
+    $("panel-metin").textContent = metin || "";
+    var kok = $("panel-liste");
+    kok.innerHTML = "";
+    (ogeler || []).forEach(function (o, i) {
+      var d = document.createElement("div");
+      d.className = "satir"; d.id = "po" + i; d.textContent = o;
+      d.addEventListener("click", function () { panelOdak(i); panelSecim(); });
+      kok.appendChild(d);
+    });
+    $("panel").className = "";
+    panelOdak(secili || 0);
+  }
+
+  function panelOdak(i) {
+    if (!panelAdet) return;
+    var eski = document.querySelector(".satir.odak");
+    if (eski) eski.className = "satir";
+    panelIdx = Math.max(0, Math.min(i, panelAdet - 1));
+    $("po" + panelIdx).className = "satir odak";
+    $("panel-liste").style.transform = "translateY(-" + (Math.max(0, panelIdx - 8) * 70) + "px)";
+  }
+
+  function panelKapat() { katman = null; $("panel").className = "gizli"; }
+
+  function panelSecim() {
+    var f = panelSec, i = panelIdx;
+    panelKapat();
+    if (f) f(i);
+  }
+
+  // --- bilgi -------------------------------------------------------------
+  function bilgiGetir(kart) {
+    var anahtar = kart.plugin + "|" + kart.url;
+    if (bilgiBellek[anahtar]) return Promise.resolve(bilgiBellek[anahtar]);
+    return api("/api/v1/load_item?plugin=" + encodeURIComponent(kart.plugin) + "&encoded_url=" + kart.url)
+      .then(function (y) { bilgiBellek[anahtar] = y.result || {}; return bilgiBellek[anahtar]; });
+  }
+
+  function bilgiMetni(b) {
+    var var_ = function (x) { return x !== null && x !== undefined && x !== "" && x !== "None"; };
+    var yazi = function (x) { return Array.isArray(x) ? x.join(", ") : String(x); };
+    var ust = [];
+    if (var_(b.year)) ust.push(yazi(b.year));
+    if (var_(b.rating)) ust.push("★ " + yazi(b.rating));
+    if (var_(b.duration)) ust.push(yazi(b.duration) + " dk");
+    if (var_(b.tags)) ust.push(yazi(b.tags));
+    var alt = var_(b.description) ? yazi(b.description) : (var_(b.actors) ? "Oyuncular: " + yazi(b.actors) : "");
+    return ust.join("  ·  ") + (alt ? "\n\n" + alt : "");
+  }
+
+  function bilgiGoster(kart) {
+    if (!kart) return;
+    panelAc(kart.title, "Bilgi alınıyor…", [], 0, null);
+    bilgiGetir(kart).then(function (b) {
+      if (katman === "panel") $("panel-metin").textContent = bilgiMetni(b) || "Bu içerik için bilgi yok";
+    }).catch(function () { $("panel-metin").textContent = "Bilgi alınamadı"; });
+  }
+
+  // --- dil / kaynak seçimi -----------------------------------------------
+  // Dil kaynağa bağlı (dublaj / altyazılı): seçim kaynak listesinden yapılır.
+  function dilPaneli() {
+    var ogeler = oynayan.kaynaklar.map(kaynakEtiket);
+    panelAc("Dil / kaynak", "Dublaj ya da altyazılı kaynağı seç", ogeler, oynayan.sira, function (i) {
+      if (i !== oynayan.sira) kaynakSec(i);
+    });
+  }
+
+  function altyaziPaneli() {
+    var liste = altyazilar();
+    if (!liste.length) { bildir("Bu kaynakta ayrı altyazı yok — yeşil: başka dil/kaynak"); return; }
+    var ogeler = ["Kapalı"].concat(liste.map(function (a) { return a.name || "Altyazı"; }));
+    panelAc("Altyazı", "", ogeler, (oynayan.altyazi === undefined ? -1 : oynayan.altyazi) + 1, function (i) {
+      altyaziSec(i - 1);
+      bildir(i ? "Altyazı: " + ogeler[i] : "Altyazı kapalı");
+    });
+  }
+
+  // Oynatmadan önce kaynak seç (pad → sağ): film için. Dizide bölüm seçilince
+  // oynatıcıdaki yeşil tuş aynı listeyi açar.
+  function dilSecOnce(kart) {
+    if (kart.tur === "serie") { bildir("Dizide dil: bölümü aç, oynatırken yeşil tuş"); return; }
+    durum("Kaynaklar alınıyor…");
+    zincir(kart, 0).then(function (y) {
+      var kaynaklar = ((y.result || {}).sources) || [];
+      durum("");
+      if (!kaynaklar.length) { bildir("Oynatılabilir kaynak bulunamadı"); return; }
+      panelAc(kart.title, "Dil / kaynak seç", kaynaklar.map(kaynakEtiket), 0, function (i) {
+        oynatKaynakla(kart, kaynaklar, "0", i);
+      });
+    }).catch(function () { bildir("Kaynak alınamadı"); });
+  }
+
+  // --- uzun basış pad'i (client-tv joystick eşlemesi) ----------------------
+  // YUKARI bölümler · SOL bilgi · SAĞ dil/kaynak · AŞAĞI favori · OK oynat.
+  // client-tv'de AŞAĞI liste menüsü (favori/izlenecek/takip), SAĞ benzerler;
+  // burada tek favori ve dil/kaynak.
+  function padAc(kart, fareyle) {
+    if (!kart) return;
+    padKart = kart; katman = "pad";
+    // Klavyeyle açıldıysa açan basış hâlâ basılı: ilk bırakışa kadar tuş işlenmez.
+    padHazir = !!fareyle;
+    $("pad-ad").textContent = kart.title;
+    $("pd-yukari").className = kart.tur === "serie" ? "pd" : "pd bos";
+    $("pd-sag").className = kart.tur === "serie" ? "pd bos" : "pd";
+    $("pad").className = "";
+  }
+
+  function padKapat() { katman = null; $("pad").className = "gizli"; }
+
+  function padEylem(k) {
+    var kart = padKart;
+    if (k === TUS.YUKARI && kart.tur !== "serie") return;
+    padKapat();
+    if (k === TUS.YUKARI) bolumAc(kart);
+    else if (k === TUS.ASAGI) favoriDegistir(kart);
+    else if (k === TUS.SOL) bilgiGoster(kart);
+    else if (k === TUS.SAG) dilSecOnce(kart);
+    else if (k === TUS.OK) { if (kart.tur === "serie") bolumAc(kart); else oynat(kart, 0, "0"); }
   }
 
   function oynatmaKapat() {
@@ -748,7 +1030,7 @@
     el.addEventListener("mousedown", function () {
       if (basSayac) clearTimeout(basSayac);
       basSayac = setTimeout(function () {
-        basSayac = 0; okBasildi = true; favoriDegistir(kartAl());
+        basSayac = 0; okBasildi = true; padAc(kartAl(), true);
       }, 600);
     });
     el.addEventListener("mouseup", function () {
@@ -808,6 +1090,8 @@
   // webOS sürümünde tuş sayfaya keydown olarak hiç gelmiyor, sistem geçmişi
   // geri alıyor. İki yol da aynı işi yapsın diye ayrıldı.
   function geriGit() {
+    if (katman === "pad")   { padKapat();   return; }
+    if (katman === "panel") { panelKapat(); return; }
     if (ekran === "oynatici") { oynatmaKapat(); return; }
     if (ekran === "arama") {
       ekran = "ana";
@@ -842,8 +1126,6 @@
     if (k >= 96 && k <= 105) return k - 96;
     return -1;
   }
-  var bilinen = {};
-  Object.keys(TUS).forEach(function (a) { bilinen[TUS[a]] = 1; });
 
   function rafAd(ad) {
     for (var i = 0; i < raflar.length; i++) if (raflar[i].ad === ad) return i;
@@ -852,8 +1134,14 @@
 
   // Renkli tuşlar oynatıcı dışında her ekrandan: kırmızı ara, yeşil favoriler, sarı devam et.
   function renkliTus(k) {
-    if (k !== TUS.KIRMIZI && k !== TUS.YESIL && k !== TUS.SARI) return false;
+    if (k !== TUS.KIRMIZI && k !== TUS.YESIL && k !== TUS.SARI && k !== TUS.MAVI) return false;
     if (ekran === "oynatici") return false;
+    if (k === TUS.MAVI) {
+      var kart = ekran === "arama" ? sonuclar[sonucIdx] : ekran === "bolumler" ? acilan
+               : (raflar[rafIdx] || { kartlar: [] }).kartlar[kartIdx];
+      bilgiGoster(kart);
+      return true;
+    }
     if (ekran !== "ana") geriGit();
     if (k === TUS.KIRMIZI) { aramaAc(); return true; }
     var i = rafAd(k === TUS.YESIL ? "Favorilerim" : "Devam Et");
@@ -864,8 +1152,28 @@
   document.addEventListener("keydown", function (o) {
     var k = o.keyCode;
     sonKlavye = Date.now();
-    // Tanınmayan tuş günlüğe: yeni kumandanın kodu tahmin edilmez, okunur.
-    if (!o.repeat && !bilinen[k] && rakam(k) < 0 && document.activeElement !== $("q")) gunlukYaz("TUŞ kod=" + k + " (" + (o.key || "") + ")");
+    // Ok/OK dışındaki her tuş günlüğe: kumandanın gerçekte ne gönderdiği tahmin
+    // edilmez, okunur. 1536/1537 Magic Remote imlecinin görünüp gizlenmesi, tuş değil.
+    if (!o.repeat && [37, 38, 39, 40, 13, 1536, 1537].indexOf(k) < 0 && document.activeElement !== $("q")) {
+      gunlukYaz("TUŞ kod=" + k + " (" + (o.key || "") + ") ekran=" + (katman || ekran));
+    }
+
+    if (katman === "pad") {
+      o.preventDefault();
+      if (!padHazir || o.repeat) return;
+      if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC) { padKapat(); return; }
+      // OK bırakışta (keyup) işlenir, ana ekranla aynı.
+      if (k === TUS.YUKARI || k === TUS.ASAGI || k === TUS.SOL || k === TUS.SAG) padEylem(k);
+      return;
+    }
+    if (katman === "panel") {
+      o.preventDefault();
+      if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC) { panelKapat(); return; }
+      if (k === TUS.YUKARI) { panelOdak(panelIdx - 1); return; }
+      if (k === TUS.ASAGI)  { panelOdak(panelIdx + 1); return; }
+      if (k === TUS.OK && !o.repeat) { yutKeyup = true; panelSecim(); }
+      return;
+    }
 
     if (renkliTus(k)) { o.preventDefault(); return; }
 
@@ -876,6 +1184,11 @@
       if (k === TUS.DURAKLAT) { v.pause(); kaplamaGoster(); o.preventDefault(); return; }
       if (k === TUS.OK || k === TUS.OYNATDURAKLAT) {
         if (o.repeat) { o.preventDefault(); return; }
+        if (k === TUS.OK && acilistaMi()) {
+          v.currentTime = isaret.intro_end; $("atla").className = "gizli";
+          gunlukYaz("AÇILIŞ GEÇİLDİ → " + Math.round(isaret.intro_end));
+          o.preventDefault(); return;
+        }
         if (v.paused) { v.play(); } else { v.pause(); }
         kaplamaGoster(); o.preventDefault(); return;
       }
@@ -883,7 +1196,10 @@
       if (k === TUS.SOL || k === TUS.GERISAR) { sar(-10); o.preventDefault(); return; }
       if (k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { sar(60);  o.preventDefault(); return; }
       if (k === TUS.CH_ASAGI  || k === TUS.CH_ASAGI_T)  { sar(-60); o.preventDefault(); return; }
-      if (k === TUS.MAVI) { kaynakDegistir(); o.preventDefault(); return; }
+      if (k === TUS.MAVI)    { kaynakDegistir(); o.preventDefault(); return; }
+      if (k === TUS.KIRMIZI) { altyaziPaneli();  o.preventDefault(); return; }
+      if (k === TUS.YESIL)   { dilPaneli();      o.preventDefault(); return; }
+      if (k === TUS.SARI)    { bilgiGoster(oynayan && oynayan.kart); o.preventDefault(); return; }
       // Rakam: filmin yüzde n×10'una git (YouTube alışkanlığı).
       if (rakam(k) >= 0 && v.duration) {
         sar(v.duration * rakam(k) / 10 - (sarHedef === null ? v.currentTime : sarHedef));
@@ -921,7 +1237,7 @@
         o.preventDefault(); return;
       }
       if (k === TUS.OK) {
-        if (o.repeat) { if (!okBasildi) { okBasildi = true; favoriDegistir(sonuclar[sonucIdx]); } }
+        if (o.repeat) { if (!okBasildi) { okBasildi = true; padAc(sonuclar[sonucIdx]); } }
         o.preventDefault(); return;
       }
       return;
@@ -942,7 +1258,7 @@
       // Tekrar eden keydown = basılı tutma. Bırakışta (keyup) "aç" çalışmasın
       // diye bayrak bırakılır.
       if (o.repeat) {
-        if (!okBasildi) { okBasildi = true; favoriDegistir(raflar[rafIdx].kartlar[kartIdx]); }
+        if (!okBasildi) { okBasildi = true; padAc(raflar[rafIdx].kartlar[kartIdx]); }
       }
       o.preventDefault(); return;
     }
@@ -962,13 +1278,21 @@
   // Açma işi BIRAKMADA: basılı tutma favoriye gittiği için kısa basış ancak
   // tuş bırakıldığında ayırt edilebiliyor.
   document.addEventListener("keyup", function (o) {
+    // Pad'i açan basış bırakıldı: bundan sonra pad tuş dinler.
+    if (katman === "pad" && !padHazir) { padHazir = true; okBasildi = false; o.preventDefault(); return; }
     if (o.keyCode !== TUS.OK) return;
+    if (katman === "pad") { padEylem(TUS.OK); o.preventDefault(); return; }
+    if (yutKeyup || katman) { yutKeyup = false; o.preventDefault(); return; }
     if (okBasildi) { okBasildi = false; o.preventDefault(); return; }
     if (ekran === "ana" && raflar.length) { sec(); o.preventDefault(); return; }
     if (ekran === "arama" && sonuclar.length && document.activeElement !== $("q")) {
       sonucSec(); o.preventDefault(); return;
     }
   });
+
+  [["pd-yukari", TUS.YUKARI], ["pd-asagi", TUS.ASAGI], ["pd-sol", TUS.SOL], ["pd-sag", TUS.SAG], ["pd-orta", TUS.OK]]
+    .forEach(function (c) { $(c[0]).addEventListener("click", function (o) { o.stopPropagation(); if (katman === "pad") padEylem(c[1]); }); });
+  $("panel").addEventListener("click", function (o) { if (o.target === $("panel")) panelKapat(); });
 
   // --- imleç ve tekerlek -------------------------------------------------
   // İmleç kartın üstünde dururken liste tuşla/tekerlekle kayınca altına YENİ kart
@@ -1011,6 +1335,7 @@
       $("dolu").style.width = (v.currentTime / v.duration * 100) + "%";
       $("sure").textContent = zaman(v.currentTime) + " / " + zaman(v.duration);
     }
+    $("atla").className = acilistaMi() ? "" : "gizli";
     // Kaplama 4 sn sonra söner; herhangi bir tuş geri getirir.
     if (!v.paused && Date.now() - kaplamaZaman > 4000) $("kaplama").className = "sonuk";
   }, 500);
@@ -1060,7 +1385,7 @@
   $("video").addEventListener("waiting", function () {
     if (ekran !== "oynatici" || bekleBas) return;
     bekleBas = Date.now();
-    durum("Tamponlanıyor…");
+    durum(bekleMetin);
     gunlukYaz("BEKLE");
   });
   // `stalled` tampon doluyken de gelir (indirecek bir şey yok); yalnız oynatma
@@ -1069,9 +1394,14 @@
     if (ekran === "oynatici" && $("video").readyState < 3) gunlukYaz("STALLED (ağdan veri gelmiyor)");
   });
   $("video").addEventListener("playing", function () {
-    if (!bekleBas) { if ($("durum").textContent.indexOf("dene") >= 0) durum(""); return; }
+    if (!bekleBas) {
+      var d = $("durum").textContent;
+      if (d.indexOf("dene") >= 0 || d.indexOf("Kaynak değiş") === 0) { durum(""); bekleMetin = "Tamponlanıyor…"; }
+      return;
+    }
     var ms = Date.now() - bekleBas;
     bekleBas = 0;
+    bekleMetin = "Tamponlanıyor…";
     durum("");
     gunlukYaz("DEVAM " + (ms / 1000).toFixed(1) + "sn bekledi");
   });

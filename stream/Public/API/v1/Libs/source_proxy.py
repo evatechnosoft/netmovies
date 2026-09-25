@@ -20,6 +20,28 @@ from Public.Proxy.Libs.proxy_token import issue_proxy_token
 _ALWAYS_PROXY_PLUGINS = {"SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi", "JetFilmizle", "FullHDFilmizlesene"}
 
 
+def _altyazi_proxy(source: dict) -> dict:
+    """Her altyazıya `proxy_url` ekler (göreli, jetonlu /proxy/subtitle).
+
+    Tarayıcı istemcisi (/tv) altyazıyı <track> ile yükler: ham adres başka köken
+    (CORS) ve TV'nin DNS'i kaynak sitelerini engelli IP'ye çözebiliyor. `url`
+    alanına dokunulmaz — Android TV ve /markers ham adresi kullanıyor.
+    """
+    altyazilar = source.get("subtitles")
+    if not isinstance(altyazilar, list) or not altyazilar:
+        return source
+    referer = quote(str(source.get("referer") or ""), safe="")
+    yeni = []
+    for alt in altyazilar:
+        adres = str(alt.get("url") or "") if isinstance(alt, dict) else ""
+        if not adres:
+            yeni.append(alt)
+            continue
+        token = quote(issue_proxy_token([adres]), safe="")
+        yeni.append({**alt, "proxy_url": f"/proxy/subtitle?url={quote(adres, safe='')}&referer={referer}&proxy_token={token}"})
+    return {**source, "subtitles": yeni}
+
+
 def route_through_proxy(sources: list, base_url: str) -> list:
     """Ek başlık isteyen kaynakları sunucu proxy'sine bağlar.
 
@@ -36,6 +58,7 @@ def route_through_proxy(sources: list, base_url: str) -> list:
         if not isinstance(source, dict):
             continue
 
+        source = _altyazi_proxy(source)
         extra = source.get("extra_headers") or {}
         url   = str(source.get("url") or "")
         zorla = source.get("plugin") in _ALWAYS_PROXY_PLUGINS
