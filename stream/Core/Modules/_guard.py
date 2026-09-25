@@ -16,6 +16,11 @@ _BLOCKED_ISPS = [
 _RATE_LIMIT_ENABLED          = (os.getenv("RATE_LIMIT_ENABLED", "true") or "true").strip().lower() in ("1", "true", "yes", "on")
 _RATE_LIMIT_MAX_REQUESTS     = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "180") or "180")
 _RATE_LIMIT_WINDOW_SECONDS   = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60") or "60")
+# Akış uçları (video/altyazı proxy'si) sayılmaz: istek başına jetonla korunuyorlar
+# ve oynatıcı dakikada yüzlerce segment isteyebilir. webOS'un yerel HLS motoru
+# ~1500 sn ileriyi tamponluyor; ev ağındaki bütün istemciler Docker NAT'ı arkasında
+# tek IP (172.31.0.1) göründüğü için 180/dk sınırı dolup segmentler 429 alıyor,
+# film ~40. saniyede MEDIA_ERR_NETWORK ile kapanıyordu (25 Eylül, LG).
 _RATE_LIMIT_EXEMPT_PATH_PART = (
     "/health",
     "/favicon.ico",
@@ -23,6 +28,8 @@ _RATE_LIMIT_EXEMPT_PATH_PART = (
     "/webfonts",
     "/manifest.json",
     "com.chrome.devtools.json",
+    "/proxy/video",     # _istek._AKIS_PATHS ile aynı; import middleware sırasını değiştirirdi
+    "/proxy/subtitle",
 )
 
 # (IP, endpoint) -> deque[timestamps]

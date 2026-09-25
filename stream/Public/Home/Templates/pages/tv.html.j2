@@ -17,7 +17,8 @@
 <style>
   :root {
     --bg: #0d0f13; --kart: #1a1d24; --yazi: #e8ecf3; --sonuk: #8b94a5;
-    --vurgu: #7c5cff; --kart-g: 200px; --kart-y: 300px; --bosluk: 18px;
+    --vurgu: #7c5cff; --kart-g: 226px; --kart-y: 339px; --bosluk: 24px;
+    /* client-tv NmDim ile aynı ızgara: 7 poster, 2:3, kenar 48dp, aralık 12dp (1080p'de ×2) */
   }
   * { box-sizing: border-box; }
   html, body {
@@ -29,7 +30,7 @@
 
   #ust {
     position: absolute; top: 0; left: 0; right: 0; height: 84px;
-    padding: 0 48px; line-height: 84px; z-index: 5;
+    padding: 0 96px; line-height: 84px; z-index: 5;
     background: linear-gradient(to bottom, rgba(13,15,19,.98), rgba(13,15,19,0));
   }
   .marka { font-size: 30px; font-weight: 700; letter-spacing: .5px; }
@@ -38,7 +39,7 @@
 
   #raflar { position: absolute; top: 84px; left: 0; right: 0; bottom: 0; overflow: hidden; }
   #kaydir { transition: transform .22s ease-out; }
-  .raf { padding: 0 0 12px 48px; opacity: .55; transition: opacity .2s; }
+  .raf { padding: 0 0 12px 96px; opacity: .55; transition: opacity .2s; }
   .raf-ad { font-size: 26px; font-weight: 600; margin: 8px 0 10px; color: var(--sonuk); }
   .raf.etkin { opacity: 1; }
   .raf.etkin .raf-ad { color: var(--yazi); }
@@ -54,7 +55,7 @@
     background: var(--kart); border-radius: 10px; overflow: hidden;
     border: 3px solid transparent;
   }
-  .poster img { width: 100%; height: 100%; display: block; }
+  .poster img { width: 100%; height: 100%; display: block; object-fit: cover; }
   .poster .yok {
     position: absolute; top: 50%; left: 0; right: 0; margin-top: -10px;
     text-align: center; font-size: 19px; color: var(--sonuk);
@@ -66,7 +67,7 @@
     font-size: 20px; margin-top: 10px; color: var(--sonuk);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .kart.odak { transform: scale(1.08); }
+  .kart.odak { transform: scale(.97); }
   .kart.odak .poster { border-color: #fff; box-shadow: 0 0 0 4px var(--vurgu), 0 10px 28px rgba(0,0,0,.7); }
   .kart.odak .kart-ad { color: #fff; font-weight: 600; }
 
@@ -117,7 +118,7 @@
 </head>
 <body>
 
-<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · OK basılı tut: ★ favori · YUKARI: ara · GERİ: geri</span></div>
+<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · basılı tut: ★ · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et</span></div>
 
 <div id="raflar"><div id="kaydir"></div></div>
 
@@ -150,7 +151,10 @@
   // Kumanda tuşları. webOS GERİ = 461; klavye/emülatör için Backspace ve Esc de
   // aynı işi görsün diye listede.
   var TUS = { SOL: 37, YUKARI: 38, SAG: 39, ASAGI: 40, OK: 13, GERI: 461, BACKSPACE: 8, ESC: 27,
-              OYNAT: 415, DURAKLAT: 19, OYNATDURAKLAT: 179, ILERI: 417, GERISAR: 412, STOP: 413 };
+              OYNAT: 415, DURAKLAT: 19, OYNATDURAKLAT: 179, ILERI: 417, GERISAR: 412, STOP: 413,
+              // Renkli tuşlar webOS ve Tizen'de aynı (403-406). CH: webOS 33/34, Tizen 427/428.
+              KIRMIZI: 403, YESIL: 404, SARI: 405, MAVI: 406,
+              CH_YUKARI: 33, CH_ASAGI: 34, CH_YUKARI_T: 427, CH_ASAGI_T: 428 };
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -168,8 +172,11 @@
   var sarZaman = 0;
   var sonuclar = [];          // arama sonucu kartları
   var sonucIdx = 0;
-  var SUTUN    = 6;           // arama ızgarasında satır başına kart
+  var SUTUN    = 7;           // arama ızgarasında satır başına kart
+  var GORUNEN  = 7;           // rafta ekrana sığan kart (client-tv RafPosterAdedi)
   var okBasildi = false;      // OK basılı tutuldu mu (favori) — bırakışta "aç" yutulur
+  var sonKlavye = 0;          // son tuş/tekerlek zamanı — hover odağı çalmasın
+  var sonFare   = 0;          // son GERÇEK fare hareketi
 
   function durum(metin) {
     var d = $("durum");
@@ -285,15 +292,7 @@
         k.className = "kart"; k.id = "k" + ri + "_" + ki;
         var p = document.createElement("div");
         p.className = "poster";
-        if (kart.poster) {
-          var img = document.createElement("img");
-          img.src = kart.poster;
-          // Kırık poster kartı boş bırakmasın: başlık yazısına düş.
-          img.onerror = function () { p.removeChild(img); yazili(p, kart.title); };
-          p.appendChild(img);
-        } else {
-          yazili(p, kart.title);
-        }
+        posterKur(p, kart);
         if (kart.oran > 0.01) {
           var c = document.createElement("div"); c.className = "ilerleme";
           var i = document.createElement("i"); i.style.width = Math.min(100, kart.oran * 100) + "%";
@@ -305,7 +304,7 @@
         // Magic Remote: imleç kartın üstüne gelince odak oraya taşınır, tıklama
         // OK ile aynı. Odak JS'te tutulduğu için fare de aynı kapıdan geçmeli.
         (function (ri2, ki2) {
-          k.addEventListener("mouseenter", function () { if (ekran === "ana") odakla(ri2, ki2, false); });
+          k.addEventListener("mouseenter", function () { if (ekran === "ana" && fareSahip()) odakla(ri2, ki2, false); });
           k.addEventListener("click", function () {
             // Uzun basış favoriyi işledi: bırakışta gelen tıklama içeriği açmasın.
             if (okBasildi) { okBasildi = false; return; }
@@ -319,6 +318,37 @@
       d.appendChild(ad); d.appendChild(serit);
       kok.appendChild(d);
     });
+  }
+
+  // Poster DOĞRUDAN kaynaktan istenmez: TV'nin DNS'i kimi Cloudflare sitelerini
+  // TR'de engelli IP'ye çözüyor (LG'den jetfilmizle/hdfilmcehennemi/diziyou: bağlantı
+  // yok), kart adla kalıyordu. /proxy/image sunucuda kaynak → cache → TMDB → yer tutucu
+  // zincirini çalıştırır (web ve Android TV aynı adresi kullanır).
+  function posterAdres(kart) {
+    if (!kart.poster && !kart.title) return "";
+    return "/proxy/image?url=" + encodeURIComponent(kart.poster || "") +
+           "&title=" + encodeURIComponent(kart.title || "");
+  }
+
+  // Tembel yükleme: sayfa ~440 poster taşıyor; hepsini birden istemek sunucunun
+  // dakikalık istek sınırını (180) aşıp 429'la posterleri düşürüyor, eski TV'yi de
+  // yoruyordu. Yalnız görünen ve bir sonraki sayfa yüklenir.
+  function posterYukle(el) {
+    if (!el) return;
+    var img = el.querySelector("img[data-src]");
+    if (!img) return;
+    img.src = img.getAttribute("data-src");
+    img.removeAttribute("data-src");
+  }
+
+  function posterKur(p, kart) {
+    var adres = posterAdres(kart);
+    if (!adres) { yazili(p, kart.title); return; }
+    var img = document.createElement("img");
+    img.setAttribute("data-src", adres);
+    // Kırık poster kartı boş bırakmasın: başlık yazısına düş.
+    img.onerror = function () { if (img.parentNode) p.removeChild(img); yazili(p, kart.title); };
+    p.appendChild(img);
   }
 
   function yazili(p, baslik) {
@@ -340,9 +370,9 @@
 
     if (kaydirma !== false) {
       // Yatay: odaklı kart soldan üçüncü sıraya oturur (ilk ikisinde kaydırma yok).
-      var kartGenislik = 200 + 18;
+      var ilk = $("k" + rafIdx + "_0"), sol = $("k" + rafIdx + "_" + Math.max(0, kartIdx - 2));
       var serit = $("serit" + rafIdx);
-      if (serit) serit.style.transform = "translateX(-" + (Math.max(0, kartIdx - 2) * kartGenislik) + "px)";
+      if (serit && ilk && sol) serit.style.transform = "translateX(-" + (sol.offsetLeft - ilk.offsetLeft) + "px)";
 
       // Dikey: etkin raf üstten ikinci sıraya oturur.
       // Konum ÖLÇÜLÜR: sabit raf yüksekliği yazı boyutu/margin çöküşüyle kayıyor, alt raf taşıyordu.
@@ -353,6 +383,11 @@
     for (var i = 0; i < raflar.length; i++) {
       var e = $("raf" + i);
       if (e) e.className = i === rafIdx ? "raf etkin" : "raf";
+    }
+    // Ekrandaki raflar (üstteki, etkin, alttaki iki) + bir sayfa ileri.
+    for (var r = Math.max(0, rafIdx - 1); r <= Math.min(raflar.length - 1, rafIdx + 2); r++) {
+      var son = (r === rafIdx ? kartIdx : 0) + 2 * GORUNEN;
+      for (var j = 0; j <= son; j++) posterYukle($("k" + r + "_" + j));
     }
   }
 
@@ -419,7 +454,7 @@
       var e = (b.episode === null || b.episode === undefined) ? (i + 1) : b.episode;
       d.textContent = "S" + s + " B" + e + (b.title ? " · " + b.title : "");
       (function (i2) {
-        d.addEventListener("mouseenter", function () { bolumOdak(i2); });
+        d.addEventListener("mouseenter", function () { if (fareSahip()) bolumOdak(i2); });
         d.addEventListener("click", function () { bolumOdak(i2); bolumOynat(); });
       })(i);
       kok.appendChild(d);
@@ -471,7 +506,7 @@
       return;
     }
     durum("");
-    oynayan = { kart: kart, bolumRef: bolumRef || "0" };
+    oynayan = { kart: kart, bolumRef: bolumRef || "0", kaynaklar: kaynaklar, sira: 0, tekrar: 0, tekrarKonum: 0 };
     var v = $("video");
     // webOS'un kendi medya motoru HLS'i doğrudan açar; hls.js gerekmiyor.
     v.src = kaynaklar[0].url;
@@ -485,6 +520,30 @@
     kaplamaGoster();
     v.play();
     devamdanBasla(kart, bolumRef);
+  }
+
+  // Aynı ya da başka kaynağı KALDIĞI YERDEN yeniden kurar: hata ya da mavi tuş.
+  function kaynakKur(sira, konum) {
+    var v = $("video");
+    oynayan.sira = sira;
+    v.src = oynayan.kaynaklar[sira].url;
+    var git = function () {
+      v.removeEventListener("loadedmetadata", git);
+      if (konum > 1) v.currentTime = konum;
+    };
+    v.addEventListener("loadedmetadata", git);
+    v.play();
+  }
+
+  // Mavi tuş: sıradaki kaynağa geç (tek kaynak varsa aynısını yeniden kur).
+  function kaynakDegistir() {
+    if (!oynayan || !oynayan.kaynaklar) return;
+    var n = oynayan.kaynaklar.length;
+    var sira = (oynayan.sira + 1) % n;
+    bildir("Kaynak " + (sira + 1) + "/" + n);
+    gunlukYaz("KAYNAK DEĞİŞ → " + (sira + 1) + "/" + n);
+    oynayan.tekrar = 0;
+    kaynakKur(sira, $("video").currentTime);
   }
 
   function oynatmaKapat() {
@@ -548,8 +607,11 @@
       // dakikasına gitmek içeriği ortadan başlatır.
       if (bolumRef && bolumRef !== "0" && r.episode && r.episode !== bolumRef) return;
       var v = $("video");
+      // Tek seferlik: dinleyici kalırsa sonraki filmde / hata sonrası yeniden
+      // kurulumda eski konuma atlatıyordu.
       var uygula = function () {
-        if (!v.duration) return;
+        v.removeEventListener("loadedmetadata", uygula);
+        if (!v.duration || oynayan === null || oynayan.kart !== kart) return;
         if (r.position_seconds > 30 && r.position_seconds < v.duration * 0.92) {
           v.currentTime = r.position_seconds;
           $("oynatilan").textContent += "  ▶ " + zaman(r.position_seconds) + " konumundan devam";
@@ -634,17 +696,12 @@
       k.className = "kart"; k.id = "s" + i;
       var p = document.createElement("div");
       p.className = "poster";
-      if (kart.poster) {
-        var img = document.createElement("img");
-        img.src = kart.poster;
-        img.onerror = function () { p.removeChild(img); yazili(p, kart.title); };
-        p.appendChild(img);
-      } else { yazili(p, kart.title); }
+      posterKur(p, kart);
       var ad = document.createElement("div");
       ad.className = "kart-ad"; ad.textContent = kart.title;
       k.appendChild(p); k.appendChild(ad);
       (function (i2) {
-        k.addEventListener("mouseenter", function () { sonucOdak(i2); });
+        k.addEventListener("mouseenter", function () { if (fareSahip()) sonucOdak(i2); });
         k.addEventListener("click", function () {
           if (okBasildi) { okBasildi = false; return; }
           sonucOdak(i2); sonucSec();
@@ -667,6 +724,7 @@
     // konteyner değil sonuç listesi kaydırılır.
     var satir = Math.floor(sonucIdx / SUTUN);
     var satirY = k ? k.offsetHeight + 18 : 340;
+    for (var j = 0; j < (satir + 3) * SUTUN; j++) posterYukle($("s" + j));
     $("sonuclar").style.transform = "translateY(-" + (Math.max(0, satir - 1) * satirY) + "px)";
   }
 
@@ -778,19 +836,59 @@
   // --- tuşlar ------------------------------------------------------------
   // Odak tarayıcıya bırakılmaz: TV'de odak grupları ok tuşunu yutup listeyi
   // başa sardırıyor. Tek karar noktası burası.
+  // Rakam tuşu (üst sıra 48-57, sayısal 96-105) → 0-9; değilse -1.
+  function rakam(k) {
+    if (k >= 48 && k <= 57) return k - 48;
+    if (k >= 96 && k <= 105) return k - 96;
+    return -1;
+  }
+  var bilinen = {};
+  Object.keys(TUS).forEach(function (a) { bilinen[TUS[a]] = 1; });
+
+  function rafAd(ad) {
+    for (var i = 0; i < raflar.length; i++) if (raflar[i].ad === ad) return i;
+    return -1;
+  }
+
+  // Renkli tuşlar oynatıcı dışında her ekrandan: kırmızı ara, yeşil favoriler, sarı devam et.
+  function renkliTus(k) {
+    if (k !== TUS.KIRMIZI && k !== TUS.YESIL && k !== TUS.SARI) return false;
+    if (ekran === "oynatici") return false;
+    if (ekran !== "ana") geriGit();
+    if (k === TUS.KIRMIZI) { aramaAc(); return true; }
+    var i = rafAd(k === TUS.YESIL ? "Favorilerim" : "Devam Et");
+    if (i >= 0) odakla(i, 0); else bildir(k === TUS.YESIL ? "Favori listesi boş" : "Devam edilecek içerik yok");
+    return true;
+  }
+
   document.addEventListener("keydown", function (o) {
     var k = o.keyCode;
+    sonKlavye = Date.now();
+    // Tanınmayan tuş günlüğe: yeni kumandanın kodu tahmin edilmez, okunur.
+    if (!o.repeat && !bilinen[k] && rakam(k) < 0 && document.activeElement !== $("q")) gunlukYaz("TUŞ kod=" + k + " (" + (o.key || "") + ")");
+
+    if (renkliTus(k)) { o.preventDefault(); return; }
 
     if (ekran === "oynatici") {
+      var v = $("video");
       if (k === TUS.GERI || k === TUS.BACKSPACE || k === TUS.ESC || k === TUS.STOP) { geriGit(); o.preventDefault(); return; }
-      if (k === TUS.OK || k === TUS.OYNATDURAKLAT || k === TUS.OYNAT || k === TUS.DURAKLAT) {
+      if (k === TUS.OYNAT)    { v.play();  kaplamaGoster(); o.preventDefault(); return; }
+      if (k === TUS.DURAKLAT) { v.pause(); kaplamaGoster(); o.preventDefault(); return; }
+      if (k === TUS.OK || k === TUS.OYNATDURAKLAT) {
         if (o.repeat) { o.preventDefault(); return; }
-        var v = $("video");
         if (v.paused) { v.play(); } else { v.pause(); }
         kaplamaGoster(); o.preventDefault(); return;
       }
       if (k === TUS.SAG || k === TUS.ILERI)   { sar(10);  o.preventDefault(); return; }
       if (k === TUS.SOL || k === TUS.GERISAR) { sar(-10); o.preventDefault(); return; }
+      if (k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { sar(60);  o.preventDefault(); return; }
+      if (k === TUS.CH_ASAGI  || k === TUS.CH_ASAGI_T)  { sar(-60); o.preventDefault(); return; }
+      if (k === TUS.MAVI) { kaynakDegistir(); o.preventDefault(); return; }
+      // Rakam: filmin yüzde n×10'una git (YouTube alışkanlığı).
+      if (rakam(k) >= 0 && v.duration) {
+        sar(v.duration * rakam(k) / 10 - (sarHedef === null ? v.currentTime : sarHedef));
+        o.preventDefault(); return;
+      }
       if (k === TUS.YUKARI || k === TUS.ASAGI) { kaplamaGoster(); o.preventDefault(); return; }
       return;
     }
@@ -800,8 +898,8 @@
       if (k === TUS.ASAGI)  { bolumOdak(bolumIdx + 1);  o.preventDefault(); return; }
       if (k === TUS.YUKARI) { bolumOdak(bolumIdx - 1);  o.preventDefault(); return; }
       // Uzun dizilerde (43 bölüm) tek tek inmek yerine onar atla.
-      if (k === TUS.SAG)    { bolumOdak(bolumIdx + 10); o.preventDefault(); return; }
-      if (k === TUS.SOL)    { bolumOdak(bolumIdx - 10); o.preventDefault(); return; }
+      if (k === TUS.SAG || k === TUS.CH_ASAGI || k === TUS.CH_ASAGI_T)   { bolumOdak(bolumIdx + 10); o.preventDefault(); return; }
+      if (k === TUS.SOL || k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { bolumOdak(bolumIdx - 10); o.preventDefault(); return; }
       if (k === TUS.OK) { if (!o.repeat) bolumOynat(); o.preventDefault(); return; }
       return;
     }
@@ -830,6 +928,9 @@
     }
 
     if (!raflar.length) return;
+    if (k === TUS.CH_ASAGI || k === TUS.CH_ASAGI_T)   { odakla(rafIdx, kartIdx + GORUNEN); o.preventDefault(); return; }
+    if (k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { odakla(rafIdx, kartIdx - GORUNEN); o.preventDefault(); return; }
+    if (rakam(k) >= 1) { odakla(rakam(k) - 1, 0); o.preventDefault(); return; }
     if (k === TUS.SAG)    { odakla(rafIdx, kartIdx + 1); o.preventDefault(); return; }
     if (k === TUS.SOL)    { odakla(rafIdx, kartIdx - 1); o.preventDefault(); return; }
     if (k === TUS.ASAGI)  { odakla(rafIdx + 1, 0);       o.preventDefault(); return; }
@@ -868,6 +969,38 @@
       sonucSec(); o.preventDefault(); return;
     }
   });
+
+  // --- imleç ve tekerlek -------------------------------------------------
+  // İmleç kartın üstünde dururken liste tuşla/tekerlekle kayınca altına YENİ kart
+  // gelir ve mouseenter odağı oraya çalar. Hover yalnız imleç gerçekten hareket
+  // ediyorsa ve son tuştan 400 ms geçtiyse odak alır.
+  document.addEventListener("mousemove", function () { sonFare = Date.now(); });
+  function fareSahip() {
+    var s = Date.now();
+    return s - sonFare < 150 && s - sonKlavye > 400;
+  }
+
+  // Tekerlek sayfayı kaydırmaz, odağı adım adım taşır (tekerlekli kumanda).
+  // Tek dönüş birkaç olay üretir; 180 ms'de bir adım.
+  var tekerZaman = 0;
+  document.addEventListener("wheel", function (o) {
+    o.preventDefault();
+    var s = Date.now();
+    if (s - tekerZaman < 180) return;
+    tekerZaman = s; sonKlavye = s;
+    var yatay = Math.abs(o.deltaX) > Math.abs(o.deltaY);
+    var ileri = (yatay ? o.deltaX : o.deltaY) > 0;
+    if (ekran === "ana" && raflar.length) {
+      if (yatay) odakla(rafIdx, kartIdx + (ileri ? 1 : -1));
+      else odakla(rafIdx + (ileri ? 1 : -1), 0);
+    } else if (ekran === "bolumler") {
+      bolumOdak(bolumIdx + (ileri ? 1 : -1));
+    } else if (ekran === "arama" && sonuclar.length) {
+      sonucOdak(sonucIdx + (ileri ? SUTUN : -SUTUN));
+    } else if (ekran === "oynatici") {
+      kaplamaGoster();
+    }
+  }, { passive: false });
 
   // --- döngüler ----------------------------------------------------------
   setInterval(function () {
@@ -936,17 +1069,38 @@
     if (ekran === "oynatici" && $("video").readyState < 3) gunlukYaz("STALLED (ağdan veri gelmiyor)");
   });
   $("video").addEventListener("playing", function () {
-    if (!bekleBas) return;
+    if (!bekleBas) { if ($("durum").textContent.indexOf("dene") >= 0) durum(""); return; }
     var ms = Date.now() - bekleBas;
     bekleBas = 0;
     durum("");
     gunlukYaz("DEVAM " + (ms / 1000).toFixed(1) + "sn bekledi");
   });
 
+  // Hata oynatıcıyı hemen kapatmaz: önce aynı kaynak kaldığı yerden 2 kez (kopan
+  // bağlantı, tükenmiş jeton), sonra sıradaki kaynak, en son mesaj. Aynı noktada
+  // tekrar tekrar düşmesin diye sayaç ancak 30 sn ilerleyince sıfırlanır.
   $("video").addEventListener("error", function () {
     var v = $("video");
+    if (ekran !== "oynatici" || !oynayan) return;
+    var konum = v.currentTime || 0;
     gunlukYaz("HATA kod=" + (v.error ? v.error.code : "?") + " " + kaynakHost(v.src));
     bekleBas = 0;
+    if (konum > oynayan.tekrarKonum + 30) oynayan.tekrar = 0;
+    oynayan.tekrarKonum = konum;
+    if (oynayan.tekrar < 2) {
+      oynayan.tekrar++;
+      durum("Bağlantı koptu, yeniden deneniyor…");
+      gunlukYaz("YENİDEN " + oynayan.tekrar + "/2");
+      kaynakKur(oynayan.sira, konum);
+      return;
+    }
+    if (oynayan.sira + 1 < oynayan.kaynaklar.length) {
+      oynayan.tekrar = 0;
+      durum("Sıradaki kaynak deneniyor…");
+      gunlukYaz("SIRADAKİ KAYNAK " + (oynayan.sira + 2) + "/" + oynayan.kaynaklar.length);
+      kaynakKur(oynayan.sira + 1, konum);
+      return;
+    }
     durum("Bu kaynak açılamadı");
     setTimeout(function () { durum(""); oynatmaKapat(); }, 3000);
   });
