@@ -34,12 +34,13 @@
   }
   .marka { font-size: 30px; font-weight: 700; letter-spacing: .5px; }
   .marka em { color: var(--vurgu); font-style: normal; }
-  #ipucu { float: right; font-size: 18px; color: var(--sonuk); }
+  #ipucu { float: right; font-size: 21px; color: var(--sonuk); }
 
-  #raflar { position: absolute; top: 84px; left: 0; right: 0; bottom: 0; }
+  #raflar { position: absolute; top: 84px; left: 0; right: 0; bottom: 0; overflow: hidden; }
   #kaydir { transition: transform .22s ease-out; }
-  .raf { padding: 0 0 12px 48px; }
-  .raf-ad { font-size: 22px; font-weight: 600; margin: 8px 0 10px; color: var(--sonuk); }
+  .raf { padding: 0 0 12px 48px; opacity: .55; transition: opacity .2s; }
+  .raf-ad { font-size: 26px; font-weight: 600; margin: 8px 0 10px; color: var(--sonuk); }
+  .raf.etkin { opacity: 1; }
   .raf.etkin .raf-ad { color: var(--yazi); }
   .serit { white-space: nowrap; transition: transform .22s ease-out; }
 
@@ -56,29 +57,29 @@
   .poster img { width: 100%; height: 100%; display: block; }
   .poster .yok {
     position: absolute; top: 50%; left: 0; right: 0; margin-top: -10px;
-    text-align: center; font-size: 15px; color: var(--sonuk);
+    text-align: center; font-size: 19px; color: var(--sonuk);
     white-space: normal; padding: 0 10px;
   }
   .ilerleme { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(0,0,0,.55); }
   .ilerleme i { display: block; height: 100%; background: var(--vurgu); }
   .kart-ad {
-    font-size: 16px; margin-top: 8px; color: var(--sonuk);
+    font-size: 20px; margin-top: 10px; color: var(--sonuk);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .kart.odak { transform: scale(1.08); }
-  .kart.odak .poster { border-color: #fff; }
-  .kart.odak .kart-ad { color: var(--yazi); }
+  .kart.odak .poster { border-color: #fff; box-shadow: 0 0 0 4px var(--vurgu), 0 10px 28px rgba(0,0,0,.7); }
+  .kart.odak .kart-ad { color: #fff; font-weight: 600; }
 
   /* Bölüm listesi */
   #bolumler { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 48px; overflow: hidden; }
-  #bolum-ad { font-size: 30px; margin: 0 0 24px; }
+  #bolum-ad { font-size: 34px; margin: 0 0 24px; }
   #bolum-kaydir { transition: transform .22s ease-out; }
   .bolum {
     display: block; padding: 16px 22px; margin-bottom: 10px; border-radius: 10px;
-    background: var(--kart); font-size: 21px; border: 3px solid transparent;
+    background: var(--kart); font-size: 26px; border: 4px solid transparent;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .bolum.odak { border-color: #fff; background: #262b36; }
+  .bolum.odak { border-color: #fff; background: #2e2a4a; color: #fff; }
 
   /* Arama */
   #arama { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 40px 48px; overflow: hidden; }
@@ -87,7 +88,7 @@
     border: 3px solid #3a3f4b; background: var(--kart); color: var(--yazi); outline: none;
   }
   #q:focus { border-color: #fff; }
-  #arama-bilgi { margin: 14px 2px 18px; font-size: 19px; color: var(--sonuk); }
+  #arama-bilgi { margin: 14px 2px 18px; font-size: 22px; color: var(--sonuk); }
   #sonuclar { white-space: normal; }
   #sonuclar .kart { margin-bottom: 18px; }
 
@@ -100,15 +101,16 @@
     transition: opacity .25s;
   }
   #kaplama.sonuk { opacity: 0; }
-  #oynatilan { font-size: 26px; margin-bottom: 14px; }
-  #cubuk { height: 7px; background: rgba(255,255,255,.22); border-radius: 4px; }
+  #oynatilan { font-size: 32px; margin-bottom: 14px; }
+  #cubuk { height: 10px; background: rgba(255,255,255,.22); border-radius: 4px; }
   #dolu { height: 100%; width: 0; background: var(--vurgu); border-radius: 4px; }
-  #sure { margin-top: 10px; font-size: 18px; color: var(--sonuk); }
+  #sure { margin-top: 12px; font-size: 26px; color: var(--yazi); }
 
   /* Durum / yükleniyor */
   #durum {
     position: absolute; top: 50%; left: 0; right: 0; margin-top: -30px;
-    text-align: center; font-size: 26px; color: var(--sonuk); z-index: 9;
+    text-align: center; font-size: 30px; color: var(--yazi); z-index: 9;
+    text-shadow: 0 2px 8px #000;
   }
   #durum.gizli { display: none; }
 </style>
@@ -343,8 +345,9 @@
       if (serit) serit.style.transform = "translateX(-" + (Math.max(0, kartIdx - 2) * kartGenislik) + "px)";
 
       // Dikey: etkin raf üstten ikinci sıraya oturur.
-      var rafYukseklik = 300 + 12 + 40 + 12;
-      $("kaydir").style.transform = "translateY(-" + (Math.max(0, rafIdx - 1) * rafYukseklik) + "px)";
+      // Konum ÖLÇÜLÜR: sabit raf yüksekliği yazı boyutu/margin çöküşüyle kayıyor, alt raf taşıyordu.
+      var ust = rafIdx > 0 ? $("raf" + (rafIdx - 1)) : null;
+      $("kaydir").style.transform = "translateY(-" + (ust ? ust.offsetTop : 0) + "px)";
     }
 
     for (var i = 0; i < raflar.length; i++) {
@@ -431,7 +434,8 @@
     bolumIdx = Math.max(0, Math.min(i, bolumler.length - 1));
     var d = $("b" + bolumIdx);
     if (d) d.className = "bolum odak";
-    $("bolum-kaydir").style.transform = "translateY(-" + (Math.max(0, bolumIdx - 5) * 72) + "px)";
+    var satirY = d ? d.offsetHeight + 10 : 72;
+    $("bolum-kaydir").style.transform = "translateY(-" + (Math.max(0, bolumIdx - 5) * satirY) + "px)";
     var b = bolumler[bolumIdx];
     if (b) {
       $("bolum-ad").textContent = acilan.title + "  ·  " +
@@ -471,6 +475,7 @@
     var v = $("video");
     // webOS'un kendi medya motoru HLS'i doğrudan açar; hls.js gerekmiyor.
     v.src = kaynaklar[0].url;
+    gunlukYaz("BAŞLA " + kart.plugin + " · " + kart.title + " · " + kaynakHost(v.src) + " · " + kaynaklar.length + " kaynak");
     $("oynatilan").textContent = kart.title + (bolumRef && bolumRef !== "0" ? " · " + bolumRef : "");
     ekran = "oynatici";
     $("raflar").className = "gizli";
@@ -487,6 +492,8 @@
     if (sarZaman) { clearTimeout(sarZaman); sarZaman = 0; }
     sarHedef = null;
     ilerlemeYaz(false);
+    if (oynayan) { gunlukYaz("KAPAT"); gunlukGonder(); }
+    if (bekleBas) { bekleBas = 0; durum(""); }
     v.pause();
     v.removeAttribute("src");
     v.load();
@@ -659,7 +666,8 @@
     // Izgara üçüncü satırdan sonra kayar; giriş kutusu ekranda kalsın diye
     // konteyner değil sonuç listesi kaydırılır.
     var satir = Math.floor(sonucIdx / SUTUN);
-    $("sonuclar").style.transform = "translateY(-" + (Math.max(0, satir - 1) * 340) + "px)";
+    var satirY = k ? k.offsetHeight + 18 : 340;
+    $("sonuclar").style.transform = "translateY(-" + (Math.max(0, satir - 1) * satirY) + "px)";
   }
 
   function sonucSec() {
@@ -877,7 +885,68 @@
   setInterval(function () { if (ekran === "oynatici") ilerlemeYaz(false); }, 15000);
 
   $("video").addEventListener("ended", function () { ilerlemeYaz(true); oynatmaKapat(); });
+  // --- oynatma günlüğü --------------------------------------------------
+  // /tv kördü: LG/Samsung'da "dondu" dendiğinde sunucuda iz yoktu (proxy istekleri
+  // loglanmaz). Tampon olayları Android TV'nin kullandığı /api/v1/client_log'a
+  // gider; uç tek dökümü tutar, bu yüzden her gönderim listenin tamamıdır.
+  var gunluk = [], gunlukSayac = 0, bekleBas = 0;
+  var cihazAd = "/tv " + ((/(Tizen [\d.]+|Web0S|webOS[\w.\/]*)/.exec(navigator.userAgent) || ["tarayıcı"])[0]);
+
+  function kaynakHost(src) {
+    var m = /[?&]url=([^&]+)/.exec(src || "");
+    try { return m ? decodeURIComponent(m[1]).split("/")[2] : String(src).split("/")[2]; } catch (e) { return "?"; }
+  }
+
+  function tamponIleri(v) {
+    for (var i = 0; i < v.buffered.length; i++) {
+      if (v.buffered.start(i) <= v.currentTime + 0.5 && v.currentTime <= v.buffered.end(i)) return v.buffered.end(i) - v.currentTime;
+    }
+    return 0;
+  }
+
+  function gunlukYaz(metin) {
+    var v = $("video");
+    gunluk.unshift(new Date().toTimeString().slice(0, 8) + "  " + metin +
+      "  · t=" + Math.round(v.currentTime || 0) + "sn tampon=" + tamponIleri(v).toFixed(1) + "sn rs=" + v.readyState);
+    if (gunluk.length > 300) gunluk.length = 300;
+    if (!gunlukSayac) gunlukSayac = setTimeout(gunlukGonder, 3000);
+  }
+
+  function gunlukGonder() {
+    if (gunlukSayac) clearTimeout(gunlukSayac);
+    gunlukSayac = 0;
+    fetch("/api/v1/client_log", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: cihazAd, lines: gunluk })
+    }).catch(function () { /* teşhis kaydı: ağ yoksa oynatma etkilenmez */ });
+  }
+
+  // Donma = `waiting` ile `playing` arası. Süre ekrana değil günlüğe; ekranda
+  // yalnız "tamponlanıyor" — kumandaya basmadan donmanın nedeni görülsün.
+  $("video").addEventListener("waiting", function () {
+    if (ekran !== "oynatici" || bekleBas) return;
+    bekleBas = Date.now();
+    durum("Tamponlanıyor…");
+    gunlukYaz("BEKLE");
+  });
+  // `stalled` tampon doluyken de gelir (indirecek bir şey yok); yalnız oynatma
+  // aç kaldığında anlamlı.
+  $("video").addEventListener("stalled", function () {
+    if (ekran === "oynatici" && $("video").readyState < 3) gunlukYaz("STALLED (ağdan veri gelmiyor)");
+  });
+  $("video").addEventListener("playing", function () {
+    if (!bekleBas) return;
+    var ms = Date.now() - bekleBas;
+    bekleBas = 0;
+    durum("");
+    gunlukYaz("DEVAM " + (ms / 1000).toFixed(1) + "sn bekledi");
+  });
+
   $("video").addEventListener("error", function () {
+    var v = $("video");
+    gunlukYaz("HATA kod=" + (v.error ? v.error.code : "?") + " " + kaynakHost(v.src));
+    bekleBas = 0;
     durum("Bu kaynak açılamadı");
     setTimeout(function () { durum(""); oynatmaKapat(); }, 3000);
   });
