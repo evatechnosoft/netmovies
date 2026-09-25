@@ -2466,9 +2466,19 @@ internal fun SettingsPanel(
 
                             // Tek sezonluk dizide sezon satırı fazlalık; çok sezonluda
                             // sezonlar tek satıra sığan kısa bir şerit olur.
+                            // Dikey satır olunca bölümlerle aynı görünüyordu (Dean: "bölüm
+                            // sezon karışık"); sekme şeridi gibi yatay, odakta seçer.
                             if (sezonlar.size > 1) {
-                                sezonlar.forEach { sz ->
-                                    SettingRow("Sezon " + sz, sz == acikSezon) { panelSezon = sz }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().focusGroup()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    sezonlar.forEach { sz ->
+                                        IkonSekme("Sezon $sz", sz == acikSezon, Modifier.width(112.dp)) {
+                                            panelSezon = sz
+                                        }
+                                    }
                                 }
                             }
 
