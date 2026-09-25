@@ -8,7 +8,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.31.0.0/24
+        - subnet: ${NM_NET:-172.31.0}.0/24   # ZimaOS gibi 172.31/16 dolu hostta .env ile değiştir
 
 volumes:
   # Cloudflare WARP kayıt/kimlik verisi (yeniden başlatmada tekrar kayıt olmasın)
@@ -58,7 +58,7 @@ services:
       --upstream https://8.8.8.8/dns-query
     networks:
       internal:
-        ipv4_address: 172.31.0.53
+        ipv4_address: ${NM_NET:-172.31.0}.53
 
   engine:
     build          : ./engine
@@ -68,7 +68,7 @@ services:
       doh:
         condition: service_started
     dns:
-      - 172.31.0.53          # DoH resolver (engelli domain'ler çözülsün)
+      - ${NM_NET:-172.31.0}.53          # DoH resolver (engelli domain'ler çözülsün)
       - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
       - 8.8.8.8              # Fallback 2 (Google Public DNS)
     expose:
@@ -122,7 +122,7 @@ services:
       doh:
         condition: service_started
     dns:
-      - 172.31.0.53          # DoH resolver
+      - ${NM_NET:-172.31.0}.53          # DoH resolver
       - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
       - 8.8.8.8              # Fallback 2 (Google Public DNS)
     # Kutu gücü köprüsü (scripts/atv_power.py) HOST'ta çalışır: konteyner LAN'a
