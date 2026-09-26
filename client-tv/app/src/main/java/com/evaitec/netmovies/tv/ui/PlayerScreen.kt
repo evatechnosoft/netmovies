@@ -2423,7 +2423,7 @@ internal fun SettingsPanel(
                 // yan yana dar panele sığmıyor, ikon tanınıyor.
                 Row(
                     modifier = Modifier.fillMaxWidth().focusGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
                 ) {
                     sekmeler.forEachIndexed { i, (ikon, _) ->
                         IkonSekme(ikon, i == sekme, Modifier.weight(1f)) { sekme = i }
@@ -2468,25 +2468,35 @@ internal fun SettingsPanel(
                             // sezonlar tek satıra sığan kısa bir şerit olur.
                             // Dikey satır olunca bölümlerle aynı görünüyordu (Dean: "bölüm
                             // sezon karışık"); sekme şeridi gibi yatay, odakta seçer.
+                            // 0.9.25'te çip başına "Sezon N" 112dp idi: üçüncü çip kesiliyor,
+                            // şerit dağınık duruyordu (Dean). "Sezon" bir kez yazar, çipte
+                            // yalnız numara — beş sezon kaydırmadan sığar.
                             if (sezonlar.size > 1) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().focusGroup()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
                                 ) {
-                                    sezonlar.forEach { sz ->
-                                        IkonSekme("Sezon $sz", sz == acikSezon, Modifier.width(112.dp)) {
-                                            panelSezon = sz
+                                    Text("Sezon", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
+                                    Row(
+                                        modifier = Modifier.focusGroup().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
+                                    ) {
+                                        sezonlar.forEach { sz ->
+                                            IkonSekme("$sz", sz == acikSezon, Modifier.width(NmDim.SeasonChipWidth)) {
+                                                panelSezon = sz
+                                            }
                                         }
                                     }
                                 }
                             }
 
+                            // Bölümler sıkı bir blok: satır arası çip aralığı kadar, uzun
+                            // ad tek satırda kesilir (satır satır taşıp listeyi dağıtıyordu).
                             val liste = episodes.withIndex().filter { it.value.season == acikSezon }
                             if (liste.isEmpty()) MutedRow("Bu sezonda bölüm yok")
-                            liste.forEach { (idx, ep) ->
-                                SettingRow(episodeLabel(ep, idx), idx == currentEpIndex) {
-                                    onSelectEpisode(idx)
+                            Column(verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap)) {
+                                liste.forEach { (idx, ep) ->
+                                    BolumSatiri(ep, idx, idx == currentEpIndex) { onSelectEpisode(idx) }
                                 }
                             }
 
@@ -2591,7 +2601,7 @@ private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifi
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(NmDim.PanelRowHeight)
             .clip(shape)
             .background(
                 when {
@@ -2607,11 +2617,71 @@ private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifi
                 // "buton içinde gezinir seçeriz" isteği bu.
                 if (it.isFocused) onSec()
             }
-            .focusable()
+            // Ayrı focusable() yok: clickable zaten odak hedefi, ikisi birlikte çift
+            // durak yapıyordu (hafıza: tv-focus-and-install-traps).
             .clickable { onSec() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(ikon, fontSize = NmType.Body)
+        Text(
+            ikon,
+            fontSize = NmType.Body,
+            fontWeight = if (odakli || secili) FontWeight.Bold else FontWeight.Normal,
+            color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
+        )
+    }
+}
+
+/** Bölüm satırı: numara sabit sütunda, ad tek satır; oynayan bölüm "izleniyor" der.
+ *  Seçim indeksle geri döner ama indeks bu listeden gelir, numara yalnız etikettir. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun BolumSatiri(
+    ep: com.evaitec.netmovies.tv.data.EpisodeItem,
+    index: Int,
+    oynuyor: Boolean,
+    onClick: () -> Unit,
+) {
+    var odakli by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    val yazi = if (odakli) NmColor.OnPrimary else NmColor.OnSurface
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(
+                when {
+                    odakli -> NmColor.Primary
+                    oynuyor -> NmColor.PrimarySelected
+                    else -> NmColor.Surface
+                },
+            )
+            .nmFocusRing(odakli, shape)
+            .onFocusChanged { odakli = it.isFocused }
+            .clickable { onClick() }
+            // SettingRow ile aynı iç boşluk: Kitaplık ve Bölümler aynı satır boyunda.
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = (ep.episode ?: (index + 1)).toString(),
+            fontSize = NmType.Label,
+            fontWeight = FontWeight.Bold,
+            color = if (odakli) NmColor.OnPrimary else NmColor.Primary,
+            modifier = Modifier.width(NmDim.EpisodeNumWidth),
+        )
+        Text(
+            text = ep.title?.takeIf { it.isNotBlank() } ?: "Bölüm ${ep.episode ?: (index + 1)}",
+            fontSize = NmType.Label,
+            fontWeight = if (odakli || oynuyor) FontWeight.SemiBold else FontWeight.Normal,
+            color = yazi,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (oynuyor) {
+            Text("izleniyor", fontSize = NmType.Caption, color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted)
+        }
     }
 }
 

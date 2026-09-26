@@ -40,8 +40,21 @@ import kotlin.concurrent.thread
 class RemoteWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        tazele(context, manager, ids)
+        arkada { tazele(context, manager, ids) }
         alarmKur(context)
+    }
+
+    /**
+     * onReceive dönünce süreç "önbellekte" sayılır: Android 11+ dondurucusu onu
+     * birkaç saniye içinde buzlar (ya da öldürür). Çıplak `thread` ağdan dönmeden
+     * donuyor, updateAppWidget hiç çağrılmıyordu — posterler son hâlinde takılı
+     * kalıyordu (Dean, 26 Eylül). goAsync alıcıyı iş bitene kadar canlı tutar.
+     */
+    private fun arkada(isi: () -> Unit) {
+        val bekleyen = goAsync()
+        thread(isDaemon = true) {
+            try { isi() } finally { bekleyen.finish() }
+        }
     }
 
     override fun onEnabled(context: Context) {
@@ -57,7 +70,7 @@ class RemoteWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         when (intent.action) {
             EYLEM_KOMUT -> intent.getStringExtra(EK_GOVDE)?.let { govde ->
-                thread(isDaemon = true) {
+                arkada {
                     komutYolla(context, govde)
                     // Komuttan sonra durum değişir; kısa bir soluk sonra tazele ki
                     // düğmeye basıldığı widget'ta görünsün.
@@ -66,7 +79,7 @@ class RemoteWidget : AppWidgetProvider() {
                 }
             }
             EYLEM_OYNAT -> intent.getStringExtra(EK_GOVDE)?.let { sorgu ->
-                thread(isDaemon = true) {
+                arkada {
                     oynat(context, sorgu)
                     Thread.sleep(600)
                     hepsiniTazele(context)
@@ -74,9 +87,9 @@ class RemoteWidget : AppWidgetProvider() {
             }
             EYLEM_KAY -> intent.getStringExtra(EK_GOVDE)?.toIntOrNull()?.let { yeni ->
                 secimYaz(context, yeni.coerceAtLeast(0))
-                thread(isDaemon = true) { hepsiniTazele(context) }
+                arkada { hepsiniTazele(context) }
             }
-            EYLEM_TAZELE -> thread(isDaemon = true) {
+            EYLEM_TAZELE -> arkada {
                 // Dakikalık alarm yayı bir adım ilerletir: posterler kendiliğinden
                 // geziyor, widget'a bakan her seferinde başka bir içerik görüyor.
                 // Elle kaydırma bunu ezmez — sıradaki adım oradan devam eder.
@@ -102,10 +115,8 @@ class RemoteWidget : AppWidgetProvider() {
     }
 
     private fun tazele(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        thread(isDaemon = true) {
-            val gorunum = ciz(context, durumOku(context))
-            ids.forEach { manager.updateAppWidget(it, gorunum) }
-        }
+        val gorunum = ciz(context, durumOku(context))
+        ids.forEach { manager.updateAppWidget(it, gorunum) }
     }
 
     private fun ciz(context: Context, durum: Durum): RemoteViews =
@@ -234,6 +245,7 @@ class RemoteWidget : AppWidgetProvider() {
         private const val SERIT_KAC = 12          // yayın dolaştığı Devam Et derinliği
         private const val PREF = "widget"
         private const val ANAHTAR_SECIM = "yay_secim"
+        private const val ANAHTAR_SERIT = "yay_govde"
 
         /** Yayın ortasındaki kart — widget yeniden çizilse de yerinde kalsın diye diskte. */
         private fun secim(context: Context): Int =
@@ -330,8 +342,12 @@ class RemoteWidget : AppWidgetProvider() {
             }
             val durum = durumdan(govde)
             // Şerit ikinci bir istektir: durum gelmediyse sunucu zaten yok, deneme.
-            if (durum.alt == "sunucuya ulaşılamadı" || kullanilan == null) return durum
-            return durum.copy(devam = devamKartlari(context, metinAl(kullanilan + "/api/v1/continue_watching")))
+            // Ağ yoksa son şerit diskten gelir: yay dönmeye devam eder, posterler
+            // önbellekten — sunucu gidince şeridin kaybolup widget'ın donması yerine.
+            val prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            val taze = kullanilan?.let { metinAl("$it/api/v1/continue_watching") }
+            if (taze != null) prefs.edit().putString(ANAHTAR_SERIT, taze).apply()
+            return durum.copy(devam = devamKartlari(context, taze ?: prefs.getString(ANAHTAR_SERIT, null)))
         }
 
         /** `/api/v1/continue_watching` -> ilk üç kart (poster indirilmiş). */
@@ -412,9 +428,10 @@ class RemoteWidget : AppWidgetProvider() {
             runCatching {
                 dosya.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             }
-            // Şerit üç posterlik: eski içerikler birikmesin.
+            // Yayın tam turu önbellekte kalsın (ağsız dönüşte göz boş düşmesin);
+            // fazlası birikmesin.
             runCatching {
-                kap.listFiles()?.sortedByDescending { it.lastModified() }?.drop(6)?.forEach { it.delete() }
+                kap.listFiles()?.sortedByDescending { it.lastModified() }?.drop(SERIT_KAC)?.forEach { it.delete() }
             }
             return bitmap
         }

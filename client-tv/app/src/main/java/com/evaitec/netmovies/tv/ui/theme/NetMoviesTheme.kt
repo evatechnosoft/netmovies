@@ -60,6 +60,11 @@ object NmDim {
     val CardGap = 12.dp   // raf içi kartlar arası
     val RowPadV = 6.dp    // raf içi dikey nefes payı (poster odakta KÜÇÜLDÜĞÜ için az yeter)
     val ItemGap = 10.dp   // liste satırları arası
+    // Oynatıcı ayar paneli: sekme, sezon çipi ve bölüm satırı aynı boyda — tek ritim.
+    val PanelRowHeight = 44.dp
+    val ChipGap        = 6.dp    // şerit içi çipler ve bölüm satırları arası
+    val SeasonChipWidth = 56.dp  // "Sezon" etiketi bir kez yazar, çipte yalnız numara
+    val EpisodeNumWidth = 40.dp  // bölüm numarası sütunu: adlar aynı hizadan başlar
 
     // Rafa kaç poster sığacağı SABİT: kart genişliği ekrandan hesaplanır
     // (Dean, 19 Eylül: "her sayfa eşit düzenlensin"). 10 posterde kart ~79dp,
