@@ -36,6 +36,28 @@ def _cift_sayisi(episodes: list) -> int:
     })
 
 
+def ayni_yapim(aday: list, taban: list) -> bool:
+    """Aday liste, kartın dizisiyle aynı yapım mı?
+
+    Aynı adlı başka yapım aynı aramada gelir: "Dark Matter" 2024 (S1=9) için
+    DiziMom'un ilk sonucu 2015 yapımıydı (S1=13, 39 bölüm), Dizilla ikisini
+    karıştırıyor. Bölüm adları TMDB'den geldiği için ikisinde de aynı — ayırt
+    etmez. Ayıran şey sezon boyu: tabanın bitmiş sezonları (son sezon hariç)
+    adayda aynı sayıda bölüm taşımalı. Son sezon hâlâ yayında olabilir, serbest.
+    """
+    def boylar(liste: list) -> dict:
+        sezonlar: dict = {}
+        for e in liste or []:
+            if isinstance(e, dict) and e.get("episode") is not None:
+                sezonlar.setdefault(e.get("season"), set()).add(e.get("episode"))
+        return {s: len(b) for s, b in sezonlar.items()}
+
+    t, a = boylar(taban), boylar(aday)
+    # ponytail: tabanın bitmiş sezonunda bölüm eksikse doğru adaylar da elenir; sık görülürse tolerans ekle
+    bitmis = sorted(s for s in t if isinstance(s, int))[:-1]
+    return all(a.get(s) == t[s] for s in bitmis)
+
+
 def daha_zengin(cift: int, mevcut: int, puan: float, mevcut_puan: float) -> bool:
     """Aday liste mevcutun yerini alır mı?
 
@@ -123,8 +145,9 @@ async def episodes_best(request: Request):
     )
 
     puanlar = source_score.puanlar()
+    taban   = en_iyi["episodes"]
     for (ad, url), liste in zip(ilk_aday.items(), listeler):
-        if not isinstance(liste, list):
+        if not isinstance(liste, list) or not ayni_yapim(liste, taban):
             continue
         cift = _cift_sayisi(liste)
         if daha_zengin(cift, en_iyi_cift, puanlar.get(ad, 0.0), puanlar.get(en_iyi["plugin"], 0.0)):

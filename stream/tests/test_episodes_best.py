@@ -7,7 +7,7 @@ from pathlib import Path
 STREAM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(STREAM_ROOT))
 
-from Public.API.v1.Routers.episodes_best import _cift_sayisi, daha_zengin
+from Public.API.v1.Routers.episodes_best import _cift_sayisi, ayni_yapim, daha_zengin
 
 
 class CiftSayisiTest(unittest.TestCase):
@@ -45,6 +45,24 @@ class DahaZenginTest(unittest.TestCase):
 
     def test_bos_liste_kazanmaz(self) -> None:
         self.assertFalse(daha_zengin(0, 0, 500.0, 0.0))
+
+
+def _liste(*boylar: int) -> list:
+    return [{"season": s, "episode": b} for s, n in enumerate(boylar, 1) for b in range(1, n + 1)]
+
+
+class AyniYapimTest(unittest.TestCase):
+    def test_ayni_adli_eski_yapim_elenir(self) -> None:
+        # Dark Matter 2024 (9+5) karşısında 2015 yapımı (13+13+13)
+        self.assertFalse(ayni_yapim(_liste(13, 13, 13), _liste(9, 5)))
+
+    def test_son_sezonu_ilerde_olan_kabul(self) -> None:
+        # Reacher: taban S4B4, aday S4B8
+        self.assertTrue(ayni_yapim(_liste(8, 8, 8, 8), _liste(8, 8, 8, 4)))
+
+    def test_tek_sezonlu_tabanda_kisit_yok(self) -> None:
+        self.assertTrue(ayni_yapim(_liste(10, 6), _liste(1)))
+        self.assertTrue(ayni_yapim(_liste(10), []))
 
 
 if __name__ == "__main__":
