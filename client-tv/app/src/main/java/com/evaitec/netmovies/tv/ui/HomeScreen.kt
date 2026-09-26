@@ -42,6 +42,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -911,16 +913,16 @@ private fun PosterMenu(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         // Detay gelmediyse kol soluk ama "bölüm yok" demek değil.
-                        YoncaKol("☰", aktif = bolumler.isNotEmpty() || detay == null)
+                        YoncaKol("☰", aktif = bolumler.isNotEmpty() || detay == null, onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_UP) })
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            YoncaKol("ℹ")
-                            YoncaOrta()
-                            YoncaKol("✧")
+                            YoncaKol("ℹ", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_LEFT) })
+                            YoncaOrta(onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_CENTER) })
+                            YoncaKol("✧", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
                         }
-                        YoncaKol("☆")
+                        YoncaKol("☆", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_DOWN) })
                     }
                 }
 
@@ -1046,12 +1048,16 @@ private fun SutunBasligi(text: String, aktif: Boolean) {
     )
 }
 
-/** Yoncanın bir yön kolu: tek ikon, küçük kare. Pasifse soluk çizilir. */
+/** Yoncanın bir yön kolu: tek ikon, küçük kare. Pasifse soluk çizilir.
+ *  Dokunma: telefonda pad yalnız tuşla sürülüyordu, kollar dokunuşa kördü (Dean,
+ *  26 Eylül: "basılı tutma telefonda çalışmıyor"). `clickable` DEĞİL: odak
+ *  hedefi olur, kumandada tuşu pad kutusundan çalardı; dokunuş odak almaz. */
 @Composable
-private fun YoncaKol(ikon: String, aktif: Boolean = true) {
+private fun YoncaKol(ikon: String, aktif: Boolean = true, onTap: () -> Unit) {
     Box(
         modifier = Modifier
             .size(58.dp)
+            .pointerInput(Unit) { detectTapGestures { onTap() } }
             .clip(RoundedCornerShape(NmDim.RowRadius))
             .background(NmColor.SurfaceHigh),   // panelsiz joystickte yarı saydam zemin afişte kayboluyordu
         contentAlignment = Alignment.Center,
@@ -1066,11 +1072,12 @@ private fun YoncaKol(ikon: String, aktif: Boolean = true) {
 
 /** Yoncanın ortası: OK'un doğrudan çalıştırdığı eylem (oynat), hep vurgulu. */
 @Composable
-private fun YoncaOrta() {
+private fun YoncaOrta(onTap: () -> Unit) {
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         modifier = Modifier
             .size(58.dp)
+            .pointerInput(Unit) { detectTapGestures { onTap() } }
             .clip(shape)
             .background(NmColor.Primary)
             .nmFocusRing(true, shape),

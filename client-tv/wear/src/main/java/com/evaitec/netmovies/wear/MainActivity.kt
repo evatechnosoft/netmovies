@@ -25,6 +25,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -782,26 +785,52 @@ private fun YuzeyEkrani(komut: (String) -> Unit, onKapat: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(Zemin)
+            // TEK izleyici. Eskiden dokunma ve sürükleme ayrı iki pointerInput'taydı:
+            // saatte parmak yavaş kayınca 0,5 sn dolup "basılı tut = GERİ" ateşleniyor,
+            // dokunma dedektörü parmak kalkana dek olayları yutuyor ve sürükleme ölüyordu.
+            // Sonuç: pad hiç hareket etmiyordu (Dean, 26 Eylül). Şimdi kayma başladığı
+            // anda uzun basış iptal oluyor, uzun basış yalnız parmak yerinde durursa geçerli.
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { sonYon = "OK"; komut("""{"type":"key","key":"CENTER"}""") },
-                    onLongPress = { sonYon = "GERİ"; komut("""{"type":"key","key":"BACK"}""") },
-                )
-            }
-            .pointerInput(Unit) {
-                var dx = 0f
-                var dy = 0f
-                detectDragGestures(onDragStart = { dx = 0f; dy = 0f }) { _, sur ->
-                    dx += sur.x; dy += sur.y
-                    val yon = when {
-                        kotlin.math.abs(dx) >= esik && kotlin.math.abs(dx) >= kotlin.math.abs(dy) -> if (dx > 0) "RIGHT" else "LEFT"
-                        kotlin.math.abs(dy) >= esik -> if (dy > 0) "DOWN" else "UP"
-                        else -> null
+                awaitEachGesture {
+                    awaitFirstDown()
+                    var dx = 0f
+                    var dy = 0f
+                    var toplam = 0f
+                    val isle = { d: Offset ->
+                        dx += d.x; dy += d.y
+                        toplam += kotlin.math.abs(d.x) + kotlin.math.abs(d.y)
+                        val yon = when {
+                            kotlin.math.abs(dx) >= esik && kotlin.math.abs(dx) >= kotlin.math.abs(dy) -> if (dx > 0) "RIGHT" else "LEFT"
+                            kotlin.math.abs(dy) >= esik -> if (dy > 0) "DOWN" else "UP"
+                            else -> null
+                        }
+                        if (yon != null) {
+                            dx = 0f; dy = 0f
+                            sonYon = yon
+                            komut("""{"type":"key","key":"$yon"}""")
+                        }
                     }
-                    if (yon != null) {
-                        dx = 0f; dy = 0f
-                        sonYon = yon
-                        komut("""{"type":"key","key":"$yon"}""")
+                    // true = parmak kalktı, false = kayma başladı, null = yerinde basılı kaldı
+                    val ilk = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        while (true) {
+                            val c = awaitPointerEvent().changes.first()
+                            if (!c.pressed) return@withTimeoutOrNull true
+                            isle(c.positionChange()); c.consume()
+                            if (toplam > viewConfiguration.touchSlop) return@withTimeoutOrNull false
+                        }
+                        @Suppress("UNREACHABLE_CODE") false
+                    }
+                    when (ilk) {
+                        true -> { sonYon = "OK"; komut("""{"type":"key","key":"CENTER"}""") }
+                        null -> { sonYon = "GERİ"; komut("""{"type":"key","key":"BACK"}""") }
+                        false -> Unit
+                    }
+                    // Kalan hareket: kaydıkça yön tuşu (uzun basıştan sonra da yutulur).
+                    while (true) {
+                        val c = awaitPointerEvent().changes.first()
+                        if (!c.pressed) break
+                        if (ilk == false) isle(c.positionChange())
+                        c.consume()
                     }
                 }
             },
