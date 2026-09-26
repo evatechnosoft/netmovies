@@ -1309,6 +1309,15 @@ private fun SettingsMenu(
                 MenuRow("⬆  Güncellemeyi kontrol et", onClick = { updateVm.check(verbose = true) })
         }
         MenuRow("⚙  Buton Eşleme", onClick = { onClose(); onOpenKeyMap() })
+        // Kip sıfırlanır, etkinlik yeniden kurulur: ilk açılış seçim ekranı gelir.
+        val kipContext = androidx.compose.ui.platform.LocalContext.current
+        MenuRow(
+            "📺  Cihaz kipi: " + (com.evaitec.netmovies.tv.data.CihazKipi.oku(kipContext)?.kisa ?: "—") + " — değiştir",
+            onClick = {
+                com.evaitec.netmovies.tv.data.CihazKipi.sifirla(kipContext)
+                (kipContext as? android.app.Activity)?.recreate()
+            },
+        )
         // Oynatıcı 2 denemesi: eski oynatıcı yedek, varsayılan. Bkz. docs/PLAYER2-PLAN.md.
         val context = androidx.compose.ui.platform.LocalContext.current
         var yeniOynatici by remember { mutableStateOf(com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(context)) }

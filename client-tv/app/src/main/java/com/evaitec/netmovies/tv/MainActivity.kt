@@ -187,11 +187,10 @@ class MainActivity : ComponentActivity() {
                         // Yansıtma değil — komut gider, akışı TV çözer.
                         // Telefon burada KUMANDADIR: cihazda oynatma yolu yok (uzun-bas
                         // menüsündeki Oynat da aynı komutu TV'ye gönderir).
-                        val isTv = remember {
-                            val mode = getSystemService(android.content.Context.UI_MODE_SERVICE)
-                                as android.app.UiModeManager
-                            mode.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
-                        }
+                        // Kip ilk açılışta seçilir (KipSecimEkrani), Ayarlar'dan değişir.
+                        // UiMode yalnız öneri: "telefonda izle" artık mümkün.
+                        var kip by remember { mutableStateOf(com.evaitec.netmovies.tv.data.CihazKipi.oku(this@MainActivity)) }
+                        val isTv = kip?.oynatBurada == true
                         val scope = androidx.compose.runtime.rememberCoroutineScope()
                         val pick: (MediaItem) -> Unit = { item ->
                             if (isTv) {
@@ -271,7 +270,7 @@ class MainActivity : ComponentActivity() {
                         // Compose'un odak sistemi, oynatıcının tuş işleyicisi ve kullanıcının
                         // Buton Eşleme ayarları olduğu gibi geçerli kalır — kontrol mantığı
                         // kumanda için ikinci kez yazılmaz.
-                        if (isTv) {
+                        if (kip?.komutDinler == true) {
                             androidx.compose.runtime.LaunchedEffect(Unit) {
                                 val ses = getSystemService(android.content.Context.AUDIO_SERVICE)
                                     as android.media.AudioManager
@@ -357,6 +356,13 @@ class MainActivity : ComponentActivity() {
                         }
                         val current = selected
                         when {
+                            kip == null ->
+                                com.evaitec.netmovies.tv.ui.KipSecimEkrani(
+                                    oneri = com.evaitec.netmovies.tv.data.CihazKipi.oneri(this@MainActivity),
+                                ) { secilen ->
+                                    com.evaitec.netmovies.tv.data.CihazKipi.ayarla(this@MainActivity, secilen)
+                                    kip = secilen
+                                }
                             // Oynatıcı 2 deneme aşamasında: Ayarlar'daki anahtar açıksa o,
                             // değilse eski oynatıcı (yedek). Bkz. docs/PLAYER2-PLAN.md.
                             current != null && com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(this@MainActivity) ->
