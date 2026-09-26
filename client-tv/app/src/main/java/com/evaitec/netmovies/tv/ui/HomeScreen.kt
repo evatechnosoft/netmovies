@@ -309,12 +309,12 @@ private fun CategoryRows(
                             fontWeight = FontWeight.Medium,
                             fontSize = NmType.RowTitle,
                             color = NmColor.OnSurfaceMuted,
-                            modifier = Modifier.padding(start = NmDim.SafeH),
+                            modifier = Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
                         )
                         LazyRow(
                             modifier = Modifier.focusGroup(),
                             state = rowState,
-                            contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
+                            contentPadding = PaddingValues(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = NmDim.RowPadV),
                             horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                         ) {
                             // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
@@ -381,19 +381,23 @@ private fun TopBar(
     onOpenFollowing: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // Telefonda yedi öğe tek satıra sığmıyordu; son düğmeler ekran dışına taşıyordu.
+    // Telefonda daha dar aralık, daha küçük logo var. 📱 düğmesi yok: telefon zaten kumandanın kendisi.
+    val telefon = com.evaitec.netmovies.tv.ui.theme.nmTelefon()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .focusGroup()
-            .padding(horizontal = NmDim.SafeH, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (telefon) 8.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = "NetMovies",
             fontWeight = FontWeight.ExtraBold,
-            fontSize = NmType.Wordmark,
+            fontSize = if (telefon) NmType.Body else NmType.Wordmark,
             color = NmColor.Primary,
+            maxLines = 1,
             modifier = Modifier.padding(end = 4.dp),
         )
         // Büyüteç SOL BAŞTA: en sık kullanılan giriş, sağ uçta kaybolmasın
@@ -420,7 +424,7 @@ private fun TopBar(
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        TvTopBarButton("📱", onClick = onOpenRemote, compact = true, modifier = ad("Telefon kumandası"))
+        if (!telefon) TvTopBarButton("📱", onClick = onOpenRemote, compact = true, modifier = ad("Telefon kumandası"))
         TvTopBarButton("⚙", onClick = onOpenSettings, compact = true, modifier = ad("Ayarlar"))
     }
 }
@@ -511,7 +515,7 @@ private fun PosterCard(
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .height(54.dp)
+                .height(64.dp)
                 .background(nmBottomScrim),
         )
         // İzlenen oran — Devam Et rafında nerede kaldığın tek bakışta görünsün.
@@ -555,41 +559,42 @@ private fun PosterCard(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        // Dil rozetleri — daha önce bir kez açılmış içerikte dolu gelir
-        // (sunucu: lang_memo.py). Başlık yazısının hemen üstünde durur.
-        if (item.lang.isNotEmpty()) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 8.dp, bottom = 34.dp),
-            ) {
-                item.lang.forEach { rozet ->
-                    Text(
-                        text = rozet,
-                        fontSize = NmType.Caption,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (rozet == "DUB") NmColor.Primary else NmColor.OnSurface,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(NmDim.PillRadius))
-                            .background(NmColor.ScrimSoft)
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    )
-                }
-            }
-        }
-        Text(
-            text = item.title.orEmpty(),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            fontSize = NmType.Label,
-            color = NmColor.OnSurface,
-            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+        // Dil rozetleri başlığın hemen üstünde. Önceden sabit bottom=34dp ile duruyorlardı;
+        // başlık iki satır olunca ORJ/ALT rozetleri yazının üstüne biniyordu. Artık tek
+        // sütunda başlığın üstünde duruyorlar, başlık kaç satır olursa olsun çakışmıyorlar.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(3.dp),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 7.dp),
-        )
+        ) {
+            if (item.lang.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    item.lang.forEach { rozet ->
+                        Text(
+                            text = rozet,
+                            fontSize = NmType.Caption,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (rozet == "DUB") NmColor.Primary else NmColor.OnSurface,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(NmDim.PillRadius))
+                                .background(NmColor.ScrimSoft)
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                        )
+                    }
+                }
+            }
+            Text(
+                text = item.title.orEmpty(),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = NmType.Label,
+                lineHeight = NmType.Label * 1.15f,
+                color = NmColor.OnSurface,
+                fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+            )
+        }
     }
 }
 

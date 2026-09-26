@@ -189,11 +189,23 @@ fun NetMoviesTheme(content: @Composable () -> Unit) {
     }
 }
 
+/** Aynı APK telefona da kuruluyor. Dikey telefonda (~411dp) TV ölçüleri taşıyordu:
+ *  7 poster 64dp'ye iniyor, başlık iki harfe bölünüyor, üst düğmeler ekran dışına
+ *  kayıyordu (Dean, 26 Eylül ekran görüntüsü). 600dp altı = telefon düzeni. */
+@androidx.compose.runtime.Composable
+fun nmTelefon(): Boolean =
+    androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+
+/** Yatay kenar boşluğu: TV'de overscan payı, telefonda parmak payı kadar. */
+@androidx.compose.runtime.Composable
+fun nmKenar(): androidx.compose.ui.unit.Dp = if (nmTelefon()) 16.dp else NmDim.SafeH
+
 /** Bir rafa tam [adet] poster sığacak kart genişliği. Kenar boşluğu ve kartlar
- *  arası aralık düşülür; çok dar ekranda 64dp'nin altına inmez. */
+ *  arası aralık düşülür. Telefonda 3 poster + dördüncünün ucu: kaydırılabildiği belli. */
 @androidx.compose.runtime.Composable
 fun nmRafPosterGenisligi(adet: Int = NmDim.RafPosterAdedi): androidx.compose.ui.unit.Dp {
     val ekran = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    if (nmTelefon()) return (ekran - 16.dp - NmDim.CardGap * 3) / 3.3f
     return ((ekran - NmDim.SafeH * 2 - NmDim.CardGap * (adet - 1)) / adet)
         .coerceAtLeast(64.dp)
 }
