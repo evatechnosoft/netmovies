@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -132,7 +133,6 @@ fun HomeScreen(
     // Telefonda kart TV'ye komut gönderir: tek dokunuşta gitmesin, önce menü
     // açılsın (Dean: "çok hızlı TV'ye yolluyor, kaydırmak için basmamla birlikte").
     // Televizyonda dokunuş zaten içeriği açar, menü uzun basışta.
-    menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenSearch: () -> Unit,
@@ -155,14 +155,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, menuOnTap, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
             }
         }
     }
@@ -179,7 +179,6 @@ private fun CategoryRows(
     library: Library,
     onSelect: (MediaItem) -> Unit,
     onSelectEpisode: (MediaItem, Int) -> Unit,
-    menuOnTap: Boolean,
     onExit: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenSearch: () -> Unit,
@@ -331,7 +330,7 @@ private fun CategoryRows(
                                     item = item,
                                     isFavorite = library.isFavorite(item),
                                     progress = library.progress[item.url] ?: 0f,
-                                    onClick = { if (menuOnTap) menuItem = item else onSelect(item) },
+                                    onClick = { onSelect(item) },
                                     onLongPress = { menuItem = item },
                                     modifier = cardModifier,
                                 )
@@ -705,6 +704,13 @@ private fun PosterMenu(
     val ozetState = rememberScrollState()
     val kapsam = rememberCoroutineScope()
 
+    var takvim by remember(item.url) { mutableStateOf<com.evaitec.netmovies.tv.data.ShowSchedule?>(null) }
+    LaunchedEffect(mod, bolumler.size) {
+        if (mod == PadMod.OZET && takvim == null && bolumler.isNotEmpty()) {
+            takvim = runCatching { Network.api.showSchedule(item.title.orEmpty()).result }.getOrNull()
+        }
+    }
+
     LaunchedEffect(mod) {
         if (mod == PadMod.BENZER && benzerler == null) {
             benzerDurum = "Benzerler aranıyor…"
@@ -847,7 +853,9 @@ private fun PosterMenu(
                 // PAD: panel YOK. Dean: "arka alan ve açıklamaya gerek yok, küçük bir
                 // joystick gibi yeterli" — beş ikon ekranın üstünde serbest durur.
                 // Alt modlar (bölüm listesi, özet, benzerler) panelde kalır.
-                .then(if (mod == PadMod.PAD) Modifier.wrapContentWidth() else Modifier.width(620.dp))
+                // Alt modlar TV'de 620dp. Telefonda (~411dp) panel ekran dışına taşıyordu,
+                // Bölümler ve Özet görünmüyordu. Artık ekrandan dar kalıyor.
+                .then(if (mod == PadMod.PAD) Modifier.wrapContentWidth() else Modifier.padding(horizontal = 16.dp).widthIn(max = 620.dp).fillMaxWidth())
                 .wrapContentHeight()
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .then(
@@ -933,11 +941,15 @@ private fun PosterMenu(
                         itemsIndexed(bolumler) { i, ep ->
                             val numara = ep.episode?.let { "S" + ep.season + "B" + it } ?: ("Bölüm " + (i + 1))
                             val ad = ep.title?.takeIf { it.isNotBlank() }
-                            KartSatir(
-                                label = if (ad != null) numara + " · " + ad else numara,
-                                secili = i == bolumIdx,
-                                isaretli = i == secilenBolum,
-                            )
+                            Box(Modifier.pointerInput(i) {
+                                detectTapGestures { bolumIdx = i; secilenBolum = i; onPlayEpisode(i) }
+                            }) {
+                                KartSatir(
+                                    label = if (ad != null) numara + " · " + ad else numara,
+                                    secili = i == bolumIdx,
+                                    isaretli = i == secilenBolum,
+                                )
+                            }
                         }
                     }
                 }
@@ -949,19 +961,19 @@ private fun PosterMenu(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Box(Modifier.weight(1f)) {
+                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 0; listeUygula(0) } }) {
                             KartSatir(
                                 label = if (library.inIzlenecek(item)) "☆ İzleneceklerde ✓" else "☆ İzleneceklere",
                                 secili = listeIdx == 0,
                             )
                         }
-                        Box(Modifier.weight(1f)) {
+                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 1; listeUygula(1) } }) {
                             KartSatir(
                                 label = if (library.inTakip(item)) "📋 Takipte ✓" else "📋 Takip et",
                                 secili = listeIdx == 1,
                             )
                         }
-                        Box(Modifier.weight(1f)) {
+                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 2; listeUygula(2) } }) {
                             KartSatir(
                                 label = if (library.isFavorite(item)) "★ Beğendim ✓" else "★ Beğendim",
                                 secili = listeIdx == 2,
@@ -974,6 +986,12 @@ private fun PosterMenu(
                 PadMod.OZET -> {
                     SutunBasligi("Özet", true)
                     Column(Modifier.heightIn(max = 240.dp).verticalScroll(ozetState)) {
+                        // Dizide takvim en üstte: son çıkan bölüm ve sıradaki bölümün
+                        // tarihi (Dean). Filmde ve TMDB'de bulunamazsa hiç yer kaplamaz.
+                        takvimSatirlari(takvim).forEach { satir ->
+                            Text(satir, fontSize = NmType.Caption, color = NmColor.OnSurface, fontWeight = FontWeight.SemiBold)
+                        }
+                        if (takvim != null) Spacer(Modifier.height(8.dp))
                         Text(
                             text = detay?.description?.takeIf { it.isNotBlank() } ?: "Özet yok.",
                             fontSize = NmType.Caption,
@@ -994,7 +1012,9 @@ private fun PosterMenu(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         itemsIndexed(benzerler.orEmpty()) { i, b ->
-                            Column(Modifier.width(92.dp)) {
+                            Column(Modifier.width(92.dp).pointerInput(i) {
+                                detectTapGestures { benzerIdx = i; benzerAc(b) }
+                            }) {
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
@@ -1035,6 +1055,32 @@ private fun PosterMenu(
             }
         }
     }
+}
+
+/** "2026-10-01" -> "1 Eki 2026". Biçim tanınmazsa olduğu gibi döner. */
+private fun tarihYaz(iso: String): String = runCatching {
+    java.time.LocalDate.parse(iso)
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale("tr")))
+}.getOrDefault(iso)
+
+/** Özet'in takvim satırları. Boş alanlar atlanır; bitmiş dizi bunu söyler. */
+internal fun takvimSatirlari(t: com.evaitec.netmovies.tv.data.ShowSchedule?): List<String> {
+    if (t == null) return emptyList()
+    val satirlar = mutableListOf<String>()
+    if ((t.last_episode ?: 0) > 0) {
+        satirlar += "Son bölüm: S${t.last_season}B${t.last_episode}" +
+            (t.last_date?.takeIf { it.isNotBlank() }?.let { " · " + tarihYaz(it) } ?: "")
+    }
+    if ((t.next_episode ?: 0) > 0 && !t.next_date.isNullOrBlank()) {
+        satirlar += "Sıradaki: S${t.next_season}B${t.next_episode}" +
+            (t.next_name?.takeIf { it.isNotBlank() }?.let { " «$it»" } ?: "") +
+            " · " + tarihYaz(t.next_date)
+    } else if (t.status == "Ended" || t.status == "Canceled") {
+        satirlar += "Dizi tamamlandı"
+    } else if (satirlar.isNotEmpty()) {
+        satirlar += "Sıradaki bölüm tarihi henüz açıklanmadı"
+    }
+    return satirlar
 }
 
 @Composable

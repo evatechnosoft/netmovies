@@ -79,6 +79,8 @@ async def _tmdb_show(title: str) -> dict:
                 "next_episode" : nxt.get("episode_number") or 0,
                 "next_name"    : nxt.get("name") or "",
                 "last_date"    : last.get("air_date") or "",
+                "last_season"  : last.get("season_number") or 0,
+                "last_episode" : last.get("episode_number") or 0,
             }
     except Exception:
         info = {}
@@ -121,3 +123,18 @@ async def following(request: Request):
     turkish.sort(key=_order)
     foreign.sort(key=_order)
     return {**api_v1_global_message, "result": {"turkish": turkish, "foreign": foreign}}
+
+
+@api_v1_router.get("/show_schedule")
+async def show_schedule(request: Request):
+    """Tek dizinin takvimi: son yayınlanan ve sıradaki bölüm (poster pad'inin Özet'i).
+
+    Takip listesine eklemeden de sorulabilsin diye `/following`'den ayrı; aynı
+    TMDB önbelleğini kullanır.
+    """
+    title = str((request.state.veri or {}).get("title") or "").strip()
+    info  = await _tmdb_show(title) if title else {}
+    alanlar = ("status", "next_date", "next_season", "next_episode", "next_name",
+               "last_date", "last_season", "last_episode")
+    return {**api_v1_global_message, "result": {k: info.get(k) for k in alanlar} if info else None}
+

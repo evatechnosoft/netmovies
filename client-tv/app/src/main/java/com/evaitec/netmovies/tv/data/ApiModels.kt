@@ -409,6 +409,21 @@ data class AgendaResult(
 @Serializable
 data class AgendaResponse(val result: AgendaResult = AgendaResult())
 
+@Serializable
+data class ShowSchedule(
+    val status: String? = null,
+    val next_date: String? = null,
+    val next_season: Int? = null,
+    val next_episode: Int? = null,
+    val next_name: String? = null,
+    val last_date: String? = null,
+    val last_season: Int? = null,
+    val last_episode: Int? = null,
+)
+
+@Serializable
+data class ShowScheduleResponse(val result: ShowSchedule? = null)
+
 // TMDB önerileri — katalogda karşılığı olmayabilir; seçilince normal aramaya düşer.
 @Serializable
 data class SimilarItem(

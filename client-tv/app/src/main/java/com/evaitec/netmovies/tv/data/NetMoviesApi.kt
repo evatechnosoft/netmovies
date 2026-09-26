@@ -93,6 +93,10 @@ interface NetMoviesApi {
     ): MainPageResponse
 
     // Benzer yapımlar (TMDB). Katalog ucu değil: sonuç başlıkları aramaya beslenir.
+    // Dizinin takvimi (TMDB): son yayınlanan ve sıradaki bölüm — pad'in Özet'i.
+    @GET("api/v1/show_schedule")
+    suspend fun showSchedule(@Query("title") title: String): ShowScheduleResponse
+
     @GET("similar")
     suspend fun similar(
         @Query("title") title: String,
