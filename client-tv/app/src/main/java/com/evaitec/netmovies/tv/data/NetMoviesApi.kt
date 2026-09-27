@@ -34,6 +34,9 @@ interface NetMoviesApi {
         @Query("title") title: String? = null,
         @Query("episode") episode: Int = 0,
         @Query("mode") mode: String = "full",
+        // Real episode/season number: providers' lists start at different episodes.
+        @Query("episode_no") episodeNo: Int? = null,
+        @Query("season_no") seasonNo: Int? = null,
     ): ResolveResponse
 
     @GET("api/v1/load_links")

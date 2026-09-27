@@ -83,6 +83,10 @@ object PlaybackLog {
 inline fun <T> loggedOrNull(stage: String, detail: String, block: () -> T): T? =
     try {
         block()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        // A cancelled (restarted) chain must STOP: swallowing this let the old run's
+        // tail write KAYNAK_YOK / searching=false over the new run.
+        throw e
     } catch (e: Exception) {
         PlaybackLog.fail(stage, detail, e)
         null

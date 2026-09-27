@@ -60,6 +60,8 @@ class LoadItemRescueTest(unittest.TestCase):
         # kodlarsa motor %253A görüp 500 döner.
         kurtarma = [p for e, p in cagrilar if e == "/load_item" and p.get("plugin") == "CanliKaynak"]
         self.assertEqual("https://canli/dizi/pluribus", kurtarma[0]["encoded_url"])
+        # Bölüm adresleri kurtaran sağlayıcıya ait: istemci o adla istemeli.
+        self.assertEqual("CanliKaynak", (sonuc or {}).get("plugin"))
 
     def test_olu_saglayici_tekrar_sorgulanmaz(self) -> None:
         _, cagrilar = self._kurtar(ValueError("provider 500"))

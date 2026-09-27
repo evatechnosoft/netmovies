@@ -94,10 +94,11 @@ fun PlayerScreen2(
   // Odak sahipliği: kök kutu odaksızsa D-pad controller'a gelmez. Tek requestFocus
   // ilk karede sessizce başarısız olabiliyor → 10 kare dene (eski AA 1297-1304).
   LaunchedEffect(ui.showSettings, ui.showSeek, core.showStartPanel, ui.scrubMode, core.ready) {
-    if (ui.showSeek || core.showStartPanel) return@LaunchedEffect   // odağı kendileri alır
+    // Odağı kendileri alır. SettingsPanel de: panelFocus'a istek ilk sekmeye (Kitaplık)
+    // düşüp oynayan bölüme konan odağı eziyordu.
+    if (ui.showSeek || core.showStartPanel || ui.showSettings) return@LaunchedEffect
     repeat(10) {
-      val target = if (ui.showSettings) panelFocus else rootFocus
-      if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
+      if (runCatching { rootFocus.requestFocus() }.isSuccess) return@LaunchedEffect
       withFrameNanos { }
     }
   }

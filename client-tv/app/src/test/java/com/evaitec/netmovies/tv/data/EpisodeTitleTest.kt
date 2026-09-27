@@ -30,4 +30,17 @@ class EpisodeTitleTest {
         assertEquals(-1, basliktanBolum("Dead City", bolumler))
         assertEquals(-1, basliktanBolum(null, bolumler))
     }
+
+    @Test
+    fun sezonsuzBolumTekSezonluListedeBulunur() {
+        // "Haysiyet 3.Bölüm" kartı, liste alternatiften (DDizi) geldi: 1. bölüm açılıyordu.
+        val tekSezon = listOf(
+            EpisodeItem(season = 1, episode = 1, url = "a"),
+            EpisodeItem(season = 1, episode = 2, url = "b"),
+            EpisodeItem(season = 1, episode = 3, url = "c"),
+        )
+        assertEquals(2, basliktanBolum("Haysiyet 3.Bölüm", tekSezon))
+        // Çok sezonlu listede sezonsuz numara belirsiz: eşlenmez.
+        assertEquals(-1, basliktanBolum("Dead City 7.Bölüm", bolumler))
+    }
 }

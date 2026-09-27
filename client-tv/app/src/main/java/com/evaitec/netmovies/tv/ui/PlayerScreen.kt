@@ -305,6 +305,8 @@ fun PlayerScreen(
     var aktifUrl by remember(item.url) { mutableStateOf(item.url) }
     // Listenin hangi sağlayıcıdan geldiği panelde yazsın.
     var listeKaynagi by remember(item.url) { mutableStateOf<String?>(null) }
+    // Episode (S1B3) of the last chain run; a different one means stop the old stream.
+    val cozulenBolum = remember(item.url) { mutableStateOf<String?>(null) }
     // Başlangıç paneli: içerik açılır açılmaz gelir ve çözümleme bitene kadar
     // ekranda kalır. Odak OYNAT'ta; bölüm ve kaynak/dil aynı panelde. Kullanıcı
     // OYNAT'a basmadan akış başlamaz — yanlış içeriğe girip izlemeye başlamak yok.
@@ -372,7 +374,11 @@ fun PlayerScreen(
         // sıralama da uyumlu — sunucu bölümü aynı listeden indeksliyor
         // (resolve_sources: `info.episodes[episode_index]`).
         val bolumler = details?.episodes.orEmpty()
-        if (bolumler.isNotEmpty() && episodes.isEmpty()) episodes = bolumler
+        if (bolumler.isNotEmpty() && episodes.isEmpty()) {
+            episodes = bolumler
+            // Rescued from another provider: its episode URLs must go out under its name.
+            listeKaynagi = details?.plugin
+        }
 
         // Kart BÖLÜM sayfası olabilir (DiziMom "Son Bölümler" ve araması böyle
         // veriyor): sunucu o adresten dizinin tamamını döndürür, ama listede
@@ -990,7 +996,22 @@ fun PlayerScreen(
     // aynı listeyi aynı sırada görür.
     LaunchedEffect(aktifUrl, aktifPlugin, currentEpIndex, retryKey, detayHazir) {
         if (!detayHazir) return@LaunchedEffect
-        ready = false
+        val secili = episodes.getOrNull(currentEpIndex)
+        val bolum = episodeRef(secili?.season, secili?.episode, currentEpIndex)
+        val oncekiBolum = cozulenBolum.value
+        cozulenBolum.value = bolum
+        if (oncekiBolum != null && oncekiBolum != bolum) {
+            // Another episode was picked: the old one must not keep playing while the new
+            // one is searched ("asked for 3, shows 1" + KAYNAK_YOK over a running video).
+            exo.stop()
+            exo.clearMediaItems()
+            position = 0L
+            duration = 0L
+        } else if (exo.isPlaying) {
+            // Same episode, provider list changed: keep the position for the new source.
+            carryOverMs = exo.currentPosition.coerceAtLeast(0L)
+        }
+        if (!exo.isPlaying) ready = false
         links = emptyList()
         currentLinkIndex = 0
         siradakiBekleniyor = false
@@ -1002,6 +1023,9 @@ fun PlayerScreen(
         PlaybackLog.startSession(item.title, item.plugin)
         PlaybackLog.info("açılış", if (item.autoplay) "uzak komut / onay (autoplay)" else "kullanıcı seçimi")
 
+        // Set when absorb re-targets the episode: this run is obsolete.
+        var yenidenBasliyor = false
+
         fun absorb(result: com.evaitec.netmovies.tv.data.ResolveResult?, phase: String) {
             if (result == null) return
             // Sunucunun teşhis kaydı istemci günlüğüne karışır: rapor tek yerde okunur.
@@ -1012,7 +1036,22 @@ fun PlayerScreen(
                     else -> PlaybackLog.info("sunucu·${d.stage}", d.message)
                 }
             }
-            if (episodes.isEmpty() && result.episodes.isNotEmpty()) episodes = result.episodes
+            if (episodes.isEmpty() && result.episodes.isNotEmpty()) {
+                episodes = result.episodes
+                // Episode URLs belong to this provider (may be an alternative).
+                listeKaynagi = result.episodesPlugin
+                // Episode-page card ("Haysiyet 3.Bölüm") whose own provider gave no list:
+                // map it now, otherwise episode 1 of the alternative plays.
+                if (item.episode < 0) {
+                    val sira = basliktanBolum(item.title, result.episodes)
+                    if (sira >= 0 && sira != currentEpIndex) {
+                        PlaybackLog.info("bölüm", "karttaki bölüm: ${episodeLabel(result.episodes[sira], sira)}")
+                        currentEpIndex = sira
+                        yenidenBasliyor = true
+                        return
+                    }
+                }
+            }
 
             val known = links.map { it.url }.toSet()
             val fresh = result.sources.filter { it.url.isNotBlank() && it.url !in known }
@@ -1036,40 +1075,52 @@ fun PlayerScreen(
         // sıraya göre çözülüyor ve listeler ayrıştığında sessizce başka bölüm
         // açılıyordu (Dean: "3 bölüm seçiyorum 1'i oynatıyor"). Adres tekil,
         // tahmin yok. Bölüm yoksa (film) eski yol.
-        val bolumUrl = episodes.getOrNull(currentEpIndex)?.url?.takeIf { it.isNotBlank() }
-        val cozumUrl = bolumUrl ?: aktifUrl
+        // Sağlayıcı: listenin geldiği yer; numara sunucuda sıraya yeğlenir.
+        val hedef = com.evaitec.netmovies.tv.ui.player2.cozumHedefi(
+            episodes, currentEpIndex, listeKaynagi, aktifPlugin, aktifUrl,
+        )
 
         // 1) Hızlı yol — seçili sağlayıcı.
-        status = "$aktifPlugin deneniyor…"
+        status = "${hedef.plugin} deneniyor…"
         val fast = loggedOrNull("çözümleme", "resolve_sources · fast") {
             Network.api.resolveSources(
-                plugin = aktifPlugin,
-                encodedUrl = cozumUrl,
+                plugin = hedef.plugin,
+                encodedUrl = hedef.url,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "fast",
+                episodeNo = hedef.bolumNo,
+                seasonNo = hedef.sezonNo,
             ).result
         }
         absorb(fast, "fast")
+        if (yenidenBasliyor) return@LaunchedEffect
         if (links.isNotEmpty()) status = null else status = "Alternatif sağlayıcılar aranıyor…"
 
         // 2) Tam zincir — alternatif sağlayıcılar (sunucu tarar).
         val full = loggedOrNull("çözümleme", "resolve_sources · full") {
             Network.api.resolveSources(
-                plugin = aktifPlugin,
-                encodedUrl = cozumUrl,
+                plugin = hedef.plugin,
+                encodedUrl = hedef.url,
                 title = item.title,
                 episode = currentEpIndex,
                 mode = "full",
+                episodeNo = hedef.bolumNo,
+                seasonNo = hedef.sezonNo,
             ).result
         }
         absorb(full, "full")
+        if (yenidenBasliyor) return@LaunchedEffect
 
         searching = false
         // Zincir bitti: oynasa da oynamasa da kilit burada mutlaka kalkar,
         // yoksa kaynağı bulunamayan bölüm sonraki geçişleri de kilitler.
         gecisBekleyen = null
-        if (links.isEmpty()) {
+        if (links.isEmpty() && exo.isPlaying) {
+            // Same episode still playing from the earlier source: no false "not found".
+            PlaybackLog.warn("sonuç", "yeni kaynak yok · oynayan akış sürüyor")
+            status = null
+        } else if (links.isEmpty()) {
             PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir kaynak vermedi")
             status = KAYNAK_YOK
         } else {
@@ -1161,7 +1212,8 @@ fun PlayerScreen(
                 currentLinkIndex++
                 status = "Kaynak açılmadı, sıradaki deneniyor (${currentLinkIndex + 1}/${links.size})…"
             } else if (!searching) {
-                status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+                // Constant, so the screen offers "Tekrar dene" instead of a dead end.
+                status = KAYNAK_YOK
             }
         }
     }
@@ -1318,10 +1370,11 @@ fun PlayerScreen(
     // geri istemiyordu, kök kutu odaksız kalıyor ve D-pad sarma tuşları hiçbir
     // yere gitmiyordu (Dean, 18 Eylül: "sağ sol sar ama olmuyor").
     LaunchedEffect(showSettings, showSeek, showStartPanel, scrubMode, ready) {
-        if (showSeek || showStartPanel) return@LaunchedEffect   // bu ekranlar odağı kendi alır
+        // Bu ekranlar odağı kendi alır. SettingsPanel de: panelFocus'a istek ilk sekmeye
+        // (Kitaplık) düşüp oynayan bölüme konan odağı eziyordu.
+        if (showSeek || showStartPanel || showSettings) return@LaunchedEffect
         repeat(10) {
-            val target = if (showSettings) panelFocus else rootFocus
-            if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { rootFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             withFrameNanos { }
         }
     }
@@ -2353,11 +2406,17 @@ internal fun SettingsPanel(
     // "acilir secenek sadece ikon olsun, buton icinde gezinir seceriz").
     // Sekme sırası sabit: 0 Kitaplık, 1 Bölümler (dizide). "Bölümler" girişleri
     // paneli doğrudan orada açar — tam ekran liste izlenen sahneyi kapatıyordu.
-    var sekme by remember { mutableStateOf(if (acilisBolumler && episodes.isNotEmpty()) 1 else 0) }
+    // Dizide menü HER ZAMAN Bölümler'de açılır: en sık kullanılan sekme (27 Eylül).
+    var sekme by remember { mutableStateOf(if (episodes.isNotEmpty()) 1 else 0) }
     // Bölüm/sezon listesi panelin İÇİNDE: tam ekran modal koca bir liste açıp
     // izlenen sahneyi kapatıyordu (Dean, 17 Eylül: "o da koca ekranda olmasın").
     var panelSezon by remember { mutableStateOf<Int?>(null) }
     val kaynakListFocus = remember { FocusRequester() }
+    // Açılışta odak oynayan bölümde; bölüm yoksa seçili sekmede. Kök panelFocus
+    // ilk sekmeye (Kitaplık) düşüyordu ve odak sekmeyi değiştirdiği için dizide
+    // de Kitaplık açılıyordu.
+    val bolumFocus = remember { FocusRequester() }
+    val sekmeFocus = remember { FocusRequester() }
     val kaynakOzet = links.getOrNull(currentLinkIndex)?.let { languageLabel(it) } ?: "—"
 
     // GERİ tuşu: alt sayfa açıkken önce onu kapatır — yığın en son kaydolanı
@@ -2367,26 +2426,30 @@ internal fun SettingsPanel(
     // Odak nöbeti: alt sayfa açılıp kapanınca odak doğru gruba taşınmalı, aksi
     // hâlde kumanda önceki karede kalan (artık görünmeyen) satırda takılı kalır.
     LaunchedEffect(kaynakListesiAcik) {
-        val hedef = if (kaynakListesiAcik) kaynakListFocus else panelFocus
+        val hedefler = when {
+            kaynakListesiAcik -> listOf(kaynakListFocus)
+            sekme == 1 && episodes.isNotEmpty() -> listOf(bolumFocus, sekmeFocus, panelFocus)
+            else -> listOf(sekmeFocus, panelFocus)
+        }
         repeat(6) {
             withFrameNanos {}
-            if (runCatching { hedef.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (hedefler.any { runCatching { it.requestFocus() }.isSuccess }) return@LaunchedEffect
         }
     }
 
+    val panelSekli = RoundedCornerShape(NmDim.PanelRadius)
     Box(
         modifier = modifier
-            .fillMaxHeight()
-            .width(NmDim.PanelWidth)
+            // Overscan içinde yüzen kart: kenara yapışık tam boy panel yazıyı
+            // kenar payına itiyor, alt yarısı boş kalıp videoyu kapatıyordu.
+            .padding(end = NmDim.SafeH, top = NmDim.SafeV, bottom = NmDim.SafeV)
+            .width(NmDim.SidePanelWidth)
+            .clip(panelSekli)
             .background(NmColor.SurfaceDialog)
-            .border(
-                width = 1.dp,
-                color = NmColor.PrimaryHairline,
-                shape = RoundedCornerShape(topStart = NmDim.PanelRadius, bottomStart = NmDim.PanelRadius),
-            )
+            .border(width = 1.dp, color = NmColor.PrimaryHairline, shape = panelSekli)
             .focusRequester(panelFocus)
             .focusGroup()
-            .padding(horizontal = 22.dp, vertical = NmDim.SafeV),
+            .padding(14.dp),
     ) {
         if (kaynakListesiAcik) {
             Column(
@@ -2412,47 +2475,52 @@ internal fun SettingsPanel(
                 add("⭐" to "Kitaplık")
                 if (episodes.isNotEmpty()) add("📑" to "Bölümler")
                 add("📺" to "Kaynak")
-                add("🔊" to "Ses & Altyazı")
-                add("⚡" to "Hız & Kalite")
+                add("🔊" to "Ses")
+                add("⚡" to "Hız")
                 add("🛠" to "Araçlar")
             }
             val secili = sekmeler.getOrNull(sekme) ?: sekmeler.first()
 
             Column(verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
-                // İkon şeridi. Ad yalnız seçili olanın altında yazar — altı etiket
-                // yan yana dar panele sığmıyor, ikon tanınıyor.
+                // Sekme şeridi: seçili sekme genişler ve ADINI yazar, diğerleri ikon.
+                // Yalnız ikon okunmuyordu; altı ad yan yana dar panele sığmıyor.
                 Row(
                     modifier = Modifier.fillMaxWidth().focusGroup(),
                     horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
                 ) {
-                    sekmeler.forEachIndexed { i, (ikon, _) ->
-                        IkonSekme(ikon, i == sekme, Modifier.weight(1f)) { sekme = i }
+                    sekmeler.forEachIndexed { i, (ikon, ad) ->
+                        val acik = i == sekme
+                        IkonSekme(
+                            ikon = ikon,
+                            secili = acik,
+                            etiket = ad.takeIf { acik },
+                            modifier = Modifier
+                                .weight(if (acik) 3.5f else 1f)
+                                .then(if (acik) Modifier.focusRequester(sekmeFocus) else Modifier),
+                        ) { sekme = i }
                     }
                 }
-                SectionTitle(
-                    secili.first + "  " + secili.second +
-                        if (secili.second == "Bölümler" && listeKaynagi != null) "  ·  $listeKaynagi" else "",
-                )
 
                 Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    // fill=false: uzun listede "Kapat" satırı panelden taşmasın.
+                    modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
                 ) {
                     when (secili.second) {
                         "Kitaplık" -> {
                             val L = com.evaitec.netmovies.tv.data.Library
+                            // Etiket YAPILACAK işi söyler; listede olduğu seçili zeminden
+                            // ve ● işaretinden okunur ("✓ — çıkar" karışık okunuyordu).
                             SettingRow(
-                                if (library.inIzlenecek(item)) "☆ İzleneceklerde ✓ — çıkar"
-                                else "☆ İzleneceklere ekle",
+                                if (library.inIzlenecek(item)) "İzleneceklerden çıkar" else "İzleneceklere ekle",
                                 library.inIzlenecek(item),
                             ) { library.toggleListe(item, L.LISTE_IZLENECEK) }
                             SettingRow(
-                                if (library.inTakip(item)) "📋 Takipte ✓ — bırak" else "📋 Takip et",
+                                if (library.inTakip(item)) "Takibi bırak" else "Takip et",
                                 library.inTakip(item),
                             ) { library.toggleListe(item, L.LISTE_TAKIP) }
                             SettingRow(
-                                if (library.isFavorite(item)) "★ Beğendiklerimde ✓ — çıkar"
-                                else "★ Beğendiklerime ekle",
+                                if (library.isFavorite(item)) "Beğendiklerden çıkar" else "Beğendiklerime ekle",
                                 library.isFavorite(item),
                             ) { library.toggleFavorite(item) }
                         }
@@ -2493,10 +2561,25 @@ internal fun SettingsPanel(
                             // Bölümler sıkı bir blok: satır arası çip aralığı kadar, uzun
                             // ad tek satırda kesilir (satır satır taşıp listeyi dağıtıyordu).
                             val liste = episodes.withIndex().filter { it.value.season == acikSezon }
+                            // Listenin sayısı ve sağlayıcısı: kaç bölüm görüldüğü ona bağlı.
+                            Text(
+                                "${episodes.size} bölüm" + (listeKaynagi?.let { " · $it" } ?: ""),
+                                fontSize = NmType.Caption,
+                                color = NmColor.OnSurfaceMuted,
+                            )
                             if (liste.isEmpty()) MutedRow("Bu sezonda bölüm yok")
                             Column(verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap)) {
                                 liste.forEach { (idx, ep) ->
-                                    BolumSatiri(ep, idx, idx == currentEpIndex) { onSelectEpisode(idx) }
+                                    val oynuyor = idx == currentEpIndex
+                                    BolumSatiri(
+                                        ep = ep,
+                                        index = idx,
+                                        oynuyor = oynuyor,
+                                        // Kayıt tek "nereye kadar" tutar (sunucu da öyle):
+                                        // listede oynayandan öncekiler izlenmiş sayılır.
+                                        izlendi = idx < currentEpIndex,
+                                        modifier = if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier,
+                                    ) { onSelectEpisode(idx) }
                                 }
                             }
 
@@ -2511,7 +2594,7 @@ internal fun SettingsPanel(
                             kaynakListesiAcik = true
                         }
 
-                        "Ses & Altyazı" -> {
+                        "Ses" -> {
                             if (audioGroups.isEmpty() && textGroups.isEmpty()) {
                                 MutedRow("Bu kaynakta seçenek yok")
                             }
@@ -2538,7 +2621,7 @@ internal fun SettingsPanel(
                             }
                         }
 
-                        "Hız & Kalite" -> {
+                        "Hız" -> {
                             SPEEDS.forEach { h ->
                                 SettingRow(if (h == 1.0f) "Normal hız" else (h.toString() + "x"), h == speed) {
                                     onSelectSpeed(h)
@@ -2593,10 +2676,16 @@ internal fun SettingsPanel(
     }
 }
 
-/** Ayar şeridindeki tek ikon. Metin yok: altı ad yan yana dar panele sığmıyor. */
+/** Ayar şeridindeki tek sekme: ikon; [etiket] verilirse (seçili sekme) yanında adı. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifier, onSec: () -> Unit) {
+private fun IkonSekme(
+    ikon: String,
+    secili: Boolean,
+    modifier: Modifier = Modifier,
+    etiket: String? = null,
+    onSec: () -> Unit,
+) {
     var odakli by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
@@ -2623,15 +2712,18 @@ private fun IkonSekme(ikon: String, secili: Boolean, modifier: Modifier = Modifi
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            ikon,
-            fontSize = NmType.Body,
+            if (etiket != null) "$ikon $etiket" else ikon,
+            fontSize = if (etiket != null) NmType.RowTitle else NmType.Body,
             fontWeight = if (odakli || secili) FontWeight.Bold else FontWeight.Normal,
             color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
         )
     }
 }
 
-/** Bölüm satırı: numara sabit sütunda, ad tek satır; oynayan bölüm "izleniyor" der.
+/** Bölüm satırı: "S1 B3" sabit sütunda, ad tek satır; oynayan ▶, izlenmiş ✓ ve soluk.
  *  Seçim indeksle geri döner ama indeks bu listeden gelir, numara yalnız etikettir. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -2639,13 +2731,22 @@ private fun BolumSatiri(
     ep: com.evaitec.netmovies.tv.data.EpisodeItem,
     index: Int,
     oynuyor: Boolean,
+    izlendi: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
-    val yazi = if (odakli) NmColor.OnPrimary else NmColor.OnSurface
+    val yazi = when {
+        odakli -> NmColor.OnPrimary
+        izlendi -> NmColor.OnSurfaceFaint
+        else -> NmColor.OnSurface
+    }
+    val no = ep.episode ?: (index + 1)
+    // "1x3" gibi başlık kodu tekrarlar; boşsa ya da yalnız kodsa "Bölüm N".
+    val ad = ep.title?.trim()?.takeIf { it.isNotBlank() && !Regex("""\d+x\d+""").matches(it) } ?: "Bölüm $no"
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(
@@ -2664,23 +2765,29 @@ private fun BolumSatiri(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = (ep.episode ?: (index + 1)).toString(),
-            fontSize = NmType.Label,
+            text = "S${ep.season} B$no",
+            fontSize = NmType.Body,
             fontWeight = FontWeight.Bold,
-            color = if (odakli) NmColor.OnPrimary else NmColor.Primary,
+            color = when {
+                odakli -> NmColor.OnPrimary
+                izlendi -> NmColor.OnSurfaceFaint
+                else -> NmColor.Primary
+            },
+            maxLines = 1,
             modifier = Modifier.width(NmDim.EpisodeNumWidth),
         )
         Text(
-            text = ep.title?.takeIf { it.isNotBlank() } ?: "Bölüm ${ep.episode ?: (index + 1)}",
-            fontSize = NmType.Label,
+            text = ad,
+            fontSize = NmType.Body,
             fontWeight = if (odakli || oynuyor) FontWeight.SemiBold else FontWeight.Normal,
             color = yazi,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (oynuyor) {
-            Text("izleniyor", fontSize = NmType.Caption, color = if (odakli) NmColor.OnPrimary else NmColor.OnSurfaceMuted)
+        when {
+            oynuyor -> Text("▶", fontSize = NmType.Body, color = if (odakli) NmColor.OnPrimary else NmColor.Primary)
+            izlendi -> Text("✓", fontSize = NmType.Body, color = yazi)
         }
     }
 }
@@ -2883,7 +2990,7 @@ private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = (if (selected) "●  " else "     ") + label,
-            fontSize = NmType.Label,
+            fontSize = NmType.RowTitle,
             color = if (isFocused) NmColor.OnPrimary else if (selected) NmColor.OnSurface else NmColor.OnSurfaceMuted,
             fontWeight = if (isFocused || selected) FontWeight.SemiBold else FontWeight.Normal,
         )

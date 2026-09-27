@@ -141,6 +141,8 @@ data class ItemDetails(
     val tags: kotlinx.serialization.json.JsonElement? = null,
     val actors: kotlinx.serialization.json.JsonElement? = null,
     val episodes: List<EpisodeItem> = emptyList(),
+    // Set when the server rescued the item from another provider: episode URLs are its.
+    val plugin: String? = null,
 ) {
     // "Bilim Kurgu, Gizem" — liste ya da metin gelsin, tek satır.
     private fun metin(e: kotlinx.serialization.json.JsonElement?): String = when (e) {
@@ -192,6 +194,8 @@ data class ResolveResult(
     val count: Int = 0,
     val sources: List<StreamLink> = emptyList(),
     val episodes: List<EpisodeItem> = emptyList(),
+    // Provider the episode URLs belong to (may be an alternative, not the requested one).
+    @SerialName("episodes_plugin") val episodesPlugin: String? = null,
     val diagnostics: List<Diagnostic> = emptyList(),
 )
 
@@ -391,11 +395,11 @@ data class AgendaItem(
     val bolum: String = "",        // "2. sezon 16. bölüm" | "Vizyon"
     val ozet: String = "",
     val puan: Double = 0.0,
+    val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
 )
 
 @Serializable
 data class AgendaDay(
-    val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
     val tarih: String = "",
     val ogeler: List<AgendaItem> = emptyList(),
 )

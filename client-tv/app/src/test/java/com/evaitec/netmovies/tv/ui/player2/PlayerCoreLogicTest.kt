@@ -33,4 +33,26 @@ class PlayerCoreLogicTest {
         // 20 sn'lik kaldırılmış klip: her konum "sona yakın" ama teklif yok.
         assertFalse(teklifPenceresinde(20_000, 10_000))
     }
+
+    @Test
+    fun `bolum istegi listenin saglayicisi ve bolum numarasiyla gider`() {
+        // Kart DiziMom'du ama liste DDizi'den geldi (Haysiyet, 27 Eylül): 3. bölümün
+        // adresi DDizi'nindir ve sunucuya indeks değil NUMARA gitmeli.
+        val liste = listOf(
+            com.evaitec.netmovies.tv.data.EpisodeItem(season = 1, episode = 1, url = "dd1"),
+            com.evaitec.netmovies.tv.data.EpisodeItem(season = 1, episode = 2, url = "dd2"),
+            com.evaitec.netmovies.tv.data.EpisodeItem(season = 1, episode = 3, url = "dd3"),
+        )
+        assertEquals(
+            CozumHedefi("DDizi", "dd3", 3, 1),
+            cozumHedefi(liste, 2, listeKaynagi = "DDizi", aktifPlugin = "DiziMom", aktifUrl = "kart"),
+        )
+        // Liste kartın kendi sağlayıcısındaysa ad değişmez.
+        assertEquals("DiziMom", cozumHedefi(liste, 0, null, "DiziMom", "kart").plugin)
+        // Bölüm yoksa (film) kartın kendisi.
+        assertEquals(
+            CozumHedefi("HDFilm", "kart", null, null),
+            cozumHedefi(emptyList(), 0, "DDizi", "HDFilm", "kart"),
+        )
+    }
 }

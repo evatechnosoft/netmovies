@@ -83,6 +83,27 @@ internal fun teklifPenceresinde(duration: Long, position: Long): Boolean =
 internal fun sarmaHedefi(base: Long, deltaMs: Long, dur: Long): Long =
     (base + deltaMs).let { if (dur > 0) it.coerceIn(0, dur) else it.coerceAtLeast(0) }
 
+/** resolve_sources target: plugin + URL + the episode's REAL number (not list index). */
+internal data class CozumHedefi(val plugin: String, val url: String, val bolumNo: Int?, val sezonNo: Int?)
+
+/**
+ * An episode URL belongs to the provider its LIST came from ([listeKaynagi]), which can
+ * be an alternative: sending a DDizi episode URL as "DiziMom" failed and the chain fell
+ * back to a title search that opened episode 1.
+ */
+internal fun cozumHedefi(
+    episodes: List<EpisodeItem>,
+    idx: Int,
+    listeKaynagi: String?,
+    aktifPlugin: String,
+    aktifUrl: String,
+): CozumHedefi {
+    val ep = episodes.getOrNull(idx)
+    val bolumUrl = ep?.url?.takeIf { it.isNotBlank() }
+        ?: return CozumHedefi(aktifPlugin, aktifUrl, ep?.episode, ep?.season)
+    return CozumHedefi(listeKaynagi ?: aktifPlugin, bolumUrl, ep.episode, ep.season)
+}
+
 /**
  * Oynatıcı 2 — oynatma MANTIĞI (UI yok). Eski `PlayerScreen` 153-1791'deki kaynak
  * çözümleme/fallback, ExoPlayer yaşam döngüsü, ilerleme kaydı/devam, bölüm geçişi,
@@ -182,6 +203,8 @@ class PlayerCore(
     internal val bildirilen = mutableSetOf<String>()
     internal var resumeApplied by mutableStateOf(false)
     internal var bolumAramasiYapildi by mutableStateOf(false)
+    /** Episode (S1B3) of the last chain run; a different one means stop the old stream. */
+    internal var cozulenBolum: String? = null
 
     val currentLinkUrl: String? get() = links.getOrNull(currentLinkIndex)?.url
 
@@ -486,7 +509,11 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
             Network.api.loadItem(c.aktifPlugin, c.aktifUrl, item.title, item.mediaType.ifBlank { null }).result
         }.getOrNull()
         val bolumler = c.details?.episodes.orEmpty()
-        if (bolumler.isNotEmpty() && c.episodes.isEmpty()) c.episodes = bolumler
+        if (bolumler.isNotEmpty() && c.episodes.isEmpty()) {
+            c.episodes = bolumler
+            // Rescued from another provider: its episode URLs must go out under its name.
+            c.listeKaynagi = c.details?.plugin
+        }
 
         // Kart BÖLÜM sayfası olabilir: adresle, olmazsa başlıkla eşle.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
@@ -732,14 +759,32 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
     LaunchedEffect(core, core.aktifUrl, core.aktifPlugin, core.currentEpIndex, core.retryKey, core.detayHazir) {
         val c = core
         if (!c.detayHazir) return@LaunchedEffect
+        val ep = c.episodes.getOrNull(c.currentEpIndex)
+        val bolum = episodeRef(ep?.season, ep?.episode, c.currentEpIndex)
+        val oncekiBolum = c.cozulenBolum
+        c.cozulenBolum = bolum
+        if (oncekiBolum != null && oncekiBolum != bolum) {
+            // Another episode was picked: the old one must not keep playing while the new
+            // one is searched ("asked for 3, shows 1" + KAYNAK_YOK over a running video).
+            exo.stop()
+            exo.clearMediaItems()
+            c.position = 0L
+            c.duration = 0L
+        } else if (exo.isPlaying) {
+            // Same episode, provider list changed: keep the position for the new source.
+            c.carryOverMs = exo.currentPosition.coerceAtLeast(0L)
+        }
         c.siradakiBekleniyor = false
-        c.ready = false
+        if (!exo.isPlaying) c.ready = false
         c.links = emptyList()
         c.currentLinkIndex = 0
         c.searching = true
         c.status = "Kaynak aranıyor…"
         PlaybackLog.startSession(item.title, item.plugin)
         PlaybackLog.info("açılış", if (item.autoplay) "uzak komut / onay (autoplay)" else "kullanıcı seçimi")
+
+        // Set when absorb re-targets the episode: this run is obsolete, the restarted one owns state.
+        var yenidenBasliyor = false
 
         fun absorb(result: ResolveResult?, phase: String) {
             if (result == null) return
@@ -750,7 +795,23 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                     else -> PlaybackLog.info("sunucu·${d.stage}", d.message)
                 }
             }
-            if (c.episodes.isEmpty() && result.episodes.isNotEmpty()) c.episodes = result.episodes
+            if (c.episodes.isEmpty() && result.episodes.isNotEmpty()) {
+                c.episodes = result.episodes
+                // Not a chain key: setting it does not restart this effect.
+                c.listeKaynagi = result.episodesPlugin
+                // Episode-page card ("Haysiyet 3.Bölüm") whose own provider gave no list:
+                // map it now, otherwise episode 1 of the alternative plays. Changing the
+                // index restarts this chain for that episode; drop this result's links.
+                if (item.episode < 0) {
+                    val sira = basliktanBolum(item.title, result.episodes)
+                    if (sira >= 0 && sira != c.currentEpIndex) {
+                        PlaybackLog.info("bölüm", "karttaki bölüm: ${episodeLabel(result.episodes[sira], sira)}")
+                        c.currentEpIndex = sira
+                        yenidenBasliyor = true
+                        return
+                    }
+                }
+            }
 
             val known = c.links.map { it.url }.toSet()
             val fresh = result.sources.filter { it.url.isNotBlank() && it.url !in known }
@@ -769,38 +830,47 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
             PlaybackLog.info("kuyruk", "$phase · +${fresh.size} kaynak (toplam ${c.links.size})")
         }
 
-        // Bölüm seçiliyse bölümün KENDİ adresi (indeks değil).
-        val bolumUrl = c.episodes.getOrNull(c.currentEpIndex)?.url?.takeIf { it.isNotBlank() }
-        val cozumUrl = bolumUrl ?: c.aktifUrl
+        // Bölüm seçiliyse bölümün KENDİ adresi, listesinin sağlayıcısı ve NUMARASI.
+        val hedef = cozumHedefi(c.episodes, c.currentEpIndex, c.listeKaynagi, c.aktifPlugin, c.aktifUrl)
 
-        c.status = "${c.aktifPlugin} deneniyor…"
+        c.status = "${hedef.plugin} deneniyor…"
         val fast = loggedOrNull("çözümleme", "resolve_sources · fast") {
             Network.api.resolveSources(
-                plugin = c.aktifPlugin,
-                encodedUrl = cozumUrl,
+                plugin = hedef.plugin,
+                encodedUrl = hedef.url,
                 title = item.title,
                 episode = c.currentEpIndex,
                 mode = "fast",
+                episodeNo = hedef.bolumNo,
+                seasonNo = hedef.sezonNo,
             ).result
         }
         absorb(fast, "fast")
+        if (yenidenBasliyor) return@LaunchedEffect
         c.status = if (c.links.isNotEmpty()) null else "Alternatif sağlayıcılar aranıyor…"
 
         val full = loggedOrNull("çözümleme", "resolve_sources · full") {
             Network.api.resolveSources(
-                plugin = c.aktifPlugin,
-                encodedUrl = cozumUrl,
+                plugin = hedef.plugin,
+                encodedUrl = hedef.url,
                 title = item.title,
                 episode = c.currentEpIndex,
                 mode = "full",
+                episodeNo = hedef.bolumNo,
+                seasonNo = hedef.sezonNo,
             ).result
         }
         absorb(full, "full")
+        if (yenidenBasliyor) return@LaunchedEffect
 
         c.searching = false
         // Zincir bitti: kilit mutlaka kalkar.
         c.gecisBekleyen = null
-        if (c.links.isEmpty()) {
+        if (c.links.isEmpty() && exo.isPlaying) {
+            // Same episode still playing from the earlier source: no false "not found".
+            PlaybackLog.warn("sonuç", "yeni kaynak yok · oynayan akış sürüyor")
+            c.status = null
+        } else if (c.links.isEmpty()) {
             PlaybackLog.fail("sonuç", "hiçbir sağlayıcı oynatılabilir kaynak vermedi")
             c.status = KAYNAK_YOK
         } else {
@@ -873,7 +943,8 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                 c.currentLinkIndex++
                 c.status = "Kaynak açılmadı, sıradaki deneniyor (${c.currentLinkIndex + 1}/${c.links.size})…"
             } else if (!c.searching) {
-                c.status = "Çalışan kaynak bulunamadı — çıkmak için GERİ tuşuna bas."
+                // Constant, so the screen offers "Tekrar dene" instead of a dead end.
+                c.status = KAYNAK_YOK
             }
         }
     }

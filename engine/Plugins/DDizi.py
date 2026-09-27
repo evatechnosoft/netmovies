@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 
+from urllib.parse import urljoin
+
 from KekikStream.Core import Episode, ExtractResult, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__kekik_domain import discover_main_url
 from Plugins.__warp_client import ytdlp_info
@@ -32,6 +34,10 @@ _SAYFA   = re.compile(r'href="(https?://[^"]*/sayfa-\d+)"')
 # Uzun dizide onlarca sayfa olabilir; her biri ayrı istek — üst sınır konur.
 _MAX_SAYFA = 6
 _YOUTUBE = re.compile(r'youtube\.php\?id=([A-Za-z0-9_-]{6,})')
+# Some episodes skip YouTube: iframe `/player/oynat/<hash>` whose page carries a
+# plain HLS `file:"...m3u8"` (seen: Haysiyet 3, video.twimg.com).
+_OYNAT   = re.compile(r'src="([^"]*/player/oynat/[0-9A-Za-z]+)"')
+_HLS     = re.compile(r'file\s*:\s*"([^"]+\.m3u8[^"]*)"')
 
 # Adresin son parçasından dizi slug'ını çıkarır; bölüm ve dizi adresleri aynı
 # slug'a iner:
@@ -172,7 +178,7 @@ class DDizi(PluginBase):
         response = await self.httpx.get(url, headers={"User-Agent": _UA})
         video    = _YOUTUBE.search(response.text)
         if not video:
-            return []
+            return await self._oynat_links(url, response.text)
 
         info = await ytdlp_info(f"https://www.youtube.com/watch?v={video.group(1)}", timeout=90.0)
         if not info:
@@ -193,6 +199,26 @@ class DDizi(PluginBase):
                 name       = f"{self.name} | YouTube (resmi)",
                 url        = master,
                 referer    = "",
+                user_agent = _UA,
+                subtitles  = [],
+            )
+        ]
+
+    async def _oynat_links(self, url: str, html: str) -> list[ExtractResult]:
+        """Non-YouTube episode: follow `/player/oynat/<hash>` and take its HLS file."""
+        iframe = _OYNAT.search(html)
+        if not iframe:
+            return []
+        oynat = urljoin(url, iframe.group(1))
+        sayfa = await self.httpx.get(oynat, headers={"User-Agent": _UA, "Referer": url})
+        dosya = _HLS.search(sayfa.text)
+        if not dosya:
+            return []
+        return [
+            ExtractResult(
+                name       = f"{self.name} | Oynatıcı",
+                url        = dosya.group(1),
+                referer    = oynat,
                 user_agent = _UA,
                 subtitles  = [],
             )

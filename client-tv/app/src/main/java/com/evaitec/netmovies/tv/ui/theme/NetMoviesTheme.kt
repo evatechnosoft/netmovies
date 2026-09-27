@@ -64,7 +64,7 @@ object NmDim {
     val PanelRowHeight = 44.dp
     val ChipGap        = 6.dp    // şerit içi çipler ve bölüm satırları arası
     val SeasonChipWidth = 56.dp  // "Sezon" etiketi bir kez yazar, çipte yalnız numara
-    val EpisodeNumWidth = 40.dp  // bölüm numarası sütunu: adlar aynı hizadan başlar
+    val EpisodeNumWidth = 76.dp  // "S10 B12" kod sütunu: adlar aynı hizadan başlar
 
     // Rafa kaç poster sığacağı SABİT: kart genişliği ekrandan hesaplanır
     // (Dean, 19 Eylül: "her sayfa eşit düzenlensin"). 10 posterde kart ~79dp,
@@ -86,6 +86,8 @@ object NmDim {
     val FocusScaleRow  = 1.02f
 
     val PanelWidth  = 360.dp
+    // Oynatıcı yan menüsü: güvenli alanın içinde, videonun ~1/3'ü (960dp ekranda).
+    val SidePanelWidth = 320.dp
     val DialogWidth = 380.dp
 }
 

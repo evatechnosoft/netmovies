@@ -23,5 +23,12 @@ fun basliktanBolum(
         val sira = bolumler.indexOfFirst { it.season == sezon && it.episode == bolum }
         if (sira >= 0) return sira
     }
+    // Season-less "Haysiyet 3.Bölüm": only safe when the list has a single season.
+    val yalniz = Regex("""(\d+)\s*\.?\s*[Bb].l.m""").find(metin)?.groupValues?.get(1)?.toIntOrNull()
+    if (yalniz != null && !metin.contains("sezon", ignoreCase = true) &&
+        bolumler.map { it.season }.distinct().size == 1
+    ) {
+        return bolumler.indexOfFirst { it.episode == yalniz }
+    }
     return -1
 }

@@ -108,7 +108,10 @@ async def _kurtar(baslik: str, dislanan: str, tip: str, client_headers: dict):
                 continue
             if _kullanilabilir(detay, tip):
                 konsol.log(f"[green]load_item kurtarıldı:[/] {baslik} · {dislanan} -> {ad}")
-                return detay
+                # Bölüm adresleri BU sağlayıcıya ait: istemci onları istenen adla
+                # (ölü sağlayıcı) gönderirse hiçbiri açılmaz. Yeni sözlük — cache'teki
+                # yanıt yerinde değiştirilmez.
+                return {**detay, "plugin": ad}
     return None
 
 

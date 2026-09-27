@@ -21,6 +21,7 @@ from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 from ..Libs.arama_varyant import baslik_uyusuyor, query_variants
+from ..Libs.bolum_esle import basliktan_bolum, bolum_sirasi, int_or_none
 from ..Libs.kisa_klip import kisa_klip_mi
 from .plugin_health import run_plugin_health
 
@@ -41,7 +42,7 @@ class Diagnostics:
         konsol.log(f"{mark} resolve: {stage} — {message}")
 
 
-async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None) -> tuple[list[dict], list[dict]]:
+async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None, season_no: int | None = None) -> tuple[list[dict], list[dict]]:
     """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır.
 
     `content_url` DÜZ url'dir (kodlanmış değil): eklentiler httpx'e doğrudan verir.
@@ -87,15 +88,8 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             # başlıyordu. Sıra numarasıyla eşleştirmek alternatif sağlayıcıda
             # BAŞKA bölümü açar — kullanıcı 3. bölüme basıp 5. bölümü izler.
             # Önce gerçek bölüm numarası aranır, bulunamazsa sıraya düşülür.
-            sira = None
-            if episode_no is not None:
-                sira = next(
-                    (i for i, ep in enumerate(secilenler) if getattr(ep, "episode", None) == episode_no),
-                    None,
-                )
-            if sira is None and episode_index < len(secilenler):
-                sira = episode_index
-            if sira is not None and sira < len(secilenler):
+            sira = bolum_sirasi(secilenler, episode_index, episode_no, season_no)
+            if sira is not None:
                 target = getattr(secilenler[sira], "url", "") or target
                 etiket = f" · bölüm no {episode_no}" if episode_no is not None else ""
                 diag.add("info", "bölüm", f"{plugin_name} · seçilen bölüm {sira + 1}/{len(secilenler)}{etiket}")
@@ -118,14 +112,9 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             ]
             diag.add("info", "bölüm", f"{plugin_name} · {len(episodes)} bölüm")
             # Burada da numara sıraya yeğdir (yukarıdaki gerekçe).
-            sira = None
-            if episode_no is not None:
-                sira = next(
-                    (i for i, ep in enumerate(episode_objects) if getattr(ep, "episode", None) == episode_no),
-                    None,
-                )
+            sira = bolum_sirasi(episode_objects, episode_index, episode_no, season_no)
             if sira is None:
-                sira = episode_index if 0 <= episode_index < len(episode_objects) else 0
+                sira = 0
             chosen = episode_objects[sira]
             links  = await _load(getattr(chosen, "url", "") or "")
 
@@ -216,17 +205,32 @@ async def resolve_sources(request: Request):
     episode = istek.get("episode", "0")
     episode = int(episode) if str(episode).isdigit() else 0
 
+    # İstemci bölümün GERÇEK numarasını da gönderir: seçili sağlayıcı açılmazsa
+    # (liste boş döner) alternatiflerde sıra değil numara aranabilsin.
+    secili_no  = int_or_none(istek.get("episode_no"))
+    secili_sez = int_or_none(istek.get("season_no"))
+    # Bölüm sayfası kartı ("Haysiyet 3.Bölüm"): ek aramadan atılır, numara korunur.
+    title, baslik_sez, baslik_no = basliktan_bolum(title)
+    if secili_no is None and baslik_no is not None:
+        secili_no, secili_sez = baslik_no, baslik_sez
+
     diag = Diagnostics()
     diag.add("info", "oturum", f"{title or '?'} · seçili sağlayıcı: {selected} · mod: {mode}")
 
-    sources, episodes = await _links_for(selected, content, episode, diag)
+    # Seçili sağlayıcıda ilk bölüm için liste ÖNCEDEN çözülmez (hızlı açılış):
+    # istemci zaten bölümün kendi adresini gönderiyor.
+    sources, episodes = await _links_for(
+        selected, content, episode, diag,
+        secili_no if episode > 0 else None, secili_sez if episode > 0 else None,
+    )
+    episodes_plugin   = selected if episodes else None
 
-    # Seçili sağlayıcının listesindeki GERÇEK bölüm numarası: alternatif
-    # sağlayıcılarda sıra değil bu aranır, listeler farklı bölümden başlayabiliyor.
-    secili_no: int | None = None
-    if episodes and 0 <= episode < len(episodes):
+    # Numara verilmediyse seçili sağlayıcının listesinden okunur.
+    if secili_no is None and episodes and 0 <= episode < len(episodes):
         ham = episodes[episode].get("episode")
-        secili_no = ham if isinstance(ham, int) else None
+        secili_no  = ham if isinstance(ham, int) else None
+        ham_sez    = episodes[episode].get("season")
+        secili_sez = ham_sez if isinstance(ham_sez, int) else None
 
     if mode != "fast":
         queries = query_variants(title)
@@ -269,16 +273,19 @@ async def resolve_sources(request: Request):
             # "kaynak bulunamadı" dönüyordu.
             bulunanlar = [(n, m) for n, m in zip(candidates, matches) if m and not isinstance(m, Exception)]
             toplanan   = await asyncio.gather(
-                *(_with_budget(_links_for(n, m, episode, diag, secili_no), n, "link", diag) for n, m in bulunanlar),
+                *(_with_budget(_links_for(n, m, episode, diag, secili_no, secili_sez), n, "link", diag) for n, m in bulunanlar),
                 return_exceptions=True,
             )
-            for sonuc in toplanan:
+            for (ad, _), sonuc in zip(bulunanlar, toplanan):
                 if isinstance(sonuc, Exception) or not sonuc:
                     continue
                 found, found_episodes = sonuc
                 sources.extend(found)
                 if not episodes and found_episodes:
                     episodes = found_episodes
+                    # Bölüm adresleri BU sağlayıcıya ait: istemci bölüm seçince
+                    # adresi bu adla göndermeli (DiziMom adıyla DDizi adresi açılmaz).
+                    episodes_plugin = ad
 
     if sources:
         diag.add("info", "sonuç", f"{len(sources)} kaynak hazır")
@@ -290,5 +297,6 @@ async def resolve_sources(request: Request):
         "count"       : len(sources),
         "sources"     : sources,
         "episodes"    : episodes,
+        "episodes_plugin": episodes_plugin,
         "diagnostics" : diag.entries,
     }}
