@@ -7,7 +7,7 @@ from pathlib import Path
 STREAM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(STREAM_ROOT))
 
-from Public.API.v1.Routers.search_all import _grupla
+from Public.API.v1.Libs.arama_niyet import tekillestir as _grupla
 
 
 class GroupingTest(unittest.TestCase):

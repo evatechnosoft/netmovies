@@ -101,3 +101,13 @@ bunun üstüne ölçülerek eklenir.
 (`GET` aynı liste). Ayarlar'da "YZ: …" teşhis satırı. `NanoNiyet.cozumle(cumle)`
 hazır, henüz aramaya bağlı değil. Emülatörde (Pixel Tablet, API 35) UNAVAILABLE;
 Dean'in telefonunda henüz ölçülmedi.
+
+## Arama niyeti — kural tabanlı (2026-09-27)
+
+`stream/Public/API/v1/Libs/arama_niyet.py` (saf, modelsiz). `/search_all` sorgudan
+`dil` (dublaj/altyazi), `yil`, `sira` (son/seri) işaretlerini ayıklar, sağlayıcıya
+yalnız `baslik` gider; yanıtta `niyet` alanı döner. Alan adları `Niyet.kt` ile aynı
+(+ `dil`, `yil`, `sira`) — model ileride aynı yapıyı doldurur, sıralama yine kod.
+Sonuç her zaman tekilleşir (başlık/"TR - EN" parçası + yıl); `group=1` artık etkisiz.
+Yıl: başlık "(2016)" > adres "-2016-izle" > TMDB (dizi adresine film yılı yazılmaz,
+poster yükleme yılı tavandır).
