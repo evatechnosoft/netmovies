@@ -221,6 +221,11 @@ interface NetMoviesApi {
     @POST("api/v1/client_log")
     suspend fun clientLog(@Body body: Map<String, List<String>>): OkResponse
 
+    // Cihaz üstü YZ kaydı: bu telefon Gemini Nano'yu destekliyor mu (teşhis).
+    // Sunucu /data/yz_cihazlar.json'a yazar; GET aynı listeyi döner.
+    @POST("api/v1/yz/cihaz")
+    suspend fun yzCihaz(@Body body: Map<String, String>): OkResponse
+
     // Canlı kanallar — tek uç, 170+ kanal (M3U listeleri).
     @GET("api/v1/quick_channels")
     suspend fun quickChannels(): ChannelsResponse

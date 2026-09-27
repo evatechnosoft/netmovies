@@ -90,3 +90,14 @@ bunun üstüne ölçülerek eklenir.
 - `model: "yerel"` → Ollama `gemma4:12b` (Quadro P620 GPU + CPU). İndirme hattı
   doldurup TV'yi dondurdu; kalanı gece 03:00'te iniyor (`gece-indirme.log`).
 - Gemini Nano sunucuda KOŞMAZ: yalnız destekli telefonda AICore/ML Kit üzerinden.
+- stream `gemini.sor()` `YZ_GECIT_URL` doluysa geçide gider (boşsa Google doğrudan).
+  `voice.py` ses taşıdığı için kendi doğrudan çağrısında kalır.
+
+## Gemini Nano kaydı (2026-09-27)
+
+`com.google.mlkit:genai-prompt:1.0.0-beta4` (minSdk 26). Telefon kiplerinde
+(Kumanda / Bu cihazda izle) açılışta `checkStatus`; DOWNLOADABLE + Wi-Fi ise
+`download()`. Sonuç `POST /api/v1/yz/cihaz` → `/data/yz_cihazlar.json`
+(`GET` aynı liste). Ayarlar'da "YZ: …" teşhis satırı. `NanoNiyet.cozumle(cumle)`
+hazır, henüz aramaya bağlı değil. Emülatörde (Pixel Tablet, API 35) UNAVAILABLE;
+Dean'in telefonunda henüz ölçülmedi.

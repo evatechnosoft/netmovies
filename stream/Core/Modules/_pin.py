@@ -47,6 +47,8 @@ _KORUMALI_API = (
     "/api/v1/search_all",
     # Tarayıcı çağırıyor (kumanda düzeni) ve DİSKE yazıyor — TV istemcisi kullanmaz.
     "/api/v1/prefs",
+    # Cihaz YZ kaydı diske yazar; telefon ev ağından çağırır (LAN kapıdan geçer).
+    "/api/v1/yz/",
 )
 
 

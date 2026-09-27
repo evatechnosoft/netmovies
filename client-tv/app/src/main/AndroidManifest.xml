@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- OTA: indirilen APK'yı kurmak için -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Gemini Nano indirmesi yalnız Wi-Fi'de başlasın (data/yz/NanoNiyet) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- TV + telefon: dokunmatik ve leanback zorunlu değil -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
