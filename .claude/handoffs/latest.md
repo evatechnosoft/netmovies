@@ -1,3 +1,22 @@
+## 2026-09-27 akşam oturumu — özet (EN GÜNCEL)
+- **Tek sunucu ZimaOS.** Laptop NetMovies yığını DURDURULDU (`docker compose --profile tunnel stop`). w.evaitec.com tüneli ZimaOS'ta (`netmovies-tunnel`), ZimaOS `.env` CF_TUNNEL_TOKEN laptopunkiyle aynı (yedek `.env.bak`). Kök: saat/telefon laptopa, TV ZimaOS'a bağlıydı → kumanda komutları TV'ye gitmiyordu. İstemci adayları 7441e75'te yalnız 1.186 / 0.11.
+- **ZimaOS'ta compose:** `sudo DOCKER_CONFIG=/DATA/AppData/.docker docker compose --profile tunnel up -d --build stream cloudflared` (stream'i yenileyince tüneli de birlikte kur).
+- **Sunucuda canlı (51d1ab6 öncesi 485b5e6 ile kuruldu):** canlı raf yalnız favori kanallar (sunucu tarafı, APK'sız), ajanda `kanal` alanı, kısa klip eleme (googlevideo dur<90), DiziMom → dizimom.cam (.env, iki makinede), `/api/v1/yz/cihaz` (Nano kaydı), `YZ_GECIT_URL=http://192.168.1.186:4000/v1`.
+- **Ev YZ geçidi** (`infra/yz/` → ZimaOS `/DATA/AppData/yz/`): LiteLLM :4000 anahtarsız LAN; `gemini` (panel anahtarı admin.json'dan) + `yerel` (Ollama gemma4:12b). Ollama 0.34.4, GPU (P620) açık, konteyner adı `ollama-ollama-1` korundu. gemma4:12b indirmesi %51'de durduruldu (hattı doldurup TV'yi donduruyordu), kalanı 03:00'te `nohup` ile iniyor → `/DATA/AppData/yz/gece-indirme.log`. İndikten sonra `yerel` hızını ölç.
+- **TV 0.9.31:** tv-ux işi (0dd6fb7) + SAĞ/SOL uzak kartı + ajanda Canlı/Bölüm seçimi + Nano kaydı (ML Kit genai-prompt 1.0.0-beta4) birleşti (51d1ab6). Yayın durumu aşağıdaki NEXT'te.
+- **Bilinen kırmızı:** engine `tests/test_fetch_html_fallback.test_hepsi_dusunce_hata_yukselir` HEAD'de de kırık (6a6ac7a Cloudflare UA değişikliği sonrası) — düzeltilmedi.
+- **Arka planda:** yz-muhendisi ajanı arama işinde (worktree): mükerrer kart eleme, "dublaj/altyazı/2026/son/tüm seri" niyeti, Resident Evil yenisinin neden çıkmadığı. Push etmeyecek; sonucu doğrula → dala al → ZimaOS stream yenile.
+- **0.9.31 YAYINDA** (debug imzalı, 24.681.770 B, sha256 47dbcf59…): ZimaOS yerel OTA (`app_update?target=tv` → v0.9.31-poc), GitHub `v0.9.31-poc`, evaglass-releases `netmovies-tv-v0.9.31` + apps.json (b3ed87a; aynalar 1.186'ya çevrildi 4609ab3). Cihazda denenmedi.
+- **NEXT:** (1) Dean TV + telefona 0.9.31 kursun. (2) Dean telefonda Ayarlar → "🤖 YZ:" satırı; `curl 192.168.1.186:3310/api/v1/yz/cihaz` ile Nano durumunu oku. (3) Arama ajanının sonucu. (4) gemma4:12b indiyse `yerel` ölçümü. (5) Ömür Usta ajandada görünüyor mu (NOW, pazar).
+
+## 2026-09-27 sabah oturumu — özet (EN GÜNCEL)
+- **ZimaOS:** BIOS Auto-On çalışıyor, iki gündür 11:00'de açılıyor (journalctl --list-boots). Ekrandaki açılış yazıları normal fsck, üç disk de clean. 26 Eylül'de makine 23:11'de kapandı, zamanlayıcı ise 00:00'a kurulu; nedeni doğrulanmadı, Dean'e soruldu.
+- **Evaitec cloudflared açılışta kalkmadı:** restart policy `no` idi, önceki ayar kalıcı olmamış. Başlatıldı, 4 bağlantı kuruldu (ist05/07), portal 200. cloudflared, eva-portal ve nexus-memora `unless-stopped` yapıldı. Bir sonraki açılışta tutup tutmadığı doğrulanmadı.
+- **21662f1 DiziPal:** feed kartı bölüm sayfası olunca eklenti MovieInfo döndürüyordu, Bölümler boş kalıyordu ("Abi" dizisi). Çözüm: h1'deki dizi linki izleniyor, A.B.I. 0 → 21 bölüm (ağ geçidinde `&nocache=1` ile doğrulandı). Engine yeniden başlatıldı. Stream'deki load_item cache'i 1 saat eski yanıtı tutar. Push edilmedi. ZimaOS'a pull ve engine rebuild yapılmadı.
+- **tv-ux ajanı arka planda çalışıyor:** oynatıcı yan menüsü (Bölümler sekmesi odak/numara/etiket, dar panel), "bölüm 3 seç → 1 açılıyor" kök nedeni, video oynarken "Çalışan kaynak bulunamadı" uyarısı. Hedef 0.9.31 / vc 931, tek commit, push ve release yok (release'i PM yapacak). Sonucu henüz gelmedi.
+- **Dean'e sorulan, cevap bekleyen:** telefonda Yönetim Paneli "yok" ve "liste/menü açılmıyor". Ayarlar'da `🛠 Yönetim Paneli` satırı kodda mevcut. Şüphe (doğrulanmadı): Kumanda kipinde dokunma = TV'ye gönder olduğu için poster menüsü yalnız basılı tutunca açılıyor.
+- **NEXT:** ajan sonucunu doğrula (test + diff) → push → 0.9.31'i üç yere yayınla → ZimaOS'ta `git pull && up -d --build engine stream` → Dean'in telefon cevabına göre ajana ikinci iş.
+
 ## 2026-09-26 gece oturumu — özet
 - fffb554 stream: episodes_best aynı adlı eski yapımı eliyor (sezon boyu) · 73dc9b2 0.9.26 Bölümler paneli + telefon widget goAsync
 - 40e3d27 0.9.27 telefon responsive (600dp) · 4481b44 0.9.28 telefon pad dokunma + saat 0.1.19 ✥ pad tek gesture
