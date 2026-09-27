@@ -108,18 +108,29 @@ class MainActivity : ComponentActivity() {
             }
             return super.dispatchKeyEvent(event)
         }
-        if (event.action == android.view.KeyEvent.ACTION_DOWN) when (event.keyCode) {
-            android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER,
-            android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ->
-                { bekleyenUzak = null; selected = bekleyen }
-            android.view.KeyEvent.KEYCODE_BACK -> bekleyenUzak = null
-            // Açılıştaki devam kartı ana ekranın ÜSTÜNDE duruyor: başka bir tuşa
-            // basmak kartı kapatıp tuşu ana ekrana geçirir, kullanıcı kilitlenmez.
-            // Telefondan gelen kartta bu yok — oynayan filme tuş sızmamalı.
-            else -> if (bekleyenDevam) {
+        // SAĞ/OK = gönderilene geç · SOL/GERİ = yayındakinde kal. Karar BIRAKMADA (UP)
+        // verilir: DOWN'da kart kapanınca UP'ı kartsız dal alıyor, GERİ'nin UP'ı
+        // BackBus'a gidip oynatıcıyı kapatıyordu (Dean: "geri tuşu çıkıyor").
+        val gec = when (event.keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+            android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> true
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT, android.view.KeyEvent.KEYCODE_BACK -> false
+            else -> null
+        }
+        if (gec != null) {
+            if (event.action == android.view.KeyEvent.ACTION_UP) {
                 bekleyenUzak = null
-                return super.dispatchKeyEvent(event)
+                if (gec) selected = bekleyen
             }
+            return true
+        }
+        // Açılıştaki devam kartı ana ekranın ÜSTÜNDE duruyor: başka bir tuşa
+        // basmak kartı kapatıp tuşu ana ekrana geçirir, kullanıcı kilitlenmez.
+        // Telefondan gelen kartta bu yok — oynayan filme tuş sızmamalı.
+        if (bekleyenDevam && event.action == android.view.KeyEvent.ACTION_DOWN) {
+            bekleyenUzak = null
+            return super.dispatchKeyEvent(event)
         }
         return true   // kart açıkken diğer tuşlar oynatıcıya sızmaz
     }
@@ -510,7 +521,7 @@ class MainActivity : ComponentActivity() {
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 )
                 androidx.tv.material3.Text(
-                    if (devam) "OK ▶ devam        GERİ ✕" else "OK ⏭        GERİ ▶",
+                    if (devam) "◀ ✕        devam ▶" else "◀ sürdür        geç ⏭ ▶",
                     color = NmColor.Primary,
                     fontSize = 20.sp,
                     modifier = Modifier.padding(top = 6.dp).align(androidx.compose.ui.Alignment.CenterHorizontally),
