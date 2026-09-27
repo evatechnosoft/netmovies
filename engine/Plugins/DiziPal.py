@@ -170,6 +170,10 @@ class DiziPal(PluginBase):
         description = selector.select_text("div.summary p") or selector.select_text("meta[name='description']")
 
         episodes = _episodes_from_jsonld(page, self.main_url)
+        # Episode pages (feed cards) carry no season list; their h1 links to the series page.
+        series_link = first_attr(selector, ("h1 a[href*='/dizi/']",), "href")
+        if not episodes and series_link and re.search(r"/\d+-sezon/\d+-bolum", target):
+            return await self.load_item(absolute(self.main_url, series_link))
         if episodes:
             return SeriesInfo(url=url, title=title, poster=poster, description=description, episodes=episodes)
         return MovieInfo(url=url, title=title, poster=poster, description=description)
