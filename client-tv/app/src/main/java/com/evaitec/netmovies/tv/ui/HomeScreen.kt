@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1318,6 +1319,14 @@ private fun SettingsMenu(
                 (kipContext as? android.app.Activity)?.recreate()
             },
         )
+        // Teşhis: telefonda Gemini Nano var mı. Dokununca yeniden sorulur. TV'de gösterilmez.
+        if (com.evaitec.netmovies.tv.data.CihazKipi.oku(kipContext) != com.evaitec.netmovies.tv.data.CihazKipi.TV) {
+            val nano by com.evaitec.netmovies.tv.data.yz.NanoNiyet.durum.collectAsState()
+            MenuRow(
+                "🤖  YZ: " + (nano?.etiket ?: "kontrol ediliyor"),
+                onClick = { com.evaitec.netmovies.tv.data.yz.NanoNiyet.baslat(kipContext) },
+            )
+        }
         // Oynatıcı 2 denemesi: eski oynatıcı yedek, varsayılan. Bkz. docs/PLAYER2-PLAN.md.
         val context = androidx.compose.ui.platform.LocalContext.current
         var yeniOynatici by remember { mutableStateOf(com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(context)) }

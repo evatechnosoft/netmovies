@@ -105,6 +105,10 @@ dependencies {
     // Poster görselleri
     implementation("io.coil-kt:coil-compose:2.7.0")
 
+    // Cihaz üstü YZ: Gemini Nano (ML Kit GenAI Prompt API, AICore). Desteklemeyen
+    // cihazda checkStatus UNAVAILABLE döner; model APK'ya girmez. Bkz. docs/YZ-PLAN.md.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+
     testImplementation("junit:junit:4.13.2")
     // Gövdesiz POST + query sözleşmesi ancak gerçek bir istek üretilerek doğrulanır.
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

@@ -202,6 +202,13 @@ class MainActivity : ComponentActivity() {
                         // UiMode yalnız öneri: "telefonda izle" artık mümkün.
                         var kip by remember { mutableStateOf(com.evaitec.netmovies.tv.data.CihazKipi.oku(this@MainActivity)) }
                         val isTv = kip?.oynatBurada == true
+                        // Telefon kiplerinde Gemini Nano durumu sorulur ve sunucuya
+                        // bildirilir (docs/YZ-PLAN.md A4). TV'de hiç dokunulmaz.
+                        androidx.compose.runtime.LaunchedEffect(kip) {
+                            if (kip != null && kip != com.evaitec.netmovies.tv.data.CihazKipi.TV) {
+                                com.evaitec.netmovies.tv.data.yz.NanoNiyet.baslat(this@MainActivity)
+                            }
+                        }
                         val scope = androidx.compose.runtime.rememberCoroutineScope()
                         val pick: (MediaItem) -> Unit = { item ->
                             if (isTv) {

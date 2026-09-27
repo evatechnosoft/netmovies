@@ -163,6 +163,9 @@ services:
       WARP_PROXY           : http://netmovies-warp:8080
       # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
       TMDB_API_KEY         : ${TMDB_API_KEY:-}
+      # Ev YZ geçidi (LiteLLM, infra/yz/): doluysa Gemini istekleri oraya gider,
+      # ör. http://192.168.1.186:4000/v1. Boşsa Google doğrudan çağrılır.
+      YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
     volumes:
       - ./data:/data
       # Yönetim panelindeki "Canlı Kanallar" kartı buraya yazar, engine oradan okur.
