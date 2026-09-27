@@ -30,7 +30,7 @@ android {
             ?.takeIf { it.isNotBlank() } ?: "https://w.evaitec.com"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
-            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310,http://192.168.0.29:3310"
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.186:3310,http://192.168.0.11:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         buildConfigField("String", "RELEASE_TAG", "\"v$wearVersion-poc\"")
     }

@@ -33,7 +33,7 @@ android {
         // ağda uygulamayı tünele mahkûm ediyordu.
         val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
             // Hızlı yol; listede yoksa ServerResolver /24 taramasıyla bulur.
-            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.185:3310,http://192.168.0.185:3310,http://192.168.0.29:3310"
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.186:3310,http://192.168.0.11:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.
