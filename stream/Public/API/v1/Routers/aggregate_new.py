@@ -45,6 +45,18 @@ async def aggregate_new(request: Request):
     # eşiği yalnız web ana sayfasında süzülüyordu, native istemciler ham listeyi
     # alıyordu — panelde bir kaynağı kapatmak TV'de hiçbir şey değiştirmiyordu.
     items = (result or {}).get("items")
+
+    # Canlı raf SUNUCUDA biçimlenir, APK güncellemesi gerekmez: yalnız yıldızlı
+    # kanallar (prefs → fav_channels; Dean: "sadece favoriler yeter"). Panelde
+    # M3UPlaylist gizli olsa da canlı raf süzülmez — gizleme Gözat kaynakları için.
+    if (request.state.veri or {}).get("type") == "live" and isinstance(items, list):
+        from urllib.parse import unquote_plus
+        from .prefs import _oku as _prefs_oku
+        favoriler = {u.strip() for u in str(_prefs_oku().get("fav_channels") or "").splitlines() if u.strip()}
+        if favoriler:
+            items = [i for i in items if unquote_plus(i.get("url") or "") in favoriler]
+        return {**api_v1_global_message, "result": {**result, "items": items, "count": len(items)}}
+
     if isinstance(items, list):
         suzulmus = admin_config.filter_aggregate_items(items)
 

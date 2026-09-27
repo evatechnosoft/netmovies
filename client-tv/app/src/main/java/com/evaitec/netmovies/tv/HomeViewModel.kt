@@ -42,7 +42,7 @@ class HomeViewModel : ViewModel() {
                 // bir istek boyu daha geç açılırdı.
                 val rest = coroutineScope {
                     val others = OTHER_TYPES.map { t -> async { fetchType(t) } }
-                    val live   = async { favoriKanallar() }
+                    val live   = async { fetchType("live").take(LIVE_ON_HOME).map { it.copy(category = "Canlı TV") } }
                     others.awaitAll().flatten() + live.await()
                 }
                 val all = movie + rest
@@ -58,19 +58,11 @@ class HomeViewModel : ViewModel() {
         runCatching { Network.api.aggregateNew(type = type).result?.items.orEmpty() }
             .getOrDefault(emptyList())
 
-    // Ana sayfa Canlı TV rafı yalnız FAVORİ kanallar (Dean: "sadece favoriler yeter").
-    // aggregate_new?type=live panelde M3UPlaylist gizli olunca boş dönüyordu;
-    // quick_channels + prefs'teki yıldızlar Canlı TV ekranıyla aynı kaynak.
-    private suspend fun favoriKanallar(): List<MediaItem> = runCatching {
-        val fav = com.evaitec.netmovies.tv.ui.okuFavoriler(Network.api.prefsGet().result)
-        if (fav.isEmpty()) return@runCatching emptyList()
-        Network.api.quickChannels().result
-            .filter { it.url in fav }
-            .map { it.copy(url = com.evaitec.netmovies.tv.data.encodedUrl(it.url), category = "Canlı TV") }
-    }.getOrDefault(emptyList())
-
     private companion object {
         // Engine tipleri: dizi, Türk dizi, yabancı dizi. Canlı TV ayrı çekilir.
         val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign")
+
+        // Ana sayfadaki Canlı TV rafında kaç kanal gösterilir.
+        const val LIVE_ON_HOME = 20
     }
 }
