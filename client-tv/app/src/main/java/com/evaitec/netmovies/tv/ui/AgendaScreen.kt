@@ -39,6 +39,8 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.data.AgendaDay
 import com.evaitec.netmovies.tv.data.AgendaItem
+import com.evaitec.netmovies.tv.data.MediaItem
+import com.evaitec.netmovies.tv.data.encodedUrl
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import com.evaitec.netmovies.tv.ui.theme.NmColor
@@ -64,7 +66,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
+fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit, onCanli: (MediaItem) -> Unit) {
     var gunler by remember { mutableStateOf<List<AgendaDay>>(emptyList()) }
     var toplam by remember { mutableStateOf(0) }
     // Üç adım: Bu Hafta · Bu Ay · Geçmiş. Geçmiş günler ana listede duruyordu ve
@@ -75,7 +77,17 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var deneme by remember { mutableIntStateOf(0) }
 
-    NmBackHandler { onBack() }
+    // Yayın günündeki bölüm: canlı mı, eski bölüm mü? (Dean: "ajandada canlı mı
+    // eski bölüm mü izlemek istediğini seçme seçeneği olsun"). Kanal TMDB'nin
+    // `networks` adından kanal listesinde eşlenir; eşleşme yoksa eski davranış.
+    var kanallar by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+    var secim by remember { mutableStateOf<Pair<AgendaItem, MediaItem>?>(null) }
+    LaunchedEffect(Unit) {
+        kanallar = runCatching { Network.api.quickChannels().result }.getOrDefault(emptyList())
+    }
+    val bugunStr = remember { LocalDate.now().toString() }
+
+    NmBackHandler { if (secim != null) secim = null else onBack() }
 
     // Odak doğrudan İLK KARTA gider. Önceki sürümde dış Column `focusable()`
     // olduğu için odak orada takılı kalıyor, D-pad ızgaraya inemiyordu (Dean:
@@ -175,11 +187,62 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit) {
                             AjandaKarti(
                                 oge = oge,
                                 modifier = if (ilk) Modifier.focusRequester(ilkKart) else Modifier,
-                                onAc = { onAra(oge.baslik) },
+                                onAc = {
+                                    val kanal = if (oge.tarih == bugunStr) kanalEsle(oge.kanal, kanallar) else null
+                                    if (kanal != null) secim = oge to kanal else onAra(oge.baslik)
+                                },
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+    // Üst katman: çağıran MainActivity kökü bir Box, kart ekranın üstüne biner.
+    secim?.let { (oge, kanal) ->
+        CanliSecimi(
+            oge, kanal,
+            onCanli = { secim = null; onCanli(kanal.copy(url = encodedUrl(kanal.url), autoplay = true)) },
+            onBolum = { secim = null; onAra(oge.baslik) },
+        )
+    }
+}
+
+/**
+ * TMDB kanal adını ("NOW", "Show TV") M3U kanalına eşler: önce tam ad, sonra
+ * "NOW" → "NOW TV" gibi ad başı. Boş ya da eşleşmezse null.
+ */
+internal fun kanalEsle(ad: String, kanallar: List<MediaItem>): MediaItem? {
+    val a = ad.trim().lowercase(Locale("tr"))
+    if (a.isEmpty()) return null
+    val adi = { k: MediaItem -> k.title.orEmpty().trim().lowercase(Locale("tr")) }
+    return kanallar.firstOrNull { adi(it) == a }
+        ?: kanallar.firstOrNull { adi(it) == "$a tv" || adi(it).startsWith("$a ") }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CanliSecimi(oge: AgendaItem, kanal: MediaItem, onCanli: () -> Unit, onBolum: () -> Unit) {
+    val ilk = remember { FocusRequester() }
+    LaunchedEffect(oge) { runCatching { ilk.requestFocus() } }
+    Box(
+        Modifier.fillMaxSize().background(NmColor.Background.copy(alpha = 0.85f)).zIndex(2f),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier.clip(RoundedCornerShape(14.dp)).background(NmColor.SurfaceDialog)
+                .padding(horizontal = 28.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(oge.baslik, fontSize = NmType.RowTitle, fontWeight = FontWeight.Bold, color = NmColor.OnSurface)
+            Text(
+                "${oge.bolum} · bugün ${kanal.title.orEmpty()}",
+                fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted,
+                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusGroup()) {
+                AralikDugmesi("📡 Canlı izle", secili = false, modifier = Modifier.focusRequester(ilk), onSec = onCanli)
+                AralikDugmesi("▶ Bölümü bul", secili = false, onSec = onBolum)
             }
         }
     }
@@ -198,11 +261,11 @@ private enum class AjandaAdimi(val baslik: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun AralikDugmesi(etiket: String, secili: Boolean, onSec: () -> Unit) {
+private fun AralikDugmesi(etiket: String, secili: Boolean, modifier: Modifier = Modifier, onSec: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.CardRadius)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(shape)
             .background(if (secili) NmColor.Primary else NmColor.Surface)
             .nmFocusRingOnly(focused, shape)

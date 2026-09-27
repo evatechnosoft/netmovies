@@ -94,6 +94,9 @@ def _bolum_satiri(detay: dict, bolum: dict, bas: datetime.date, son: datetime.da
         "bolum"   : f"{bolum.get('season_number', '?')}. sezon {bolum.get('episode_number', '?')}. bölüm",
         "ozet"    : (bolum.get("overview") or detay.get("overview") or "")[:300],
         "puan"    : round(float(detay.get("vote_average") or 0), 1),
+        # Yayın kanalı (TMDB `networks`): TV yayın günü "canlı izle" seçeneğini
+        # bununla kanal listesinde eşler (Ömür Usta → NOW).
+        "kanal"   : ((detay.get("networks") or [{}])[0].get("name") or ""),
     }
 
 

@@ -428,6 +428,7 @@ class MainActivity : ComponentActivity() {
                                         showAgenda = false
                                         showBrowse = true
                                     },
+                                    onCanli = { kanal -> showAgenda = false; selected = kanal },
                                 )
                             showFollowing ->
                                 com.evaitec.netmovies.tv.ui.FollowingScreen(

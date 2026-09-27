@@ -395,6 +395,7 @@ data class AgendaItem(
 
 @Serializable
 data class AgendaDay(
+    val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
     val tarih: String = "",
     val ogeler: List<AgendaItem> = emptyList(),
 )

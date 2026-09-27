@@ -21,6 +21,7 @@ from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 from ..Libs.arama_varyant import baslik_uyusuyor, query_variants
+from ..Libs.kisa_klip import kisa_klip_mi
 from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
@@ -127,6 +128,13 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
                 sira = episode_index if 0 <= episode_index < len(episode_objects) else 0
             chosen = episode_objects[sira]
             links  = await _load(getattr(chosen, "url", "") or "")
+
+    klipler = [l for l in links if kisa_klip_mi(l.url)]
+    if klipler:
+        # Kaldırılan bölümün yerine konan ~55 sn'lik klip (googlevideo `dur=`):
+        # TV'de "kesik kesik" oynayıp başa dönüyordu (Teşkilat 186, DiziMom).
+        diag.add("warn", "link", f"{plugin_name} · {len(klipler)} kısa klip elendi")
+        links = [l for l in links if l not in klipler]
 
     if not links:
         diag.add("warn", "link", f"{plugin_name} · oynatılabilir kaynak vermedi")
