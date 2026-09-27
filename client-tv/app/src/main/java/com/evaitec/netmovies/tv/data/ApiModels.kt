@@ -391,11 +391,11 @@ data class AgendaItem(
     val bolum: String = "",        // "2. sezon 16. bölüm" | "Vizyon"
     val ozet: String = "",
     val puan: Double = 0.0,
+    val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
 )
 
 @Serializable
 data class AgendaDay(
-    val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
     val tarih: String = "",
     val ogeler: List<AgendaItem> = emptyList(),
 )
