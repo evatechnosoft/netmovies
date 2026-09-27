@@ -1,0 +1,18 @@
+model_list:
+  - model_name: yerel
+    litellm_params:
+      model: ollama_chat/gemma4:12b
+      api_base: http://ollama-ollama-1:11434
+      rpm: 30
+  - model_name: gemini
+    litellm_params:
+      model: gemini/gemini-3.5-flash-lite
+      api_key: os.environ/GEMINI_API_KEY
+      rpm: 30
+
+router_settings:
+  # Gemini down or out of quota -> answer from the local model instead.
+  fallbacks: [{"gemini": ["yerel"]}]
+
+litellm_settings:
+  drop_params: true
