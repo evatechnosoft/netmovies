@@ -8,14 +8,16 @@
 
 import asyncio
 
+from dataclasses import asdict
 from urllib.parse import unquote_plus
 
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import fuck_dmca, get_client_headers, lang_memo, source_score
+from ..Libs.arama_niyet import ayristir, sirala, tekillestir, yapim_yili
 
 from Public.Home.Libs import admin_config, watch_store
-from Public.Home.Routers.tmdb import rating_for, year_for
+from Public.Home.Routers.tmdb import rating_for, type_for, year_for
 
 # Kaynak başına tavan: bir eklenti asılırsa bütün arama onu beklemesin.
 # Middleware isteği 30sn'de kesiyor (`_istek.py`), altında kalmalı.
@@ -122,33 +124,10 @@ def _kullanici_agirliklari() -> dict[str, int]:
     return agirlik
 
 
-def _grupla(ogeler: list[dict]) -> list[dict]:
-    """Aynı başlığı tek satırda toplar; sağlayıcılar `providers` altına iner.
+async def _yil_ve_rozet(ogeler: list[dict]) -> None:
+    """Sıralamanın ihtiyaç duyduğu bilgi: dil rozeti, TMDB puanı, yapım yılı.
 
-    Sıra korunur: grubun yeri, o gruba ait EN İYİ sıradaki öğenin yeridir — üst
-    sıradaki sağlayıcı zaten puanla seçilmiş oluyor, temsilci de odur.
-    """
-    gruplar: dict[str, dict] = {}
-    for oge in ogeler:
-        key = lang_memo.anahtar(oge.get("title") or "") or (oge.get("url") or "")
-        grup = gruplar.get(key)
-        saglayici = {"plugin": oge.get("plugin") or "", "url": oge.get("url") or ""}
-        if grup is None:
-            gruplar[key] = {**oge, "providers": [saglayici]}
-        elif not any(s["plugin"] == saglayici["plugin"] for s in grup["providers"]):
-            grup["providers"].append(saglayici)
-            # Poster ilk gelenlerde boş olabiliyor; grupta dolu olan kazanır.
-            if not grup.get("poster") and oge.get("poster"):
-                grup["poster"] = oge["poster"]
-    return list(gruplar.values())
-
-
-async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
-    """Satırda gösterilecek bilgiyi doldurur: dil rozeti, TMDB puanı/yılı, bölüm sayısı.
-
-    Kalite ve süre BİLEREK burada yok: ikisi de oynatma zinciri (ya da TMDB detay
-    isteği) gerektirir, 60 sonuç için o kadar tur atılmaz. İstemci bir satıra
-    basınca zaten `load_item` + `resolve_sources` çağırıp kartı doldurur.
+    Tekilleştirmeden ÖNCE çalışır: yıl birleştirme anahtarının parçası.
     """
     rozetler = lang_memo.rozetler()
     for sira, oge in enumerate(ogeler):
@@ -161,10 +140,18 @@ async def _zenginlestir(ogeler: list[dict], client_headers: dict) -> None:
         puan = await rating_for(baslik, fetch=sira < _ZENGIN_TAVANI)
         if puan is not None:
             oge["rating"] = puan
-        yil = year_for(baslik)
+        yil = yapim_yili(oge, year_for(baslik), type_for(baslik))
         if yil:
             oge["year"] = yil
 
+
+async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
+    """Satırdaki bölüm/sezon sayısı — görünen baş için `load_item`.
+
+    Kalite ve süre BİLEREK burada yok: ikisi de oynatma zinciri (ya da TMDB detay
+    isteği) gerektirir, 60 sonuç için o kadar tur atılmaz. İstemci bir satıra
+    basınca zaten `load_item` + `resolve_sources` çağırıp kartı doldurur.
+    """
     async def bolumler(oge: dict) -> None:
         # Adres HAM gider: `oge["url"]` quote_plus KODLU gelir ve httpx parametreyi
         # bir kez daha kodlar — motor `%253A` görüp 500 döndürüyordu. İstemci kodlu
@@ -212,7 +199,11 @@ async def search_all(request: Request):
     adlar = await fuck_dmca("/get_plugin_names", client_headers=basliklar)
     adlar = [ad for ad in (adlar or []) if ad not in gizli]
 
-    varyantlar = _varyantlar(sorgu)
+    # "resident evil dublaj 2026" → başlık "resident evil"; işaret sözcükleri
+    # sağlayıcıya gitmez (HDFilmCehennemi "resident evil 2026" için 0 döndürüyor).
+    niyet  = ayristir(sorgu)
+    aranan = niyet.baslik or sorgu
+    varyantlar = _varyantlar(aranan)
 
     async def tek(ad: str) -> list:
         for varyant in varyantlar:
@@ -242,13 +233,13 @@ async def search_all(request: Request):
 
     # Gizli kategori ve puan eşiği de burada uygulanır.
     ogeler = admin_config.filter_aggregate_items(ogeler, cfg)
-    ogeler = _alakali(ogeler, sorgu)
+    ogeler = _alakali(ogeler, aranan)
 
     # Sıra: kullanıcının kendi listeleri en önde, sonra kanıtlanmış sağlayıcı.
     # Stabil sıralama — eşit ağırlıkta kaynakların kendi sırası korunur.
     agirlik  = _kullanici_agirliklari()
     puanlar  = source_score.puanlar()
-    sade_sorgu = _sade(sorgu)
+    sade_sorgu = _sade(aranan)
 
     def sira(oge: dict) -> float:
         baslik = oge.get("title") or ""
@@ -260,14 +251,16 @@ async def search_all(request: Request):
         return -(skor + puanlar.get(oge.get("plugin") or "", 0.0) / 10.0)
 
     ogeler = sorted(ogeler, key=sira)[:_SONUC_TAVANI]
+    await _yil_ve_rozet(ogeler)
 
-    # `group=1`: aynı içerik her sağlayıcıda bir satır açıyordu — "reacher" araması
-    # beş kez "Reacher" gösteriyordu. Yeni istemciler tek satır ister, sağlayıcı
-    # seçimi bilgi kartına iner. Eski istemciler (TV Gözat, web kumanda) düz liste
-    # beklediği için varsayılan DEĞİŞMEZ.
-    if str(veri.get("group") or "") in ("1", "true"):
-        ogeler = _grupla(ogeler)
+    # Aynı içerik her sağlayıcıda bir kart açıyordu (Dean: "postere bastığı için
+    # mükerrerler"). Tek kart, sağlayıcılar `providers` altında; kart puanı en
+    # yüksek sağlayıcıyı açar (girdi yukarıda puanla sıralı). Kart şekli eski düz
+    # satırın üst kümesi — TV Gözat ve saat ayrı sürüm istemeden aynı alanları okur.
+    ogeler = sirala(tekillestir(ogeler), niyet)
+    # Kullanıcının kendi listesindeki içerik niyet sırasının da önünde kalır.
+    ogeler = sorted(ogeler, key=lambda o: -agirlik.get(lang_memo.anahtar(o.get("title") or ""), 0))
 
-    await _zenginlestir(ogeler, basliklar)
+    await _bolum_sayilari(ogeler, basliklar)
 
-    return {**api_v1_global_message, "result": ogeler}
+    return {**api_v1_global_message, "result": ogeler, "niyet": asdict(niyet)}

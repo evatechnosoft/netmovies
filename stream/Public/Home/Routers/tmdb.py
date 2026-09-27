@@ -26,6 +26,9 @@ _rating_cache: dict[str, float | None] = {}
 # Yayın yılı da aynı yanıtta: ana sayfa "yeni" rafını yıla göre sıralayabilsin.
 # temiz-başlık(lower) -> yıl | None
 _year_cache: dict[str, int | None] = {}
+# Yılın ait olduğu sonuç film mi dizi mi: aynı adlı dizi, filmin yılını almasın.
+# temiz-başlık(lower) -> "movie" | "tv" | None
+_type_cache: dict[str, str | None] = {}
 
 _client = httpx.AsyncClient(
     timeout = httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=5.0),
@@ -59,6 +62,7 @@ async def _resolve_poster(clean_title: str) -> str | None:
     poster_path: str | None = None
     rating: float | None = None
     year: int | None = None
+    media: str | None = None
     try:
         resp = await _client.get(_TMDB_SEARCH, params={
             "api_key"       : TMDB_API_KEY,
@@ -79,6 +83,7 @@ async def _resolve_poster(clean_title: str) -> str | None:
                 if year is None:
                     tarih = str(r.get("release_date") or r.get("first_air_date") or "")[:4]
                     year = int(tarih) if tarih.isdigit() else None
+                    media = r.get("media_type")
                 if poster_path is not None:
                     break
     except Exception:
@@ -88,6 +93,7 @@ async def _resolve_poster(clean_title: str) -> str | None:
         _cache[key] = poster_path
         _rating_cache[key] = rating
         _year_cache[key] = year
+        _type_cache[key] = media
     return poster_path
 
 
@@ -95,6 +101,12 @@ def year_for(title: str) -> int | None:
     """Başlığın TMDB yılı — YALNIZ cache'ten (puanla aynı aramadan gelir)."""
     clean = _clean_title(title)
     return _year_cache.get(clean.lower()) if clean else None
+
+
+def type_for(title: str) -> str | None:
+    """`year_for` yılının geldiği TMDB sonucunun türü ("movie"/"tv") — cache'ten."""
+    clean = _clean_title(title)
+    return _type_cache.get(clean.lower()) if clean else None
 
 
 async def rating_for(title: str, fetch: bool = False) -> float | None:
