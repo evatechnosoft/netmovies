@@ -64,6 +64,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
@@ -1857,6 +1862,9 @@ fun PlayerScreen(
                     if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
                 },
                 modifier = Modifier.align(Alignment.CenterEnd),
+                canli = canliYayin,
+                kanallar = kanallar,
+                onKanal = { showSettings = false; onKanal(it) },
             )
         }
 
@@ -2352,6 +2360,11 @@ internal fun ScrubOverlay(previewExo: ExoPlayer, scrubPos: Long, duration: Long)
     }
 }
 
+/** Gruba dışarıdan gelen odak [hedef]e iner (geometrik en yakına değil). */
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+private fun Modifier.girisOdagi(hedef: () -> FocusRequester): Modifier =
+    focusProperties { enter = { hedef() } }
+
 @OptIn(UnstableApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 internal fun SettingsPanel(
@@ -2386,6 +2399,10 @@ internal fun SettingsPanel(
     onToggleKeys: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Canlı yayın: hız satırı gizlenir; [kanallar] doluysa ilk sekme Kanallar olur. */
+    canli: Boolean = false,
+    kanallar: List<MediaItem> = emptyList(),
+    onKanal: (MediaItem) -> Unit = {},
 ) {
     val videoGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 } ?: emptyList()
     // Bölüm tek varyantlı akışta da çizilir: gizlendiğinde "kalite ayarı yok" sanılıyordu.
@@ -2396,40 +2413,24 @@ internal fun SettingsPanel(
     val textGroups = tracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT && it.length > 0 } ?: emptyList()
     val textDisabled = textGroups.none { g -> (0 until g.length).any { g.isTrackSelected(it) } }
 
-    // Kaynak listesi (11 satıra kadar çıkıyor) ana akıştan ayrı bir alt sayfaya
-    // taşındı: ana panelde eskiden 11 satır geçmeden "Bölümler"e ulaşılamıyordu
-    // (Dean: "çok yoğun"). Seçim özelliği aynen duruyor, yalnız yeri değişti.
-    var kaynakListesiAcik by remember { mutableStateOf(false) }
-    // Ayarlar tek uzun listeydi: favoriye ulasmak icin sonuna kadar inmek gerekiyordu.
-    // Artik ustte ikon seridi var, icerik yalniz secili ikonunki (Dean, 17 Eylul:
-    // "acilir secenek sadece ikon olsun, buton icinde gezinir seceriz").
-    // Sekme sırası sabit: 0 Kitaplık, 1 Bölümler (dizide). "Bölümler" girişleri
-    // paneli doğrudan orada açar — tam ekran liste izlenen sahneyi kapatıyordu.
-    // Dizide menü HER ZAMAN Bölümler'de açılır: en sık kullanılan sekme (27 Eylül).
-    var sekme by remember { mutableStateOf(if (episodes.isNotEmpty()) 1 else 0) }
+    // Üç SABİT sekme, her içerikte aynı üst sıra (Dean, 28 Eylül çizimi):
+    // 0 Bölümler & Listeler (canlıda Kanallar) · 1 Kaynak · Ses · Hız · 2 ⚙ seyrek ayarlar.
+    // Panelin eni ve boyu sabit; uzun içerik panelin içinde kayar, kısa içerikte
+    // panel küçülmez — sekme/içerik değişince zıplamıyor.
+    var sekme by remember { mutableStateOf(0) }
     // Bölüm/sezon listesi panelin İÇİNDE: tam ekran modal koca bir liste açıp
     // izlenen sahneyi kapatıyordu (Dean, 17 Eylül: "o da koca ekranda olmasın").
     var panelSezon by remember { mutableStateOf<Int?>(null) }
-    val kaynakListFocus = remember { FocusRequester() }
-    // Açılışta odak oynayan bölümde; bölüm yoksa seçili sekmede. Kök panelFocus
-    // ilk sekmeye (Kitaplık) düşüyordu ve odak sekmeyi değiştirdiği için dizide
-    // de Kitaplık açılıyordu.
+    val kanalModu = canli && kanallar.isNotEmpty()
+    val sekmeFocus = remember { List(3) { FocusRequester() } }
     val bolumFocus = remember { FocusRequester() }
-    val sekmeFocus = remember { FocusRequester() }
-    val kaynakOzet = links.getOrNull(currentLinkIndex)?.let { languageLabel(it) } ?: "—"
+    val kanalFocus = remember { FocusRequester() }
+    val listeFocus = remember { FocusRequester() }
 
-    // GERİ tuşu: alt sayfa açıkken önce onu kapatır — yığın en son kaydolanı
-    // (burayı) önce görür, ana panelin kendi GERİ işleyicisine hiç düşmez.
-    NmBackHandler(enabled = kaynakListesiAcik) { kaynakListesiAcik = false }
-
-    // Odak nöbeti: alt sayfa açılıp kapanınca odak doğru gruba taşınmalı, aksi
-    // hâlde kumanda önceki karede kalan (artık görünmeyen) satırda takılı kalır.
-    LaunchedEffect(kaynakListesiAcik) {
-        val hedefler = when {
-            kaynakListesiAcik -> listOf(kaynakListFocus)
-            sekme == 1 && episodes.isNotEmpty() -> listOf(bolumFocus, sekmeFocus, panelFocus)
-            else -> listOf(sekmeFocus, panelFocus)
-        }
+    // Açılış odağı: oynayan bölüm → oynayan kanal → filmde ilk liste hapı. Bağlı
+    // olmayan istek fırlatır; sıradaki denenir.
+    LaunchedEffect(Unit) {
+        val hedefler = listOf(bolumFocus, kanalFocus, listeFocus, sekmeFocus[0], panelFocus)
         repeat(6) {
             withFrameNanos {}
             if (hedefler.any { runCatching { it.requestFocus() }.isSuccess }) return@LaunchedEffect
@@ -2437,243 +2438,232 @@ internal fun SettingsPanel(
     }
 
     val panelSekli = RoundedCornerShape(NmDim.PanelRadius)
-    Box(
+    Column(
         modifier = modifier
             // Overscan içinde yüzen kart: kenara yapışık tam boy panel yazıyı
             // kenar payına itiyor, alt yarısı boş kalıp videoyu kapatıyordu.
             .padding(end = NmDim.SafeH, top = NmDim.SafeV, bottom = NmDim.SafeV)
-            .width(NmDim.SidePanelWidth)
+            .size(NmDim.SidePanelWidth, NmDim.SidePanelHeight)
             .clip(panelSekli)
             .background(NmColor.SurfaceDialog)
-            .border(width = 1.dp, color = NmColor.PrimaryHairline, shape = panelSekli)
+            .border(width = NmDim.IdleRingWidth, color = NmColor.PrimaryHairline, shape = panelSekli)
             .focusRequester(panelFocus)
             .focusGroup()
             .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
     ) {
-        if (kaynakListesiAcik) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .focusRequester(kaynakListFocus)
-                    .focusGroup()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
-            ) {
-                // Sıra kuralı sabit: Türkçe dublaj → Türkçe altyazı → dil bilinmiyor.
-                // Etiket her satırda yazar, hangi dilin oynadığı tahmine bırakılmaz.
-                SectionTitle("📺 Sağlayıcı & Kaynak")
-                if (links.isEmpty()) MutedRow("—")
-                links.forEachIndexed { idx, link ->
-                    SettingRow(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
-                }
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
-                SettingRow("◀ Ayarlara dön", false) { kaynakListesiAcik = false }
+        // Üst sıra: odak gelince sekme değişir ("buton içinde gezinir seçeriz").
+        // YUKARI ile gelen odak geometrik en yakına değil seçili sekmeye iner —
+        // yoksa içerikten çıkarken yanlışlıkla komşu sekme açılıyordu.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .girisOdagi { sekmeFocus[sekme] }
+                .focusGroup(),
+            horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
+        ) {
+            val adlar = listOf(if (kanalModu) "Kanallar" else "Bölümler & Listeler", "Kaynak · Ses · Hız", "⚙")
+            adlar.forEachIndexed { i, ad ->
+                IkonSekme(
+                    ikon = ad,
+                    secili = i == sekme,
+                    yaziBoyu = NmType.RowTitle,
+                    modifier = (if (i == 2) Modifier.width(NmDim.PanelRowHeight) else Modifier.weight(1f))
+                        .focusRequester(sekmeFocus[i]),
+                ) { sekme = i }
             }
-        } else {
-            val sekmeler = buildList {
-                add("⭐" to "Kitaplık")
-                if (episodes.isNotEmpty()) add("📑" to "Bölümler")
-                add("📺" to "Kaynak")
-                add("🔊" to "Ses")
-                add("⚡" to "Hız")
-                add("🛠" to "Araçlar")
-            }
-            val secili = sekmeler.getOrNull(sekme) ?: sekmeler.first()
+        }
 
-            Column(verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
-                // Sekme şeridi: seçili sekme genişler ve ADINI yazar, diğerleri ikon.
-                // Yalnız ikon okunmuyordu; altı ad yan yana dar panele sığmıyor.
-                Row(
-                    modifier = Modifier.fillMaxWidth().focusGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
-                ) {
-                    sekmeler.forEachIndexed { i, (ikon, ad) ->
-                        val acik = i == sekme
-                        IkonSekme(
-                            ikon = ikon,
-                            secili = acik,
-                            etiket = ad.takeIf { acik },
-                            modifier = Modifier
-                                .weight(if (acik) 3.5f else 1f)
-                                .then(if (acik) Modifier.focusRequester(sekmeFocus) else Modifier),
-                        ) { sekme = i }
+        when (sekme) {
+            0 -> {
+                val L = com.evaitec.netmovies.tv.data.Library
+                // Listeler tek sıra hap: etiket durumu değil İŞİ söyler, listede olduğu
+                // seçili zeminden okunur. "☰ Bölümler" tam ekran listeyi açar (poster/özet).
+                HapSira {
+                    if (episodes.isNotEmpty()) Hap("☰ Bölümler", false) { onOpenEpisodes() }
+                    Hap("★ Favori", library.isFavorite(item), Modifier.focusRequester(listeFocus)) {
+                        library.toggleFavorite(item)
                     }
+                    Hap("👁 Takip", library.inTakip(item)) { library.toggleListe(item, L.LISTE_TAKIP) }
+                    Hap("✓ İzlenecek", library.inIzlenecek(item)) { library.toggleListe(item, L.LISTE_IZLENECEK) }
                 }
-
-                Column(
-                    // fill=false: uzun listede "Kapat" satırı panelden taşmasın.
-                    modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
-                ) {
-                    when (secili.second) {
-                        "Kitaplık" -> {
-                            val L = com.evaitec.netmovies.tv.data.Library
-                            // Etiket YAPILACAK işi söyler; listede olduğu seçili zeminden
-                            // ve ● işaretinden okunur ("✓ — çıkar" karışık okunuyordu).
-                            SettingRow(
-                                if (library.inIzlenecek(item)) "İzleneceklerden çıkar" else "İzleneceklere ekle",
-                                library.inIzlenecek(item),
-                            ) { library.toggleListe(item, L.LISTE_IZLENECEK) }
-                            SettingRow(
-                                if (library.inTakip(item)) "Takibi bırak" else "Takip et",
-                                library.inTakip(item),
-                            ) { library.toggleListe(item, L.LISTE_TAKIP) }
-                            SettingRow(
-                                if (library.isFavorite(item)) "Beğendiklerden çıkar" else "Beğendiklerime ekle",
-                                library.isFavorite(item),
-                            ) { library.toggleFavorite(item) }
-                        }
-
-                        "Bölümler" -> {
-                            val sezonlar = remember(episodes) {
-                                episodes.map { it.season }.distinct().sorted()
-                            }
-                            val simdikiSezon = episodes.getOrNull(currentEpIndex)?.season
-                            val acikSezon = panelSezon ?: simdikiSezon ?: sezonlar.firstOrNull()
-
-                            // Tek sezonluk dizide sezon satırı fazlalık; çok sezonluda
-                            // sezonlar tek satıra sığan kısa bir şerit olur.
-                            // Dikey satır olunca bölümlerle aynı görünüyordu (Dean: "bölüm
-                            // sezon karışık"); sekme şeridi gibi yatay, odakta seçer.
-                            // 0.9.25'te çip başına "Sezon N" 112dp idi: üçüncü çip kesiliyor,
-                            // şerit dağınık duruyordu (Dean). "Sezon" bir kez yazar, çipte
-                            // yalnız numara — beş sezon kaydırmadan sığar.
-                            if (sezonlar.size > 1) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
-                                ) {
-                                    Text("Sezon", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
-                                    Row(
-                                        modifier = Modifier.focusGroup().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
-                                    ) {
-                                        sezonlar.forEach { sz ->
-                                            IkonSekme("$sz", sz == acikSezon, Modifier.width(NmDim.SeasonChipWidth)) {
-                                                panelSezon = sz
-                                            }
-                                        }
-                                    }
+                when {
+                    episodes.isNotEmpty() -> {
+                        val sezonlar = remember(episodes) { episodes.map { it.season }.distinct().sorted() }
+                        val simdikiSezon = episodes.getOrNull(currentEpIndex)?.season
+                        val acikSezon = panelSezon ?: simdikiSezon ?: sezonlar.firstOrNull()
+                        // Sezon çipi odakta seçer; çipte yalnız numara, "Sezon" bir kez yazar.
+                        if (sezonlar.size > 1) HapSatiri("Sezon") {
+                            sezonlar.forEach { sz ->
+                                IkonSekme("$sz", sz == acikSezon, Modifier.width(NmDim.SeasonChipWidth)) {
+                                    panelSezon = sz
                                 }
                             }
-
-                            // Bölümler sıkı bir blok: satır arası çip aralığı kadar, uzun
-                            // ad tek satırda kesilir (satır satır taşıp listeyi dağıtıyordu).
-                            val liste = episodes.withIndex().filter { it.value.season == acikSezon }
-                            // Listenin sayısı ve sağlayıcısı: kaç bölüm görüldüğü ona bağlı.
-                            Text(
-                                "${episodes.size} bölüm" + (listeKaynagi?.let { " · $it" } ?: ""),
-                                fontSize = NmType.Caption,
-                                color = NmColor.OnSurfaceMuted,
-                            )
+                        }
+                        // Listenin sayısı ve sağlayıcısı: kaç bölüm görüldüğü ona bağlı.
+                        Text(
+                            "${episodes.size} bölüm" + (listeKaynagi?.let { " · $it" } ?: ""),
+                            fontSize = NmType.Caption,
+                            color = NmColor.OnSurfaceMuted,
+                        )
+                        val liste = episodes.withIndex().filter { it.value.season == acikSezon }
+                        KayanListe {
                             if (liste.isEmpty()) MutedRow("Bu sezonda bölüm yok")
-                            Column(verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap)) {
-                                liste.forEach { (idx, ep) ->
-                                    val oynuyor = idx == currentEpIndex
-                                    BolumSatiri(
-                                        ep = ep,
-                                        index = idx,
-                                        oynuyor = oynuyor,
-                                        // Kayıt tek "nereye kadar" tutar (sunucu da öyle):
-                                        // listede oynayandan öncekiler izlenmiş sayılır.
-                                        izlendi = idx < currentEpIndex,
-                                        modifier = if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier,
-                                    ) { onSelectEpisode(idx) }
-                                }
-                            }
-
-                            // Tam ekran liste hâlâ duruyor: uzun dizide poster/özet
-                            // görmek isteyen oraya geçer.
-                            SettingRow("⛶ Tam ekran bölüm listesi", false) { onOpenEpisodes() }
-                        }
-
-                        // Kaynak listesinin tamamı ayrı sayfada: burada yalnız hangisi
-                        // oynuyor yazar.
-                        "Kaynak" -> SettingRow(kaynakOzet + " — kaynak değiştir", false) {
-                            kaynakListesiAcik = true
-                        }
-
-                        "Ses" -> {
-                            if (audioGroups.isEmpty() && textGroups.isEmpty()) {
-                                MutedRow("Bu kaynakta seçenek yok")
-                            }
-                            audioGroups.forEach { group ->
-                                for (i in 0 until group.length) {
-                                    val fmt = group.getTrackFormat(i)
-                                    SettingRow(
-                                        fmt.label ?: fmt.language ?: ("Ses " + (i + 1)),
-                                        group.isTrackSelected(i),
-                                    ) { onSelectAudio(group, i) }
-                                }
-                            }
-                            if (textGroups.isNotEmpty()) {
-                                SettingRow("Altyazı kapalı", textDisabled) { onSelectSubtitle(null, 0) }
-                                textGroups.forEach { group ->
-                                    for (i in 0 until group.length) {
-                                        val fmt = group.getTrackFormat(i)
-                                        SettingRow(
-                                            fmt.label ?: fmt.language ?: ("Altyazı " + (i + 1)),
-                                            group.isTrackSelected(i),
-                                        ) { onSelectSubtitle(group, i) }
-                                    }
-                                }
+                            liste.forEach { (idx, ep) ->
+                                val oynuyor = idx == currentEpIndex
+                                BolumSatiri(
+                                    ep = ep,
+                                    index = idx,
+                                    oynuyor = oynuyor,
+                                    // Kayıt tek "nereye kadar" tutar: öncekiler izlenmiş sayılır.
+                                    izlendi = idx < currentEpIndex,
+                                    modifier = if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier,
+                                ) { onSelectEpisode(idx) }
                             }
                         }
-
-                        "Hız" -> {
-                            SPEEDS.forEach { h ->
-                                SettingRow(if (h == 1.0f) "Normal hız" else (h.toString() + "x"), h == speed) {
-                                    onSelectSpeed(h)
-                                }
-                            }
-                            if (videoTrackCount > 0) {
-                                SettingRow("Kalite: otomatik", qualityAuto) { onSelectQuality(null, 0) }
-                                videoGroups.forEach { group ->
-                                    for (i in 0 until group.length) {
-                                        val fmt = group.getTrackFormat(i)
-                                        val etiket = when {
-                                            fmt.height > 0 -> fmt.height.toString() + "p"
-                                            fmt.bitrate > 0 -> (fmt.bitrate / 1000).toString() + " kbps"
-                                            else -> "Kalite " + (i + 1)
-                                        }
-                                        SettingRow(etiket, !qualityAuto && group.isTrackSelected(i)) {
-                                            onSelectQuality(group, i)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        else -> {
-                            SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+                    }
+                    kanalModu -> KayanListe {
+                        kanallar.forEach { k ->
+                            val oynuyor = k.url == item.url
                             SettingRow(
-                                if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
-                                showKeys,
-                                onToggleKeys,
-                            )
-                            SettingRow(
-                                if (showReport) "Kaynak raporu ▾" else "Kaynak raporu ▸",
-                                showReport,
-                                onToggleReport,
-                            )
-                            if (showReport) {
-                                // Satırlar ODAK ALIR: metin olarak çizilince kumanda
-                                // aradan atlıyor, ortadaki kayıtlar hiç okunmuyordu.
-                                MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
-                                val rapor = PlaybackLog.snapshot()
-                                if (rapor.isEmpty()) MutedRow("Kayıt yok")
-                                rapor.take(40).forEach { kayit -> SettingRow(kayit.format(), false) {} }
+                                k.title ?: "Kanal",
+                                oynuyor,
+                                if (oynuyor) Modifier.focusRequester(kanalFocus) else Modifier,
+                            ) { onKanal(k) }
+                        }
+                    }
+                    else -> MutedRow("OK ile listeye ekle / çıkar")
+                }
+            }
+
+            1 -> KayanListe {
+                // Her satır sezon seçici gibi yatay haplar: SOL/SAĞ satır içinde,
+                // YUKARI/AŞAĞI satırlar arası. Sıra kuralı sabit (Türkçe dublaj önce).
+                HapSatiri("Kaynak") {
+                    if (links.isEmpty()) MutedRow("—")
+                    links.forEachIndexed { idx, link ->
+                        Hap(languageLabel(link), idx == currentLinkIndex) { onSelectSource(idx) }
+                    }
+                }
+                if (audioGroups.isEmpty() && textGroups.isEmpty()) HapSatiri("Ses") { MutedRow("Seçenek yok") }
+                if (audioGroups.isNotEmpty()) HapSatiri("Ses") {
+                    audioGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            Hap(fmt.label ?: fmt.language ?: "Ses ${i + 1}", group.isTrackSelected(i)) {
+                                onSelectAudio(group, i)
                             }
                         }
                     }
                 }
+                if (textGroups.isNotEmpty()) HapSatiri("Altyazı") {
+                    Hap("Kapalı", textDisabled) { onSelectSubtitle(null, 0) }
+                    textGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            Hap(fmt.label ?: fmt.language ?: "Altyazı ${i + 1}", group.isTrackSelected(i)) {
+                                onSelectSubtitle(group, i)
+                            }
+                        }
+                    }
+                }
+                // Canlı yayında hız anlamsız (canlının önüne geçilemez): satır gizli.
+                if (!canli) HapSatiri("Hız") {
+                    SPEEDS.forEach { h ->
+                        Hap(if (h % 1f == 0f) "${h.toInt()}x" else "${h}x", h == speed) { onSelectSpeed(h) }
+                    }
+                }
+            }
 
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
-                SettingRow("✕ Kapat", false, onClose)
+            else -> KayanListe {
+                // Kalite: kaynakların çoğu tek çözünürlük verir; o zaman tek hap olur
+                // ama hangi kalitede oynadığı görünür.
+                if (videoTrackCount > 0) HapSatiri("Kalite") {
+                    Hap("Oto", qualityAuto) { onSelectQuality(null, 0) }
+                    videoGroups.forEach { group ->
+                        for (i in 0 until group.length) {
+                            val fmt = group.getTrackFormat(i)
+                            val etiket = when {
+                                fmt.height > 0 -> "${fmt.height}p"
+                                fmt.bitrate > 0 -> "${fmt.bitrate / 1000} kbps"
+                                else -> "Kalite ${i + 1}"
+                            }
+                            Hap(etiket, !qualityAuto && group.isTrackSelected(i)) { onSelectQuality(group, i) }
+                        }
+                    }
+                }
+                SettingRow("Sarma · dakikaya git · bölüm", false) { onOpenSeek() }
+                SettingRow(
+                    if (showKeys) "Tuş göstergesi açık" else "Tuş göstergesi kapalı",
+                    showKeys,
+                    onClick = onToggleKeys,
+                )
+                SettingRow(
+                    if (showReport) "Kaynak raporu ▾" else "Kaynak raporu ▸",
+                    showReport,
+                    onClick = onToggleReport,
+                )
+                if (showReport) {
+                    // Satırlar ODAK ALIR: metin olarak çizilince kumanda
+                    // aradan atlıyor, ortadaki kayıtlar hiç okunmuyordu.
+                    MutedRow("Telefondan/PC'den: <sunucu>:3310/api/v1/client_log")
+                    val rapor = PlaybackLog.snapshot()
+                    if (rapor.isEmpty()) MutedRow("Kayıt yok")
+                    rapor.take(40).forEach { kayit -> SettingRow(kayit.format(), false) {} }
+                }
             }
         }
     }
 }
+
+/** Panelin kalan boyunu dolduran dikey kayan alan: içerik ne kadar olursa olsun panel boyu değişmez. */
+@Composable
+private fun ColumnScope.KayanListe(icerik: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.weight(1f).fillMaxWidth().focusGroup().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
+        content = icerik,
+    )
+}
+
+/** Yatay kayan hap sırası (SOL/SAĞ içinde gezilir). */
+@Composable
+private fun HapSira(modifier: Modifier = Modifier, icerik: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = modifier.focusGroup().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
+        verticalAlignment = Alignment.CenterVertically,
+        content = icerik,
+    )
+}
+
+/** Solda sabit sütunda etiket, sağında yatay haplar — sezon seçicinin deseni. */
+@Composable
+private fun HapSatiri(etiket: String, icerik: @Composable RowScope.() -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            etiket,
+            fontSize = NmType.Label,
+            color = NmColor.OnSurfaceMuted,
+            maxLines = 1,
+            modifier = Modifier.width(NmDim.PanelLabelWidth),
+        )
+        HapSira(icerik = icerik)
+    }
+}
+
+/** Seçim hapı: sekmeden farkı odakta SEÇMEZ (kaynak odakta değişirse akış kopar), OK ister. */
+@Composable
+private fun Hap(etiket: String, secili: Boolean, modifier: Modifier = Modifier, onSec: () -> Unit) =
+    IkonSekme(
+        ikon = etiket,
+        secili = secili,
+        modifier = modifier.widthIn(max = NmDim.ChipMaxWidth),
+        odaktaSec = false,
+        yatayPay = 14.dp,
+        yaziBoyu = NmType.RowTitle,
+        onSec = onSec,
+    )
 
 /** Ayar şeridindeki tek sekme: ikon; [etiket] verilirse (seçili sekme) yanında adı. */
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -2683,6 +2673,10 @@ private fun IkonSekme(
     secili: Boolean,
     modifier: Modifier = Modifier,
     etiket: String? = null,
+    /** Sekme/sezon odakta seçer; hap (kaynak, ses, liste) yalnız OK ile. */
+    odaktaSec: Boolean = true,
+    yatayPay: Dp = 0.dp,
+    yaziBoyu: TextUnit = if (etiket != null) NmType.RowTitle else NmType.Body,
     onSec: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
@@ -2703,21 +2697,22 @@ private fun IkonSekme(
                 odakli = it.isFocused
                 // Odak gezinirken içerik de değişir: ayrıca OK'a basmak gerekmiyor —
                 // "buton içinde gezinir seçeriz" isteği bu.
-                if (it.isFocused) onSec()
+                if (it.isFocused && odaktaSec) onSec()
             }
             // Ayrı focusable() yok: clickable zaten odak hedefi, ikisi birlikte çift
             // durak yapıyordu (hafıza: tv-focus-and-install-traps).
-            .clickable { onSec() },
+            .clickable { onSec() }
+            .padding(horizontal = yatayPay),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             if (etiket != null) "$ikon $etiket" else ikon,
-            fontSize = if (etiket != null) NmType.RowTitle else NmType.Body,
+            fontSize = yaziBoyu,
             fontWeight = if (odakli || secili) FontWeight.Bold else FontWeight.Normal,
             color = if (odakli) NmColor.OnPrimary else NmColor.OnSurface,
             maxLines = 1,
             softWrap = false,
-            overflow = TextOverflow.Clip,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -2939,7 +2934,7 @@ internal fun StartPanel(
                     SettingRow(languageLabel(l), i == currentLinkIndex) { onSelectLink(i) }
                 }
             }
-            SettingRow("⚙  Kaynak · kalite · altyazı", false, onOpenSettings)
+            SettingRow("⚙  Kaynak · kalite · altyazı", false, onClick = onOpenSettings)
         }
     }
 }
@@ -2968,11 +2963,11 @@ private fun MutedRow(text: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SettingRow(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun SettingRow(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(

@@ -323,6 +323,9 @@ fun PlayerScreen2(
         },
         onClose = { ayarKapat() },
         modifier = Modifier.align(Alignment.CenterEnd),
+        canli = core.canliYayin,
+        kanallar = kanallar,
+        onKanal = { ui.showSettings = false; onKanal(it) },
       )
     }
 

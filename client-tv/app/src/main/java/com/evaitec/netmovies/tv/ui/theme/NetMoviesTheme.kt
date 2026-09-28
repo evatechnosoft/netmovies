@@ -86,8 +86,13 @@ object NmDim {
     val FocusScaleRow  = 1.02f
 
     val PanelWidth  = 360.dp
-    // Oynatıcı yan menüsü: güvenli alanın içinde, videonun ~1/3'ü (960dp ekranda).
-    val SidePanelWidth = 320.dp
+    // Oynatıcı yan menüsü: güvenli alanın içinde. Boyu da SABİT — içeriğe göre büyüyüp
+    // küçülünce sekme değişiminde zıplıyordu (Dean, 28 Eylül: "hiç sabit değil").
+    // Uzun içerik panelin içinde kayar. Mi Box'ta kullanılabilir yükseklik ~486dp.
+    val SidePanelWidth  = 440.dp
+    val SidePanelHeight = 440.dp
+    val PanelLabelWidth = 72.dp   // "Kaynak / Ses / Altyazı / Hız" satır etiketi sütunu
+    val ChipMaxWidth    = 220.dp  // uzun kaynak adı tek hapı ekran dışına itmesin
     val DialogWidth = 380.dp
 }
 
