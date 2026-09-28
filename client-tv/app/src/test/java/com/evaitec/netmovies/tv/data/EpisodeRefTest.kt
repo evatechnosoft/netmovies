@@ -54,4 +54,15 @@ class EpisodeRefTest {
         assertNull(nextEpisodeIndex(2, numarasiz))
         assertNull(nextEpisodeIndex(0, emptyList()))
     }
+
+    @Test fun `bolum sayfasi karti kodlu listede yolla bulunur`() {
+        val liste = listOf(1 to 1, 3 to 7, 3 to 8).map { (sz, b) ->
+            EpisodeItem(season = sz, episode = b,
+                url = encodedUrl("https://dizipal2221.com/dizi/lioness/$sz-sezon/$b-bolum"))
+        }
+        assertEquals(2, episodeIndexByUrl("https://dizipal2222.com/dizi/lioness/3-sezon/8-bolum/", liste))
+        assertEquals(2, episodeIndexByUrl(encodedUrl("https://dizipal2221.com/dizi/lioness/3-sezon/8-bolum"), liste))
+        assertEquals(-1, episodeIndexByUrl("https://dizipal2221.com/dizi/lioness-dizi-izle", liste))
+        assertEquals(-1, episodeIndexByUrl("", liste))
+    }
 }

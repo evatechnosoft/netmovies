@@ -385,8 +385,7 @@ fun PlayerScreen(
         // kaçıncı bölüme tıklandığı yalnız adresten anlaşılır. Eşleşmezse zincir
         // 1. bölümü açardı — tıklanan S3B7 değil.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
-            val acilan = com.evaitec.netmovies.tv.data.rawUrl(item.url).trimEnd('/')
-            var sira = bolumler.indexOfFirst { it.url.trimEnd('/') == acilan }
+            var sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
             // Adres eşleşmesi tutmayabiliyor: katalog kartının adresi bölüm
             // listesindekinden farklı biçimde gelebiliyor (kodlama, ek parametre).
             // O zaman BAŞLIK söyler: "… 3.Sezon 8.Bölüm" (Dean, 18 Eylül: kart

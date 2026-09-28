@@ -517,8 +517,7 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
 
         // Kart BÖLÜM sayfası olabilir: adresle, olmazsa başlıkla eşle.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
-            val acilan = com.evaitec.netmovies.tv.data.rawUrl(item.url).trimEnd('/')
-            var sira = bolumler.indexOfFirst { it.url.trimEnd('/') == acilan }
+            var sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
             if (sira < 0) sira = basliktanBolum(item.title, bolumler)
             if (sira >= 0) {
                 c.currentEpIndex = sira

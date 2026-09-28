@@ -290,6 +290,23 @@ fun rawUrl(encoded: String): String =
     if (encoded.contains("://")) encoded
     else runCatching { java.net.URLDecoder.decode(encoded, "UTF-8") }.getOrDefault(encoded)
 
+/**
+ * Bölüm sayfası kartının listedeki yeri. Liste adresleri quote_plus KODLU, kart
+ * adresi HAM geliyor; alan adı da kayıyor (dizipal2221 ↔ 2222). Düz karşılaştırma
+ * hiç tutmuyordu: Lioness S3B8 kartı "S1B1" diye açılıyordu (Dean, 28 Eylül).
+ * Yalnız YOL karşılaştırılır.
+ */
+fun episodeIndexByUrl(cardUrl: String, episodes: List<EpisodeItem>): Int {
+    fun yol(u: String): String {
+        val ham = rawUrl(u)
+        val path = runCatching { java.net.URI(ham).path }.getOrNull() ?: ham
+        return path.trimEnd('/').lowercase()
+    }
+    val hedef = yol(cardUrl)
+    if (hedef.isBlank()) return -1
+    return episodes.indexOfFirst { yol(it.url) == hedef }
+}
+
 fun encodedUrl(raw: String): String =
     if (raw.isBlank() || !raw.contains("://")) raw
     else runCatching { URLEncoder.encode(raw, "UTF-8") }.getOrDefault(raw)
