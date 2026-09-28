@@ -209,7 +209,7 @@ class PlayerCore(
     val currentLinkUrl: String? get() = links.getOrNull(currentLinkIndex)?.url
 
     val canliYayin: Boolean get() = exo.isCurrentMediaItemLive
-    val nextEpIndex: Int? get() = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
+    val nextEpIndex: Int? get() = com.evaitec.netmovies.tv.data.nextEpisodeIndex(currentEpIndex, episodes)
     val prevEpIndex: Int? get() = (currentEpIndex - 1).takeIf { episodes.isNotEmpty() && it >= 0 }
     /** Oynatıcı üstünde "S2 B5 — Başlık" gibi etiket. */
     val simdikiEtiket: String?

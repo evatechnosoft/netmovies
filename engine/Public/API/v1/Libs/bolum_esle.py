@@ -3,7 +3,7 @@
 # Sağlayıcılar aynı diziyi farklı kapsamda veriyor (DDizi sayfalı listesi 3.
 # bölümden başlıyor, DiziMom 1'den). Sıra numarasıyla seçim başka sağlayıcıda
 # BAŞKA bölümü açar. Önce (sezon, bölüm) aranır, sezon bilinmiyorsa yalnız
-# bölüm; bulunamazsa sıraya düşülür.
+# bölüm; numarasız listede sıraya düşülür.
 
 import re
 
@@ -22,6 +22,11 @@ def bolum_sirasi(bolumler: list, sira: int, bolum_no: int | None = None, sezon_n
                 continue
             if sezon_no is None or alan(ep, "season") in (None, sezon_no):
                 return i
+        # Liste numaralıysa ve bölüm yoksa, o bölüm bu sağlayıcıda YOK. Sıraya
+        # düşmek başka bölüm açar: son bölümden sonra yayınlanmamış sezona
+        # geçilince sezonun 1. bölümü oynuyordu (Dean, 28 Eylül).
+        if any(alan(ep, "episode") is not None for ep in bolumler):
+            return None
     if 0 <= sira < len(bolumler):
         return sira
     return None

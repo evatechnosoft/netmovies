@@ -24,8 +24,14 @@ class BolumEsleTest(unittest.TestCase):
         liste = [ep(1, 1), ep(1, 2), ep(1, 3), ep(2, 1), ep(2, 2), ep(2, 3)]
         self.assertEqual(bolum_sirasi(liste, 0, bolum_no=3, sezon_no=2), 5)
 
-    def test_numara_yoksa_siraya_duser(self):
+    def test_numarali_listede_olmayan_bolum_bulunmaz(self):
+        # Son bölümden sonra yayınlanmamış sezon: sıraya düşüp 1. bölümü açıyordu.
         liste = [ep(1, 1), ep(1, 2)]
+        self.assertIsNone(bolum_sirasi(liste, 1, bolum_no=9))
+        self.assertIsNone(bolum_sirasi(liste, 0, bolum_no=1, sezon_no=2))
+
+    def test_numarasiz_listede_siraya_duser(self):
+        liste = [ep(1, None), ep(1, None)]
         self.assertEqual(bolum_sirasi(liste, 1, bolum_no=9), 1)
         self.assertIsNone(bolum_sirasi(liste, 7, bolum_no=9))
 

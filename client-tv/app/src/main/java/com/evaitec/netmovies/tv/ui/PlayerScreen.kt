@@ -531,7 +531,7 @@ fun PlayerScreen(
             .filter { it.isNotBlank() }.joinToString("  ·  ")
     }
 
-    val nextEpIndex = (currentEpIndex + 1).takeIf { episodes.isNotEmpty() && it <= episodes.lastIndex }
+    val nextEpIndex = com.evaitec.netmovies.tv.data.nextEpisodeIndex(currentEpIndex, episodes)
     val prevEpIndex = (currentEpIndex - 1).takeIf { episodes.isNotEmpty() && it >= 0 }
 
     // Başlangıç panelindeki OYNAT: "Devam et" kayıtlı bölümü kastediyor, farklı

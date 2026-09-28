@@ -113,10 +113,12 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             diag.add("info", "bölüm", f"{plugin_name} · {len(episodes)} bölüm")
             # Burada da numara sıraya yeğdir (yukarıdaki gerekçe).
             sira = bolum_sirasi(episode_objects, episode_index, episode_no, season_no)
-            if sira is None:
-                sira = 0
-            chosen = episode_objects[sira]
-            links  = await _load(getattr(chosen, "url", "") or "")
+            # Belirli bölüm istendi ve yok: 1. bölümü açmak yerine kaynak verme.
+            if sira is None and (episode_index > 0 or episode_no is not None):
+                diag.add("warn", "bölüm", f"{plugin_name} · istenen bölüm listede yok")
+            else:
+                chosen = episode_objects[sira or 0]
+                links  = await _load(getattr(chosen, "url", "") or "")
 
     klipler = [l for l in links if kisa_klip_mi(l.url)]
     if klipler:

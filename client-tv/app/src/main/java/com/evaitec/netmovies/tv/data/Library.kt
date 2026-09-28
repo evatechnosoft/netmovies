@@ -260,6 +260,24 @@ fun episodeIndexOf(ref: String, episodes: List<EpisodeItem>): Int? {
     return ref.toIntOrNull()?.takeIf { it in episodes.indices }
 }
 
+/**
+ * Sıradaki bölüm SEZON+BÖLÜM numarasıyla bulunur, liste sırasıyla değil: sağlayıcı
+ * listeleri sıralı gelmiyor (yeni sezon başta olabiliyor), "indeks + 1" son bölümden
+ * sonra başka sezonun 1. bölümünü açıyordu (Dean, 28 Eylül). Dizinin son bölümünde
+ * null — geçiş teklifi/geri sayım hiç çıkmaz. Numarasız listede sıraya düşülür.
+ */
+fun nextEpisodeIndex(current: Int, episodes: List<EpisodeItem>): Int? {
+    val cur = episodes.getOrNull(current) ?: return null
+    val curNo = cur.episode ?: return (current + 1).takeIf { it <= episodes.lastIndex }
+    val sonraki = compareBy<EpisodeItem>({ it.season }, { it.episode })
+    return episodes.indices
+        .filter { i ->
+            val e = episodes[i]
+            e.episode != null && (e.season > cur.season || (e.season == cur.season && e.episode > curNo))
+        }
+        .minWithOrNull(compareBy(sonraki) { episodes[it] })
+}
+
 // `content_key` sunucuda başlık + media_type'tan türer; web `serie`/`movie` yazıyor
 // (central-progress.js). TV boş gönderirse AYNI film iki ayrı kayda düşer
 // ("gorge" vs "gorge|movie") ve cihazlar arası devam etme kopar.

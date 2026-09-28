@@ -39,4 +39,19 @@ class EpisodeRefTest {
         assertNull(episodeIndexOf("", reacher))
         assertNull(episodeIndexOf("S9B9", reacher))       // listede olmayan bölüm
     }
+
+    @Test fun `sonraki bolum numarayla, siradan bagimsiz`() {
+        assertEquals(1, nextEpisodeIndex(0, reacher))
+        assertEquals(8, nextEpisodeIndex(7, reacher))         // S1B8 → S2B1
+        assertNull(nextEpisodeIndex(31, reacher))             // dizinin son bölümü
+        // Yeni sezon başta: S2 sonu → S1B1 açılıyordu.
+        val tersSezon = reacher.drop(8).take(8) + reacher.take(8)
+        assertNull(nextEpisodeIndex(7, tersSezon))
+        assertEquals(0, nextEpisodeIndex(15, tersSezon))      // S1B8 → S2B1
+        // Numarasız liste: sıra.
+        val numarasiz = List(3) { EpisodeItem() }
+        assertEquals(1, nextEpisodeIndex(0, numarasiz))
+        assertNull(nextEpisodeIndex(2, numarasiz))
+        assertNull(nextEpisodeIndex(0, emptyList()))
+    }
 }
