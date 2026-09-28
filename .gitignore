@@ -74,3 +74,5 @@ KAYNAK-UYARI.txt
 
 # Yonetim panelinden yazilan kanal listesi (makineye ozel)
 lists/ozel.m3u
+# ev YZ gecidi sirlari (master key, db parolasi)
+infra/yz/.env

@@ -16,3 +16,8 @@ router_settings:
 
 litellm_settings:
   drop_params: true
+
+general_settings:
+  # No key, no answer. Apps use their own virtual key; the master key only issues keys.
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
