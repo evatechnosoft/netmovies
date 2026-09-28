@@ -93,6 +93,10 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
                 target = getattr(secilenler[sira], "url", "") or target
                 etiket = f" · bölüm no {episode_no}" if episode_no is not None else ""
                 diag.add("info", "bölüm", f"{plugin_name} · seçilen bölüm {sira + 1}/{len(secilenler)}{etiket}")
+            else:
+                # Kart bölüm sayfasıysa kendi bölümü oynardı: olmayan S3B9 → S3B8.
+                diag.add("warn", "bölüm", f"{plugin_name} · istenen bölüm listede yok")
+                return [], episodes
 
     links = await _load(target)
 
