@@ -1,3 +1,8 @@
+## 2026-09-29 gece — Docker Desktop WSL motoru çöktü (EN GÜNCEL)
+- 20:2x'te izleme kesildi, hiçbir şey açılmadı: Docker daemon API 500, `wsl -l -v` docker-desktop Stopped, health 000. Docker Desktop süreçleri 18:57'den beri ayaktaydı ama VM ölmüştü (bugün ikinci kez, öğlen de olmuştu). Çözüm: Docker süreçlerini öldür → `wsl --shutdown` → Docker Desktop.exe başlat → `compose --profile tunnel up -d`. 20:3x health 200, tünel 303, 5 konteyner Up.
+- **Kök neden doğrulanmadı** (WSL VM neden ölüyor: bellek? Docker Desktop sürümü?). Tekrarlarsa: Event Viewer + `%LOCALAPPDATA%\Docker\log` bak; kalıcı çözüm ZimaOS'a dönmek.
+- Dean bu akşam: "Ne diye oynadık, günlerdir çalışan sistemdi" — twimg hatam + rebuild'ler + bu çökme üst üste geldi. Memory: canli-sunucuda-varsayimla-oynama. Bu gece başka değişiklik YOK.
+
 ## 2026-09-29 akşam 4 — DÜZELTME: twimg tam bölüm de taşıyor (EN GÜNCEL)
 - **Yanlış varsayımım geri alındı:** video.twimg.com'u konak olarak klip saymak Tuzlu Kahve 3-4 ve Haysiyet 3'ün 8500 sn'lik TAM bölümlerini de eledi (Dean: "hiçbir şey açmamaya başladın"). Artık süre ölçülür: `hls_kisa_klip_mi` master → ilk varyant → #EXTINF toplamı < 90 sn (yalnız twimg, 2 küçük istek). Lioness S2B3 twimg 31 sn → elenir; Tuzlu Kahve 4 8573 sn → geçer.
 - **Tuzlu Kahve 4 aslında VAR** (DDizi ve DiziMom twimg, 2h23m) — önceki nottaki "yalnız klip" hükmü yanlıştı; S1B5 googlevideo 75 sn hâlâ klip.
