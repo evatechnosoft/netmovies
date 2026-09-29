@@ -112,7 +112,29 @@ class DiziPal(PluginBase):
         return get_warp_client() or self.httpx
 
     async def _html(self, url: str) -> str:
-        return await fetch_html(self._client(), url)
+        # Bölüm sayfası da aynı sınırlayıcıya takılıyor (429 → "oynatılabilir kaynak
+        # vermedi"); tüm DiziPal istekleri tek sıradan, aralıklı gider.
+        return await self._sirayla(lambda: fetch_html(self._client(), url))
+
+    async def _sirayla(self, istek):
+        """DiziPal'e giden her isteği tek sıraya alır, 3 sn aralık bırakır, 429'da
+        4 sn bekleyip bir kez yineler. `istek`: yanıt döndüren async fabrika."""
+        if DiziPal._arama_kilidi is None:
+            DiziPal._arama_kilidi = asyncio.Lock()
+        async with DiziPal._arama_kilidi:
+            for deneme in range(2):
+                bekle = self._ARAMA_ARALIK_SN - (time.monotonic() - DiziPal._arama_son_istek)
+                if bekle > 0:
+                    await asyncio.sleep(bekle)
+                try:
+                    sonuc = await istek()
+                finally:
+                    DiziPal._arama_son_istek = time.monotonic()
+                if deneme == 0 and getattr(sonuc, "status_code", None) == 429:
+                    await asyncio.sleep(4.0)
+                    continue
+                return sonuc
+        return sonuc
 
     # ------------------------------------------------------------------ listeler
     @staticmethod
@@ -160,31 +182,16 @@ class DiziPal(PluginBase):
         kayit = self._arama_onbellek.get(anahtar)
         if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
             return list(kayit[1])
-        if DiziPal._arama_kilidi is None:
-            DiziPal._arama_kilidi = asyncio.Lock()
         payload = None
-        async with DiziPal._arama_kilidi:
-            kayit = self._arama_onbellek.get(anahtar)
-            if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
-                return list(kayit[1])
-            for deneme in range(2):
-                bekle = self._ARAMA_ARALIK_SN - (time.monotonic() - DiziPal._arama_son_istek)
-                if bekle > 0:
-                    await asyncio.sleep(bekle)
-                try:
-                    resp = await self._client().post(
-                        f"{self.main_url}/bg/searchcontent",
-                        data={"searchterm": query, "type": "hepsi"},
-                        headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
-                    )
-                    DiziPal._arama_son_istek = time.monotonic()
-                    if resp.status_code == 429 and deneme == 0:
-                        await asyncio.sleep(4.0)
-                        continue
-                    payload = resp.json()
-                except Exception:
-                    return []
-                break
+        try:
+            resp = await self._sirayla(lambda: self._client().post(
+                f"{self.main_url}/bg/searchcontent",
+                data={"searchterm": query, "type": "hepsi"},
+                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
+            ))
+            payload = resp.json()
+        except Exception:
+            return []
         items = ((payload or {}).get("data") or {}).get("result") if isinstance(payload, dict) else None
         results: list[SearchResult] = []
         for item in items or []:
