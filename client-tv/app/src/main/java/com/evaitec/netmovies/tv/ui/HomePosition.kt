@@ -3,6 +3,7 @@ package com.evaitec.netmovies.tv.ui
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 // Ana ekranın yeri. Gözat'taki ile aynı sebep: oynatıcı açılınca HomeScreen
@@ -13,6 +14,9 @@ class HomePosition {
     /** Son odaklanılan raf ve o raftaki kart. */
     var row by mutableIntStateOf(0)
     var card by mutableIntStateOf(0)
+
+    /** Kişisel bloğun seçili segmenti (Devam Et / Takip / …); null = varsayılan. */
+    var segment by mutableStateOf<String?>(null)
 
     /** Dikey kaydırma konumu. */
     val listState = LazyListState()

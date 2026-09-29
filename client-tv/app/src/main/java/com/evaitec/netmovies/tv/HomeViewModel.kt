@@ -42,8 +42,14 @@ class HomeViewModel : ViewModel() {
                 // bir istek boyu daha geç açılırdı.
                 val rest = coroutineScope {
                     val others = OTHER_TYPES.map { t -> async { fetchType(t) } }
-                    val live   = async { fetchType("live").take(LIVE_ON_HOME).map { it.copy(category = "Canlı TV") } }
-                    others.awaitAll().flatten() + live.await()
+                    val live   = async { liveRow() }
+                    val diziler = others.awaitAll()
+                    // "Türkçe dublaj diziler" için sunucuda tip yok: dizilerden DUB
+                    // rozetli olanlar. Rozet yalnız daha önce çözülmüş içerikte var.
+                    val dublaj = diziler.first()
+                        .filter { "DUB" in it.lang }
+                        .map { it.copy(category = DUBLAJ_RAFI) }
+                    diziler.flatten() + dublaj + live.await()
                 }
                 val all = movie + rest
                 if (all.isEmpty()) HomeState.Error("İçerik yok") else HomeState.Ready(all)
@@ -58,11 +64,25 @@ class HomeViewModel : ViewModel() {
         runCatching { Network.api.aggregateNew(type = type).result?.items.orEmpty() }
             .getOrDefault(emptyList())
 
-    private companion object {
+    // Kanallarım: Canlı TV ekranında yıldızlanan kanallar (sunucu prefs). Favori
+    // yoksa eski davranış: ilk canlı kanallar "Canlı TV" rafı.
+    private suspend fun liveRow(): List<MediaItem> = coroutineScope {
+        val kanallar = async { runCatching { Network.api.quickChannels().result }.getOrDefault(emptyList()) }
+        val favoriler = runCatching { com.evaitec.netmovies.tv.ui.okuFavoriler(Network.api.prefsGet().result) }
+            .getOrDefault(emptySet())
+        val benim = kanallar.await().filter { it.url in favoriler }.map { it.copy(category = KANALLARIM_RAFI) }
+        benim.ifEmpty { fetchType("live").take(LIVE_ON_HOME).map { it.copy(category = "Canlı TV") } }
+    }
+
+    companion object {
+        const val KANALLARIM_RAFI = "Kanallarım"
+        const val DUBLAJ_RAFI = "Türkçe Dublaj Diziler"
+
         // Engine tipleri: dizi, Türk dizi, yabancı dizi. Canlı TV ayrı çekilir.
-        val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign")
+        // İlki "serie" OLMALI: dublaj rafı ondan süzülür.
+        private val OTHER_TYPES = listOf("serie", "serie_local", "serie_foreign")
 
         // Ana sayfadaki Canlı TV rafında kaç kanal gösterilir.
-        const val LIVE_ON_HOME = 20
+        private const val LIVE_ON_HOME = 20
     }
 }
