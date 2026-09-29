@@ -905,10 +905,8 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                 .setAllowCrossProtocolRedirects(true)
             c.aktifFactory = dataSourceFactory
 
-            val hls = HlsMediaSource.Factory(dataSourceFactory)
-                // Tek segment hatası kaynağı düşürmesin: üç deneme.
-                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(3))
-                .createMediaSource(ExoMediaItem.fromUri(link.url))
+            // Tek segment hatası kaynağı düşürmesin: üç deneme. mp4 ise progressive.
+            val hls = com.evaitec.netmovies.tv.ui.videoSource(dataSourceFactory, link.url)
 
             val subSources = link.subtitles
                 .filter { it.url.isNotBlank() }

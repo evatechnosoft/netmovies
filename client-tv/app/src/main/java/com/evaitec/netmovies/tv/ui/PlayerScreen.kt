@@ -1179,12 +1179,10 @@ fun PlayerScreen(
                 .setAllowCrossProtocolRedirects(true)
             aktifFactory = dataSourceFactory
 
-            val hls = HlsMediaSource.Factory(dataSourceFactory)
-                // Tek segment hatası kaynağı düşürmesin: geçici 5xx/kopmada üç
-                // deneme yapılır. Eskiden ilk hata doğrudan onPlayerError'a gidip
-                // çalışan kaynağı bırakıyordu.
-                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(3))
-                .createMediaSource(ExoMediaItem.fromUri(link.url))
+            // Tek segment hatası kaynağı düşürmesin: geçici 5xx/kopmada üç
+            // deneme yapılır. Eskiden ilk hata doğrudan onPlayerError'a gidip
+            // çalışan kaynağı bırakıyordu.
+            val hls = videoSource(dataSourceFactory, link.url)
 
             val subSources = link.subtitles
                 .filter { it.url.isNotBlank() }
@@ -1251,7 +1249,7 @@ fun PlayerScreen(
                             .setForceLowestBitrate(true)
                             .build()
                         setMediaSource(
-                            HlsMediaSource.Factory(factory).createMediaSource(ExoMediaItem.fromUri(link.url))
+                            videoSource(factory, link.url)
                         )
                         prepare()
                         seekTo(scrubPos)
@@ -1970,6 +1968,25 @@ internal fun KeyHintChip(text: String) {
 }
 
 // .vtt / .srt uzantısından MIME tahmini (bilinmiyorsa VTT).
+/**
+ * Kaynağın medya kaynağı: çoğu HLS, ama Özel Koleksiyon'da (HQPorner) düz mp4 var.
+ * Hepsi HlsMediaSource ile açılınca mp4 anında hata verip sonraki kaynağa
+ * geçiliyordu ("çok hızlı deneyip geçiyor"). Proxy adresinde asıl URL `url=`
+ * parametresinde kodlu durur; çözülmüş hâline bakılır.
+ */
+internal fun videoSource(
+    factory: androidx.media3.datasource.DataSource.Factory,
+    url: String,
+): androidx.media3.exoplayer.source.MediaSource {
+    val policy = DefaultLoadErrorHandlingPolicy(3)
+    val item = ExoMediaItem.fromUri(url)
+    val plain = Uri.decode(url).lowercase()
+    return if (".mp4" in plain && ".m3u8" !in plain)
+        androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(factory)
+            .setLoadErrorHandlingPolicy(policy).createMediaSource(item)
+    else HlsMediaSource.Factory(factory).setLoadErrorHandlingPolicy(policy).createMediaSource(item)
+}
+
 internal fun guessSubtitleMime(url: String): String {
     val u = url.lowercase()
     return when {

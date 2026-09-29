@@ -171,7 +171,7 @@ class Library(context: Context) {
         episodeRef: String = "",
         isSerie: Boolean = false,
     ) {
-        if (positionSeconds < 5.0) return
+        if (positionSeconds < 5.0 || com.evaitec.netmovies.tv.ui.isVaultPlugin(item.plugin)) return
         val type = mediaType(isSerie)
         scope.launch {
             runCatching {
@@ -211,6 +211,8 @@ class Library(context: Context) {
 
     /** Oynatınca çağrılır: Devam Et rafında hemen görünsün (sunucu kaydı oynatıcıda). */
     fun addWatched(item: MediaItem) {
+        // Özel Koleksiyon Devam Et'e düşmez (sunucu da kaydetmiyor).
+        if (com.evaitec.netmovies.tv.ui.isVaultPlugin(item.plugin)) return
         watched.removeAll { sameItem(it, item) }
         watched.add(0, item)
         while (watched.size > MAX_WATCHED) watched.removeAt(watched.lastIndex)

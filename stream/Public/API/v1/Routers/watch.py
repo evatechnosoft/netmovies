@@ -7,7 +7,7 @@
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
 
-from Public.Home.Libs import watch_store
+from Public.Home.Libs import admin_config, watch_store
 
 
 def _key_from(veri: dict) -> str:
@@ -35,7 +35,9 @@ async def continue_watching(request: Request):
         limit = int(veri.get("limit") or 20)
     except (TypeError, ValueError):
         limit = 20
-    result = watch_store.list_continue_watching(limit=limit)
+    # Özel Koleksiyon izlemesi Devam Et'e çıkmaz (eski kayıtlar da süzülür).
+    yetiskin = set(admin_config.load_config()["adult_providers"])
+    result = [r for r in watch_store.list_continue_watching(limit=limit + 20) if r.get("plugin") not in yetiskin][:limit]
     return {**api_v1_global_message, "result": result}
 
 
@@ -50,6 +52,9 @@ async def save_progress(request: Request):
     ck   = _key_from(veri)
     if not ck:
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}
+    # Özel Koleksiyon izleme kaydı tutulmaz.
+    if str(veri.get("plugin") or "") in set(admin_config.load_config()["adult_providers"]):
+        return {**api_v1_global_message, "result": {"ok": True, "skipped": "adult"}}
 
     def _num(v) -> float:
         try:

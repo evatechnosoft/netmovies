@@ -77,7 +77,11 @@ import java.net.URLDecoder
 // Özel Koleksiyon'a düşen eklenti adları — sunucu ulaşılamazsa kullanılan YEDEK.
 // Asıl liste /api/admin/config'ten gelir (web /admin ile aynı kaynak); burada sabit
 // tutulsaydı web'de yapılan değişiklik TV'ye hiç yansımazdı.
-private val VAULT_FALLBACK = listOf("porner", "porn", "spank", "hamster", "oxax", "maza")
+internal val VAULT_FALLBACK = listOf("porner", "porn", "spank", "hamster", "oxax", "maza")
+
+/** Özel Koleksiyon eklentisi mi (ad parçasıyla — sunucu listesi gelmeden de çalışır). */
+internal fun isVaultPlugin(name: String?): Boolean =
+    name != null && VAULT_FALLBACK.any { name.contains(it, ignoreCase = true) }
 
 private fun decode(s: String): String =
     runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s)
@@ -181,7 +185,10 @@ fun BrowseScreen(
     // İlk raflar ekrana girmeyi beklemeden PARALEL çekilir; sunucu tarafı 30 dk
     // cache'lediği için sonraki açılışlar anında gelir (Dean: "çok geç yükleniyor").
     LaunchedEffect(shelves) {
-        val head = shelves.take(PREFETCH_SHELVES).filter { started.add(it.key) }
+        // Özel Koleksiyon'da HEPSİ: 6'dan sonrası iskelet kalıyordu, iskelet odak
+        // almadığı için aşağı inilemiyor, inilemeyince de raf yüklenmiyordu (Dean:
+        // "altlardaki listeye inmiyor"). Koleksiyon küçük (~13 raf), sunucu cache'li.
+        val head = shelves.take(if (vaultMode) shelves.size else PREFETCH_SHELVES).filter { started.add(it.key) }
         if (head.isEmpty()) return@LaunchedEffect
         coroutineScope {
             head.map { shelf -> async { shelfCache[shelf.key] = fetchShelf(shelf) } }.awaitAll()

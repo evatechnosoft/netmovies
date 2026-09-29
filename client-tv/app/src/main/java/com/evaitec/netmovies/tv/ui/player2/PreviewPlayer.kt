@@ -48,7 +48,7 @@ fun rememberPreviewPlayer(core: PlayerCore, ui: PlayerUiState): ExoPlayer? {
               .setForceLowestBitrate(true)
               .build()
             setMediaSource(
-              HlsMediaSource.Factory(factory).createMediaSource(ExoMediaItem.fromUri(linkUrl))
+              com.evaitec.netmovies.tv.ui.videoSource(factory, linkUrl)
             )
             prepare()
             seekTo(ui.scrubPos)
