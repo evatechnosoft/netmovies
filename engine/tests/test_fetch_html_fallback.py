@@ -49,8 +49,11 @@ class FetchHtmlFallbackTest(unittest.TestCase):
         plain = SahteIstemci(hata=httpx.ConnectError("dns"))
         ortak._warp_client, ortak._plain_client = warp, plain
 
-        with self.assertRaises(httpx.ConnectError):
+        # Son deneme UA'sız `client` (WARP) olduğu için yükselen hata ProxyError;
+        # sözleşme "ağ hatası yutulmaz", hangi yolun hatası olduğu değil.
+        with self.assertRaises(httpx.TransportError):
             asyncio.run(ortak.fetch_html(warp, "https://ornek.test/film"))
+        self.assertEqual(plain.cagri, 1, "doğrudan yol da denenmeli")
 
 
 if __name__ == "__main__":
