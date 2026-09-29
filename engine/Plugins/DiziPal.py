@@ -145,6 +145,12 @@ class DiziPal(PluginBase):
     # yeniden denenir.
     _arama_onbellek: dict[str, tuple[float, list[SearchResult]]] = {}
     _ARAMA_TTL_SN = 600.0
+    # Ölçüm: art arda istek 429, 4 sn aralıkla 200. İstekler tek sıraya alınır ve
+    # aralarında en az 3 sn bırakılır; fast+full ile paralel gelen zincirler
+    # birbirini 429'a düşürmesin.
+    _arama_kilidi: asyncio.Lock | None = None
+    _arama_son_istek = 0.0
+    _ARAMA_ARALIK_SN = 3.0
 
     async def search(self, query: str) -> list[SearchResult]:
         # Site aramayı `/api/search-autocomplete`'ten `/bg/searchcontent`'e taşıdı
@@ -154,21 +160,31 @@ class DiziPal(PluginBase):
         kayit = self._arama_onbellek.get(anahtar)
         if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
             return list(kayit[1])
+        if DiziPal._arama_kilidi is None:
+            DiziPal._arama_kilidi = asyncio.Lock()
         payload = None
-        for deneme in range(2):
-            try:
-                resp = await self._client().post(
-                    f"{self.main_url}/bg/searchcontent",
-                    data={"searchterm": query, "type": "hepsi"},
-                    headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
-                )
-                if resp.status_code == 429 and deneme == 0:
-                    await asyncio.sleep(2.5)
-                    continue
-                payload = resp.json()
-            except Exception:
-                return []
-            break
+        async with DiziPal._arama_kilidi:
+            kayit = self._arama_onbellek.get(anahtar)
+            if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
+                return list(kayit[1])
+            for deneme in range(2):
+                bekle = self._ARAMA_ARALIK_SN - (time.monotonic() - DiziPal._arama_son_istek)
+                if bekle > 0:
+                    await asyncio.sleep(bekle)
+                try:
+                    resp = await self._client().post(
+                        f"{self.main_url}/bg/searchcontent",
+                        data={"searchterm": query, "type": "hepsi"},
+                        headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
+                    )
+                    DiziPal._arama_son_istek = time.monotonic()
+                    if resp.status_code == 429 and deneme == 0:
+                        await asyncio.sleep(4.0)
+                        continue
+                    payload = resp.json()
+                except Exception:
+                    return []
+                break
         items = ((payload or {}).get("data") or {}).get("result") if isinstance(payload, dict) else None
         results: list[SearchResult] = []
         for item in items or []:
