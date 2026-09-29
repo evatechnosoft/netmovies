@@ -1,3 +1,23 @@
+## 2026-09-29 akşam — sunucu laptopta otomatik açılış
+- **Laptop autostart geri açıldı** (`netmovies-autostart.lnk`, betik `--profile tunnel` ile, 1b8a685). Docker Desktop AutoStart hâlâ False, betik onu da açıyor. health 200, tünel 303. ZimaOS dönünce kısayolu `.disabled` yap + laptop `compose --profile tunnel stop`.
+- **"İçerik sağlanamıyor" = Haysiyet 4. bölüm gerçekten yok:** DiziMom (peacemakerst FirePlayer) 64 sn googlevideo klip (elendi), DDizi oynat sayfası `/player/mp4/<b64>.mp4` → media.duhnet.tv 73,8 sn TNT tanıtımı (mvhd). Diğer sağlayıcılarda arama boş. 3. bölüm DDizi twimg m3u8 ile çözülüyor. Kod değişikliği yok; DDizi `_HLS` regex'i mp4 tanımıyor ama bu bölümde mp4 zaten tanıtım.
+- Not: motor açılışta 18× "Yüklenecek bir Extractor bulunamadı!" basıyor — KekikStream 4.0.4 paket Extractors boş, kendi çözücülerimiz __dizi_common'da; eskiden beri böyle, hata değil.
+
+## 2026-09-29 öğleden sonra — 0.9.36 + 0.9.37 (EN GÜNCEL)
+- **Sunucu laptop** (IP artık 192.168.1.186 — ZimaOS'un adresi laptopa geçti; Docker Desktop bir kez kapandı, yeniden başlatıldı).
+- **0.9.36** (d45a2dc): mp4 kaynak progressive (videoSource), Özel Koleksiyon tüm raflar önden yüklenir (iskelet odak almıyordu), yetişkin izleme Devam Et'e yazılmaz (TV+sunucu).
+- **0.9.37** (b4cfc8f, sha ae06910b…): Ayarlar → "🧹 Devam Et'i temizle" toplu seç/sil; sunucu `POST /api/v1/progress/delete?content_keys=a,b`. Üç yerde yayında, app_update v0.9.37-poc. Emülatörde seçim/onay görüldü, gerçek silme cihazda denenmedi.
+- Test sızıntısı düzeltildi (eeab2ae): RemoveProgressTest canlı DB'ye 'bbb' yazıyordu, silindi.
+- **Ses var görüntü yok (sunucu tarafı, APK'sız):** fe0d8d2 HQPorner 1080p önce/4K sonda (2160p H.264 High@5.1 Mi Box çözemiyor); 038cbfa xHamster AV1 elenir + 4K sonda (TV'nin açtığı 5 içeriğin 3'ü 1080p.av1 fMP4'tü). Sunucuda probe ile ilk segment H.264 (0x1b) doğrulandı; TV'de doğrulanmadı. Memory: ses-var-goruntu-yok-codec.
+- **Tekrar etme:** Dean'e "hangi içerik" sorma — stream günlüğünden (`docker logs netmovies-stream | tr -d '\n'`) bul.
+- **NEXT:** Dean'in TV geri bildirimi (0.9.37 toplu temizleme gerçek silme, Özel Koleksiyon görüntü). ZimaOS dönünce taşıma adımları aşağıda. PornHub hâlâ boş (JS doğrulaması).
+
+## 2026-09-29 öğle — 0.9.35 + Özel Koleksiyon (EN GÜNCEL)
+- **Sunucu geçici olarak laptop** (ZimaOS kapalı): yığın + tünel laptopta, 0.9.35 laptop data/apk'da. ZimaOS dönünce: laptop `compose --profile tunnel stop`, ZimaOS'ta pull + `up -d --build engine stream cloudflared` + APK kopyala.
+- **Özel Koleksiyon (8e57a8b):** xHamster 6/6, HQPorner 5/6 oynuyor (proxy uçtan uca). PornHub AÇIK: liste JS doğrulaması (leastFactor) py_mini_racer ile çözülüyor ama sunucu tekrar doğrulama döndürüyor; yt-dlp PhantomJS istiyor.
+- **0.9.35** (950c7ab, 22.603.404 B, sha256 789b3b38…): Devam Et kartı kayıttaki bölümü açar (MediaItem.episodeRef; ref → adres → başlık). GitHub v0.9.35-poc + evaglass netmovies-tv-v0.9.35 + apps.json vc 935 (8b71fca), iki indirme sha eşleşti. Cihazda denenmedi.
+- **EKSİK: ZimaOS yerel OTA.** ZimaOS 10+ dk erişilemez (ARP "Destination host unreachable", 22/3310 kapalı, w.evaitec 530). Açılınca: APK'yı `data/apk/NetMovies-TV-v0.9.35.apk` olarak koy → `curl 192.168.1.186:3310/api/v1/app_update?target=tv` = v0.9.35-poc doğrula. TV o zamana kadar 0.9.35'i görmez.
+
 ## 2026-09-29 sabah oturumu — özet (EN GÜNCEL)
 - **0.9.34 YAYINDA** (2799a38, debug imzalı, 23.273.805 B, sha256 551e8302…): ZimaOS yerel OTA (app_update → v0.9.34-poc), GitHub v0.9.34-poc, evaglass netmovies-tv-v0.9.34 + apps.json vc 934 (b7090c0). Üç indirmenin sha'sı eşleşiyor. Cihazda denenmedi. İçerik: ikonlu segmentler, Favori/Takip/İzlenecek tek seçim, satır başına tek chip, GERİ sırası; `testDebugUnitTest assembleDebug` EXIT=0.
 - **Engine kırık testi düzeldi** (650f551): `test_hepsi_dusunce_hata_yukselir` TransportError bekliyor (son deneme UA'sız WARP → ProxyError). ZimaOS konteynerinde `docker cp tests` ile 2/2 OK. İmaja bir sonraki `up -d --build engine` ile girer.
