@@ -92,7 +92,13 @@ class xHamster(PluginBase):
         # HLS önce: aynı yükseklikteki doğrudan mp4 ("Untested", h264-480p) WARP'tan
         # da 403 veriyor, HLS varyantı oynuyor. setdefault ilk geleni tutar.
         by_height: dict[int, str] = {}
-        formats = sorted(info.get("formats") or [], key=lambda f: "m3u8" not in str(f.get("protocol") or ""))
+        # AV1 en sona ve H.264 varken hiç: Mi Box AV1 çözemiyor, 1080p HLS'in ilk
+        # varyantı av1 olunca yalnız ses geliyordu.
+        def _av1(f: dict) -> bool:
+            return str(f.get("vcodec") or "").startswith("av01") or str(f.get("vcodec")) == "av1" or ".av1." in str(f.get("url"))
+        formats = sorted(info.get("formats") or [], key=lambda f: (_av1(f), "m3u8" not in str(f.get("protocol") or "")))
+        if any(not _av1(f) for f in formats):
+            formats = [f for f in formats if not _av1(f)]
         for fmt in formats:
             akis = fmt.get("url")
             if not akis or fmt.get("vcodec") == "none":
@@ -105,5 +111,6 @@ class xHamster(PluginBase):
                 url     = by_height[height],
                 referer = f"{self.main_url}/",
             )
-            for height in sorted(by_height, reverse=True)
+            # 1080p önce, 4K sonda (2160p H.264 Mi Box'ta yalnız ses verir).
+            for height in sorted(by_height, key=lambda h: (h > 1080, -h))
         ]
