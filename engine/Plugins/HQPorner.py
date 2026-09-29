@@ -49,12 +49,13 @@ class HQPorner(PluginBase):
         except Exception:
             self._client = self.httpx
 
-    async def _fetch(self, url: str) -> str:
+    async def _fetch(self, url: str, referer: str | None = None) -> str:
+        headers = {"Referer": referer} if referer else None
         try:
-            resp = await self._client.get(url)
+            resp = await self._client.get(url, headers=headers)
             return resp.text
         except Exception:
-            resp = await self.httpx.get(url)
+            resp = await self.httpx.get(url, headers=headers)
             return resp.text
 
     @staticmethod
@@ -99,10 +100,9 @@ class HQPorner(PluginBase):
     async def load_item(self, url: str) -> MovieInfo | None:
         html = await self._fetch(url)
         tree = HTMLHelper(html)
-        h1 = tree.css_first("h1.main-h1")
-        title = h1.text(strip=True) if h1 else "Video"
-        img = tree.css_first("div.player-wrapper img, img.cover")
-        poster = img.attrs.get("src") if img else None
+        # HTMLHelper'da css_first yok (yalnız düğümlerde); AttributeError kaynağı boşaltıyordu.
+        title = tree.select_text("h1.main-h1") or "Video"
+        poster = tree.select_attr("div.player-wrapper img, img.cover", "src")
         if poster and poster.startswith("//"):
             poster = "https:" + poster
         return MovieInfo(url=url, title=title, poster=poster, plot=title)
@@ -115,11 +115,17 @@ class HQPorner(PluginBase):
         if not m:
             return []
 
-        vid_url = "https://" + m.group(1)
+        # altplayer adresi (mydaddy.cc/video/…) bir oynatıcı SAYFASI, video değil;
+        # istemci onu çalamıyordu. Asıl mp4'ler sayfanın içinde kalite adıyla duruyor.
+        embed_url = "https://" + m.group(1)
+        # Referer'sız istekte oynatıcı sayfası mp4 adreslerini vermiyor.
+        embed = await self._fetch(embed_url, referer=f"{self.main_url}/")
+        mp4s = {q: u for u, q in re.findall(r"(//[^\s'\"\\]+/(\d{3,4})\.mp4)", embed)}
         return [
             ExtractResult(
-                name=f"{self.name} | 1080p HD",
-                url=vid_url,
-                referer=f"{self.main_url}/",
+                name=f"{self.name} | {q}p",
+                url="https:" + mp4s[q],
+                referer=embed_url,
             )
+            for q in sorted(mp4s, key=int, reverse=True)
         ]

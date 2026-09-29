@@ -132,7 +132,10 @@ async def load_item(request:Request):
         konsol.log(f"[yellow]load_item düştü, kurtarmaya geçiliyor:[/] {type(hata).__name__}")
         result = None
 
-    if baslik and not _kullanilabilir(result, tip):
+    # Özel Koleksiyon'da başlık başka sağlayıcıda aranmaz: HQPorner kartı DDizi'de
+    # alakasız bir diziye "kurtarılıyordu".
+    yetiskin = str(veri.get("plugin") or "") in set(admin_config.load_config()["adult_providers"])
+    if baslik and not yetiskin and not _kullanilabilir(result, tip):
         kurtarma = await _kurtar(baslik, str(veri.get("plugin") or ""), tip, client_headers)
         if kurtarma is not None:
             result = kurtarma

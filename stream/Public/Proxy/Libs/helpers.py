@@ -64,7 +64,7 @@ def warp_olu(host: str) -> bool:
 
 
 async def open_upstream(target_url: str, request_headers: dict):
-    """Kaynağı akış modunda açar; ISP engeli (403/451) WARP ile bir kez daha denenir."""
+    """Kaynağı akış modunda açar; ISP engeli (403/404/451) WARP ile bir kez daha denenir."""
     host = httpx.URL(target_url).host
 
     if warp_client is not None and host in _warp_hosts:
@@ -88,7 +88,10 @@ async def open_upstream(target_url: str, request_headers: dict):
             _warp_dead[host] = time.monotonic() + _WARP_DEAD_TTL
         return retry
 
-    if response.status_code not in (403, 451) or warp_client is None:
+    # 404 de engel sayılır: HQPorner'ın CDN'i (bigcdn) adresi WARP IP'sine imzalıyor,
+    # başka IP'ye 403 değil 404 veriyor. Gerçekten olmayan dosyada WARP da 404 döner
+    # ve host negatif önbelleğe girer — maliyet host başına bir istek.
+    if response.status_code not in (403, 404, 451) or warp_client is None:
         return response
 
     # WARP da denendi ve o host için işe yaramadıysa: TTL boyunca tekrar deneme.

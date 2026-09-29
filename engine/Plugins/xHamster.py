@@ -89,8 +89,11 @@ class xHamster(PluginBase):
         if not info:
             return []
 
+        # HLS önce: aynı yükseklikteki doğrudan mp4 ("Untested", h264-480p) WARP'tan
+        # da 403 veriyor, HLS varyantı oynuyor. setdefault ilk geleni tutar.
         by_height: dict[int, str] = {}
-        for fmt in info.get("formats") or []:
+        formats = sorted(info.get("formats") or [], key=lambda f: "m3u8" not in str(f.get("protocol") or ""))
+        for fmt in formats:
             akis = fmt.get("url")
             if not akis or fmt.get("vcodec") == "none":
                 continue
