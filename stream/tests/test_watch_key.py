@@ -65,6 +65,19 @@ if __name__ == "__main__":
 
 
 class RemoveProgressTest(unittest.TestCase):
+    # Başka test modülü watch_store'u önce içe aktarırsa WATCH_DB_PATH geç kalır ve
+    # yazmalar CANLI veritabanına gider ("bbb" Devam Et'e düştü). Bağlantı burada
+    # geçici dosyaya zorlanır, sonra eski hâline döner.
+    def setUp(self):
+        self._eski = (watch_store._DB_PATH, watch_store._CONN)
+        watch_store._DB_PATH = Path(tempfile.mkdtemp()) / "remove.db"
+        watch_store._CONN = None
+
+    def tearDown(self):
+        if watch_store._CONN is not None:
+            watch_store._CONN.close()
+        watch_store._DB_PATH, watch_store._CONN = self._eski
+
     def test_toplu_silme_yalniz_secilenleri_siler(self):
         for ad in ("aaa", "bbb", "ccc"):
             watch_store.upsert_progress(ad, title=ad, position_seconds=60, duration_seconds=600)
