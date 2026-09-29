@@ -92,7 +92,9 @@ object NmDim {
     val SidePanelWidth  = 440.dp
     val SidePanelHeight = 440.dp
     val PanelLabelWidth = 72.dp   // "Kaynak / Ses / Altyazı / Hız" satır etiketi sütunu
-    val ChipMaxWidth    = 220.dp  // uzun kaynak adı tek hapı ekran dışına itmesin
+    val PanelIconSize   = 24.dp   // panel sekme/liste düğmelerindeki yazısız ikon
+    val SegmentWidth    = 64.dp   // bitişik ikon segmentinin bir dilimi (ikon + ✓ sığar)
+    val SegmentGap      = 2.dp    // segment dilimleri arası ince çizgi
     val DialogWidth = 380.dp
 }
 
