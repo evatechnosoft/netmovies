@@ -1,4 +1,53 @@
-## 2026-09-27 akşam oturumu — özet (EN GÜNCEL)
+## 2026-09-29 sabah oturumu — özet (EN GÜNCEL)
+- **0.9.34 YAYINDA** (2799a38, debug imzalı, 23.273.805 B, sha256 551e8302…): ZimaOS yerel OTA (app_update → v0.9.34-poc), GitHub v0.9.34-poc, evaglass netmovies-tv-v0.9.34 + apps.json vc 934 (b7090c0). Üç indirmenin sha'sı eşleşiyor. Cihazda denenmedi. İçerik: ikonlu segmentler, Favori/Takip/İzlenecek tek seçim, satır başına tek chip, GERİ sırası; `testDebugUnitTest assembleDebug` EXIT=0.
+- **Engine kırık testi düzeldi** (650f551): `test_hepsi_dusunce_hata_yukselir` TransportError bekliyor (son deneme UA'sız WARP → ProxyError). ZimaOS konteynerinde `docker cp tests` ile 2/2 OK. İmaja bir sonraki `up -d --build engine` ile girer.
+- **feature/yz-sanal-anahtar ana dala girdi** (2c00fb3). ZimaOS'taki yerel docker-compose/gemini.py farkı aynı içerikti, `checkout --` + pull; stream konteyneri zaten YZ_GECIT_KEY kodunu ve env'i taşıyor (rebuild gerekmedi). ZimaOS 2c00fb3'te.
+- **Worktree temizliği:** altı `.claude/worktrees/agent-*` + `../netmovies-yz` silindi; hepsi `git cherry` ile ana dalda vardı (oynatıcı-2 commit'leri 15e1f5d/b0f017d/adbfdd1 olarak cherry-pick'liydi).
+- **Açık (değişmedi):** Dean'in 0.9.33/0.9.34 cihaz geri bildirimi; "İzlediklerim" listesi mi; filmde panel hangi sekmeyle açılsın; Oynatıcı 2 nerede aranıyor.
+
+## 2026-09-28 oturumu — özet
+- **0.9.32 YAYINDA** (debug imzalı, 22.570.636 B, sha256 faa99ab3…): ZimaOS yerel OTA (app_update → v0.9.32-poc), GitHub v0.9.32-poc, evaglass netmovies-tv-v0.9.32 + apps.json vc 932 (169adb3). Üç indirmenin sha'sı eşleşiyor. Cihazda denenmedi.
+- **ZimaOS engine** aa4f9b4 ile yeniden kuruldu. Canlı kanıt: Lioness S3B9 (yok) → 0 kaynak "istenen bölüm listede yok"; S3B8 → 1 kaynak.
+- İçerik: ee29b1e sonraki bölüm numarayla (TV) + bolum_sirasi numaralı listede sıraya düşmez (engine) · a955759 bölüm sayfası kartı yolla eşlenir (kodlu liste adresi/alan adı kayması; Lioness "film gibi / S1B1") · aa4f9b4 kart bölüm sayfasıyken olmayan bölüm kartın bölümünü oynatmaz.
+- **Açık:** Dean'e "Yeni oynatıcı (deneme)" nerede aradığı soruldu (ana ekran Ayarlar'da var, oynatıcı içi Ayarlar'da yok). Lioness'ta 0.9.32 ile bölüm seçimi görünüyor mu — Dean'in cihaz geri bildirimi bekleniyor.
+- Not: laptop netmovies-engine/stream konteynerleri de çalışıyor (tek sunucu kararı ZimaOS; bkz. memory tek-sunucu-zimaos).
+- **Dean geri bildirimi:** Lioness'ta bölümler APK kurmadan geldi. Engine rebuild'den sonra liste yüklendi. Kök neden doğrulanmadı; önceki TV isteğinde gateway/engine cache'inde eski yanıt olabilir. `continue_watching` kaydı **S1B8** gösteriyor ve bu DOĞRU: Dean bilerek S1B8 izliyormuş. `content_url` alanı yalnız kartın anlık görüntüsü.
+- **Ağ ("bugün çok yavaş", laptop 3 dk koptu), kanıtlı:**
+  - Laptop Wi-Fi 12:31:29–12:34:35 arası koptu. Olay günlüğü: "disconnected by the driver" (Intel AX201). TP-Link o sırada yeniden başlamadı. TV kesintide bağlı kaldı.
+  - Yavaşlığın asıl sebebi: gemma4:12b indirmesi 09:24–11:37 arasında ~8 MB/s hızla hattı doldurdu. Plan gece 03:00'te indirmekti ama ZimaOS gece 00:00'da kapandığı için hiç çalışmadı. İndirme bitti.
+  - Tarife 100/20 Mbps. MR200 portları 10/100, ZimaOS eth0 100 Mb/s Full. Ölçüm: ZimaOS 89 Mbit, laptop 61 Mbit.
+  - Netmaster kablo hattı: DS kanal 4 kilitsiz, kanal 5'te 26.490 düzeltilemeyen blok. Yavaşlık sürerse bu ISS arızası.
+- **Yapılanlar:**
+  - TP-Link DHCP DNS2 0.0.0.0 → 1.1.1.1 (`~/.ai/scripts/home-net/tp_dns2.py`, before/after okundu).
+  - Laptop Wi-Fi güç tasarrufu DC=Max Performance.
+  - Adaptör ayarları için `~/.ai/scripts/home-net/laptop_wifi.ps1` hazır: roaming Lowest, No SMPS, 5GHz tercih. Yönetici ister, Dean çalıştıracak, ÇALIŞTIRILMADI.
+  - Bulgular memory `ev-agi-iki-modem`'e yazıldı.
+- **Tekrar etme:** laptopta yönetici yetkisi yok, adaptör ayarını uzaktan deneme. TV (.105) ölçülemedi, çünkü kapalıydı (adb 5555 kapalı).
+- **DNS (Dean istedi):** TP-Link DHCP DNS 1.1.1.1/1.0.0.1, ZimaOS nmcli DNS 1.1.1.1/1.0.0.1. Ölçüm: CF 16 ms, 8.8.8.8 55 ms. Yan etki: `nmcli device reapply` w.evaitec tünelini ~4 dk düşürdü (530). `compose up -d --force-recreate --no-deps cloudflared` ile düzeldi; 200 alındı, 4 bağlantı ayakta. Memory `stream-tunnel-netns-rebuild`'e eklendi.
+- **Bridge: KARAR — yapılmayacak.** Dean: "kalsın, az gecikme sorun olmaz". Netmaster Wi-Fi'ı da açık kalıyor. Tekrar önerme.
+- **laptop_wifi.ps1 çalıştırıldı** (UAC onaylandı): No SMPS, roaming Lowest, 5GHz tercih, Ethernet DHCP açık. Doğrulandı: Deancjx 5GHz %91. Ethernet hâlâ "Media disconnected" — sorun kablo/port, fiziksel.
+- **Laptop Ethernet "çalışmadı":** `ipconfig` çıktısı "Media disconnected" (fiziksel bağlantı yok: kablo ya da port) ve Ethernet'te DHCP kapalı, statik IP de yok. DHCP'yi açan satır `laptop_wifi.ps1`'e eklendi (yönetici ister).
+- **0.9.33 YAYINDA:**
+  - İçerik: 983fc1a, tv-ux ajanı. Oynatıcı ayar paneli sabit 440×440dp; üç sekme: Bölümler & Listeler (canlıda Kanallar) / Kaynak · Ses · Hız / ⚙. Kaynak, ses, altyazı ve hız hap butonlar; ✕ Kapat kalktı.
+  - Yayın yerleri: ZimaOS OTA v0.9.33-poc, GitHub, evaglass apps.json vc 933 (ab755e5). sha 310aa9c5… iki kaynakta eşleşiyor.
+  - Doğrulama: emülatörde dizi paneli sabit görüldü (ekran görüntüleri scratchpad/panel-*.png). Canlı yayın, film ve Oynatıcı 2 yalnız derlendi.
+  - Dean'e sorulanlar: (1) "İzlediklerim" listesi yok, hap şu an "İzlenecek" — yeni liste mi? (2) Filmde panel sekme 2 ile mi açılsın?
+- **Widget/kumanda kök nedeni:** Laptop NetMovies yığını Startup `netmovies-autostart.lnk` ile yine ayağa kalkıyordu; telefon laptopa gidiyordu. Kısayol `.lnk.disabled` yapıldı, `compose stop` çalıştırıldı. Telefon (.187) artık ZimaOS'a gidiyor (log kanıtı).
+- **TP-Link:**
+  - Rezervasyonlar: Mi Box 24:18:C6:B8:05:B8→.105, LG D0:A4:6F:C9:28:80→.175.
+  - Virtual Server 3310 .185 (laptop) idi → .186 yapıldı (`tp_vs.py`).
+  - ZimaOS .186'da kaldı: IP değişikliği APK/apps.json/ssh/vg.env'i bozar.
+- **Kablosuz ölçüm:** Mi Box, LG ve Samsung 5GHz'te, 40 ping 0 kayıp. LG: sinyal -58 dBm, internet 81 Mbit. Mi Box ölçülemedi (adb 5555 reddediyor, ağ üzerinden hata ayıklama kapalı).
+- **0.9.34 işi SÜRÜYOR:** tv-ux ajanı arka planda, worktree'de çalışıyor.
+  - Üst sekmeler yazısız ikonlu segment olacak; 1. sekme hapları da yazısız ikon olacak.
+  - Kaynak/Ses/Altyazı/Hız/kalite: satır başına tek chip, OK ile açılır liste.
+  - GERİ sırası: açık liste → üst satır → panel.
+  - Favori/Takip/İzlenecek: check'li 3'lü segment, tek seçim (diğer ikisinden çıkar); ekleme dizi/filmin kendisine.
+  - Ajan tek commit atacak, push/release yok. Ekran görüntüleri scratchpad/panel2-*.png.
+  - Sonuç gelince: ekranlara bak → ff-merge → test → push → üç yere yayınla (0.9.33'teki adımlar).
+- **NEXT:** Dean'in 0.9.33 geri bildirimi ve iki sorunun cevabı. Mi Box'ta adb açılırsa hız ölç. TV açılınca Wi-Fi sinyalini ve hızını ölç (TP-Link Statistics/Client List). Oynatıcı-2 sorusunun cevabı bekleniyor.
+
+## 2026-09-27 akşam oturumu — özet
 - **Tek sunucu ZimaOS.** Laptop NetMovies yığını DURDURULDU (`docker compose --profile tunnel stop`). w.evaitec.com tüneli ZimaOS'ta (`netmovies-tunnel`), ZimaOS `.env` CF_TUNNEL_TOKEN laptopunkiyle aynı (yedek `.env.bak`). Kök: saat/telefon laptopa, TV ZimaOS'a bağlıydı → kumanda komutları TV'ye gitmiyordu. İstemci adayları 7441e75'te yalnız 1.186 / 0.11.
 - **ZimaOS'ta compose:** `sudo DOCKER_CONFIG=/DATA/AppData/.docker docker compose --profile tunnel up -d --build stream cloudflared` (stream'i yenileyince tüneli de birlikte kur).
 - **Sunucuda canlı (51d1ab6 öncesi 485b5e6 ile kuruldu):** canlı raf yalnız favori kanallar (sunucu tarafı, APK'sız), ajanda `kanal` alanı, kısa klip eleme (googlevideo dur<90), DiziMom → dizimom.cam (.env, iki makinede), `/api/v1/yz/cihaz` (Nano kaydı), `YZ_GECIT_URL=http://192.168.1.186:4000/v1`.
