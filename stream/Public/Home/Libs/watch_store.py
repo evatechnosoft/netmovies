@@ -318,6 +318,18 @@ def add_favorite(
         conn.commit()
 
 
+def remove_progress(content_keys: list[str]) -> int:
+    """İzleme kayıtlarını siler (Devam Et temizliği). Silinen satır sayısını döner."""
+    keys = [k for k in content_keys if k]
+    if not keys:
+        return 0
+    with _LOCK:
+        conn = _connect()
+        cur = conn.executemany("DELETE FROM watch_history WHERE content_key = ?", [(k,) for k in keys])
+        conn.commit()
+    return cur.rowcount
+
+
 def remove_favorite(content_key: str) -> None:
     """Favoriyi kaldırır."""
     with _LOCK:

@@ -62,3 +62,13 @@ class MigrationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RemoveProgressTest(unittest.TestCase):
+    def test_toplu_silme_yalniz_secilenleri_siler(self):
+        for ad in ("aaa", "bbb", "ccc"):
+            watch_store.upsert_progress(ad, title=ad, position_seconds=60, duration_seconds=600)
+        self.assertEqual(watch_store.remove_progress(["aaa", "ccc", "yok", ""]), 2)
+        kalan = {r["content_key"] for r in watch_store.list_continue_watching(limit=50)}
+        self.assertIn("bbb", kalan)
+        self.assertFalse({"aaa", "ccc"} & kalan)

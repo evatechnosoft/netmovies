@@ -4,6 +4,8 @@
 # query params hem JSON body hem form'u state.veri'ye koyar → GET query ve POST body
 # ikisi de otomatik desteklenir), dönüş {**api_v1_global_message, "result": ...}.
 
+import re
+
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
 
@@ -74,6 +76,16 @@ async def save_progress(request: Request):
         duration_seconds = _num(veri.get("duration_seconds")),
     )
     return {**api_v1_global_message, "result": {"ok": True, "content_key": ck}}
+
+
+@api_v1_router.post("/progress/delete")
+async def delete_progress(request: Request):
+    """Devam Et'ten toplu silme. `content_keys`: satır/virgülle ayrılmış anahtarlar."""
+    veri = request.state.veri or {}
+    ham  = veri.get("content_keys") or ""
+    keys = ham if isinstance(ham, list) else re.split(r"[,\n]", str(ham))
+    silinen = watch_store.remove_progress([str(k).strip() for k in keys])
+    return {**api_v1_global_message, "result": {"ok": True, "deleted": silinen}}
 
 
 @api_v1_router.get("/progress")
