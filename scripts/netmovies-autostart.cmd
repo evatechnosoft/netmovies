@@ -22,7 +22,7 @@ exit /b 1
 :ready
 REM 3) Yigin idempotent baslatilir (zaten ayaktaysa dokunmaz).
 cd /d "%PROJECT%"
-docker compose up -d >>"%LOG%" 2>&1
+docker compose --profile tunnel up -d >>"%LOG%" 2>&1
 echo %DATE% %TIME% yigin baslatildi>>"%LOG%"
 
 REM 3b) Kutu kumanda koprusu (Mi Box guc tusu). Konteyner LAN'a TCP acamiyor,
