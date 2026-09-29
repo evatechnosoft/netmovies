@@ -44,7 +44,7 @@ DEFAULT_CONFIG: dict = {
     # Ev upload'i dar oldugunda otomatik secim yukari tirmanip takiliyor; ust
     # sinir koyulabilsin. TV istemcisi de bu degeri okur (client_config).
     "default_quality": "auto",
-    "vault_alias": "Özel Koleksiyon",
+    "vault_alias": "Koleksiyon",
     "vault_pin": "",     # Gizli kasa PIN kodu (opsiyonel)
     "adult_providers": list(ADULT_PROVIDERS),
     # Uzak KekikStreamAPI "geniş katalog" sağlayıcısı (opsiyonel). Boşsa yerel motor
@@ -90,7 +90,7 @@ def _normalize(cfg: dict) -> dict:
         out["min_rating"] = float(out.get("min_rating") or 0.0)
     except (TypeError, ValueError):
         out["min_rating"] = 0.0
-    out["vault_alias"]       = str(out.get("vault_alias") or "Özel Koleksiyon")
+    out["vault_alias"]       = str(out.get("vault_alias") or "Koleksiyon")
     out["vault_pin"]         = str(out.get("vault_pin") or "")
     out["adult_providers"]   = list(out.get("adult_providers") or list(DEFAULT_CONFIG["adult_providers"]))
     out["site_pin"]          = str(out.get("site_pin") or "").strip()

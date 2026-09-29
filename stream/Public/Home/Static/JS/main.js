@@ -156,11 +156,11 @@ const setupSecretVault = () => {
         const isUnlocked = sessionStorage.getItem('netmovies_vault') === '1';
         if (isUnlocked) {
             sessionStorage.removeItem('netmovies_vault');
-            showVaultToast('Özel Koleksiyon Kilitlendi 🔒', false);
+            showVaultToast('Koleksiyon Kilitlendi 🔒', false);
             window.dispatchEvent(new CustomEvent('vault:changed', { detail: { unlocked: false } }));
         } else {
             sessionStorage.setItem('netmovies_vault', '1');
-            showVaultToast('Özel Koleksiyon Kilidi Açıldı! 🔓', true);
+            showVaultToast('Koleksiyon Kilidi Açıldı! 🔓', true);
             window.dispatchEvent(new CustomEvent('vault:changed', { detail: { unlocked: true } }));
         }
     };

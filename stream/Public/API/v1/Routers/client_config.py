@@ -21,7 +21,7 @@ async def client_config(request: Request):
             "adult_providers"  : cfg.get("adult_providers") or [],
             "hidden_providers" : cfg.get("hidden_providers") or [],
             "hidden_categories": cfg.get("hidden_categories") or [],
-            "vault_alias"      : cfg.get("vault_alias") or "Özel Koleksiyon",
+            "vault_alias"      : cfg.get("vault_alias") or "Koleksiyon",
             "min_rating"       : cfg.get("min_rating") or 0.0,
             # Oynatma kalitesi tavani. TV istemcisi bunu setMaxVideoSize ile
             # uygular; "auto" = sinir yok.
