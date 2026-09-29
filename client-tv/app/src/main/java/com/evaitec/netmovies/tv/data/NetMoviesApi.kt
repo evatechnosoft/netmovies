@@ -138,6 +138,10 @@ interface NetMoviesApi {
         @Query("duration_seconds") durationSeconds: Double = 0.0,
     ): OkResponse
 
+    // Devam Et'ten toplu silme. `contentKeys` virgülle ayrılmış content_key listesi.
+    @POST("api/v1/progress/delete")
+    suspend fun deleteProgress(@Query("content_keys") contentKeys: String): OkResponse
+
     @GET("api/v1/favorites")
     suspend fun favorites(): ProgressListResponse
 

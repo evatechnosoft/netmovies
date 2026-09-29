@@ -145,6 +145,7 @@ fun HomeScreen(
     onOpenChannels: () -> Unit,
     library: Library,
     onOpenRemote: () -> Unit = {},
+    onOpenTemizle: () -> Unit = {},
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -156,14 +157,14 @@ fun HomeScreen(
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry(s.message, onRetry = vm::load)
             } else {
-                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote, onOpenTemizle)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
                 ErrorWithRetry("İçerik yok", onRetry = vm::load)
             } else {
-                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote)
+                CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote, onOpenTemizle)
             }
         }
     }
@@ -190,6 +191,7 @@ private fun CategoryRows(
     onOpenAgenda: () -> Unit,
     onOpenChannels: () -> Unit,
     onOpenRemote: () -> Unit = {},
+    onOpenTemizle: () -> Unit = {},
 ) {
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     // Tek-iki posterlik raflar elenir: M3U grup adları ("Business", "Animation;Kids")
@@ -361,6 +363,7 @@ private fun CategoryRows(
                 onOpenVault = onOpenVault,
                 onOpenAdmin = onOpenAdmin,
                 onOpenChannels = onOpenChannels,
+                onOpenTemizle = onOpenTemizle,
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -1275,6 +1278,7 @@ private fun SettingsMenu(
     onOpenVault: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenChannels: () -> Unit,
+    onOpenTemizle: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -1341,6 +1345,7 @@ private fun SettingsMenu(
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
         // Listem ve Ajanda üst barda (★ / 🗓); burada ikinci kopyaları vardı.
+        MenuRow("🧹  Devam Et'i temizle", onClick = { onClose(); onOpenTemizle() })
         MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })

@@ -49,6 +49,8 @@ data class MediaItem(
     // İçerik türü ("serie"/"movie"). Kayıtlı listelerden gelen kartta dolu olur;
     // sunucu, kayıtlı adres çürüdüğünde başlıktan kurtarmak için bunu kullanır.
     @SerialName("media_type") val mediaType: String = "",
+    // Kayıtlı listelerden gelen kartta sunucu anahtarı; Devam Et toplu silme bunu yollar.
+    @SerialName("content_key") val contentKey: String = "",
 )
 
 // /api/v1/quick_channels → kanal başına yayın rehberi satırı.

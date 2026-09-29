@@ -100,6 +100,7 @@ class Library(context: Context) {
         poster = row.poster.takeIf { it.isNotBlank() },
         mediaType = row.mediaType,
         episodeRef = row.episode,
+        contentKey = row.contentKey,
     )
 
     private fun read(key: String): List<MediaItem> =
@@ -217,6 +218,23 @@ class Library(context: Context) {
         watched.add(0, item)
         while (watched.size > MAX_WATCHED) watched.removeAt(watched.lastIndex)
         persist(KEY_WATCHED, watched.toList())
+    }
+
+    /**
+     * Devam Et'ten toplu siler. Yerel liste yalnız sunucu "ok" derse düşer; ardından
+     * `sync()` sunucuyla hizalar. Sonuç: başarı (ekran hata satırı için okur).
+     */
+    suspend fun removeWatched(keys: List<String>): Boolean {
+        val set = keys.filter { it.isNotBlank() }.toSet()
+        if (set.isEmpty()) return false
+        val ok = runCatching { Network.api.deleteProgress(set.joinToString(",")).result.ok }
+            .getOrDefault(false)
+        if (ok) {
+            watched.removeAll { it.contentKey in set }
+            persist(KEY_WATCHED, watched.toList())
+        }
+        sync()
+        return ok
     }
 
     companion object {

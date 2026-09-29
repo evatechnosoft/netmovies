@@ -175,6 +175,7 @@ class MainActivity : ComponentActivity() {
 
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
                         var showKeyMap by remember { mutableStateOf(false) }
+                        var showTemizle by remember { mutableStateOf(false) }
                         var showRemote by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
@@ -276,6 +277,7 @@ class MainActivity : ComponentActivity() {
                         val anaSayfa = {
                             selected = null; showBrowse = false; showAdmin = false
                             showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
+                            showTemizle = false
                             showSearch = false; showRemote = false
                         }
 
@@ -404,6 +406,8 @@ class MainActivity : ComponentActivity() {
                                 )
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
+                            showTemizle ->
+                                com.evaitec.netmovies.tv.ui.DevamTemizleScreen(library = library, onBack = { showTemizle = false })
                             showRemote ->
                                 com.evaitec.netmovies.tv.ui.RemoteScreen(
                                     url = com.evaitec.netmovies.tv.data.ServerResolver.uiBase().toString().trimEnd('/') + "/rc",
@@ -479,6 +483,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenBrowse = { browseVaultMode = false; browseState.results = null; showBrowse = true },
                                         onOpenSearch = { showSearch = true },
                                         onOpenKeyMap = { showKeyMap = true },
+                                        onOpenTemizle = { showTemizle = true },
                                         onOpenRemote = { showRemote = true },
                                         onOpenVault = { browseVaultMode = true; browseState.results = null; showBrowse = true },
                                         onOpenAdmin = { showAdmin = true },
