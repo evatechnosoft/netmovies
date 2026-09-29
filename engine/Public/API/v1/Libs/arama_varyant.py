@@ -50,6 +50,11 @@ def query_variants(title: str | None) -> list[str]:
         varyant.append(" ".join(kelimeler[1:]))
     if len(kelimeler) > 2:
         varyant.append(" ".join(kelimeler[:2]))
+    # Son kelime: sağlayıcı sitelerin kısa adı çoğu zaman son kelimedir
+    # ("Special Ops Lioness" → DiziPal'de yalnız "lioness" bulunuyor). Kısa
+    # son kelime ("gün", "bir") her şeyle eşleşip boşa istek yakar, elenir.
+    if len(kelimeler) > 1 and len(kelimeler[-1]) >= 5:
+        varyant.append(kelimeler[-1])
 
     return list(dict.fromkeys(v for v in varyant if len(v) >= 3))
 

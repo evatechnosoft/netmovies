@@ -10,6 +10,10 @@ class QueryVariantsTest(unittest.TestCase):
     def test_artikel_dusurulur(self):
         self.assertEqual(query_variants("The Odyssey"), ["the odyssey", "odyssey"])
 
+    def test_son_kelime_varyanti(self):
+        self.assertIn("lioness", query_variants("Special Ops Lioness"))
+        self.assertNotIn("gün", query_variants("Yepyeni Bir Gün"))
+
     def test_alt_baslik_kirpilir(self):
         varyantlar = query_variants("Örümcek Adam: Yepyeni Bir Gün")
         self.assertIn("örümcek adam", varyantlar)

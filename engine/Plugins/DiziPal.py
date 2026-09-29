@@ -16,8 +16,10 @@ değişiyor ama schema.org bloğu duruyor.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import time
 import html as html_lib
 import json
 import os
@@ -137,19 +139,36 @@ class DiziPal(PluginBase):
             html = self._home_section(html, category)
         return self._cards(HTMLHelper(html), self.main_url, category)
 
+    # Arama ucu IP başına sıkı hız sınırı koyuyor (art arda 2. istek 429):
+    # zincir her çözümde fast+full × varyant kadar arıyor, çoğu 429'a düşüp
+    # "DiziPal sonuç yok" oluyordu. Sonuç 10 dk hatırlanır, 429'da bir kez beklenip
+    # yeniden denenir.
+    _arama_onbellek: dict[str, tuple[float, list[SearchResult]]] = {}
+    _ARAMA_TTL_SN = 600.0
+
     async def search(self, query: str) -> list[SearchResult]:
         # Site aramayı `/api/search-autocomplete`'ten `/bg/searchcontent`'e taşıdı
         # (form: searchterm + type=hepsi); eski uç 404 verip her arama boş dönüyordu.
         # Yanıt: {"data": {"result": [{"object_name", "used_slug", "object_poster_url"}]}}.
-        try:
-            resp = await self._client().post(
-                f"{self.main_url}/bg/searchcontent",
-                data={"searchterm": query, "type": "hepsi"},
-                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
-            )
-            payload = resp.json()
-        except Exception:
-            return []
+        anahtar = query.strip().lower()
+        kayit = self._arama_onbellek.get(anahtar)
+        if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
+            return list(kayit[1])
+        payload = None
+        for deneme in range(2):
+            try:
+                resp = await self._client().post(
+                    f"{self.main_url}/bg/searchcontent",
+                    data={"searchterm": query, "type": "hepsi"},
+                    headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
+                )
+                if resp.status_code == 429 and deneme == 0:
+                    await asyncio.sleep(2.5)
+                    continue
+                payload = resp.json()
+            except Exception:
+                return []
+            break
         items = ((payload or {}).get("data") or {}).get("result") if isinstance(payload, dict) else None
         results: list[SearchResult] = []
         for item in items or []:
@@ -163,6 +182,8 @@ class DiziPal(PluginBase):
                     poster=item.get("object_poster_url"),
                 )
             )
+        if payload is not None:
+            self._arama_onbellek[anahtar] = (time.monotonic(), list(results))
         return results
 
     # ------------------------------------------------------------------ detay
