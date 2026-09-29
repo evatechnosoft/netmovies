@@ -138,24 +138,29 @@ class DiziPal(PluginBase):
         return self._cards(HTMLHelper(html), self.main_url, category)
 
     async def search(self, query: str) -> list[SearchResult]:
+        # Site aramayı `/api/search-autocomplete`'ten `/bg/searchcontent`'e taşıdı
+        # (form: searchterm + type=hepsi); eski uç 404 verip her arama boş dönüyordu.
+        # Yanıt: {"data": {"result": [{"object_name", "used_slug", "object_poster_url"}]}}.
         try:
             resp = await self._client().post(
-                f"{self.main_url}/api/search-autocomplete",
-                data={"query": query},
-                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/"},
+                f"{self.main_url}/bg/searchcontent",
+                data={"searchterm": query, "type": "hepsi"},
+                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
             )
             payload = resp.json()
         except Exception:
             return []
+        items = ((payload or {}).get("data") or {}).get("result") if isinstance(payload, dict) else None
         results: list[SearchResult] = []
-        for item in (payload or {}).values() if isinstance(payload, dict) else []:
-            if not isinstance(item, dict) or not item.get("url"):
+        for item in items or []:
+            slug = item.get("used_slug") if isinstance(item, dict) else None
+            if not slug:
                 continue
             results.append(
                 SearchResult(
-                    title=item.get("title") or "",
-                    url=absolute(self.main_url, item["url"]) or "",
-                    poster=item.get("poster"),
+                    title=item.get("object_name") or "",
+                    url=absolute(self.main_url, "/" + str(slug).lstrip("/")) or "",
+                    poster=item.get("object_poster_url"),
                 )
             )
         return results
