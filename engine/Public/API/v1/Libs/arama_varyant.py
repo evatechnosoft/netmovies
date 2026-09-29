@@ -14,7 +14,7 @@ _HARFLER = str.maketrans("İIıŞşĞğÜüÖöÇç", "iiissgguuoocc")
 _NOISE = (
     "izle", "full hd", "hd", "4k", "1080p", "1080", "720p", "720",
     "türkçe", "turkce", "dublaj", "altyazılı", "altyazili", "altyazı", "altyazi",
-    "dizisi", "filmi",
+    "dizisi", "filmi", "film",
 )
 
 # Başlık başındaki artikel kaynak sitelerin arama motorunu boşa düşürüyor.
