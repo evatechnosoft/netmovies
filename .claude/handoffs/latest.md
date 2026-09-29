@@ -1,3 +1,10 @@
+## 2026-09-29 akşam 2 — Lioness S2B3 "içerik sağlanamıyor" (EN GÜNCEL)
+- **İki kök neden, ikisi de düzeltildi, laptop engine yeniden kuruldu (bfa25c4, 59e6069, push'lu):**
+  1. DiziMom S2B3 kaynağı `video.twimg.com` 31 sn tanıtım klibiydi; süzgeç yalnız googlevideo `dur=`'a bakıyordu → TV 31 sn'lik "bölüm" açıp kayda `duration 31.3` yazdı. Artık twimg konağı klip sayılır (test_kisa_klip 3/3).
+  2. DiziPal arama ucu değişmiş: `/api/search-autocomplete` 404 → `/bg/searchcontent` (form `searchterm`+`type=hepsi`, JSON `data.result[].used_slug/object_name/object_poster_url`). Bu yüzden her yedek arama "DiziPal sonuç yok" dönüyordu. Yeni uçla Lioness → 24 bölüm, S2B3 → dplayer82 master (motor içinde doğrulandı).
+- **Dikkat:** DiziPal arama ucu IP başına hız sınırı koyuyor (429, openresty); test yoklamalarım WARP IP'sini birkaç dakika kilitledi. Uçtan uca ağ geçidi kanıtı sınır açılınca alınacak (Monitor koşuyor). 429 sürerse `nocache=1` ile tek istek at, art arda yoklama.
+- Not: yeni kurulmuş motorda ilk çözüm DiziMom adımında ~30 sn sürdü ve 25 sn arama bütçesini yedi (tüm yedekler "bütçesi aşıldı — atlandı"); ikinci istekte normale döndü. Isınma etkisi, kod değişikliği yok.
+
 ## 2026-09-29 akşam — sunucu laptopta otomatik açılış
 - **Laptop autostart geri açıldı** (`netmovies-autostart.lnk`, betik `--profile tunnel` ile, 1b8a685). Docker Desktop AutoStart hâlâ False, betik onu da açıyor. health 200, tünel 303. ZimaOS dönünce kısayolu `.disabled` yap + laptop `compose --profile tunnel stop`.
 - **"İçerik sağlanamıyor" = Haysiyet 4. bölüm gerçekten yok:** DiziMom (peacemakerst FirePlayer) 64 sn googlevideo klip (elendi), DDizi oynat sayfası `/player/mp4/<b64>.mp4` → media.duhnet.tv 73,8 sn TNT tanıtımı (mvhd). Diğer sağlayıcılarda arama boş. 3. bölüm DDizi twimg m3u8 ile çözülüyor. Kod değişikliği yok; DDizi `_HLS` regex'i mp4 tanımıyor ama bu bölümde mp4 zaten tanıtım.
