@@ -127,5 +127,7 @@ class HQPorner(PluginBase):
                 url="https:" + mp4s[q],
                 referer=embed_url,
             )
-            for q in sorted(mp4s, key=int, reverse=True)
+            # 1080p önce, 4K en sonda: 2160p H.264 (High@5.1) Mi Box'ta çözülemiyor,
+            # ExoPlayer görüntü izini atlayıp yalnız sesi çalıyordu.
+            for q in sorted(mp4s, key=lambda q: (int(q) > 1080, -int(q)))
         ]
