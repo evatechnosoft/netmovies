@@ -1,3 +1,10 @@
+## 2026-09-29 akşam 4 — DÜZELTME: twimg tam bölüm de taşıyor (EN GÜNCEL)
+- **Yanlış varsayımım geri alındı:** video.twimg.com'u konak olarak klip saymak Tuzlu Kahve 3-4 ve Haysiyet 3'ün 8500 sn'lik TAM bölümlerini de eledi (Dean: "hiçbir şey açmamaya başladın"). Artık süre ölçülür: `hls_kisa_klip_mi` master → ilk varyant → #EXTINF toplamı < 90 sn (yalnız twimg, 2 küçük istek). Lioness S2B3 twimg 31 sn → elenir; Tuzlu Kahve 4 8573 sn → geçer.
+- **Tuzlu Kahve 4 aslında VAR** (DDizi ve DiziMom twimg, 2h23m) — önceki nottaki "yalnız klip" hükmü yanlıştı; S1B5 googlevideo 75 sn hâlâ klip.
+- DiziPal hız sınırı tüm sayfalarda (bölüm sayfası da 429): tüm DiziPal istekleri `_sirayla` ile tek sıra + 3 sn aralık + 429'da 4 sn bekleyip tekrar. 'film' başlık gürültüsüne eklendi ('Tuzlu Kahve Film' → 'tuzlu kahve').
+- **Kanıt (laptop motor, son imaj):** Tuzlu Kahve 3 → DiziMom 1 kaynak; Lioness S2B3 → soğuk motorda ilk istek boş (DiziPal yolu ~14 sn + ısınma, 25 sn bütçe), ikinci istek DiziPal 1 kaynak. TV fast+full iki geçiş yaptığı için pratikte açılır; açılmazsa bir kez daha OK.
+- Commit'ler push'lu; ZimaOS dönünce `git pull && up -d --build engine`.
+
 ## 2026-09-29 akşam 3 — Lioness açıldı, Tuzlu Kahve yok (EN GÜNCEL)
 - **Lioness S2B3 canlıda çözülüyor** (68d6963, e4fe9bb kısa ad eşleşmesi): DiziMom kartı 'Special Ops Lioness' → varyant 'lioness' → DiziPal 'Lioness' eşleşti → S2B3 dplayer82 1 kaynak (ağ geçidi kanıtı 19:56). Eklenen: DiziPal arama önbelleği 10 dk + tek sıra/3 sn aralık + 429'da tekrar; son kelime varyantı; kısa ad eşleşmesi (aday ⊆ asıl ve son kelimeyi taşıyor; ':' alt başlıklı adlar muaf).
 - **Tuzlu Kahve S1B4/S1B5 hiçbir yerde yok:** DiziMom S1B4 twimg klibi, S1B5 googlevideo 75 sn; DDizi S1B4 AYNI twimg klibi. Diğer sağlayıcılarda arama boş. 'Başlarken başka şey geldi' = klip; şimdi elendiği için 'kaynak yok'. TV'nin 19:55'teki 500'ü motor rebuild anına denk geldi.
