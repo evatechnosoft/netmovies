@@ -65,6 +65,17 @@ class GecitTest(unittest.TestCase):
         self.assertIn("OBJECT", govde["messages"][0]["content"])  # şema sistem metninde
         self.assertNotIn("x-goog-api-key", istekler[0].headers)  # anahtar geçitte
 
+    def test_gecit_anahtari_bearer(self):
+        def isleyici(_):
+            return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+        _, istekler = self._sor(isleyici, {"YZ_GECIT_URL": "http://gecit:4000/v1",
+                                           "YZ_GECIT_KEY": "sk-netmovies"})
+        self.assertEqual(istekler[0].headers["authorization"], "Bearer sk-netmovies")
+
+        _, istekler = self._sor(isleyici, {"YZ_GECIT_URL": "http://gecit:4000/v1", "YZ_GECIT_KEY": ""})
+        self.assertNotIn("authorization", istekler[0].headers)
+
     def test_gecit_hatasi_none(self):
         (cikti, hata), _ = self._sor(lambda _: httpx.Response(429, text="kota"),
                                      {"YZ_GECIT_URL": "http://gecit:4000/v1"})

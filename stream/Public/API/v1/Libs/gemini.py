@@ -88,7 +88,10 @@ async def _gecitten_sor(
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(connect=5, read=timeout_sn, write=timeout_sn, pool=5)
         ) as client:
-            yanit = await client.post(f"{url}/chat/completions", json=govde)
+            # Geçit uygulama başına sanal anahtar ister (LiteLLM virtual key).
+            anahtar = os.getenv("YZ_GECIT_KEY", "").strip()
+            basliklar = {"Authorization": f"Bearer {anahtar}"} if anahtar else {}
+            yanit = await client.post(f"{url}/chat/completions", json=govde, headers=basliklar)
     except httpx.HTTPError as hata:
         return None, f"yz gecidi erisilemedi: {hata}"
 

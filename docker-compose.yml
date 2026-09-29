@@ -166,6 +166,7 @@ services:
       # Ev YZ geçidi (LiteLLM, infra/yz/): doluysa Gemini istekleri oraya gider,
       # ör. http://192.168.1.186:4000/v1. Boşsa Google doğrudan çağrılır.
       YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
+      YZ_GECIT_KEY         : ${YZ_GECIT_KEY:-}   # geçidin bu uygulamaya verdiği sanal anahtar
     volumes:
       - ./data:/data
       # Yönetim panelindeki "Canlı Kanallar" kartı buraya yazar, engine oradan okur.

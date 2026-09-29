@@ -1,6 +1,8 @@
 # Home AI gateway: one OpenAI-compatible endpoint for every app on the LAN.
 #   http://192.168.1.186:4000/v1  model: "yerel" (Gemma on Ollama) | "gemini" (Google, server key)
 # Apps never hold a Gemini key: it is read at start from the NetMovies admin panel file.
+# Every app gets its own virtual key (Authorization: Bearer sk-...), issued with the master
+# key and stored in `db`. Secrets live in ./.env (chmod 600, not in git) — see .env.example.
 name: yz
 services:
   ollama:
@@ -26,8 +28,26 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       - ./basla.sh:/app/basla.sh:ro
       - /DATA/AppData/netmovies/data/admin.json:/secrets/admin.json:ro
-    depends_on: [ollama]
+    env_file: .env   # LITELLM_MASTER_KEY, DATABASE_URL
+    depends_on:
+      ollama: {condition: service_started}
+      db: {condition: service_healthy}
     networks: [yz]
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: yz-db
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes: ["/DATA/AppData/yz/db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      interval: 5s
+      retries: 10
+    networks: [yz]   # no published port: only the gateway talks to it
     restart: unless-stopped
 
 networks:
