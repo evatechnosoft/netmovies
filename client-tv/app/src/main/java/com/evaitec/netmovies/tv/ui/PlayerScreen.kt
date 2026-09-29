@@ -399,7 +399,11 @@ fun PlayerScreen(
         // kaçıncı bölüme tıklandığı yalnız adresten anlaşılır. Eşleşmezse zincir
         // 1. bölümü açardı — tıklanan S3B7 değil.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
-            var sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
+            // Devam Et kartı kaydın bölümünü taşır; kartın adresi son açılan bölüm
+            // sayfası olabiliyor (Lioness: kayıt S2B2, adres S3B8 → S3B8 açılıyordu).
+            var sira = item.episodeRef.takeIf { it.isNotBlank() }
+                ?.let { com.evaitec.netmovies.tv.data.episodeIndexOf(it, bolumler) } ?: -1
+            if (sira < 0) sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
             // Adres eşleşmesi tutmayabiliyor: katalog kartının adresi bölüm
             // listesindekinden farklı biçimde gelebiliyor (kodlama, ek parametre).
             // O zaman BAŞLIK söyler: "… 3.Sezon 8.Bölüm" (Dean, 18 Eylül: kart

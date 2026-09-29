@@ -33,6 +33,9 @@ data class MediaItem(
     val autoplay: Boolean = false,
     // Telefon belirli bir bölümü seçtiyse (0 tabanlı sıra); -1 = kayıttan/baştan.
     val episode: Int = -1,
+    // Devam Et kartı: kayıttaki bölüm ("S2B2"). Kartın adresi yalnız anlık görüntü
+    // (son açılan bölüm sayfası olabilir); dolu ref adresten önce gelir.
+    @SerialName("episode_ref") val episodeRef: String = "",
     // Poster rozetleri ("DUB", "ALT", "ORJ") — sunucu yalnız DAHA ÖNCE çözümlenmiş
     // içerik için doldurur (lang_memo.py). Hiç açılmamış kart rozetsiz gelir.
     val lang: List<String> = emptyList(),

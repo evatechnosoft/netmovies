@@ -517,7 +517,9 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
 
         // Kart BÖLÜM sayfası olabilir: adresle, olmazsa başlıkla eşle.
         if (item.episode < 0 && bolumler.isNotEmpty()) {
-            var sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
+            // Devam Et kartı: kayıt referansı adresten önce (bkz. PlayerScreen).
+            var sira = item.episodeRef.takeIf { it.isNotBlank() }?.let { episodeIndexOf(it, bolumler) } ?: -1
+            if (sira < 0) sira = com.evaitec.netmovies.tv.data.episodeIndexByUrl(item.url, bolumler)
             if (sira < 0) sira = basliktanBolum(item.title, bolumler)
             if (sira >= 0) {
                 c.currentEpIndex = sira
