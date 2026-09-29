@@ -1,3 +1,8 @@
+## 2026-09-29 akşam 3 — Lioness açıldı, Tuzlu Kahve yok (EN GÜNCEL)
+- **Lioness S2B3 canlıda çözülüyor** (68d6963, e4fe9bb kısa ad eşleşmesi): DiziMom kartı 'Special Ops Lioness' → varyant 'lioness' → DiziPal 'Lioness' eşleşti → S2B3 dplayer82 1 kaynak (ağ geçidi kanıtı 19:56). Eklenen: DiziPal arama önbelleği 10 dk + tek sıra/3 sn aralık + 429'da tekrar; son kelime varyantı; kısa ad eşleşmesi (aday ⊆ asıl ve son kelimeyi taşıyor; ':' alt başlıklı adlar muaf).
+- **Tuzlu Kahve S1B4/S1B5 hiçbir yerde yok:** DiziMom S1B4 twimg klibi, S1B5 googlevideo 75 sn; DDizi S1B4 AYNI twimg klibi. Diğer sağlayıcılarda arama boş. 'Başlarken başka şey geldi' = klip; şimdi elendiği için 'kaynak yok'. TV'nin 19:55'teki 500'ü motor rebuild anına denk geldi.
+- Laptop engine son kod ile kurulu (65 test OK). ZimaOS dönünce aynı commit'lerle rebuild.
+
 ## 2026-09-29 akşam 2 — Lioness S2B3 "içerik sağlanamıyor" (EN GÜNCEL)
 - **İki kök neden, ikisi de düzeltildi, laptop engine yeniden kuruldu (bfa25c4, 59e6069, push'lu):**
   1. DiziMom S2B3 kaynağı `video.twimg.com` 31 sn tanıtım klibiydi; süzgeç yalnız googlevideo `dur=`'a bakıyordu → TV 31 sn'lik "bölüm" açıp kayda `duration 31.3` yazdı. Artık twimg konağı klip sayılır (test_kisa_klip 3/3).
