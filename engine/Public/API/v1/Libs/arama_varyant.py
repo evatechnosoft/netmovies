@@ -115,4 +115,17 @@ def baslik_uyusuyor(aranan: str, aday_baslik: str | None) -> bool:
         if not fazla:
             return True
 
+    # Kısa ad: sağlayıcı yapımı asıl başlığın bir alt kümesiyle anıyor
+    # ("Special Ops Lioness" → DiziPal'de yalnız "Lioness"). Aday tamamen asıl
+    # başlığın içinde kalıyor ve son kelimeyi taşıyorsa aynı yapımdır. Alt
+    # başlıklı adlar ("Örümcek Adam: Yepyeni Bir Gün" → "Örümcek Adam") muaf:
+    # orada kısa ad BAŞKA yapımdır, bu yol açık olsaydı yine çizgi film açardı.
+    sade = clean_title(aranan)
+    if not any(a in sade for a in _AYRACLAR):
+        son = (sade.split() or [""])[-1].translate(_HARFLER)
+        for parca in _aday_parcalari(aday_baslik):
+            aday = _anlamli_kelimeler(parca)
+            if aday and aday <= hedef and son in aday:
+                return True
+
     return False

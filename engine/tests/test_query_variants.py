@@ -10,6 +10,11 @@ class QueryVariantsTest(unittest.TestCase):
     def test_artikel_dusurulur(self):
         self.assertEqual(query_variants("The Odyssey"), ["the odyssey", "odyssey"])
 
+    def test_kisa_ad_ayni_yapim(self):
+        self.assertTrue(baslik_uyusuyor("Special Ops Lioness", "Lioness"))
+        self.assertFalse(baslik_uyusuyor("Örümcek Adam: Yepyeni Bir Gün", "Örümcek Adam"))
+        self.assertFalse(baslik_uyusuyor("Special Ops Lioness", "Ops"))
+
     def test_son_kelime_varyanti(self):
         self.assertIn("lioness", query_variants("Special Ops Lioness"))
         self.assertNotIn("gün", query_variants("Yepyeni Bir Gün"))
