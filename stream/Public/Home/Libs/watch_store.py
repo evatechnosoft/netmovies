@@ -285,6 +285,24 @@ def list_continue_watching(limit: int = 20) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def list_watched(limit: int = 20) -> list[dict]:
+    """İzlediklerim: continue_watching'in tersi — süresi bilinen ve %92'yi geçmiş kayıtlar."""
+    lim = max(1, int(limit or 1))
+    with _LOCK:
+        conn = _connect()
+        rows = conn.execute(
+            """
+            SELECT * FROM watch_history
+            WHERE duration_seconds > 0
+              AND position_seconds >= duration_seconds * 0.92
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (lim,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 # ---------------------------------------------------------------------- favorites
 def add_favorite(
     content_key: str,

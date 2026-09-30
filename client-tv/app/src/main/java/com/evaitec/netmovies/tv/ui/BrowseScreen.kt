@@ -320,7 +320,7 @@ fun BrowseScreen(
 
     Column(Modifier.fillMaxSize()) {
         NmSearchHeader(
-            title = if (vaultMode) "🗂 Özel Koleksiyon" else "Gözat",
+            title = if (vaultMode) "🗂 Koleksiyon" else "Gözat",
             open = searchOpen,
             query = query,
             onQueryChange = { query = it },

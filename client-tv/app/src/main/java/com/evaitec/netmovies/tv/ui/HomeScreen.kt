@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -196,25 +197,41 @@ private fun CategoryRows(
     // Kategoriye göre grupla (web ana sayfadaki yatay raylar gibi). Sıra korunur.
     // Tek-iki posterlik raflar elenir: M3U grup adları ("Business", "Animation;Kids")
     // ekranı bir ton boş rafla dolduruyordu ve aşağı inmek işkenceydi.
+    // Kaynağın "Yerli" adları Dean'in diliyle; aynı içerik iki tipten (serie +
+    // serie_local) ya da iki sağlayıcıdan gelip rafta iki kez görünüyordu —
+    // başlıkla tekilleşir.
     val groups = remember(items) {
-        items.groupBy { it.category?.takeIf { c -> c.isNotBlank() } ?: "Yeni Çıkanlar" }
-            .filterValues { it.size >= MIN_ROW_ITEMS }
+        items.groupBy { rafAdi(it.category) }
+            .mapValues { (_, v) -> v.distinctBy { it.title?.trim()?.lowercase() ?: it.url } }
+            .filter { (k, v) -> v.size >= MIN_ROW_ITEMS || k == HomeViewModel.KANALLARIM_RAFI }
     }
-    // Kitaplık satırları en üstte (İzlenenler + Favoriler), sonra agregasyon kategorileri.
+    // Kişisel listeler TEK blok, ana sayfanın en üstünde: segment çipleri, altında
+    // seçili listenin TAM ızgarası (Dean, 29 Eylül gece: "raf değil, poster sayfası").
+    // İlk üçü Dean'in istediği; Takip/İzlenecek başka yerde görünmediği için sonda.
+    // Boş liste çip olarak görünmez.
+    val segmentler = remember(library.watched, library.izlenen, library.favorites, library.izlenecek, library.takip) {
+        listOf(
+            "Devam edenler" to library.watched.toList(),
+            "İzlediklerim" to library.izlenen.toList(),
+            "Favoriler" to library.favorites.toList(),
+            "Takip" to library.takip.toList(),
+            "İzlenecek" to library.izlenecek.toList(),
+        ).filter { it.second.isNotEmpty() }
+    }
+    val secili = segmentler.firstOrNull { it.first == position.segment } ?: segmentler.firstOrNull()
+    // Raf sırası Dean'in (29 Eylül): kişisel blok, Türk dizileri, Kanallarım,
+    // Türkçe film, Türkçe dublaj dizi, Yeni Çıkanlar, gerisi.
     // remember ŞART: bu liste 500+ öğe taşıyor ve her recomposition'da yeniden
     // kurulursa raflar arasında gezinmek takılıyor.
-    // Tek "Favoriler" rafı vardı: her şey aynı torbaya giriyordu (Dean, 19 Eylül:
-    // "favori listelerine dönüştür, izlenecekler devam edenler gibi anlamlı").
-    // Devam edenler izleme kaydından KENDİLİĞİNDEN dolar; diğer üçü elle işaretlenir.
-    val sections = remember(groups, library.watched, library.favorites, library.izlenecek, library.takip) {
-        buildList {
-            if (library.watched.isNotEmpty()) add("Devam edenler" to library.watched.toList())
-            if (library.izlenecek.isNotEmpty()) add("İzlenecekler" to library.izlenecek.toList())
-            if (library.takip.isNotEmpty()) add("Takip ettiklerim" to library.takip.toList())
-            if (library.favorites.isNotEmpty()) add("Beğendiklerim" to library.favorites.toList())
-            groups.forEach { add(it.key to it.value) }
-        }
+    val sections = remember(groups, secili) {
+        val kalan = LinkedHashMap(groups)
+        if (secili != null) kalan[KISISEL] = secili.second
+        val once = RAF_SIRASI.mapNotNull { k -> kalan.remove(k)?.let { k to it } }
+        once + kalan.toList()
     }
+    // Segment çiplerinin odak isteyicileri: şeritten YUKARI seçili çipe döner
+    // (geometrik arama en yakın çipe gidiyordu, seçili olana değil).
+    val cipOdak = remember { mutableMapOf<String, FocusRequester>() }
 
     // Kumanda yoklaması BURADA DEĞİL: tek döngü MainActivity'de. Ekran başına
     // döngü kurulduğunda oynatıcı açıkken kumanda ölüyordu (bkz. data/RemoteBus.kt).
@@ -301,21 +318,85 @@ private fun CategoryRows(
                 item(key = "raf-$title") {
                     // Yatay kaydırma da geri verilir: odak uzaktaki bir karttaysa
                     // raf o karta kaydırılmazsa odak ekran dışında kalır.
-                    val rowState = rememberLazyListState()
-                    LaunchedEffect(list.size) {
+                    val kisisel = title == KISISEL
+                    // Segment değişince şerit baştan başlar.
+                    val rowState = remember(if (kisisel) secili?.first else null) { LazyListState() }
+                    LaunchedEffect(rowState, list.size) {
                         if (sIndex == targetRow && targetCard > 0) {
                             runCatching { rowState.scrollToItem(targetCard.coerceAtMost(list.lastIndex)) }
                         }
                     }
                     Column {
-                        Text(
-                            text = title,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = NmType.RowTitle,
-                            color = NmColor.OnSurfaceMuted,
-                            modifier = Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
-                        )
-                        LazyRow(
+                        if (kisisel) {
+                            // SAĞ/SOL çipten çipe geçer ve odaklanan çip seçilir;
+                            // AŞAĞI şeride iner.
+                            Row(
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
+                                horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
+                            ) {
+                                segmentler.forEach { (ad, liste) ->
+                                    SegmentChip(
+                                        label = "$ad  ${liste.size}",
+                                        active = ad == secili?.first,
+                                        modifier = Modifier
+                                            .focusRequester(cipOdak.getOrPut(ad) { FocusRequester() })
+                                            .onFocusChanged {
+                                                if (it.isFocused && position.segment != ad) {
+                                                    position.segment = ad
+                                                    position.row = sIndex
+                                                    position.card = 0
+                                                }
+                                            },
+                                        onClick = { position.segment = ad },
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = title,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = NmType.RowTitle,
+                                color = NmColor.OnSurfaceMuted,
+                                modifier = Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
+                            )
+                        }
+                        val kart: @Composable (Int, MediaItem, Boolean) -> Unit = { index, item, ustSira ->
+                            val hedef = sIndex == targetRow &&
+                                index == targetCard.coerceAtMost(list.lastIndex)
+                            val yukari = if (kisisel && ustSira) secili?.first?.let { cipOdak[it] } else null
+                            val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
+                                .then(if (yukari != null) Modifier.focusProperties { up = yukari } else Modifier)
+                                .onFocusChanged {
+                                    if (it.isFocused) { position.row = sIndex; position.card = index }
+                                }
+                            PosterCard(
+                                item = item,
+                                isFavorite = library.isFavorite(item),
+                                progress = library.progress[item.url] ?: 0f,
+                                onClick = { onSelect(item) },
+                                onLongPress = { menuItem = item },
+                                modifier = cardModifier,
+                            )
+                        }
+                        if (kisisel) {
+                            // Izgara: LazyColumn içinde tembel ızgara kurulamaz; liste
+                            // en fazla birkaç düzine, düz satırlar yeter.
+                            val sutun = if (com.evaitec.netmovies.tv.ui.theme.nmTelefon()) 3 else NmDim.RafPosterAdedi
+                            Column(
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .padding(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = NmDim.RowPadV),
+                                verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                            ) {
+                                list.chunked(sutun).forEachIndexed { satir, parca ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap)) {
+                                        parca.forEachIndexed { i, item -> kart(satir * sutun + i, item, satir == 0) }
+                                    }
+                                }
+                            }
+                        } else LazyRow(
                             modifier = Modifier.focusGroup(),
                             state = rowState,
                             contentPadding = PaddingValues(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = NmDim.RowPadV),
@@ -323,22 +404,9 @@ private fun CategoryRows(
                         ) {
                             // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
                             itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
-                                val hedef = sIndex == targetRow &&
-                                    index == targetCard.coerceAtMost(list.lastIndex)
-                                val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
-                                    .onFocusChanged {
-                                        if (it.isFocused) { position.row = sIndex; position.card = index }
-                                    }
-                                PosterCard(
-                                    item = item,
-                                    isFavorite = library.isFavorite(item),
-                                    progress = library.progress[item.url] ?: 0f,
-                                    onClick = { onSelect(item) },
-                                    onLongPress = { menuItem = item },
-                                    modifier = cardModifier,
-                                )
+                                kart(index, item, true)
                             }
-                    }
+                        }
                     }
                 }
             }
@@ -367,6 +435,56 @@ private fun CategoryRows(
                 onClose = { showSettingsMenu = false }
             )
         }
+    }
+}
+
+// Kişisel bloğun LazyColumn anahtarı; gerçek bir kategori adı olamaz.
+private const val KISISEL = "@@kisisel"
+
+private val RAF_SIRASI = listOf(
+    KISISEL,
+    "Türk Dizileri",
+    HomeViewModel.KANALLARIM_RAFI,
+    "Türkçe Filmler",
+    HomeViewModel.DUBLAJ_RAFI,
+    "Yeni Çıkanlar",
+)
+
+internal fun rafAdi(kategori: String?): String = when (val k = kategori?.takeIf { it.isNotBlank() }) {
+    null -> "Yeni Çıkanlar"
+    "Yerli Diziler" -> "Türk Dizileri"
+    "Yerli Filmler" -> "Türkçe Filmler"
+    else -> k
+}
+
+// Kişisel blok segmenti: seçili = soluk mor zemin, odak = dolu mor + beyaz halka.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SegmentChip(label: String, active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.PillRadius)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                when {
+                    focused -> NmColor.Primary
+                    active -> NmColor.PrimarySelected
+                    else -> NmColor.Surface
+                },
+            )
+            .nmFocusRing(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 5.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = NmType.RowTitle,
+            maxLines = 1,
+            fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Normal,
+            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+        )
     }
 }
 
@@ -1346,7 +1464,7 @@ private fun SettingsMenu(
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
         // Listem ve Ajanda üst barda (★ / 🗓); burada ikinci kopyaları vardı.
         MenuRow("🧹  Devam Et'i temizle", onClick = { onClose(); onOpenTemizle() })
-        MenuRow("🗂  Özel Koleksiyon", onClick = { onClose(); onOpenVault() })
+        MenuRow("🗂  Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })
         MenuRow("✕  Kapat", onClose)

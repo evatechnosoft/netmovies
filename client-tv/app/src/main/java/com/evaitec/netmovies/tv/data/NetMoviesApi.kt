@@ -120,6 +120,10 @@ interface NetMoviesApi {
     @GET("api/v1/continue_watching")
     suspend fun continueWatching(@Query("limit") limit: Int = 20): ProgressListResponse
 
+    /** İzlediklerim: bitirilmiş kayıtlar (continue_watching'in tersi). */
+    @GET("api/v1/watched")
+    suspend fun watched(@Query("limit") limit: Int = 30): ProgressListResponse
+
     @GET("api/v1/progress")
     suspend fun getProgress(
         @Query("title") title: String,

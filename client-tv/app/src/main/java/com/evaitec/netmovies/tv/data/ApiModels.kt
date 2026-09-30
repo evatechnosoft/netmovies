@@ -285,7 +285,7 @@ data class OkResponse(val result: OkResult = OkResult())
 data class ClientConfig(
     @SerialName("adult_providers") val adultProviders: List<String> = emptyList(),
     @SerialName("hidden_providers") val hiddenProviders: List<String> = emptyList(),
-    @SerialName("vault_alias") val vaultAlias: String = "Özel Koleksiyon",
+    @SerialName("vault_alias") val vaultAlias: String = "Koleksiyon",
     /** Oynatma kalitesi tavanı: "auto" | "1080" | "720" | "480". Yönetim panelinden gelir. */
     @SerialName("default_quality") val defaultQuality: String = "auto",
 )
