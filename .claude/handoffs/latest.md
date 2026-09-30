@@ -12,6 +12,7 @@ etmovies` bayat kopya duruyor. F eski Windows (Neyasis/Zehra), format onayı YOK
 - **Engine (fca52ef):** HDFilmCehennemi tür adresleri `-izle-N` (eski yol .now'a 301, .now SNI-bloklu → ConnectError; domain keşfi sağlam, .land doğru); Dizilla "Dublaj Bölümleri" kaldırıldı (liste JS ile geliyor). 66 test OK, komedi 24 kart (throwaway konteyner).
 - **CANLIDA HENÜZ YOK:** remote/token ucu + engine düzeltmesi. `scripts/izleme-bitince-kur.sh` arka planda (`%TEMP%\kur.log`): TV boşta/duraklı(3 dk)/son 90 sn olunca `up -d --build engine stream` + cloudflared recreate + health/tünel/token kanıtı yazar. Kontrol: `cat $TEMP/kur.log` — "BITTI" görünene kadar canlı ESKİ kod.
 - **Kaynaklar:** DiziPal 479, DiziMom 447 puan; ağ: laptop Ethernet 100 Mbps, ZimaOS yalnız Wi-Fi; Thunderbolt iki tarafta hazır, kablo yok.
+**SIRADAKİ İŞ (Dean, 30 Eyl gece):** kesintisiz sunucu geçişi — TV'de ~5 dk ileri tampon (ExoPlayer LoadControl), geçiş arkada, oynatma kesilmesin; `sunucu.sh gec` sırası önce HEDEF ayağa kalksın sonra kaynak dursun; PROXY_TOKEN_SECRET iki sunucuda aynı olmalı. Memory: kesintisiz-sunucu-gecisi.
 **Tekrarlanmayacak:** Dean "kopyala/yaz" demeden harici diske veya ZimaOS'e veri yazma (bugün iki kez iptal ettirdi). İzlerken rebuild yok. Yarım robocopy'yi sağlam sanma.
 **Tek sonraki adım:** kur.log'da BITTI + health 200 + token JSON'u doğrula → Dean "geç" derse `bash scripts/sunucu.sh gec zima`, sonra `durum` + TV'nin .186'yı bulması.
 
