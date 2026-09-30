@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Alt sıra (−30 / +30) ve poster zemini: hap. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#E60A0C10" />
-    <corners android:radius="24dp" />
+    <solid android:color="#CC161A22" />
+    <corners android:radius="999dp" />
 </shape>

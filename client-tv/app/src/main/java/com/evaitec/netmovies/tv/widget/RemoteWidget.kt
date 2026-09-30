@@ -122,7 +122,11 @@ class RemoteWidget : AppWidgetProvider() {
     private fun ciz(context: Context, durum: Durum): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_remote).apply {
             setTextViewText(R.id.widget_baslik, durum.baslik)
-            setTextViewText(R.id.widget_alt, durum.alt)
+            // Tünelden PIN kapısı 401 döndüyse düğmeler sessiz kalmasın: sebebi yaz,
+            // başlığa dokunmak PIN penceresini açsın.
+            val pinGerekli = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .getBoolean(ANAHTAR_PIN_GEREKLI, false)
+            setTextViewText(R.id.widget_alt, if (pinGerekli) "PIN gerekli · başlığa dokun" else durum.alt)
             setTextViewText(R.id.widget_oynat, if (durum.oynuyor) "❚❚" else "▶")
             dugme(context, R.id.widget_geri, KOMUT_GERI)
             dugme(context, R.id.widget_oynat, KOMUT_OYNAT)
@@ -159,7 +163,11 @@ class RemoteWidget : AppWidgetProvider() {
             }
             // Başlığa dokunmak yalnız tazeler: widget'tan uygulamayı açmak, widget'ın
             // var oluş sebebini (uygulamayı açmamak) ortadan kaldırırdı.
-            setOnClickPendingIntent(R.id.widget_baslik, yayin(context, EYLEM_TAZELE, null))
+            setOnClickPendingIntent(
+                R.id.widget_baslik,
+                if (pinGerekli) giris(context, KumandaGirisActivity.MOD_PIN)
+                else yayin(context, EYLEM_TAZELE, null),
+            )
         }
 
     private fun RemoteViews.dugme(context: Context, id: Int, govde: String) =
@@ -246,6 +254,38 @@ class RemoteWidget : AppWidgetProvider() {
         private const val PREF = "widget"
         private const val ANAHTAR_SECIM = "yay_secim"
         private const val ANAHTAR_SERIT = "yay_govde"
+        private const val ANAHTAR_PIN = "site_pin"
+        private const val ANAHTAR_PIN_GEREKLI = "pin_gerekli"
+
+        /** PIN penceresinden: kaydet, uyarıyı kaldır, widget'ı yeniden çiz. */
+        fun pinKaydet(context: Context, pin: String) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
+                .putString(ANAHTAR_PIN, pin.trim())
+                .putBoolean(ANAHTAR_PIN_GEREKLI, false)
+                .apply()
+            context.sendBroadcast(Intent(context, RemoteWidget::class.java).setAction(EYLEM_TAZELE))
+        }
+
+        /**
+         * Tünelden gelen istek PIN kapısına takılır (çerez widget'ta yok); sunucu
+         * `X-Site-Pin` başlığını çerez yerine kabul ediyor. Boşsa başlık eklenmez.
+         */
+        private fun HttpURLConnection.pinEkle(context: Context) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(ANAHTAR_PIN, null)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { setRequestProperty("X-Site-Pin", it) }
+        }
+
+        /** 401 = PIN yok/yanlış; başarılı yanıt uyarıyı kaldırır. */
+        private fun pinDurumu(context: Context, kod: Int) {
+            val gerekli = when {
+                kod == 401 -> true
+                kod in 200..299 -> false
+                else -> return
+            }
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .edit().putBoolean(ANAHTAR_PIN_GEREKLI, gerekli).apply()
+        }
 
         /** Yayın ortasındaki kart — widget yeniden çizilse de yerinde kalsın diye diskte. */
         private fun secim(context: Context): Int =
@@ -473,6 +513,7 @@ class RemoteWidget : AppWidgetProvider() {
                 connectTimeout = 4_000
                 readTimeout = 20_000          // Gemini yanıtı birkaç saniye sürebiliyor
                 setRequestProperty("Content-Type", "application/json")
+                pinEkle(context)
             }
             try {
                 // Kaçışı elle yazmak yerine serileştiriciye bırak: tırnak, ters bölü
@@ -494,9 +535,11 @@ class RemoteWidget : AppWidgetProvider() {
                 doOutput = true
                 connectTimeout = 4_000
                 readTimeout = 8_000
+                pinEkle(context)
             }
             try {
                 conn.outputStream.close()
+                pinDurumu(context, conn.responseCode)
                 conn.responseCode in 200..299
             } finally {
                 conn.disconnect()
@@ -513,9 +556,11 @@ class RemoteWidget : AppWidgetProvider() {
                 connectTimeout = 4_000
                 readTimeout = 6_000
                 setRequestProperty("Content-Type", "application/json")
+                pinEkle(context)
             }
             try {
                 OutputStreamWriter(conn.outputStream).use { it.write(govde) }
+                pinDurumu(context, conn.responseCode)
                 conn.responseCode in 200..299
             } finally {
                 conn.disconnect()

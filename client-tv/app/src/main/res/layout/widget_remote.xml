@@ -126,6 +126,7 @@
                 android:id="@+id/widget_ok"
                 style="@style/NmWidgetPad"
                 android:background="@drawable/widget_dugme_vurgu"
+                android:textColor="#FF0A0C10"
                 android:text="OK" />
             <TextView android:id="@+id/widget_sag" style="@style/NmWidgetPad" android:text="▶" />
         </LinearLayout>
@@ -154,7 +155,8 @@
         <TextView
             android:id="@+id/widget_oynat"
             style="@style/NmWidgetDugme"
-            android:background="@drawable/widget_dugme_vurgu"
+            android:background="@drawable/widget_hap_vurgu"
+            android:textColor="#FF0A0C10"
             android:text="▶" />
         <TextView android:id="@+id/widget_ileri" style="@style/NmWidgetDugme" android:text="+30" />
     </LinearLayout>

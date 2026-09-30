@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.text.InputType
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.Toast
@@ -25,7 +26,11 @@ class KumandaGirisActivity : Activity() {
 
     override fun onCreate(kayit: Bundle?) {
         super.onCreate(kayit)
-        if (intent?.getStringExtra(EK_MOD) == MOD_SES) sesAl() else metinSor()
+        when (intent?.getStringExtra(EK_MOD)) {
+            MOD_SES -> sesAl()
+            MOD_PIN -> pinSor()
+            else -> metinSor()
+        }
     }
 
     private fun sesAl() {
@@ -54,6 +59,21 @@ class KumandaGirisActivity : Activity() {
         finish()
     }
 
+    /** Tünelde PIN kapısı: widget çerez taşımaz, PIN'i başlıkla yollar. */
+    private fun pinSor() {
+        val alan = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "PIN"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Site PIN'i")
+            .setView(alan)
+            .setPositiveButton("Kaydet") { _, _ -> RemoteWidget.pinKaydet(applicationContext, alan.text.toString()) }
+            .setNegativeButton("Vazgeç", null)
+            .setOnDismissListener { finish() }
+            .show()
+    }
+
     private fun yolla(metin: String) {
         val temiz = metin.trim()
         if (temiz.isEmpty()) {
@@ -72,6 +92,7 @@ class KumandaGirisActivity : Activity() {
         const val EK_MOD = "mod"
         const val MOD_SES = "ses"
         const val MOD_METIN = "metin"
+        const val MOD_PIN = "pin"
         private const val ISTEK_SES = 1
     }
 }
