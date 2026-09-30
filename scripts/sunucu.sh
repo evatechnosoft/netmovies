@@ -6,6 +6,14 @@
 #   bash scripts/sunucu.sh durum          # which one is up
 #   bash scripts/sunucu.sh gec zima       # move data + traffic to ZimaOS
 #   bash scripts/sunucu.sh gec laptop     # move back to this laptop
+#   ... gec <hedef> --zorla               # switch even if proxy secrets differ
+#
+# gec order keeps the TV outage short (it has ~5 min of buffer):
+#   0. both .env must sign proxy tokens with the same secret (sha256 compared)
+#   1. prep, source still live: pull + build on target, start warp/doh/engine
+#   2. cut: stop source stream+tunnel, copy data, start target stream+tunnel,
+#      wait for health 200 -> prints "kesinti: N sn"
+#   3. cleanup: stop whole source stack, mark roles
 #
 # Runs from the laptop (Git Bash); reaches ZimaOS over `ssh zima`.
 set -euo pipefail
@@ -50,30 +58,54 @@ tasi() {
   done
 }
 
+# Short hash of the proxy signing secret (PROXY_TOKEN_SECRET, else AUTH_PASS); never prints the value.
+secret_hash() {
+  on "$1" 'v() { grep -E "^$1=" .env | tail -1 | cut -d= -f2- | tr -d "\r"; }; s=$(v PROXY_TOKEN_SECRET); [ -n "$s" ] || s=$(v AUTH_PASS); printf %s "$s" | sha256sum | cut -c1-16'
+}
+
 gec() {
-  local dst=$1 src
+  local dst=$1 zorla=${2:-} src
   case "$dst" in laptop) src=zima ;; zima) src=laptop ;; *) echo "hedef: laptop|zima" >&2; exit 2 ;; esac
 
-  echo "1/4 $src: yazmayı durdur (stream + tünel)"
-  on "$src" "$COMPOSE stop cloudflared stream"
-  echo "2/4 veri $src -> $dst"
-  tasi "$src" "$dst"
-  echo "3/4 $src: yedek moda"
-  on "$src" "$COMPOSE stop && echo yedek > .sunucu"
-  echo "4/4 $dst: güncelle + aç"
-  local before after build=""
+  if [ "$(secret_hash "$src")" != "$(secret_hash "$dst")" ]; then
+    echo "UYARI: proxy imzası uyuşmuyor, TV'deki oynatma geçişte kopar (.env PROXY_TOKEN_SECRET/AUTH_PASS)" >&2
+    [ "$zorla" = --zorla ] || exit 1
+  fi
+
+  echo "1/3 $dst: hazırlık ($src canlı)"
+  local before after
   before=$(on "$dst" "git rev-parse HEAD")
   on "$dst" "git pull --ff-only -q"
   after=$(on "$dst" "git rev-parse HEAD")
-  [ "$before" != "$after" ] && build="--build"
-  on "$dst" "$COMPOSE up -d $build && $COMPOSE up -d --force-recreate cloudflared && echo aktif > .sunucu"
+  if [ "$before" != "$after" ] || ! on "$dst" "docker image inspect netmovies-stream netmovies-engine >/dev/null 2>&1"; then
+    on "$dst" "$COMPOSE build"
+  fi
+  on "$dst" "$COMPOSE up -d warp doh engine"
+  local i
+  for i in $(seq 1 24); do
+    [ "$(on "$dst" "docker inspect -f '{{.State.Health.Status}}' netmovies-engine")" = healthy ] && break
+    [ "$i" = 24 ] && { echo "$dst: engine 120 sn'de healthy olmadı, $src dokunulmadı" >&2; exit 1; }
+    sleep 5
+  done
 
-  for _ in $(seq 1 30); do [ "$(health "$dst")" = 200 ] && break; sleep 5; done
+  echo "2/3 kesim: $src -> $dst"
+  local t0=$SECONDS
+  on "$src" "$COMPOSE stop cloudflared stream"
+  tasi "$src" "$dst"
+  on "$dst" "$COMPOSE up -d stream cloudflared && $COMPOSE up -d --force-recreate cloudflared"
+  for i in $(seq 1 12); do [ "$(health "$dst")" = 200 ] && break; sleep 5; done
+  [ "$(health "$dst")" = 200 ] || echo "UYARI: $dst health 60 sn'de 200 olmadı" >&2
+  local kesinti=$((SECONDS - t0))
+
+  echo "3/3 $src: yedek moda"
+  on "$src" "$COMPOSE stop && echo yedek > .sunucu"
+  on "$dst" "echo aktif > .sunucu"
   durum
+  echo "kesinti: $kesinti sn"
 }
 
 case "${1:-durum}" in
   durum) durum ;;
-  gec) gec "${2:-}" ;;
-  *) echo "kullanım: $0 durum | gec <laptop|zima>" >&2; exit 2 ;;
+  gec) gec "${2:-}" "${3:-}" ;;
+  *) echo "kullanım: $0 durum | gec <laptop|zima> [--zorla]" >&2; exit 2 ;;
 esac
