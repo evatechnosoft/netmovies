@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.9.40"
+val appVersion = "0.9.41"
 
 plugins {
     id("com.android.application")
@@ -94,6 +94,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.11.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
     implementation("androidx.media3:media3-ui:1.11.0")
+    // Oynatıcı istekleri OkHttp'den: BaseUrlInterceptor sunucu geçişinde segmenti yeni adrese taşır.
+    implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
 
     // Ağ (Retrofit + kotlinx.serialization)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

@@ -28,11 +28,17 @@ class BaseUrlInterceptorTest {
             start()
         }
 
-        val interceptor = BaseUrlInterceptor(current = { deadBase }, rediscover = { alive.url("/") })
+        var gecis: Pair<Any, Any>? = null
+        val interceptor = BaseUrlInterceptor(
+            current = { deadBase },
+            rediscover = { alive.url("/") },
+            onSwitch = { eski, yeni -> gecis = eski to yeni },
+        )
         call(interceptor, "http://placeholder/api/v1/health").use {
             assertEquals("tamam", it.body!!.string())
         }
         assertEquals("/api/v1/health", alive.takeRequest().path)
+        assertEquals(deadBase to alive.url("/"), gecis)   // client_log'a düşen kanıt
         alive.shutdown()
     }
 

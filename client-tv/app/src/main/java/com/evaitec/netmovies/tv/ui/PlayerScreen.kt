@@ -100,12 +100,14 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -207,9 +209,13 @@ fun PlayerScreen(
             // bellek bol, hat dar — tamponu büyütmek doğru takas.
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(30_000, 90_000, 3_000, 6_000)
-                    .setBackBuffer(20_000, true)
-                    .setPrioritizeTimeOverSizeThresholds(true)
+                    // 5 dk ileri tampon: sunucu laptop ↔ ZimaOS değişirken (30-60 sn)
+                    // oynatma tampondan sürer, segmentler yeni sunucudan gelir.
+                    // Bayt sınırı (Mi Box 2 GB RAM) süreden önce dolarsa o kazanır.
+                    .setBufferDurationsMs(300_000, 300_000, 2_500, 5_000)
+                    .setTargetBufferBytes(160 * 1024 * 1024)
+                    .setBackBuffer(30_000, true)
+                    .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
             )
             .build()
@@ -1153,7 +1159,7 @@ fun PlayerScreen(
     // uygulanıp hemen sıfırlanıyordu.
     // Oynayan kaynağın DataSource fabrikası: önizleme oynatıcısı scrub anında
     // kurulurken aynı başlıklarla (Referer/UA) bağlanmalı.
-    var aktifFactory by remember { mutableStateOf<DefaultHttpDataSource.Factory?>(null) }
+    var aktifFactory by remember { mutableStateOf<OkHttpDataSource.Factory?>(null) }
     val currentLinkUrl = links.getOrNull(currentLinkIndex)?.url
     LaunchedEffect(currentLinkUrl, retryKey) {
         val link = links.getOrNull(currentLinkIndex) ?: return@LaunchedEffect
@@ -1173,10 +1179,9 @@ fun PlayerScreen(
             ready = false
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
             val ua = link.userAgent.ifBlank { "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)" }
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
+            val dataSourceFactory = OkHttpDataSource.Factory(com.evaitec.netmovies.tv.data.Network.playerClient)
                 .setUserAgent(ua)
                 .setDefaultRequestProperties(headers)
-                .setAllowCrossProtocolRedirects(true)
             aktifFactory = dataSourceFactory
 
             // Tek segment hatası kaynağı düşürmesin: geçici 5xx/kopmada üç
@@ -1967,6 +1972,33 @@ internal fun KeyHintChip(text: String) {
     }
 }
 
+/**
+ * Segment hatasında sabır. Sunucu laptop ↔ ZimaOS geçişi 30-60 sn sürüyor; oynatma
+ * 5 dk tampondan devam eder, yeter ki segment isteği vazgeçmesin. Bağlantı ve 5xx
+ * hatasında 6 deneme, artan bekleme (1,2,4,8,8,8 sn). Manifest ve 4xx varsayılanda
+ * (3 deneme): ölü kaynak / tek kullanımlık 403 hızlı düşsün, sıradakine geçilsin.
+ */
+@UnstableApi
+internal class SunucuGecisPolitikasi : DefaultLoadErrorHandlingPolicy(3) {
+    override fun getRetryDelayMsFor(info: LoadErrorHandlingPolicy.LoadErrorInfo): Long =
+        if (gecici(info)) BEKLEME_MS[(info.errorCount - 1).coerceIn(0, BEKLEME_MS.lastIndex)]
+        else super.getRetryDelayMsFor(info)
+
+    override fun getMinimumLoadableRetryCount(dataType: Int): Int =
+        if (dataType == C.DATA_TYPE_MEDIA) BEKLEME_MS.size else super.getMinimumLoadableRetryCount(dataType)
+
+    private fun gecici(info: LoadErrorHandlingPolicy.LoadErrorInfo): Boolean =
+        info.mediaLoadData.dataType == C.DATA_TYPE_MEDIA && when (val e = info.exception) {
+            is HttpDataSource.InvalidResponseCodeException -> e.responseCode >= 500
+            is HttpDataSource.HttpDataSourceException -> true
+            else -> false
+        }
+
+    private companion object {
+        val BEKLEME_MS = longArrayOf(1_000, 2_000, 4_000, 8_000, 8_000, 8_000)
+    }
+}
+
 // .vtt / .srt uzantısından MIME tahmini (bilinmiyorsa VTT).
 /**
  * Kaynağın medya kaynağı: çoğu HLS, ama Özel Koleksiyon'da (HQPorner) düz mp4 var.
@@ -1978,7 +2010,7 @@ internal fun videoSource(
     factory: androidx.media3.datasource.DataSource.Factory,
     url: String,
 ): androidx.media3.exoplayer.source.MediaSource {
-    val policy = DefaultLoadErrorHandlingPolicy(3)
+    val policy = SunucuGecisPolitikasi()
     val item = ExoMediaItem.fromUri(url)
     val plain = Uri.decode(url).lowercase()
     return if (".mp4" in plain && ".m3u8" !in plain)

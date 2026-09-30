@@ -46,6 +46,17 @@ object Network {
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
+    // Oynatıcı (ExoPlayer) istemcisi. Manifestteki segment adresleri `/proxy/video?…`
+    // köke-göreli; manifestin geldiği sunucuya çözülür. Sunucu laptop ↔ ZimaOS
+    // değişince eski adres ölür — interceptor her isteği güncel sunucuya çevirir,
+    // bağlantı hatasında yeniden keşfeder. Oynatma 5 dk tampondan sürer.
+    val playerClient: OkHttpClient = OkHttpClient.Builder()
+        .dns(PreferIpv4Dns)
+        .addInterceptor(BaseUrlInterceptor(appliesTo = { it.url.encodedPath.startsWith("/proxy/") }))
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+
     val api: NetMoviesApi by lazy {
         Retrofit.Builder()
             .baseUrl(BuildConfig.BASE_URL.trimEnd('/') + "/")

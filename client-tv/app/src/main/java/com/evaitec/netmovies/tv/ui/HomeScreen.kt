@@ -362,11 +362,19 @@ private fun CategoryRows(
                                 modifier = Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
                             )
                         }
+                        val telefon = com.evaitec.netmovies.tv.ui.theme.nmTelefon()
+                        val izgaraSutun = if (telefon) 5 else NmDim.RafPosterAdedi
+                        val izgaraGenislik = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp -
+                            com.evaitec.netmovies.tv.ui.theme.nmKenar() * 2 - NmDim.CardGap * (izgaraSutun - 1)) / izgaraSutun
                         val kart: @Composable (Int, MediaItem, Boolean) -> Unit = { index, item, ustSira ->
                             val hedef = sIndex == targetRow &&
                                 index == targetCard.coerceAtMost(list.lastIndex)
                             val yukari = if (kisisel && ustSira) secili?.first?.let { cipOdak[it] } else null
+                            // Telefonda kişisel ızgara 5 sütun: raf kartı (3,3'lük) fazla iri
+                            // kalıyordu, ekrana az şey sığıyordu (Dean, 30 Eylül). Dıştaki
+                            // width kazanır, PosterCard'ın raf genişliği ezilir.
                             val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
+                                .then(if (kisisel && telefon) Modifier.width(izgaraGenislik) else Modifier)
                                 .then(if (yukari != null) Modifier.focusProperties { up = yukari } else Modifier)
                                 .onFocusChanged {
                                     if (it.isFocused) { position.row = sIndex; position.card = index }
@@ -383,7 +391,7 @@ private fun CategoryRows(
                         if (kisisel) {
                             // Izgara: LazyColumn içinde tembel ızgara kurulamaz; liste
                             // en fazla birkaç düzine, düz satırlar yeter.
-                            val sutun = if (com.evaitec.netmovies.tv.ui.theme.nmTelefon()) 3 else NmDim.RafPosterAdedi
+                            val sutun = izgaraSutun
                             Column(
                                 modifier = Modifier
                                     .focusGroup()

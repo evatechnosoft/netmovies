@@ -22,7 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -131,7 +131,7 @@ class PlayerCore(
     var speed by mutableFloatStateOf(1f)
     var qualityAuto by mutableStateOf(true)
     /** Önizleme oynatıcısı aynı başlıklarla (Referer/UA) çeksin diye. */
-    var aktifFactory by mutableStateOf<DefaultHttpDataSource.Factory?>(null)
+    var aktifFactory by mutableStateOf<OkHttpDataSource.Factory?>(null)
     /** Kısa süreli ipucu ("+30 sn", "Kaldığın yer 12:04"). UI 0,9 sn sonra siler. */
     var seekHint by mutableStateOf<String?>(null)
     var hintTick by mutableIntStateOf(0)
@@ -482,9 +482,13 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
             // Ev ağı için büyük tampon: tek yavaş segment sese yansımasın.
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(30_000, 90_000, 3_000, 6_000)
-                    .setBackBuffer(20_000, true)
-                    .setPrioritizeTimeOverSizeThresholds(true)
+                    // 5 dk ileri tampon: sunucu laptop ↔ ZimaOS değişirken (30-60 sn)
+                    // oynatma tampondan sürer, segmentler yeni sunucudan gelir.
+                    // Bayt sınırı (Mi Box 2 GB RAM) süreden önce dolarsa o kazanır.
+                    .setBufferDurationsMs(300_000, 300_000, 2_500, 5_000)
+                    .setTargetBufferBytes(160 * 1024 * 1024)
+                    .setBackBuffer(30_000, true)
+                    .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
             )
             .build()
@@ -899,10 +903,9 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
             c.ready = false
             val headers = buildMap { if (link.referer.isNotBlank()) put("Referer", link.referer) }
             val ua = link.userAgent.ifBlank { "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)" }
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
+            val dataSourceFactory = OkHttpDataSource.Factory(com.evaitec.netmovies.tv.data.Network.playerClient)
                 .setUserAgent(ua)
                 .setDefaultRequestProperties(headers)
-                .setAllowCrossProtocolRedirects(true)
             c.aktifFactory = dataSourceFactory
 
             // Tek segment hatası kaynağı düşürmesin: üç deneme. mp4 ise progressive.

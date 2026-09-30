@@ -186,8 +186,15 @@ class BaseUrlInterceptor(
     // Varsayilanlar uretimde ServerResolver'a baglar; testte sahte adres verilebilir.
     private val current: () -> HttpUrl = ServerResolver::activeBase,
     private val rediscover: () -> HttpUrl = { ServerResolver.reset(); ServerResolver.activeBase() },
+    // Oynatıcı istemcisinde yalnız sunucunun /proxy/ uçları yönlendirilir; dış CDN'e dokunulmaz.
+    private val appliesTo: (Request) -> Boolean = { true },
+    // Geçiş kanıtı client_log'a düşsün (PlaybackLog sunucuya gönderilir).
+    private val onSwitch: (HttpUrl, HttpUrl) -> Unit = { eski, yeni ->
+        PlaybackLog.info("sunucu", "sunucu yeniden keşfedildi: $eski → $yeni")
+    },
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
+        if (!appliesTo(chain.request())) return chain.proceed(chain.request())
         val base = current()
         return try {
             chain.proceed(retarget(chain.request(), base))
@@ -195,6 +202,7 @@ class BaseUrlInterceptor(
             val fresh = rediscover()
             // Yeniden keşif aynı adresi verdiyse sunucu gerçekten ulaşılamaz — hatayı yükselt.
             if (fresh == base) throw e
+            onSwitch(base, fresh)
             chain.proceed(retarget(chain.request(), fresh))
         }
     }
