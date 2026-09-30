@@ -88,7 +88,8 @@ class Dizilla(PluginBase):
     description = "Dizilla — altyazılı ve Türkçe dublaj yabancı diziler."
     main_page = {
         f"{main_url}/tum-bolumler": "Son Bölümler",
-        f"{main_url}/dublaj-bolumler": "Dublaj Bölümleri",
+        # "Dublaj Bölümleri" (/dublaj-bolumler) çıkarıldı: sayfa 200 dönüyor ama liste
+        # istemci tarafında yükleniyor; secureData yalnız sayfa kaydını taşıyor, bölüm yok.
         f"{main_url}/dizi-turu/aile": "Aile",
         f"{main_url}/dizi-turu/aksiyon": "Aksiyon",
         f"{main_url}/dizi-turu/bilim-kurgu": "Bilim Kurgu",

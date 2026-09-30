@@ -104,18 +104,19 @@ class HDFilmCehennemi(PluginBase):
     description = "HDFilmCehennemi — Türkçe dublaj/altyazı film ve dizi kaynağı."
 
     # Yeni sitenin gerçek bölümleri. Diziler ve bölümler artık ayrı ayrı listeleniyor
-    # (eski `/yabancidiziizle-2` yolu 404).
+    # (eski `/yabancidiziizle-2` yolu 404). Tür adresleri 2026-09'da `-izle-N` son ekine
+    # geçti; eski `/tur/komedi/` SNI-bloklu `.now`'a 301 atıp ConnectError veriyordu.
     main_page = {
         f"{main_url}"                       : "Yeni Eklenen Filmler",
         f"{main_url}/dizi/"                 : "Diziler",
         f"{main_url}/bolum/"                : "Son Bölümler",
-        f"{main_url}/tur/aksiyon/"          : "Aksiyon",
-        f"{main_url}/tur/komedi/"           : "Komedi",
-        f"{main_url}/tur/korku/"            : "Korku",
-        f"{main_url}/tur/bilim-kurgu/"      : "Bilim Kurgu",
-        f"{main_url}/tur/animasyon/"        : "Animasyon",
-        f"{main_url}/tur/dram/"             : "Dram",
-        f"{main_url}/tur/gerilim/"          : "Gerilim",
+        f"{main_url}/tur/aksiyon-izle-1/"   : "Aksiyon",
+        f"{main_url}/tur/komedi-izle-2/"    : "Komedi",
+        f"{main_url}/tur/korku-izle-2/"     : "Korku",
+        f"{main_url}/tur/bilim-kurgu-izle/" : "Bilim Kurgu",
+        f"{main_url}/tur/animasyon-izle/"   : "Animasyon",
+        f"{main_url}/tur/dram-izle-2/"      : "Dram",
+        f"{main_url}/tur/gerilim-izle-1/"   : "Gerilim",
     }
 
     # ------------------------------------------------------------------ Ana sayfa
