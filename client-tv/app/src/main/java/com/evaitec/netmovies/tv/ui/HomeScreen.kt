@@ -205,21 +205,22 @@ private fun CategoryRows(
             .mapValues { (_, v) -> v.distinctBy { it.title?.trim()?.lowercase() ?: it.url } }
             .filter { (k, v) -> v.size >= MIN_ROW_ITEMS || k == HomeViewModel.KANALLARIM_RAFI }
     }
-    // Kişisel listeler TEK blok: üstte yan yana segment çipleri, hemen altında tek
-    // şerit (Dean, 29 Eylül: ayrı raflarda "altında açılan posterler çok aşağıda").
-    // Devam Et izleme kaydından KENDİLİĞİNDEN dolar; diğerleri elle işaretlenir.
+    // Kişisel listeler TEK blok, ana sayfanın en üstünde: segment çipleri, altında
+    // seçili listenin TAM ızgarası (Dean, 29 Eylül gece: "raf değil, poster sayfası").
+    // İlk üçü Dean'in istediği; Takip/İzlenecek başka yerde görünmediği için sonda.
     // Boş liste çip olarak görünmez.
-    val segmentler = remember(library.watched, library.favorites, library.izlenecek, library.takip) {
+    val segmentler = remember(library.watched, library.izlenen, library.favorites, library.izlenecek, library.takip) {
         listOf(
-            "Devam Et" to library.watched.toList(),
-            "Takip" to library.takip.toList(),
+            "Devam edenler" to library.watched.toList(),
+            "İzlediklerim" to library.izlenen.toList(),
             "Favoriler" to library.favorites.toList(),
+            "Takip" to library.takip.toList(),
             "İzlenecek" to library.izlenecek.toList(),
         ).filter { it.second.isNotEmpty() }
     }
     val secili = segmentler.firstOrNull { it.first == position.segment } ?: segmentler.firstOrNull()
-    // Raf sırası Dean'in (29 Eylül): Türk dizileri, kişisel blok (Takip onun
-    // çipi), Kanallarım, Türkçe film, Türkçe dublaj dizi, Yeni Çıkanlar, gerisi.
+    // Raf sırası Dean'in (29 Eylül): kişisel blok, Türk dizileri, Kanallarım,
+    // Türkçe film, Türkçe dublaj dizi, Yeni Çıkanlar, gerisi.
     // remember ŞART: bu liste 500+ öğe taşıyor ve her recomposition'da yeniden
     // kurulursa raflar arasında gezinmek takılıyor.
     val sections = remember(groups, secili) {
@@ -252,7 +253,7 @@ private fun CategoryRows(
     LaunchedEffect(firstKey, sections.size) {
         if (targetRow > 0) runCatching { listState.scrollToItem(targetRow + 1) }  // 0 = TopBar
         repeat(6) {
-            val r = runCatching { firstFocus.requestFocus() }; android.util.Log.e("NMDBG", "focus try $it row=$targetRow card=$targetCard first=$firstKey n=${sections.size} ok=${r.isSuccess} ${r.exceptionOrNull()}"); if (r.isSuccess) return@LaunchedEffect
+            if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             withFrameNanos {}
         }
     }
@@ -361,7 +362,41 @@ private fun CategoryRows(
                                 modifier = Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
                             )
                         }
-                        LazyRow(
+                        val kart: @Composable (Int, MediaItem, Boolean) -> Unit = { index, item, ustSira ->
+                            val hedef = sIndex == targetRow &&
+                                index == targetCard.coerceAtMost(list.lastIndex)
+                            val yukari = if (kisisel && ustSira) secili?.first?.let { cipOdak[it] } else null
+                            val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
+                                .then(if (yukari != null) Modifier.focusProperties { up = yukari } else Modifier)
+                                .onFocusChanged {
+                                    if (it.isFocused) { position.row = sIndex; position.card = index }
+                                }
+                            PosterCard(
+                                item = item,
+                                isFavorite = library.isFavorite(item),
+                                progress = library.progress[item.url] ?: 0f,
+                                onClick = { onSelect(item) },
+                                onLongPress = { menuItem = item },
+                                modifier = cardModifier,
+                            )
+                        }
+                        if (kisisel) {
+                            // Izgara: LazyColumn içinde tembel ızgara kurulamaz; liste
+                            // en fazla birkaç düzine, düz satırlar yeter.
+                            val sutun = if (com.evaitec.netmovies.tv.ui.theme.nmTelefon()) 3 else NmDim.RafPosterAdedi
+                            Column(
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .padding(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = NmDim.RowPadV),
+                                verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                            ) {
+                                list.chunked(sutun).forEachIndexed { satir, parca ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap)) {
+                                        parca.forEachIndexed { i, item -> kart(satir * sutun + i, item, satir == 0) }
+                                    }
+                                }
+                            }
+                        } else LazyRow(
                             modifier = Modifier.focusGroup(),
                             state = rowState,
                             contentPadding = PaddingValues(horizontal = com.evaitec.netmovies.tv.ui.theme.nmKenar(), vertical = NmDim.RowPadV),
@@ -369,24 +404,9 @@ private fun CategoryRows(
                         ) {
                             // Anahtar: aynı içerik iki rafta olabildiği için indeksle eşsizleşir.
                             itemsIndexed(list, key = { index, it -> "${it.url}#$index" }) { index, item ->
-                                val hedef = sIndex == targetRow &&
-                                    index == targetCard.coerceAtMost(list.lastIndex)
-                                val yukari = if (kisisel) secili?.first?.let { cipOdak[it] } else null
-                                val cardModifier = (if (hedef) Modifier.focusRequester(firstFocus) else Modifier)
-                                    .then(if (yukari != null) Modifier.focusProperties { up = yukari } else Modifier)
-                                    .onFocusChanged {
-                                        android.util.Log.e("NMDBG", "card $title/$index focus=${it.isFocused} has=${it.hasFocus}"); if (it.isFocused) { position.row = sIndex; position.card = index }
-                                    }
-                                PosterCard(
-                                    item = item,
-                                    isFavorite = library.isFavorite(item),
-                                    progress = library.progress[item.url] ?: 0f,
-                                    onClick = { onSelect(item) },
-                                    onLongPress = { menuItem = item },
-                                    modifier = cardModifier,
-                                )
+                                kart(index, item, true)
                             }
-                    }
+                        }
                     }
                 }
             }
@@ -422,8 +442,8 @@ private fun CategoryRows(
 private const val KISISEL = "@@kisisel"
 
 private val RAF_SIRASI = listOf(
-    "Türk Dizileri",
     KISISEL,
+    "Türk Dizileri",
     HomeViewModel.KANALLARIM_RAFI,
     "Türkçe Filmler",
     HomeViewModel.DUBLAJ_RAFI,

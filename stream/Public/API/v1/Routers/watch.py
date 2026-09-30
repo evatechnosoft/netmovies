@@ -43,6 +43,19 @@ async def continue_watching(request: Request):
     return {**api_v1_global_message, "result": result}
 
 
+@api_v1_router.get("/watched")
+async def watched(request: Request):
+    """İzlediklerim: bitirilmiş kayıtlar (en son izlenen üstte)."""
+    veri  = request.state.veri or {}
+    try:
+        limit = int(veri.get("limit") or 30)
+    except (TypeError, ValueError):
+        limit = 30
+    yetiskin = set(admin_config.load_config()["adult_providers"])
+    result = [r for r in watch_store.list_watched(limit=limit + 20) if r.get("plugin") not in yetiskin][:limit]
+    return {**api_v1_global_message, "result": result}
+
+
 # ---------------------------------------------------------------------- progress
 @api_v1_router.post("/progress")
 async def save_progress(request: Request):

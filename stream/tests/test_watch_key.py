@@ -85,3 +85,12 @@ class RemoveProgressTest(unittest.TestCase):
         kalan = {r["content_key"] for r in watch_store.list_continue_watching(limit=50)}
         self.assertIn("bbb", kalan)
         self.assertFalse({"aaa", "ccc"} & kalan)
+
+    def test_izlenenler_devam_etin_tersi(self):
+        watch_store.upsert_progress("bitti", title="bitti", position_seconds=580, duration_seconds=600)
+        watch_store.upsert_progress("yarim", title="yarim", position_seconds=60, duration_seconds=600)
+        watch_store.upsert_progress("suresiz", title="suresiz", position_seconds=60, duration_seconds=0)
+        izlenen = {r["content_key"] for r in watch_store.list_watched(limit=50)}
+        devam = {r["content_key"] for r in watch_store.list_continue_watching(limit=50)}
+        self.assertEqual(izlenen, {"bitti"})
+        self.assertEqual(devam, {"yarim", "suresiz"})

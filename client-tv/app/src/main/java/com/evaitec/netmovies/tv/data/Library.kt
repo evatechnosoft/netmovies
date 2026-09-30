@@ -30,6 +30,8 @@ class Library(context: Context) {
     val izlenecek = mutableStateListOf<MediaItem>()
     /** Takip ettiklerim — yeni bölümü çıkınca ajandada görünen diziler. */
     val takip = mutableStateListOf<MediaItem>()
+    /** İzlediklerim — sunucuda bitmiş (%92+) izlemeler. Eski sunucuda boş kalır. */
+    val izlenen = mutableStateListOf<MediaItem>()
     /** url → izlenen oran (0..1). Poster üstündeki ince ilerleme çubuğu için. */
     val progress = mutableStateMapOf<String, Float>()
 
@@ -38,6 +40,7 @@ class Library(context: Context) {
         watched.addAll(read(KEY_WATCHED))
         izlenecek.addAll(read(KEY_IZLENECEK))
         takip.addAll(read(KEY_TAKIP))
+        izlenen.addAll(read(KEY_IZLENEN))
         sync()
     }
 
@@ -53,6 +56,8 @@ class Library(context: Context) {
                 .onSuccess { rows -> replace(izlenecek, rows.map(::toItem), KEY_IZLENECEK) }
             runCatching { Network.api.userList(LISTE_TAKIP).result }
                 .onSuccess { rows -> replace(takip, rows.map(::toItem), KEY_TAKIP) }
+            runCatching { Network.api.watched(limit = 30).result }
+                .onSuccess { rows -> replace(izlenen, rows.map(::toItem), KEY_IZLENEN) }
 
             runCatching { Network.api.continueWatching(limit = 30).result }
                 .onSuccess { rows ->
@@ -242,6 +247,7 @@ class Library(context: Context) {
         const val KEY_WATCHED = "watched"
         const val KEY_IZLENECEK = "izlenecek"
         const val KEY_TAKIP = "takip"
+        const val KEY_IZLENEN = "izlenen"
         // Sunucudaki liste adları (watch_store.ALLOWED_LISTS).
         const val LISTE_IZLENECEK = "izlenecek"
         const val LISTE_TAKIP = "takip"
