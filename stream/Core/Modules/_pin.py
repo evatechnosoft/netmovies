@@ -22,8 +22,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses       import RedirectResponse, Response
 
 _COOKIE = "nm_giris"
-# Çerezsiz istemci (telefon widget'ı) PIN'i bu başlıkta yollar.
-_PIN_BASLIK = "X-Site-Pin"
 
 # Tarayıcının PIN olmadan da alması gerekenler: giriş ekranının kendisi, statik
 # dosyalar, PWA kabuğu, sağlık ucu ve video akışı (harici oynatıcı çerez taşımaz;
@@ -77,11 +75,8 @@ def girisli_mi(request) -> bool:
     pin = site_pin()
     if not pin:
         return True
-    if secrets.compare_digest(request.cookies.get(_COOKIE, ""), cerez_degeri(pin)):
-        return True
-    # Telefon widget'ı çerez taşımaz; ev dışından (tünel) `remote/command` 401 alıp
-    # düğmeleri sessiz bırakıyordu (Dean, 30 Eylül). Uygulamaya girilen PIN başlıkta gelir.
-    return secrets.compare_digest(request.headers.get(_PIN_BASLIK, ""), pin)
+    # Telefon widget'ı çerezi evde `/remote/token`dan alır, tünelde taşır (PIN sorulmaz).
+    return secrets.compare_digest(request.cookies.get(_COOKIE, ""), cerez_degeri(pin))
 
 
 def lan_istegi(request) -> bool:

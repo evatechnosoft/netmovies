@@ -31,13 +31,6 @@ class SitePinTest(unittest.TestCase):
         _pin.site_pin = lambda: ""
         self.assertTrue(_pin.girisli_mi(SahteIstek({})))
 
-    def test_pin_header_opens_the_gate_without_a_cookie(self) -> None:
-        # Telefon widget'ı çerez taşımaz; tünelden remote/command 401 alıyordu.
-        _pin.site_pin = lambda: "1234"
-        self.assertTrue(_pin.girisli_mi(SahteIstek({}, {"X-Site-Pin": "1234"})))
-        self.assertFalse(_pin.girisli_mi(SahteIstek({}, {"X-Site-Pin": "0000"})))
-        self.assertFalse(_pin.girisli_mi(SahteIstek({})))
-
     def test_remote_endpoints_are_behind_the_gate(self) -> None:
         # Tünel açıkken yabancı biri televizyonu sürememeli.
         for yol in ("/api/v1/remote/command", "/api/v1/remote/play", "/api/v1/voice"):
@@ -73,3 +66,25 @@ class LanIstegiTest(unittest.TestCase):
     def test_tunnel_and_public_hosts_are_not_lan(self) -> None:
         for host in ("w.evaitec.com", "8.8.8.8", "", None):
             self.assertFalse(_pin.lan_istegi(self._istek(host)), host)
+
+
+class RemoteTokenTest(unittest.TestCase):
+    # Widget evde anahtarı alır, tünelde çerez olarak taşır — PIN sorulmaz.
+    def _istek(self, host: str):
+        istek = SahteIstek({})
+        istek.url = SahteUrl(host)
+        return istek
+
+    def test_lan_request_gets_cookie_value(self) -> None:
+        import asyncio
+        from Public.API.v1.Routers.remote import remote_token
+        _pin.site_pin = lambda: "1234"
+        yanit = asyncio.run(remote_token(self._istek("192.168.1.185")))
+        self.assertEqual(yanit["result"]["token"], _pin.cerez_degeri("1234"))
+
+    def test_tunnel_request_is_refused(self) -> None:
+        import asyncio
+        from Public.API.v1.Routers.remote import remote_token
+        _pin.site_pin = lambda: "1234"
+        yanit = asyncio.run(remote_token(self._istek("w.evaitec.com")))
+        self.assertEqual(yanit.status_code, 401)

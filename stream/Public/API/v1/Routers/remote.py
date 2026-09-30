@@ -16,8 +16,10 @@ import os
 import time
 
 import httpx
+from starlette.responses import JSONResponse
 
 from Core import Request
+from Core.Modules import _pin
 from .    import api_v1_router, api_v1_global_message
 
 # Bekleyen komut bu süreden eskiyse yok sayılır (telefon gönderdi, TV kapalıydı).
@@ -167,6 +169,17 @@ async def remote_command(request: Request):
 
     enqueue(cmd)
     return {**api_v1_global_message, "result": {"ok": True}}
+
+
+@api_v1_router.get("/remote/token")
+async def remote_token(request: Request):
+    """Telefon widget'ı evdeyken çağırır: giriş çerezinin değerini alır, tünelde
+    `nm_giris` olarak taşır — Dean PIN girmek istemiyor ("benim TV, benim telefon").
+    Değer PIN'in HMAC'i, PIN'i açığa çıkarmaz. Yalnız ev ağına verilir."""
+    if not _pin.lan_istegi(request):
+        return JSONResponse({"result": {"ok": False, "error": "giris gerekli"}}, status_code=401)
+    pin = _pin.site_pin()
+    return {**api_v1_global_message, "result": {"token": _pin.cerez_degeri(pin) if pin else ""}}
 
 
 @api_v1_router.get("/remote/poll")
