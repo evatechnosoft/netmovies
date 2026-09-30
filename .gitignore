@@ -76,3 +76,4 @@ KAYNAK-UYARI.txt
 lists/ozel.m3u
 # ev YZ gecidi sirlari (master key, db parolasi)
 infra/yz/.env
+.sunucu

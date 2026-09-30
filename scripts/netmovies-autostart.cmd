@@ -24,6 +24,9 @@ exit /b 1
 :ready
 REM 3) Yigin idempotent baslatilir (zaten ayaktaysa dokunmaz).
 cd /d "%PROJECT%"
+REM Yedek sunucuysa (aktif ZimaOS) yigini acma: iki sunucu = bolunmus trafik.
+REM Rol dosyasi scripts\sunucu.sh gec ... ile yazilir.
+findstr /x "yedek" "%PROJECT%\.sunucu" >nul 2>&1 && (echo %DATE% %TIME% yedek sunucu - yigin acilmadi>>"%LOG%" & exit /b 0)
 docker compose --profile tunnel up -d >>"%LOG%" 2>&1
 echo %DATE% %TIME% yigin baslatildi>>"%LOG%"
 
