@@ -12,6 +12,11 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
 
 ## Çalıştırma (kullanıcının makinesinde — evde)
+**Canlı kopya USB diskte: `E:\netmovies`** (kod + `.env` + `data/` tek yerde). Yığını
+YALNIZ buradan kaldır; başka klasördeki klon eski veriyle çalışır. ZimaOS çöktüğünde
+ya da makine değiştiğinde: USB'yi tak → o klasörde `docker compose --profile tunnel up -d --build`.
+Linux'ta NTFS diskte git "dubious ownership" derse: `git config --global --add safe.directory <yol>`.
+Otomatik açılış betiği yolu kendi konumundan çıkarır (`scripts/netmovies-autostart.cmd`).
 ```bash
 cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
 
