@@ -13,8 +13,9 @@ from Core.Modules import _pin
 
 
 class SahteIstek:
-    def __init__(self, cookies: dict) -> None:
+    def __init__(self, cookies: dict, headers: dict | None = None) -> None:
         self.cookies = cookies
+        self.headers = headers or {}
 
 
 class SitePinTest(unittest.TestCase):
@@ -29,6 +30,13 @@ class SitePinTest(unittest.TestCase):
         # Kapı yoksa mevcut davranış korunur (ev içi kullanım şifresiz).
         _pin.site_pin = lambda: ""
         self.assertTrue(_pin.girisli_mi(SahteIstek({})))
+
+    def test_pin_header_opens_the_gate_without_a_cookie(self) -> None:
+        # Telefon widget'ı çerez taşımaz; tünelden remote/command 401 alıyordu.
+        _pin.site_pin = lambda: "1234"
+        self.assertTrue(_pin.girisli_mi(SahteIstek({}, {"X-Site-Pin": "1234"})))
+        self.assertFalse(_pin.girisli_mi(SahteIstek({}, {"X-Site-Pin": "0000"})))
+        self.assertFalse(_pin.girisli_mi(SahteIstek({})))
 
     def test_remote_endpoints_are_behind_the_gate(self) -> None:
         # Tünel açıkken yabancı biri televizyonu sürememeli.
