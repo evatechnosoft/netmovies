@@ -15,7 +15,7 @@ Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları
 - ZimaOS: life-os-finance api :8001 / web :8180, claude-otel (OTLP 4317, Grafana 3201), Ollama :4602 (+qwen3:4b-instruct). Ayrıntı: `~/.ai/contracts/zimaos-infrastructure.md`. Laptop konteynerleri durdu, restart=no.
 
 ## Next
-1. Dean evaitec/ev işini kapattıysa: `robocopy D:\projects\evaitec C:\projects\evaitec /E /XJ /R:1 /W:1` (ev için aynı) → `robocopy ... /L` "Files" satırında Copied=0 doğrula → `cmd /c rd /s /q "\\?\D:\projects\evaitec"`. Sonra iki Finance Radar görevini `Set-ScheduledTask` ile `C:\projects\evaitec\lifeOS\life-os-finance\finance-radar\tools\*.ps1`'e çevir.
+1. Taşıma 2026-10-01 21:20 bitti: ev D'den silindi; evaitec C'ye eşitlendi (/L Copied=0), Finance Radar görevleri C'de, `_wt-*` + `dashboard-ui-1b` worktree'leri `git worktree repair` ile C'ye bağlandı. D:\projects\evaitec'te yalnız açık oturumların kilitlediği artık klasörler kaldı (lifeOS\..., `_wt-*` boş/kısmi) — oturumlar kapanınca `cmd /c rd /s /q "\?\D:\projects\evaitec"`.
 2. Dean'den cihaz geri bildirimi: pad 3 ikon, odak dönüşü, ses hafızası, telefon→TV geçişi. Sorun varsa önce `curl -s 192.168.1.186:3310/api/v1/client_log`.
 3. Açık sorular: R.J. Decker bozuk Devam Et kaydı (S1B1 @1121 sn, T3 süresiyle yazıldı) silinsin mi; Teşkilat 188 yerine 186 (DDizi load_item 500 → DiziMom kurtarma 186'da bitiyor, doğrulanmadı).
 
