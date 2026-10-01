@@ -12,10 +12,8 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
 
 ## Çalıştırma (kullanıcının makinesinde — evde)
-**Canlı kopya: `C:\projects
-etmovies`** (NVMe; kod + `.env` + `data/` tek yerde). Yığını
-YALNIZ buradan kaldır; başka klasördeki klon (D:, E: USB) eski veriyle çalışır. USB'den
-çalıştırma: 30 Eylül'de kopya sırasında disk düştü (Disk 153 IO retry), USB 2.0 hızında.
+**Tek kopya: `C:\projects\netmovies`** (NVMe; kod + `.env` + `data/` tek yerde). Yığını
+YALNIZ buradan kaldır; başka klon açma (D/E kopyaları bayat veriyle karışıklık yarattı, silindi).
 Makine değişirse: klasörü taşı → `docker compose --profile tunnel up -d --build`.
 Linux'ta NTFS diskte git "dubious ownership" derse: `git config --global --add safe.directory <yol>`.
 Otomatik açılış betiği yolu kendi konumundan çıkarır (`scripts/netmovies-autostart.cmd`).

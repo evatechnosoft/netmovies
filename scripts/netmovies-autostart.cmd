@@ -4,8 +4,8 @@ REM Kok neden: Docker Desktop AutoStart kapali oldugu icin motor hic baslamiyord
 REM containerlardaki `restart: unless-stopped` de bu yuzden ise yaramiyordu.
 REM Kurulum: bu dosyanin kisayolu %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup icine konur.
 
-REM Proje koku = bu betigin bir ust klasoru: klasor USB'de (E:\netmovies) ya da
-REM baska bir yerde olsa da degistirmeden calisir.
+REM Proje koku = bu betigin bir ust klasoru: klasor nerede olursa olsun
+REM degistirmeden calisir.
 for %%I in ("%~dp0..") do set PROJECT=%%~fI
 set LOG=%PROJECT%\autostart.log
 

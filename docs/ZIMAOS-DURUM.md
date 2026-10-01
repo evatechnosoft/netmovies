@@ -26,7 +26,7 @@
 | 2026-07-06 | ZeroTier `362c178cf315e443` = IceWhale-RemoteAccess (Central'dan yönetilmez) | `C:\Users\Deacjx\.claude\projects\D--MainProjects-Azure\memory\rustdesk-zerotier-remote-access.md` |
 | 2026-08-21 | Claude OTel yığınını ZimaOS'a taşıma planı (yapılmadı) | `C:\Users\Deacjx\.ai\guides\claude-code-otel-observability.md:78-100` |
 | 2026-09-10 | ZimaOS erişilemez (ping/SSH yok) → "kendi işim için lokal Docker" kuralı; 4 Cloudflare tüneli, `evaiteclabs` 0 bağlantı | `...\D--projects\memory\kendi-isim-icin-lokal-docker.md`, `...\D--projects-evaglass\memory\cloudflared-container-per-project.md` |
-| 2026-09-24 | Karar: NetMovies laptop'tan ZimaOS'a taşınır; geçişte ZimaOS'a `.185` verilir | `D:\projects\netmovies\.claude\handoffs\2026-09-24-2325-zimaos-tasima-ag.md` |
+| 2026-09-24 | Karar: NetMovies laptop'tan ZimaOS'a taşınır; geçişte ZimaOS'a `.185` verilir | `.claude/handoffs/2026-09-24-2325-zimaos-tasima-ag.md` |
 | 2026-09-25 | ZimaOS DHCP'de `192.168.1.103` görüldü (hafıza notu); bugün `Supervisor eth0` bağlantısına manuel `192.168.1.186/24`, gw `192.168.1.1`, DNS `192.168.1.1,1.1.1.1` | `...\D--projects-netmovies\memory\ev-agi-iki-modem.md`; `nmcli -g ipv4.* con show "Supervisor eth0"` |
 | 2026-09-25 ~10:39 | Makine açıldı (uptime 37 dk @ 11:16); 11:14 `/DATA/AppData/netmovies` kopyalandı; ~11:22 `netmovies-engine`/`netmovies-stream` imajları build edildi | `uptime`, `ls -la`, `docker images` |
 

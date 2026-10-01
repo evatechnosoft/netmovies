@@ -37,13 +37,13 @@ docker compose up -d --build  # = temiz PRODUCTION (ZimaOS 7/24 için doğru ola
 > Windows'ta dev dosyasını KULLANMA (inotify bind-mount'a geçmez → startup kilitlenir);
 > base compose + elle `--build` kullan. Tünel için `--profile tunnel` ekle.
 
-### Windows (D:\projects içine)
+### Windows (C:\projects içine)
 Docker Desktop kurulu olmalı. PowerShell:
 ```powershell
-cd D:\projects
+cd C:\projects
 git clone https://github.com/evatechnosoft/netmovies.git
 cd netmovies
-git checkout claude/stream-app-architecture-86q0sg
+git checkout fix/general-stability
 copy .env.example .env        # not defteri ile aç, AUTH_USER=Dean / AUTH_PASS gir
 docker compose up -d --build
 ```
