@@ -1,48 +1,42 @@
-# Handoff: TV 0.9.44 yayında + D→C/ZimaOS taşıma yarım
-> 2026-10-01 · `fix/general-stability` @ `d50c705` (push'lu) · kirli: yalnız `atv-kopru.log`, `scripts/yedek_reddet.py` (izlenmeyen, bu oturumun değil)
-> Katalog `C:\projects\evaglass-releases` @ `6321bc4` (push'lu)
+# Handoff: TV 0.9.44 yayında, A.Ü.İ arşiv tasarımı açık
+> 2026-10-01 · `fix/general-stability` @ `2180c74` (push'lu) · kirli: yalnız `atv-kopru.log`, `scripts/yedek_reddet.py` (izlenmeyen, bu oturumun değil)
 
 ## Goal
-Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları düzelt, bitince sorma yayınla (üç yer). Yan iş: aktif projeleri D:\projects → C:\projects taşı, laptop konteynerlerini ZimaOS'a al (Zima açıkken oradan, laptop yedek).
+Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları düzelt, bitince sorma yayınla (üç yer: yerel OTA, GitHub release, apps.json).
 
 ## State
-- Yayında (app_update `v0.9.44-poc`, GitHub release, apps.json vc 944) — hiçbiri cihazda denenmedi, tv_test emülatörü "offline"da kaldı:
-  - `468c95d` PlayerScreen/PlayerScreen2 `key(current.url)` (MainActivity) — telefondan gelen içerik eski ExoPlayer'ı devralıyordu.
-  - `3551925` `data/SesHafizasi.kt` — medya sesi oynatıcı açılışında geri yüklenir.
-  - `d50c705` HomeScreen PosterMenu: LISTE modu panelsiz 3 ikon (`ListeIkonu`), pad kapanınca `firstFocus` yeniden istenir (raftan kalkan kartla odak kayboluyordu).
-- Taşıma (C'de 57 GB boş): sides, layers, evaglass*, codeplay, evaitec-appkit, evaglass-releases, life-os-finance → C'de, D'den silindi. D:\projects\layers boş ama kilitli.
-- **Bekleyen:** D:\projects\evaitec ve D:\projects\ev — C'ye kopyalandı ama D'de canlı iş vardı (VS Code D:\projects\evaitec açık, rcmycar commit'leri, ev .pio/Android build). Zamanlanmış görevler "LifeOS Finance Radar Aksam/Gunluk" hâlâ D yolunda.
-- ZimaOS: life-os-finance api :8001 / web :8180, claude-otel (OTLP 4317, Grafana 3201), Ollama :4602 (+qwen3:4b-instruct). Ayrıntı: `~/.ai/contracts/zimaos-infrastructure.md`. Laptop konteynerleri durdu, restart=no.
+- 0.9.44 yayında (`v0.9.44-poc`), cihazda doğrulanmadı: telefon→TV `key(url)`, ses hafızası (`data/SesHafizasi.kt`), pad'de 3 liste ikonu + odak dönüşü (`HomeScreen.kt` `PosterMenu`).
+- D→C taşıma bitti: ev D'den silindi; evaitec C'ye eşit (`robocopy /L` Copied=0), Finance Radar görevleri C yolunda, `_wt-*` + `dashboard-ui-1b` worktree'leri `git worktree repair` ile C'ye bağlı. `D:\projects\evaitec`'te yalnız açık oturumların kilitlediği artık klasörler (`lifeOS\...`, `_wt-*`) kaldı.
+- Kapanan sorular: R.J. Decker kaydı → Dean "boşver". Teşkilat 186 → yayınlanan son bölüm zaten 186 (B187 Pazar). Altı Üstü İstanbul 15 → iki kaynakta da 15; B16 12 Ekim'de (web). Resident Evil 2026 filmi DiziPal'de var ve oynuyor (yalnız İngilizce ses); Devam Et'teki "Resident Evil" 2022 dizisi (DiziBox) — karışıklık oradan.
 
 ## Next
-1. Taşıma 2026-10-01 21:20 bitti: ev D'den silindi; evaitec C'ye eşitlendi (/L Copied=0), Finance Radar görevleri C'de, `_wt-*` + `dashboard-ui-1b` worktree'leri `git worktree repair` ile C'ye bağlandı. D:\projects\evaitec'te yalnız açık oturumların kilitlediği artık klasörler kaldı (lifeOS\..., `_wt-*` boş/kısmi) — oturumlar kapanınca `cmd /c rd /s /q "\?\D:\projects\evaitec"`.
-2. Dean'den cihaz geri bildirimi: pad 3 ikon, odak dönüşü, ses hafızası, telefon→TV geçişi. Sorun varsa önce `curl -s 192.168.1.186:3310/api/v1/client_log`.
-3. Açık sorular: R.J. Decker bozuk Devam Et kaydı (S1B1 @1121 sn, T3 süresiyle yazıldı) silinsin mi; Teşkilat 188 yerine 186 (DDizi load_item 500 → DiziMom kurtarma 186'da bitiyor, doğrulanmadı).
+1. Dean'in cevabını bekle — Altı Üstü İstanbul "eski bölüm görünmüyor, açılabilir arşiv alanı, bölüm sıralı, seri filmler gibi yapı" isteği. Sorulan iki soru: (a) hangi ekranda görünmüyor (Devam Et kartı / oynatıcı listesi / başka)? (b) "seri filmler gibi" = kart altında katlanır "Arşiv", bölümler numara sırasıyla kart dizisi, en yeni üstte mi? Not: sunucu 15 bölümü veriyor (`load_item` DDizi `...-son-bolum-izle` → 15), pad ▲ "Bölümler (N)" listesi (`HomeScreen.kt:1101`) hepsini çiziyor; kodda "seri film" yapısı YOK.
+2. Dean'den cihaz geri bildirimi (0.9.44'ün dört değişikliği). Sorun varsa önce `curl -s 192.168.1.186:3310/api/v1/client_log`.
+3. Oturumlar kapanınca: `cmd /c rd /s /q "\\?\D:\projects\evaitec"`.
 
 ## Don't repeat
 - load_item'ı elle denerken `encoded_url` TEK kez quote_plus; `url` param → 410, çift kodlama → "unknown url type".
-- Zima'da docker adres havuzu tükendi → yeni compose ağına `ipam.subnet` ver; `prometheus` konteyner adı Zima'da dolu.
-- D'yi silmeden önce `robocopy /L` farkı bak — evaitec/ev'de kopyadan sonra dosyalar değişti.
-- Kalıcı izin ekleme (`/permissions`) Claude'a self-modification diye engelleniyor; Dean ekler.
+- DDizi ham sayfasındaki 16/19/37. bölüm numaraları kenar çubuğundaki BAŞKA dizilerin (Muhtemel Aşk, Sevdiğim Sensin, Halef) — bölüm sayısı kanıtı değil.
+- Zima'da docker adres havuzu tükendi → yeni compose ağına `ipam.subnet` ver.
+- Kalıcı izin ekleme (`/permissions`) Claude'a engelli; Dean ekler.
 
 ## Read first
-1. `~/.claude/projects/C--projects-netmovies/memory/MEMORY.md` — proje hafızası
-2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/HomeScreen.kt` `PosterMenu` — son değişiklik
+1. `~/.claude/projects/C--projects-netmovies/memory/MEMORY.md` — özellikle `card-may-be-episode-page`, `episode-list-slug-leak`
+2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/HomeScreen.kt` `PosterMenu` (~787) — bölüm listesi burada
 
 ## Verify
-git -C C:/projects/netmovies rev-parse --short HEAD          # expect d50c705
+git -C C:/projects/netmovies rev-parse --short HEAD          # expect bu handoff commit'i (2180c74'ün üstü)
 curl -s "http://192.168.1.186:3310/api/v1/app_update?target=tv"   # expect tag v0.9.44-poc
 cd client-tv && ./gradlew testDebugUnitTest -q                # expect exit 0
-curl -s -o /dev/null -w "%{http_code}" http://192.168.1.186:8180/   # expect 200 (finans Zima)
+Get-ScheduledTask 'LifeOS Finance Radar*' | % { $_.Actions.Arguments }   # expect C:\projects\evaitec\...
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies TV (C:\projects\netmovies, dal fix/general-stability @ d50c705). 0.9.44 üç yerde yayında:
-telefon→TV geçişinde oynatıcı key(url) ile sıfırlanıyor, medya sesi hafızada, pad'de listeler 3 küçük
-ikon ve pad kapanınca odak geri. Cihazda doğrulanmadı. Yan iş: D:\projects→C taşıma; evaitec ve ev
-D'de bekliyor (orada canlı iş vardı), finans/otel/ollama ZimaOS'a taşındı.
+NetMovies TV (C:\projects\netmovies, dal fix/general-stability). 0.9.44 yayında, cihazda doğrulanmadı.
+D→C taşıma bitti (D:\projects\evaitec'te yalnız kilitli artık var, oturumlar kapanınca rd). R.J. Decker,
+Teşkilat 186, A.Ü.İ 15, Resident Evil 2026 soruları kapandı.
 Önce C:\projects\netmovies\HANDOFF.md'yi oku, Verify bloğunu çalıştır.
-Öncelik: (1) evaitec/ev farkını aktar-doğrula-D'den sil + Finance Radar görevlerini C'ye çevir
-(D'de iş sürüyorsa Dean'e sor); (2) Dean'in cihaz geri bildirimi; (3) R.J. Decker kaydı / Teşkilat 186 sorusu.
+Öncelik: (1) Dean'in A.Ü.İ "eski bölümler / arşiv alanı / seri filmler gibi" cevabına göre tasarla — iki
+soru açık, cevapsız kodlama; (2) cihaz geri bildirimi; (3) D artığını sil.
 Dean istemeden yeni iş açma.
 ```
