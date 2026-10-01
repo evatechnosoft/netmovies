@@ -6,7 +6,11 @@ Eski bloklar (USB/E:, D kopyası, 0.9.38 öncesi) bayat bilgi taşıdığı içi
 - **Tek kopya `C:\projects\netmovies`** (NVMe). Stream mount'ları C (`data/`, `lists/`), health 200.
   D klonu silindi (oturum kilidindeki boş klasör kaldı). `E:\netmovies` (USB) takılı değildi —
   takılınca silinecek. Proje hafızası `~/.claude/projects/C--projects-netmovies/memory`'ye taşındı.
-- **Aktif sunucu laptop.** ZimaOS NetMovies yığını `.sunucu=yedek` ile kapalı. Geçiş:
+- **Aktif sunucu ZimaOS** (1 Ekim 14:31 açıldı; laptop yığını durduruldu, `.sunucu=yedek`; laptop DB/json/lists
+  ZimaOS'a birleştirildi, Zima DB yedeği `data/netmovies.db.bak-*`). LAN 200, tünel 303.
+- **ZimaOS diskleri (1 Ekim):** SanDisk 240 GB tek parça ext4 `sata` → `/DATA/sata` (yazma 385 / okuma 301 MB/s).
+  Kingston A2000 500 GB (USB, JMS583) exFAT `A2000`, Windows+Linux (343 / 357 MB/s). A2000 SMART: 19 veri
+  bütünlüğü hatası + 17 ani kapanma (test boyunca artmadı) — kritik veri koyma. Geçiş:
   `bash scripts/sunucu.sh durum | gec zima | gec laptop` (önce hedef ayağa, sonra kaynak durur — e338228).
   `gec` canlıda hiç çalıştırılmadı; Dean "geç" demeden çalıştırma. PROXY_TOKEN_SECRET iki sunucuda aynı olmalı.
 - **0.9.41 yerel OTA'da** (`app_update` → v0.9.41-poc, 22.637.128 B): 5 dk ileri tampon (LoadControl 300 sn/160 MB),
