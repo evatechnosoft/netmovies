@@ -306,6 +306,10 @@ fun PlayerScreen(
         )
         sesKapali = sesYonetici.isStreamMute(android.media.AudioManager.STREAM_MUSIC)
     }
+    DisposableEffect(Unit) {
+        com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(context)
+        onDispose { com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(context) }
+    }
 
     // MENÜ basılı mı tutuldu: tek basış ayarları açar, basılı tutma sisteme kalır.
     var menuUzun by remember { mutableStateOf(false) }
@@ -1314,6 +1318,8 @@ fun PlayerScreen(
         if (!ready) return@LaunchedEffect
         while (true) {
             delay(15_000)
+            // Ses de kaydedilir: TV oynarken kapatılırsa onDispose hiç çalışmaz.
+            com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(context)
             if (exo.isCurrentMediaItemLive) continue    // canlı yayının "kaldığı yer" olmaz
             library.saveProgress(
                 item,

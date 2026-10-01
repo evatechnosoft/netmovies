@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
@@ -73,6 +74,11 @@ fun PlayerScreen2(
   core.uiKapat = { gecis -> ui.panelAsList = false; if (gecis) ui.showControls = false }
 
   val context = LocalContext.current
+  // Medya sesi oynatıcılar arasında hatırlanır (eski oynatıcıyla aynı kayıt).
+  DisposableEffect(Unit) {
+    com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(context)
+    onDispose { com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(context) }
+  }
   val keyPrefs = remember {
     context.getSharedPreferences("netmovies_keymap", android.content.Context.MODE_PRIVATE)
   }
