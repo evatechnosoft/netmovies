@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -385,25 +386,33 @@ class MainActivity : ComponentActivity() {
                                 }
                             // Oynatıcı 2 deneme aşamasında: Ayarlar'daki anahtar açıksa o,
                             // değilse eski oynatıcı (yedek). Bkz. docs/PLAYER2-PLAN.md.
+                            // key(url): içerik değişince oynatıcı SIFIRDAN kurulur. Anahtarsız
+                            // hâlde telefondan gelen içerik aynı ExoPlayer'a düşüyor, efektler
+                            // eski içeriği tutuyordu — R.J. Decker kaydı Terminatör 3'ün
+                            // konum/süresiyle yazıldı (Dean, 30 Eylül).
                             current != null && com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(this@MainActivity) ->
-                                com.evaitec.netmovies.tv.ui.player2.PlayerScreen2(
-                                    item = current,
-                                    bindings = bindings,
-                                    library = library,
-                                    onBack = { selected = null },
-                                    kanallar = kanalListesi,
-                                    onKanal = { selected = it },
-                                )
+                                key(current.url) {
+                                    com.evaitec.netmovies.tv.ui.player2.PlayerScreen2(
+                                        item = current,
+                                        bindings = bindings,
+                                        library = library,
+                                        onBack = { selected = null },
+                                        kanallar = kanalListesi,
+                                        onKanal = { selected = it },
+                                    )
+                                }
                             current != null ->
-                                PlayerScreen(
-                                    item = current,
-                                    bindings = bindings,
-                                    library = library,
-                                    onBack = { selected = null },
-                                    onHome = anaSayfa,
-                                    kanallar = kanalListesi,
-                                    onKanal = { selected = it },
-                                )
+                                key(current.url) {
+                                    PlayerScreen(
+                                        item = current,
+                                        bindings = bindings,
+                                        library = library,
+                                        onBack = { selected = null },
+                                        onHome = anaSayfa,
+                                        kanallar = kanalListesi,
+                                        onKanal = { selected = it },
+                                    )
+                                }
                             showKeyMap ->
                                 KeyMapScreen(bindings = bindings, onBack = { showKeyMap = false })
                             showTemizle ->
