@@ -1,5 +1,9 @@
 package com.evaitec.netmovies.tv.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -255,6 +259,17 @@ private fun CategoryRows(
         repeat(6) {
             if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             withFrameNanos {}
+        }
+    }
+
+    // Pad kapanınca odak raflara geri verilir. Pad'den listeden çıkarılan içerik
+    // raftan da kalkıyor; odak o kartla birlikte yok oluyor, ne pad ne imleç
+    // kalıyordu (Dean, 1 Ekim: "hiçbir şey hareket etmiyor"). Hedef kart sona kırpılır.
+    LaunchedEffect(menuItem == null) {
+        if (menuItem != null) return@LaunchedEffect
+        repeat(6) {
+            withFrameNanos {}
+            if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
 
@@ -957,6 +972,9 @@ private fun PosterMenu(
         }
     }
     NmBackHandler(enabled = true) { if (mod == PadMod.PAD) onClose() else mod = PadMod.PAD }
+    // LISTE de panelsiz: üç küçük ikon yoncanın ☆ kolunun altında açılır (Dean,
+    // 1 Ekim: "arka tarafa gerek yok, alt tuşa basınca 3 küçük ikonlu buton").
+    val panelsiz = mod == PadMod.PAD || mod == PadMod.LISTE
 
     Box(
         modifier = Modifier
@@ -985,17 +1003,17 @@ private fun PosterMenu(
                 // Alt modlar (bölüm listesi, özet, benzerler) panelde kalır.
                 // Alt modlar TV'de 620dp. Telefonda (~411dp) panel ekran dışına taşıyordu,
                 // Bölümler ve Özet görünmüyordu. Artık ekrandan dar kalıyor.
-                .then(if (mod == PadMod.PAD) Modifier.wrapContentWidth() else Modifier.padding(horizontal = 16.dp).widthIn(max = 620.dp).fillMaxWidth())
+                .then(if (panelsiz) Modifier.wrapContentWidth() else Modifier.padding(horizontal = 16.dp).widthIn(max = 620.dp).fillMaxWidth())
                 .wrapContentHeight()
                 .clip(RoundedCornerShape(NmDim.PanelRadius))
                 .then(
-                    if (mod == PadMod.PAD) Modifier
+                    if (panelsiz) Modifier
                     else Modifier.background(NmColor.SurfaceHigh).padding(18.dp),
                 ),
         ) {
             // PAD modunda künye de yok: joystick tek başına. Alt modlarda afişli
             // künye hangi içerikte olduğunu taşır.
-            if (mod != PadMod.PAD) {
+            if (!panelsiz) {
                 // Künye — hangi içerikte olduğun her katmanda görünür.
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
@@ -1044,7 +1062,7 @@ private fun PosterMenu(
                 // YONCA: dört küçük ikon + ortada oynat. Yazı yok — Dean: "isim
                 // yazmasına gerek yok, küçük sadece ikon". Ne olduğu alt satırdaki
                 // ipucu şeridinde yazar, düğmenin üstünde değil.
-                PadMod.PAD -> {
+                PadMod.PAD, PadMod.LISTE -> {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1061,6 +1079,21 @@ private fun PosterMenu(
                             YoncaKol("✧", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
                         }
                         YoncaKol("☆", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_DOWN) })
+                        if (mod == PadMod.LISTE) {
+                            val ikonlar = listOf(
+                                Icons.Filled.Bookmark,
+                                Icons.Filled.Visibility,
+                                Icons.Filled.Star,
+                            )
+                            val listede = listOf(library.inIzlenecek(item), library.inTakip(item), library.isFavorite(item))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ikonlar.forEachIndexed { i, ikon ->
+                                    ListeIkonu(ikon, secili = i == listeIdx, listede = listede[i]) {
+                                        listeIdx = i; listeUygula(i)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1080,34 +1113,6 @@ private fun PosterMenu(
                                     isaretli = i == secilenBolum,
                                 )
                             }
-                        }
-                    }
-                }
-
-                // AŞAĞI: üç düğme yan yana — izleneceklerim, takip, beğendiklerim.
-                PadMod.LISTE -> {
-                    SutunBasligi("Listeler", true)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 0; listeUygula(0) } }) {
-                            KartSatir(
-                                label = if (library.inIzlenecek(item)) "☆ İzleneceklerde ✓" else "☆ İzleneceklere",
-                                secili = listeIdx == 0,
-                            )
-                        }
-                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 1; listeUygula(1) } }) {
-                            KartSatir(
-                                label = if (library.inTakip(item)) "📋 Takipte ✓" else "📋 Takip et",
-                                secili = listeIdx == 1,
-                            )
-                        }
-                        Box(Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { listeIdx = 2; listeUygula(2) } }) {
-                            KartSatir(
-                                label = if (library.isFavorite(item)) "★ Beğendim ✓" else "★ Beğendim",
-                                secili = listeIdx == 2,
-                            )
                         }
                     }
                 }
@@ -1167,13 +1172,13 @@ private fun PosterMenu(
                 }
             }
 
-            // İpucu şeridi PAD modunda yok: joystick açıklamasız durur.
-            if (mod != PadMod.PAD) {
+            // İpucu şeridi PAD/LISTE modunda yok: joystick açıklamasız durur.
+            if (!panelsiz) {
                 Text(
                     text = when (mod) {
-                        PadMod.PAD    -> "▶ oynat · ☰ bölüm · ℹ özet · ✧ benzer · ☆ liste"
+                        PadMod.PAD    -> ""
                         PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
-                        PadMod.LISTE  -> "◀▶ seç   OK ekle/çıkar   GERİ pad"
+                        PadMod.LISTE  -> ""
                         PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
                         PadMod.BENZER -> "◀▶ gez   OK ara ve aç   GERİ pad"
                     },
@@ -1242,6 +1247,44 @@ private fun YoncaKol(ikon: String, aktif: Boolean = true, onTap: () -> Unit) {
             text = ikon,
             fontSize = NmType.Body,
             color = if (aktif) NmColor.OnSurface else NmColor.OnSurfaceFaint,
+        )
+    }
+}
+
+/** Liste ikonu (izlenecek / takip / beğendim): yazısız. Listedeyse sarı + ✓. */
+@Composable
+private fun ListeIkonu(
+    ikon: androidx.compose.ui.graphics.vector.ImageVector,
+    secili: Boolean,
+    listede: Boolean,
+    onTap: () -> Unit,
+) {
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    val renk = when {
+        secili -> NmColor.OnPrimary
+        listede -> NmColor.Star
+        else -> NmColor.OnSurface
+    }
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .pointerInput(Unit) { detectTapGestures { onTap() } }
+            .clip(shape)
+            .background(if (secili) NmColor.Primary else NmColor.SurfaceHigh)
+            .nmFocusRing(secili, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.Image(
+            ikon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(renk),
+        )
+        if (listede) Text(
+            "✓",
+            fontSize = NmType.Caption,
+            color = renk,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 3.dp),
         )
     }
 }
