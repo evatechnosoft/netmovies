@@ -11,12 +11,13 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
 
-## Çalıştırma (kullanıcının makinesinde — evde)
-**Tek kopya: `C:\projects\netmovies`** (NVMe; kod + `.env` + `data/` tek yerde). Yığını
-YALNIZ buradan kaldır; başka klon açma (D/E kopyaları bayat veriyle karışıklık yarattı, silindi).
-Makine değişirse: klasörü taşı → `docker compose --profile tunnel up -d --build`.
-Linux'ta NTFS diskte git "dubious ownership" derse: `git config --global --add safe.directory <yol>`.
-Otomatik açılış betiği yolu kendi konumundan çıkarır (`scripts/netmovies-autostart.cmd`).
+## Çalıştırma
+**Aktif sunucu: ZimaOS `dean@192.168.1.186` → `/DATA/AppData/netmovies`** (ssh takma adı `zima`).
+Laptop (`C:\projects\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
+docker PATH'te yok. Hangisi aktif: `bash scripts/sunucu.sh durum`; geçiş: `sunucu.sh gec zima|laptop`.
+`scripts/smoke.sh` yerel docker bulamazsa BASE'i ZimaOS'a çevirir, docker adımlarını ssh ile koşar.
+Sunucu kodu değişince ZimaOS'ta: `ssh zima "cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"`.
+Dean TV'de izlerken rebuild/restart YAPMA (`curl -s 192.168.1.186:3310/api/v1/client_log` boşsa serbest).
 ```bash
 cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
 
@@ -26,7 +27,7 @@ docker compose up -d --build
 # 2. Dış erişim tüneli ile çalıştırma (w.evaitec.com)
 docker compose --profile tunnel up -d
 
-# http://localhost:3310  (dean / 1234)
+# http://192.168.1.186:3310  (dean / 1234)
 ```
 Kolay dış erişim (w.evaitec.com): `docs/DEPLOY.md` — hibrit (motor evde + Cloudflare Tunnel).
 Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
@@ -52,8 +53,8 @@ python scripts/chain_scan.py --n 2        # HER sağlayıcının HER kaynağı m
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 docker logs netmovies-engine | grep -E "aggregate:|resolve:"   # kaynak teşhisi
-curl -s localhost:3310/api/v1/source_score                     # sağlayıcı puanları
-curl -s localhost:3310/api/v1/client_log                       # TV oynatma günlüğü (ses/tampon)
+curl -s 192.168.1.186:3310/api/v1/source_score                     # sağlayıcı puanları
+curl -s 192.168.1.186:3310/api/v1/client_log                       # TV oynatma günlüğü (ses/tampon)
 ```
 `tests/` imaja build ile girer; kod değiştirmeden test denemek için:
 `docker cp stream/tests netmovies-stream:/usr/src/Stream/`
