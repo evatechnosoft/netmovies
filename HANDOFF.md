@@ -1,18 +1,22 @@
-# Handoff: TV 0.9.44 yayında, A.Ü.İ arşiv tasarımı açık
-> 2026-10-01 · `fix/general-stability` @ `2180c74` (push'lu) · kirli: yalnız `atv-kopru.log`, `scripts/yedek_reddet.py` (izlenmeyen, bu oturumun değil)
+# Handoff: TV 0.9.45 yayında (üst bar tek satır), sistem denetimi yeşil
+> 2026-10-02 · `fix/general-stability` @ `194413c`+ (push'lu) · kirli: yalnız `atv-kopru.log`, `scripts/yedek_reddet.py` (izlenmeyen)
 
 ## Goal
 Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları düzelt, bitince sorma yayınla (üç yer: yerel OTA, GitHub release, apps.json).
 
 ## State
-- 0.9.44 yayında (`v0.9.44-poc`), cihazda doğrulanmadı: telefon→TV `key(url)`, ses hafızası (`data/SesHafizasi.kt`), pad'de 3 liste ikonu + odak dönüşü (`HomeScreen.kt` `PosterMenu`).
-- D→C taşıma bitti: ev D'den silindi; evaitec C'ye eşit (`robocopy /L` Copied=0), Finance Radar görevleri C yolunda, `_wt-*` + `dashboard-ui-1b` worktree'leri `git worktree repair` ile C'ye bağlı. `D:\projects\evaitec`'te yalnız açık oturumların kilitlediği artık klasörler (`lifeOS\...`, `_wt-*`) kaldı.
-- Kapanan sorular: R.J. Decker kaydı → Dean "boşver". Teşkilat 186 → yayınlanan son bölüm zaten 186 (B187 Pazar). Altı Üstü İstanbul 15 → iki kaynakta da 15; B16 12 Ekim'de (web). Resident Evil 2026 filmi DiziPal'de var ve oynuyor (yalnız İngilizce ses); Devam Et'teki "Resident Evil" 2022 dizisi (DiziBox) — karışıklık oradan.
+- **0.9.45 yayında, üç yer kanıtlı:** yerel OTA `app_update?target=tv` → `v0.9.45-poc` (indirme 200, 22 637 128 B) · GitHub `v0.9.45-poc` (prerelease) · evaglass-releases `netmovies-tv-v0.9.45` + apps.json tv/phone vc 945 (sha256 `2ca34e13…`). Cihazda DOĞRULANMADI.
+  Değişiklik: UpdateBanner (üst barın üstünde ayrı satır) silindi → güncelleme NetMovies markasının yanında tek düğme (`HomeScreen.kt` `TopBar`), güncel/boşta görünmez; 📱 kumanda düğmesi TV'den kaldırıldı. 71 birim test yeşil.
+- **Sistem denetimi (2 Ekim):** smoke YEŞİL (ZimaOS), chain_scan 54 OK / 3 ölü (FullHDFilmizlesene Soulm8te ×2, DDizi Anne Yarısı 504), tünel 200, proxy_token kurcalama → 403, admin 401, konteynerler 0 restart, /DATA %27.
+- **KultFilmler** Dram/Komedi slug'ları `-filmleri-izle-1` oldu (`cac0180`); motor Zima'da rebuild edildi (created 2026-10-02T14:24Z), Komedi 20 kart.
+- **Aktif sunucu ZimaOS** (`/DATA/AppData/netmovies`, repo `cac0180`+). Laptopta docker PATH'te yok; `smoke.sh` otomatik `ssh zima` dalına düşer. Zima'da compose için `export DOCKER_CONFIG=/tmp/dc` şart (yoksa "'compose' is not a docker command").
+- 0.9.44 cihaz geri bildirimi: Dean Blade Runner 2049'u açtı, biraz izledi, kapattı — "sorun yok". A.Ü.İ arşiv tasarımı hâlâ cevapsız.
 
 ## Next
-1. Dean'in cevabını bekle — Altı Üstü İstanbul "eski bölüm görünmüyor, açılabilir arşiv alanı, bölüm sıralı, seri filmler gibi yapı" isteği. Sorulan iki soru: (a) hangi ekranda görünmüyor (Devam Et kartı / oynatıcı listesi / başka)? (b) "seri filmler gibi" = kart altında katlanır "Arşiv", bölümler numara sırasıyla kart dizisi, en yeni üstte mi? Not: sunucu 15 bölümü veriyor (`load_item` DDizi `...-son-bolum-izle` → 15), pad ▲ "Bölümler (N)" listesi (`HomeScreen.kt:1101`) hepsini çiziyor; kodda "seri film" yapısı YOK.
-2. Dean'den cihaz geri bildirimi (0.9.44'ün dört değişikliği). Sorun varsa önce `curl -s 192.168.1.186:3310/api/v1/client_log`.
-3. Oturumlar kapanınca: `cmd /c rd /s /q "\\?\D:\projects\evaitec"`.
+1. Dean'den 0.9.45 cihaz geri bildirimi (üst barda ⬆ düğmesi görünüyor mu, odak tek satırda mı).
+2. A.Ü.İ "arşiv alanı / seri filmler gibi" isteği — iki soru hâlâ açık (hangi ekran; katlanır Arşiv kart dizisi mi). Cevapsız kodlama.
+3. Ölü kaynaklar: FullHDFilmizlesene Soulm8te (Orijinal+SetPlay) ve DDizi Anne Yarısı 504 — tekrar ederse eklentiye bak.
+4. `docs/HANDOFF.md` 24 Eylül'de kalmış; canlı devir bu dosya (kök `HANDOFF.md`). CLAUDE.md'deki `docs/HANDOFF.md` işareti düzeltilmeli.
 
 ## Don't repeat
 - load_item'ı elle denerken `encoded_url` TEK kez quote_plus; `url` param → 410, çift kodlama → "unknown url type".
@@ -25,18 +29,18 @@ Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları
 2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/HomeScreen.kt` `PosterMenu` (~787) — bölüm listesi burada
 
 ## Verify
-git -C C:/projects/netmovies rev-parse --short HEAD          # expect bu handoff commit'i (2180c74'ün üstü)
-curl -s "http://192.168.1.186:3310/api/v1/app_update?target=tv"   # expect tag v0.9.44-poc
+git -C C:/projects/netmovies rev-parse --short HEAD          # expect bu handoff commit'i (194413c'nin üstü)
+curl -s "http://192.168.1.186:3310/api/v1/app_update?target=tv"   # expect tag v0.9.45-poc
 cd client-tv && ./gradlew testDebugUnitTest -q                # expect exit 0
 Get-ScheduledTask 'LifeOS Finance Radar*' | % { $_.Actions.Arguments }   # expect C:\projects\evaitec\...
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies TV (C:\projects\netmovies, dal fix/general-stability). 0.9.44 yayında, cihazda doğrulanmadı.
-D→C taşıma bitti (D:\projects\evaitec'te yalnız kilitli artık var, oturumlar kapanınca rd). R.J. Decker,
-Teşkilat 186, A.Ü.İ 15, Resident Evil 2026 soruları kapandı.
-Önce C:\projects\netmovies\HANDOFF.md'yi oku, Verify bloğunu çalıştır.
-Öncelik: (1) Dean'in A.Ü.İ "eski bölümler / arşiv alanı / seri filmler gibi" cevabına göre tasarla — iki
-soru açık, cevapsız kodlama; (2) cihaz geri bildirimi; (3) D artığını sil.
+NetMovies TV (C:\projects
+etmovies, dal fix/general-stability). 0.9.45 yayında (üç yer), cihazda doğrulanmadı.
+Aktif sunucu ZimaOS; laptopta docker yok, smoke.sh ssh ile koşar. 2 Ekim sistem denetimi yeşil.
+Önce C:\projects
+etmovies\HANDOFF.md'yi oku, Verify bloğunu çalıştır.
+Öncelik: (1) Dean'in 0.9.45 cihaz geri bildirimi; (2) A.Ü.İ arşiv tasarımı — iki soru açık, cevapsız kodlama.
 Dean istemeden yeni iş açma.
 ```

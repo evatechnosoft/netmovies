@@ -6,7 +6,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 ## Her oturumda ilk yap
 1. **Güncel kal:** `git fetch && git checkout fix/general-stability && git pull`
    (Tüm iş bu daldadır; `master` ESKİDİR.)
-2. **Bağlamı al:** `docs/HANDOFF.md` oku — en üstteki "DEVİR" bloğu durumu ve sıradaki
+2. **Bağlamı al:** kök `HANDOFF.md` oku (`docs/HANDOFF.md` eski günlük) — en üstteki "DEVİR" bloğu durumu ve sıradaki
    işi verir; altındaki oturum günlükleri gerekçeyi taşır.
 3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
@@ -16,7 +16,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 Laptop (`C:\projects\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
 docker PATH'te yok. Hangisi aktif: `bash scripts/sunucu.sh durum`; geçiş: `sunucu.sh gec zima|laptop`.
 `scripts/smoke.sh` yerel docker bulamazsa BASE'i ZimaOS'a çevirir, docker adımlarını ssh ile koşar.
-Sunucu kodu değişince ZimaOS'ta: `ssh zima "cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"`.
+Sunucu kodu değişince ZimaOS'ta: `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"` (DOCKER_CONFIG olmadan compose eklentisi görünmez).
 Dean TV'de izlerken rebuild/restart YAPMA (`curl -s 192.168.1.186:3310/api/v1/client_log` boşsa serbest).
 ```bash
 cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
