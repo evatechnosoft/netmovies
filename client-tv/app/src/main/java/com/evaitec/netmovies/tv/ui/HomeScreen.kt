@@ -538,6 +538,10 @@ private fun TopBar(
         horizontalArrangement = Arrangement.spacedBy(if (telefon) 8.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        var odakAdi by remember { mutableStateOf<String?>(null) }
+        fun ad(isim: String) = Modifier.onFocusChanged {
+            if (it.isFocused) odakAdi = isim else if (odakAdi == isim) odakAdi = null
+        }
         Text(
             text = "NetMovies",
             fontWeight = FontWeight.ExtraBold,
@@ -546,6 +550,26 @@ private fun TopBar(
             maxLines = 1,
             modifier = Modifier.padding(end = 4.dp),
         )
+        // Güncelleme ayrı bir şeritti (UpdateBanner, üst barın ÜSTÜNDE): D-pad yukarı
+        // çıkarken önce bar düğmelerinde geziyor, sonra bir satır daha çıkıyordu
+        // (Dean: "tek satırda her şey olsun"). Şimdi markanın yanında bir düğme;
+        // güncel/boşta iken görünmez.
+        val updateVm: UpdateViewModel = viewModel()
+        val guncelleme by updateVm.ui.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { updateVm.recheckIfStale() }
+        when (val u = guncelleme) {
+            is UpdateUi.Available ->
+                TvTopBarButton("⬆ ${u.info.tag}", onClick = { updateVm.download(u.info) }, compact = true, modifier = ad("Güncelle"))
+            is UpdateUi.NeedsPermission ->
+                TvTopBarButton("🔓 İzin", onClick = { updateVm.grantInstallPermission(u.info) }, compact = true, modifier = ad("Kurulum izni"))
+            is UpdateUi.Downloading ->
+                TvTopBarButton("⏬ ${u.tag}", onClick = {}, compact = true, modifier = ad("İndiriliyor"))
+            is UpdateUi.Opened ->
+                TvTopBarButton("📦 ${u.tag}", onClick = {}, compact = true, modifier = ad("Kurulum açıldı"))
+            is UpdateUi.Failed ->
+                TvTopBarButton("⚠", onClick = { updateVm.check(verbose = true) }, compact = true, modifier = ad("Güncelleme kontrol edilemedi — tekrar"))
+            UpdateUi.Idle, is UpdateUi.UpToDate -> {}
+        }
         // Büyüteç SOL BAŞTA: en sık kullanılan giriş, sağ uçta kaybolmasın
         // (Dean: "arama butonu ana ekran sol üstte olsun, sadece büyüteç").
         // Artık Gözat'ı değil kendi arama ekranını açıyor; Gözat'ın kendi
@@ -555,10 +579,6 @@ private fun TopBar(
         // kalmasın"). Gözat aramanın hemen yanında, başta.
         // İkonun adı yalnız odaktayken, ikonların sağında tek yerde yazılır: kalıcı
         // yazı yok (Dean'in isteği), ama "🗓 neydi?" diye basıp denemek de gerekmez.
-        var odakAdi by remember { mutableStateOf<String?>(null) }
-        fun ad(isim: String) = Modifier.onFocusChanged {
-            if (it.isFocused) odakAdi = isim else if (odakAdi == isim) odakAdi = null
-        }
         TvTopBarButton("🔎", onClick = onOpenSearch, compact = true, modifier = ad("Ara"))
         TvTopBarButton("▦", onClick = onOpenBrowse, compact = true, modifier = ad("Kaynaklar"))
         TvTopBarButton("🗓", onClick = onOpenAgenda, compact = true, modifier = ad("Ajanda"))
@@ -570,7 +590,7 @@ private fun TopBar(
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        if (!telefon) TvTopBarButton("📱", onClick = onOpenRemote, compact = true, modifier = ad("Telefon kumandası"))
+        // 📱 kumanda düğmesi kaldırıldı (Dean: "TV sürümünde kumanda kalksın"); telefon zaten kumanda.
         TvTopBarButton("⚙", onClick = onOpenSettings, compact = true, modifier = ad("Ayarlar"))
     }
 }

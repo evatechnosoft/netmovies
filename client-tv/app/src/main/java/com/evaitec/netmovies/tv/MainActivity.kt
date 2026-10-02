@@ -31,7 +31,6 @@ import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.KeyMapScreen
 import com.evaitec.netmovies.tv.ui.PlayerScreen
 import com.evaitec.netmovies.tv.ui.TouchButton
-import com.evaitec.netmovies.tv.ui.UpdateBanner
 
 class MainActivity : ComponentActivity() {
 
@@ -481,7 +480,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             else ->
                                 androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
-                                    UpdateBanner()   // güncelleme varsa üstte şerit
                                     HomeScreen(
                                         position = homePosition,
                                         onSelect = pick,
