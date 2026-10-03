@@ -167,8 +167,9 @@ services:
       # ör. http://192.168.1.186:4000/v1. Boşsa Google doğrudan çağrılır.
       YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
       YZ_GECIT_KEY         : ${YZ_GECIT_KEY:-}   # geçidin bu uygulamaya verdiği sanal anahtar
-      # Kayıtlar: izlerken indirme hızı (KB/s), boş alan tavanı (GB, altına inince izlenen silinir).
-      KAYIT_IZLERKEN_KBPS  : ${KAYIT_IZLERKEN_KBPS:-400}
+      # Kayıtlar: varsayılan hızlar (Mbit/s, TV Ayarlar ezer), boş alan tavanı (GB, altına inince izlenen silinir).
+      KAYIT_IZLERKEN_MBIT  : ${KAYIT_IZLERKEN_MBIT:-3}
+      KAYIT_BOSTA_MBIT     : ${KAYIT_BOSTA_MBIT:-7}
       KAYIT_MIN_BOS_GB     : ${KAYIT_MIN_BOS_GB:-20}
     volumes:
       - ./data:/data

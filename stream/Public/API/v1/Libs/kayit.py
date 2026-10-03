@@ -6,9 +6,10 @@
 # yerel dosya adlarıyla yeniden yazılır, segmentler diske iner. Hazır kayıt
 # resolve_sources'ta ilk kaynak olarak döner — oynatma internetsiz sürer.
 #
-# Bant paylaşımı: biri izliyorsa (son 45 sn'de proxy ya da ilerleme isteği)
-# indirme tek bağlantıya ve KAYIT_IZLERKEN_KBPS'e iner; kimse izlemiyorsa
-# PARALEL bağlantıyla hattın tamamını kullanır.
+# Bant paylaşımı: biri izliyorsa (son 45 sn'de proxy ya da ilerleyen konum)
+# indirme tek bağlantıya ve "izlerken" hızına iner; kimse izlemiyorsa PARALEL
+# bağlantıyla "boşta" hızına çıkar. Hızlar TV Ayarlar'dan (prefs) gelir, Mbit/s,
+# 0 = sınırsız. Otomatik: açıksa Takip listesindeki dizilerin son bölümü kuyruğa.
 #
 # Veritabanı yok: her kaydın klasöründeki meta.json tek kaynaktır.
 
@@ -28,7 +29,9 @@ from CLI import konsol
 from Public.Home.Libs.watch_store import normalize_key
 
 KAYIT_DIR        = Path(os.getenv("KAYIT_DIR", "/kayitlar" if Path("/kayitlar").is_dir() else "kayitlar"))
-IZLERKEN_KBPS    = int(os.getenv("KAYIT_IZLERKEN_KBPS", "400"))
+IZLERKEN_MBIT    = float(os.getenv("KAYIT_IZLERKEN_MBIT", "3"))   # prefs yoksa
+BOSTA_MBIT       = float(os.getenv("KAYIT_BOSTA_MBIT", "7"))
+OTOMATIK_ARALIK  = 3 * 60 * 60
 MIN_BOS_GB       = float(os.getenv("KAYIT_MIN_BOS_GB", "20"))
 YEREL            = os.getenv("KAYIT_YEREL", "http://127.0.0.1:3310")
 PARALEL          = 4
@@ -43,6 +46,8 @@ _URI_RE   = re.compile(r'URI="([^"]+)"')
 
 _son_izleme = 0.0
 _gorev: asyncio.Task | None = None
+_otomatik: asyncio.Task | None = None
+_sonraki_an = 0.0                    # ortak hız sınırlayıcı: paralel bağlantılar toplamda sınırda
 _client = httpx.AsyncClient(
     timeout         = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
     follow_redirects= True,
@@ -58,6 +63,37 @@ def izleme_oldu() -> None:
 
 def izleniyor() -> bool:
     return _son_izleme > 0 and time.monotonic() - _son_izleme < IZLEME_PENCERESI
+
+
+def ayarlar() -> dict:
+    """TV Ayarlar'ın yazdığı prefs anahtarları; yoksa ortam varsayılanı."""
+    try:
+        from ..Routers.prefs import _oku   # döngüsel import olmasın diye geç
+        p = _oku()
+    except Exception:
+        p = {}
+
+    def mbit(anahtar: str, varsayilan: float) -> float:
+        try:
+            return max(0.0, float(p.get(anahtar, varsayilan)))
+        except (TypeError, ValueError):
+            return varsayilan
+
+    return {
+        "izlerken_mbit": mbit("kayit_izlerken_mbit", IZLERKEN_MBIT),
+        "bosta_mbit"   : mbit("kayit_bosta_mbit", BOSTA_MBIT),
+        "otomatik"     : str(p.get("kayit_otomatik", "0")) == "1",
+    }
+
+
+async def _hiz_bekle(bayt: int, hiz: dict) -> None:
+    global _sonraki_an
+    mbit = hiz["izlerken_mbit"] if izleniyor() else hiz["bosta_mbit"]
+    if mbit <= 0:
+        return
+    simdi = time.monotonic()
+    _sonraki_an = max(simdi, _sonraki_an) + bayt * 8 / (mbit * 1_000_000)
+    await asyncio.sleep(_sonraki_an - simdi)
 
 
 # ------------------------------------------------------------------- kimlik/meta
@@ -190,6 +226,7 @@ async def _indir_dosya(url: str, hedef: Path) -> int:
     if hedef.exists():
         return hedef.stat().st_size
     gecici = hedef.with_name(hedef.name + ".part")
+    hiz = ayarlar()
     for deneme in range(3):
         try:
             boyut = 0
@@ -199,8 +236,7 @@ async def _indir_dosya(url: str, hedef: Path) -> int:
                     async for parca in yanit.aiter_bytes(65536):
                         f.write(parca)
                         boyut += len(parca)
-                        if izleniyor():
-                            await asyncio.sleep(len(parca) / (IZLERKEN_KBPS * 1024))
+                        await _hiz_bekle(len(parca), hiz)
             gecici.replace(hedef)
             return boyut
         except (httpx.HTTPError, OSError):
@@ -398,8 +434,56 @@ async def _calis() -> None:
                 await asyncio.sleep(60)
 
 
+async def _otomatik_tur() -> int:
+    """Takip listesindeki her dizinin en yeni bölümünü kuyruğa koyar."""
+    from . import fuck_dmca
+    from Public.Home.Libs import watch_store
+
+    eklenen = 0
+    for satir in watch_store.list_user_list("takip", 200):
+        adres = satir.get("content_url") or ""
+        if not adres or not satir.get("title"):
+            continue
+        try:
+            detay = await fuck_dmca("/load_item", params={"plugin": satir["plugin"], "encoded_url": adres, "title": satir["title"]}, timeout=60.0)
+        except Exception:
+            continue
+        bolumler = (detay.get("episodes") or []) if isinstance(detay, dict) else []
+        numarali = [(i, b) for i, b in enumerate(bolumler) if isinstance(b, dict) and b.get("episode") is not None]
+        if not numarali:
+            continue
+        i, son = max(numarali, key=lambda ib: (int(ib[1].get("season") or 1), int(ib[1]["episode"])))
+        sezon = int(son.get("season") or 1)
+        kid = kayit_id(satir["title"], sezon, son["episode"], i)
+        if _oku(kid):
+            continue
+        ekle({
+            "plugin": satir["plugin"], "title": satir["title"], "poster": satir.get("poster"),
+            "content_url": son.get("url") or adres, "item_url": adres, "media_type": "serie",
+            "episode": i, "episode_no": son["episode"], "season_no": sezon,
+            "episode_ref": f"S{sezon}B{son['episode']}",
+        })
+        eklenen += 1
+    return eklenen
+
+
+async def _otomatik_dongu() -> None:
+    while True:
+        if ayarlar()["otomatik"]:
+            try:
+                n = await _otomatik_tur()
+                if n:
+                    konsol.log(f"[green]⏺ otomatik:[/] takipten {n} yeni bölüm kuyrukta")
+            except Exception as hata:
+                konsol.log(f"[red]⏺ otomatik tur düştü:[/] {type(hata).__name__}: {hata}")
+        await asyncio.sleep(OTOMATIK_ARALIK)
+
+
 def baslat() -> None:
-    """Kuyruk işçisini (tek) başlatır; açılışta ve her eklemede çağrılır."""
-    global _gorev
+    """Kuyruk işçisini (tek) ve otomatik takip döngüsünü başlatır; açılışta ve her eklemede çağrılır."""
+    global _gorev, _otomatik
+    dongu = asyncio.get_running_loop()
     if _gorev is None or _gorev.done():
-        _gorev = asyncio.get_running_loop().create_task(_calis())
+        _gorev = dongu.create_task(_calis())
+    if _otomatik is None or _otomatik.done():
+        _otomatik = dongu.create_task(_otomatik_dongu())

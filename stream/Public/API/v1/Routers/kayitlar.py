@@ -10,7 +10,7 @@ from ..Libs import kayit
 
 @api_v1_router.get("/kayitlar")
 async def kayit_listesi(request: Request):
-    return {**api_v1_global_message, "result": kayit.liste(), "izleniyor": kayit.izleniyor()}
+    return {**api_v1_global_message, "result": kayit.liste(), "izleniyor": kayit.izleniyor(), "ayarlar": kayit.ayarlar()}
 
 
 @api_v1_router.post("/kayitlar/ekle")
@@ -20,6 +20,12 @@ async def kayit_ekle(request: Request):
     except ValueError as hata:
         return {**api_v1_global_message, "result": {"ok": False, "error": str(hata)}}
     return {**api_v1_global_message, "result": {"ok": True, "id": meta["id"], "durum": meta["durum"]}}
+
+
+@api_v1_router.post("/kayitlar/otomatik")
+async def kayit_otomatik(request: Request):
+    """Ayar açılınca beklemeden bir tur at (normalde 3 saatte bir)."""
+    return {**api_v1_global_message, "result": {"ok": True, "eklenen": await kayit._otomatik_tur()}}
 
 
 @api_v1_router.post("/kayitlar/sil")

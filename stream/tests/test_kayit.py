@@ -90,6 +90,26 @@ class KayitTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             asyncio.run(kayit._medya_indir(meta, canli, "http://yerel/v.m3u8", kayit.KAYIT_DIR / "x", (0, 1)))
 
+    def test_hiz_siniri_paralelde_toplam(self):
+        # 4 paralel bağlantı toplamda sınırı aşmasın: 1 MB @ 8 Mbit = 1 sn, ikincisi 2 sn.
+        beklenen = []
+        async def sahte_uyku(sn):
+            beklenen.append(round(sn, 2))
+        kayit._sonraki_an = 0.0
+        kayit._son_izleme = 0.0
+        eski = kayit.asyncio.sleep
+        kayit.asyncio.sleep = sahte_uyku
+        try:
+            hiz = {"izlerken_mbit": 3, "bosta_mbit": 8, "otomatik": False}
+            asyncio.run(kayit._hiz_bekle(1_000_000, hiz))
+            asyncio.run(kayit._hiz_bekle(1_000_000, hiz))
+            asyncio.run(kayit._hiz_bekle(1_000_000, {**hiz, "bosta_mbit": 0}))   # sınırsız
+        finally:
+            kayit.asyncio.sleep = eski
+        self.assertEqual(beklenen[0], 1.0)
+        self.assertAlmostEqual(beklenen[1], 2.0, delta=0.05)
+        self.assertEqual(len(beklenen), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,6 +51,10 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private val RATING_STEPS = listOf(0.0, 5.0, 6.0, 7.0, 8.0)
 
+// Kayıtlar indirme hızı (Mbit/s, 0 = sınırsız). Sunucu prefs'ten okur (Libs/kayit.py).
+private val IZLERKEN_ADIMLARI = listOf(1, 3, 5, 7)
+private val BOSTA_ADIMLARI = listOf(3, 7, 15, 30, 0)
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
@@ -60,6 +64,8 @@ fun AdminScreen(onBack: () -> Unit) {
     var plugins by remember { mutableStateOf<List<String>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    // Kayıt ayarları prefs'te: yönetim config'inden ayrı, sunucunun kaydedicisi okur.
+    var kayitAyar by remember { mutableStateOf(mapOf("kayit_izlerken_mbit" to "3", "kayit_bosta_mbit" to "7", "kayit_otomatik" to "0")) }
 
     NmBackHandler { onBack() }
 
@@ -68,6 +74,19 @@ fun AdminScreen(onBack: () -> Unit) {
             plugins = Network.api.getAllPlugins().result.map { it.name }
             config  = Network.api.adminConfig()
         }.onFailure { error = it.kullaniciMesaji("Ayarlar okunamadı") }
+        runCatching { Network.api.prefsGet().result }.onSuccess { p ->
+            kayitAyar = kayitAyar.mapValues { (k, v) -> p[k]?.jsonPrimitive?.contentOrNull ?: v }
+        }
+    }
+
+    fun kayitYaz(anahtar: String, deger: String) {
+        kayitAyar = kayitAyar + (anahtar to deger)
+        scope.launch {
+            runCatching { Network.api.prefsPost(mapOf(anahtar to deger)) }
+                .onFailure { error = it.kullaniciMesaji("Kaydedilemedi") }
+            // Otomatik açılınca 3 saat beklemesin: hemen bir tur.
+            if (anahtar == "kayit_otomatik" && deger == "1") runCatching { Network.api.kayitOtomatik() }
+        }
     }
 
     // Tam config geri yazılır; yalnız tek alan değiştirilir.
@@ -128,6 +147,22 @@ fun AdminScreen(onBack: () -> Unit) {
                 label = if (adim == 0.0) "Eşik yok" else "${adim.toInt()} ve üzeri",
                 selected = adim == esik,
             ) { kaydet("min_rating", JsonPrimitive(adim)) }
+        }
+
+        item { AdminSectionTitle("Kayıtlar — izlerken indirme hızı (izlemeyi bölmesin)") }
+        items(IZLERKEN_ADIMLARI, key = { "i$it" }) { mbit ->
+            AdminRow("$mbit Mbit/s", selected = kayitAyar["kayit_izlerken_mbit"] == "$mbit") { kayitYaz("kayit_izlerken_mbit", "$mbit") }
+        }
+        item { AdminSectionTitle("Kayıtlar — kimse izlemezken indirme hızı") }
+        items(BOSTA_ADIMLARI, key = { "b$it" }) { mbit ->
+            AdminRow(if (mbit == 0) "Sınırsız" else "$mbit Mbit/s", selected = kayitAyar["kayit_bosta_mbit"] == "$mbit") { kayitYaz("kayit_bosta_mbit", "$mbit") }
+        }
+        item { AdminSectionTitle("Kayıtlar — Takip listesindeki dizilerin yeni bölümü") }
+        item {
+            val acik = kayitAyar["kayit_otomatik"] == "1"
+            AdminRow(if (acik) "● Otomatik kaydet: açık" else "Otomatik kaydet: kapalı (yalnız elle)", selected = acik) {
+                kayitYaz("kayit_otomatik", if (acik) "0" else "1")
+            }
         }
 
         item { AdminSectionTitle("Diğer ayarlar (öne çıkanlar, harici depolar) web panelinde: /admin") }

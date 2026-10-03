@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -2634,6 +2635,27 @@ internal fun SettingsPanel(
                             }
                         }
                     }
+                    // ● Kayıt: oynayan bölümü sunucu diskine kaydettir; kayıtlıysa sil.
+                    // Liste segmentinden ayrı: içerik değil bölüm düzeyinde.
+                    Spacer(Modifier.width(NmDim.ItemGap))
+                    val kayitKapsam = rememberCoroutineScope()
+                    val bolum = episodes.getOrNull(currentEpIndex)
+                    val ref = if (bolum != null) com.evaitec.netmovies.tv.data.episodeRef(bolum.season, bolum.episode, currentEpIndex) else ""
+                    val mevcutKayit = library.kayitBul(item.title, ref)
+                    IkonSekme(
+                        ikon = "Kayıt",
+                        vektor = Icons.Filled.FiberManualRecord,
+                        secili = mevcutKayit != null,
+                        tik = mevcutKayit != null,
+                        ikonRengi = NmColor.Rec,
+                        odaktaSec = false,
+                        modifier = Modifier.width(NmDim.PanelRowHeight),
+                    ) {
+                        kayitKapsam.launch {
+                            if (mevcutKayit != null) library.kayitSil(mevcutKayit)
+                            else library.kaydet(item, episodes, if (episodes.isEmpty()) null else currentEpIndex)
+                        }
+                    }
                 }
                 // Kaldığım bölüm ve son bölüm liste kapalıyken de burada: tek tıkla
                 // devam / sona atla (Dean, 3 Ekim: "ikonlu olan yerde olsun").
@@ -2919,6 +2941,8 @@ private fun IkonSekme(
     /** Sekme/sezon odakta seçer; hap (kaynak, ses, liste) yalnız OK ile. */
     odaktaSec: Boolean = true,
     yatayPay: Dp = 0.dp,
+    /** Odakta değilken ikon rengi (Kayıt: kırmızı). */
+    ikonRengi: Color? = null,
     yaziBoyu: TextUnit = if (etiket != null) NmType.RowTitle else NmType.Body,
     onSec: () -> Unit,
 ) {
@@ -2949,7 +2973,7 @@ private fun IkonSekme(
         contentAlignment = Alignment.Center,
     ) {
         if (vektor != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            val renk = ColorFilter.tint(if (odakli) NmColor.OnPrimary else NmColor.OnSurface)
+            val renk = ColorFilter.tint(if (odakli) NmColor.OnPrimary else ikonRengi ?: NmColor.OnSurface)
             Image(vektor, contentDescription = ikon, modifier = Modifier.size(NmDim.PanelIconSize), colorFilter = renk)
             if (tik) Image(Icons.Filled.Check, contentDescription = "listede", modifier = Modifier.size(NmDim.PanelIconSize * 0.7f), colorFilter = renk)
         } else Text(

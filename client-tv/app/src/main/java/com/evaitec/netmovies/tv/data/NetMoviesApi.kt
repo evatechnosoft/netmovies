@@ -252,6 +252,12 @@ interface NetMoviesApi {
         @Query("episode_ref") episodeRef: String = "",
     ): KayitEkleResponse
 
+    @POST("api/v1/kayitlar/sil")
+    suspend fun kayitSil(@Query("id") id: String): OkResponse
+
+    @POST("api/v1/kayitlar/otomatik")
+    suspend fun kayitOtomatik(): OkResponse
+
     @POST("api/v1/client_log")
     suspend fun clientLog(@Body body: Map<String, List<String>>): OkResponse
 

@@ -121,16 +121,34 @@ class Library(context: Context) {
         poster = row.poster.takeIf { it.isNotBlank() },
         mediaType = row.mediaType,
         episodeRef = row.episodeRef,
+        contentKey = row.id,          // kayıt kimliği: silme bunu yollar
         lang = listOfNotNull(
             row.episodeRef.takeIf { it.startsWith("S") },
             when (row.durum) {
-                "hazir"  -> "⏺"
+                "hazir"  -> REC
                 "iniyor" -> "%" + (row.ilerleme * 100).toInt()
                 "hata"   -> "HATA"
                 else     -> "SIRADA"
             },
         ),
     )
+
+    /** Bu içeriğin (bölüm ref'i verildiyse o bölümün) kaydı; ref boşsa herhangi biri. */
+    fun kayitBul(title: String?, ref: String? = null): MediaItem? = kayitlar.firstOrNull {
+        it.title.equals(title, ignoreCase = true) && (ref == null || it.episodeRef == ref)
+    }
+
+    /** Poster rozeti: içeriğin hazır bir kaydı var mı. */
+    fun kayitli(item: MediaItem): Boolean =
+        kayitlar.any { it.title.equals(item.title, ignoreCase = true) && REC in it.lang }
+
+    suspend fun kayitSil(kayit: MediaItem): String {
+        kayitlar.remove(kayit)
+        persist(KEY_KAYIT, kayitlar.toList())
+        val ok = runCatching { Network.api.kayitSil(kayit.contentKey).result.ok }.getOrDefault(false)
+        sync()
+        return if (ok) "Kayıt silindi" else "Kayıt silinemedi"
+    }
 
     /** Bölümü (film ise filmi) sunucu diskine kaydettirir; dönüş ekranda yazılacak durum. */
     suspend fun kaydet(item: MediaItem, bolumler: List<EpisodeItem>, idx: Int?): String {
@@ -153,8 +171,8 @@ class Library(context: Context) {
         sync()
         return when {
             sonuc == null || !sonuc.ok -> "Kayıt eklenemedi" + (sonuc?.error?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
-            sonuc.durum == "hazir"     -> "⏺ Zaten kayıtlı — internetsiz oynar"
-            else                       -> "⏺ Kayıtlara eklendi — sunucu indiriyor"
+            sonuc.durum == "hazir"     -> "$REC Zaten kayıtlı — internetsiz oynar"
+            else                       -> "$REC Kayıtlara eklendi — sunucu indiriyor"
         }
     }
 
@@ -299,6 +317,8 @@ class Library(context: Context) {
         const val KEY_TAKIP = "takip"
         const val KEY_IZLENEN = "izlenen"
         const val KEY_KAYIT = "kayitlar"
+        /** Kayıt işareti; ekranda NmColor.Rec ile çizilir. */
+        const val REC = "●"
         // Sunucudaki liste adları (watch_store.ALLOWED_LISTS).
         const val LISTE_IZLENECEK = "izlenecek"
         const val LISTE_TAKIP = "takip"

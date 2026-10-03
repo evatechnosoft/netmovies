@@ -79,6 +79,7 @@ import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.encodedUrl
+import com.evaitec.netmovies.tv.data.episodeRef
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -398,6 +399,7 @@ private fun CategoryRows(
                             PosterCard(
                                 item = item,
                                 isFavorite = library.isFavorite(item),
+                                kayitli = library.kayitli(item),
                                 progress = library.progress[item.url] ?: 0f,
                                 onClick = { onSelect(item) },
                                 onLongPress = { menuItem = item },
@@ -609,6 +611,7 @@ private const val UZUN_BASIS_MS = 500L
 private fun PosterCard(
     item: MediaItem,
     isFavorite: Boolean,
+    kayitli: Boolean = false,
     progress: Float = 0f,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
@@ -714,6 +717,16 @@ private fun PosterCard(
                     .padding(6.dp),
             )
         }
+        // Hazır kaydı var: yıldızın altında kırmızı ● (internetsiz oynar).
+        if (kayitli) {
+            Text(
+                text = Library.REC,
+                color = NmColor.Rec,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = if (isFavorite) 28.dp else 6.dp, end = 6.dp),
+            )
+        }
         // TMDB puanı — sol üstte, okunsun diye kendi zemininde.
         item.rating?.let { puan ->
             Text(
@@ -746,7 +759,11 @@ private fun PosterCard(
                             text = rozet,
                             fontSize = NmType.Caption,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (rozet == "DUB") NmColor.Primary else NmColor.OnSurface,
+                            color = when (rozet) {
+                                "DUB"       -> NmColor.Primary
+                                Library.REC -> NmColor.Rec
+                                else        -> NmColor.OnSurface
+                            },
                             modifier = Modifier
                                 .clip(RoundedCornerShape(NmDim.PillRadius))
                                 .background(NmColor.ScrimSoft)
@@ -792,7 +809,7 @@ private sealed interface Yoklama {
 // Merkez oynatır, her yön kendi küçük katmanını açar, GERİ bir katman geri alır.
 //
 //            ▲ Bölümler
-//   ◀ Özet+Benzerler   ▶ OYNAT   ⏺ Kayıt ▶
+//   ◀ Özet+Benzerler   ▶ OYNAT   ● Kayıt ▶ (kayıtlıysa siler)
 //            ▼ Listeler
 //
 // Gezinme index'le yapılır, Compose odak ağacına GÜVENİLMEZ: aynı hata oynatıcıda
@@ -913,8 +930,16 @@ private fun PosterMenu(
     }
 
     fun kaydet(idx: Int?) {
-        kayitDurum = "⏺ Kaydediliyor…"
+        kayitDurum = Library.REC + " Kaydediliyor…"
         kapsam.launch { kayitDurum = library.kaydet(item, bolumler, idx) }
+    }
+
+    // Seçili bölümün (Kayıtlar listesinden gelen kartta kartın) kaydı: varsa ● siler.
+    fun mevcutKayit(): MediaItem? {
+        val ep = secilenBolum?.let { bolumler.getOrNull(it) }
+        val ref = if (ep != null) episodeRef(ep.season, ep.episode, secilenBolum ?: 0)
+            else if (bolumler.isEmpty()) "" else item.episodeRef.ifBlank { null } ?: return null
+        return library.kayitBul(item.title, ref)
     }
 
     fun listeUygula(i: Int) {
@@ -946,8 +971,14 @@ private fun PosterMenu(
                 android.view.KeyEvent.KEYCODE_DPAD_UP    -> if (bolumVar) mod = PadMod.BOLUM
                 android.view.KeyEvent.KEYCODE_DPAD_DOWN  -> mod = PadMod.LISTE
                 android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> mod = PadMod.OZET
-                android.view.KeyEvent.KEYCODE_DPAD_RIGHT ->
-                    if (bolumVar && secilenBolum == null) { kayitIcin = true; mod = PadMod.BOLUM } else kaydet(secilenBolum)
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    val mevcut = mevcutKayit()
+                    when {
+                        mevcut != null -> kapsam.launch { kayitDurum = library.kayitSil(mevcut) }
+                        bolumVar && secilenBolum == null -> { kayitIcin = true; mod = PadMod.BOLUM }
+                        else -> kaydet(secilenBolum)
+                    }
+                }
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
                 android.view.KeyEvent.KEYCODE_ENTER      -> oynat()
                 else -> return false
@@ -1116,7 +1147,7 @@ private fun PosterMenu(
                         ) {
                             YoncaKol("ℹ", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_LEFT) })
                             YoncaOrta(onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_CENTER) })
-                            YoncaKol("⏺", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
+                            YoncaKol(Library.REC, renk = NmColor.Rec, onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
                         }
                         YoncaKol("☆", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_DOWN) })
                         if (kayitDurum.isNotBlank()) {
@@ -1276,7 +1307,7 @@ private fun SutunBasligi(text: String, aktif: Boolean) {
  *  26 Eylül: "basılı tutma telefonda çalışmıyor"). `clickable` DEĞİL: odak
  *  hedefi olur, kumandada tuşu pad kutusundan çalardı; dokunuş odak almaz. */
 @Composable
-private fun YoncaKol(ikon: String, aktif: Boolean = true, onTap: () -> Unit) {
+private fun YoncaKol(ikon: String, aktif: Boolean = true, renk: androidx.compose.ui.graphics.Color? = null, onTap: () -> Unit) {
     Box(
         modifier = Modifier
             .size(58.dp)
@@ -1288,7 +1319,7 @@ private fun YoncaKol(ikon: String, aktif: Boolean = true, onTap: () -> Unit) {
         Text(
             text = ikon,
             fontSize = NmType.Body,
-            color = if (aktif) NmColor.OnSurface else NmColor.OnSurfaceFaint,
+            color = if (!aktif) NmColor.OnSurfaceFaint else renk ?: NmColor.OnSurface,
         )
     }
 }
