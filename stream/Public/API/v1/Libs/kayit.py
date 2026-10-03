@@ -8,8 +8,8 @@
 #
 # Bant paylaşımı: biri izliyorsa (son 45 sn'de proxy ya da ilerleyen konum)
 # indirme tek bağlantıya ve "izlerken" hızına iner; kimse izlemiyorsa PARALEL
-# bağlantıyla "boşta" hızına çıkar. Hızlar TV Ayarlar'dan (prefs) gelir, Mbit/s,
-# 0 = sınırsız. Otomatik: açıksa Takip listesindeki dizilerin son bölümü kuyruğa.
+# bağlantıyla "boşta" hızına çıkar. Hızlar TV Yönetim'den (prefs) gelir, Mbit/s:
+# izlerken 0 = indirme durur, boşta 0 = sınırsız (varsayılan). Otomatik: açıksa Takip listesindeki dizilerin son bölümü kuyruğa.
 #
 # Veritabanı yok: her kaydın klasöründeki meta.json tek kaynaktır.
 
@@ -29,8 +29,8 @@ from CLI import konsol
 from Public.Home.Libs.watch_store import normalize_key
 
 KAYIT_DIR        = Path(os.getenv("KAYIT_DIR", "/kayitlar" if Path("/kayitlar").is_dir() else "kayitlar"))
-IZLERKEN_MBIT    = float(os.getenv("KAYIT_IZLERKEN_MBIT", "3"))   # prefs yoksa
-BOSTA_MBIT       = float(os.getenv("KAYIT_BOSTA_MBIT", "7"))
+IZLERKEN_MBIT    = float(os.getenv("KAYIT_IZLERKEN_MBIT", "40"))  # prefs yoksa: 100 Mbit hattın yarısı
+BOSTA_MBIT       = float(os.getenv("KAYIT_BOSTA_MBIT", "0"))
 OTOMATIK_ARALIK  = 3 * 60 * 60
 MIN_BOS_GB       = float(os.getenv("KAYIT_MIN_BOS_GB", "20"))
 YEREL            = os.getenv("KAYIT_YEREL", "http://127.0.0.1:3310")
@@ -88,6 +88,9 @@ def ayarlar() -> dict:
 
 async def _hiz_bekle(bayt: int, hiz: dict) -> None:
     global _sonraki_an
+    # İzlerken payı 0: izleme bitene dek bekle (çubuk en solda).
+    while izleniyor() and hiz["izlerken_mbit"] <= 0:
+        await asyncio.sleep(5)
     mbit = hiz["izlerken_mbit"] if izleniyor() else hiz["bosta_mbit"]
     if mbit <= 0:
         return

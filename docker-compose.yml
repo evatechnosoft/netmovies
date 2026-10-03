@@ -168,8 +168,8 @@ services:
       YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
       YZ_GECIT_KEY         : ${YZ_GECIT_KEY:-}   # geçidin bu uygulamaya verdiği sanal anahtar
       # Kayıtlar: varsayılan hızlar (Mbit/s, TV Ayarlar ezer), boş alan tavanı (GB, altına inince izlenen silinir).
-      KAYIT_IZLERKEN_MBIT  : ${KAYIT_IZLERKEN_MBIT:-3}
-      KAYIT_BOSTA_MBIT     : ${KAYIT_BOSTA_MBIT:-7}
+      KAYIT_IZLERKEN_MBIT  : ${KAYIT_IZLERKEN_MBIT:-40}
+      KAYIT_BOSTA_MBIT     : ${KAYIT_BOSTA_MBIT:-0}
       KAYIT_MIN_BOS_GB     : ${KAYIT_MIN_BOS_GB:-20}
     volumes:
       - ./data:/data

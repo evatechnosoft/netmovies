@@ -8,7 +8,14 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,9 +58,10 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private val RATING_STEPS = listOf(0.0, 5.0, 6.0, 7.0, 8.0)
 
-// Kayıtlar indirme hızı (Mbit/s, 0 = sınırsız). Sunucu prefs'ten okur (Libs/kayit.py).
-private val IZLERKEN_ADIMLARI = listOf(1, 3, 5, 7)
-private val BOSTA_ADIMLARI = listOf(3, 7, 15, 30, 0)
+// Kayıtlar: izlerken hattın (100 Mbit ≈ 10 MB/s) kaçı indirmeye. Çubuk 0..10 MB/s,
+// orta 5/5. Sunucu prefs'te Mbit okur (Libs/kayit.py); 0 = izlerken indirme durur.
+// İzlemezken hız her zaman sınırsız.
+private const val HAT_MB = 10
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -65,7 +73,7 @@ fun AdminScreen(onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     // Kayıt ayarları prefs'te: yönetim config'inden ayrı, sunucunun kaydedicisi okur.
-    var kayitAyar by remember { mutableStateOf(mapOf("kayit_izlerken_mbit" to "3", "kayit_bosta_mbit" to "7", "kayit_otomatik" to "0")) }
+    var kayitAyar by remember { mutableStateOf(mapOf("kayit_izlerken_mbit" to "40", "kayit_otomatik" to "0")) }
 
     NmBackHandler { onBack() }
 
@@ -149,13 +157,10 @@ fun AdminScreen(onBack: () -> Unit) {
             ) { kaydet("min_rating", JsonPrimitive(adim)) }
         }
 
-        item { AdminSectionTitle("Kayıtlar — izlerken indirme hızı (izlemeyi bölmesin)") }
-        items(IZLERKEN_ADIMLARI, key = { "i$it" }) { mbit ->
-            AdminRow("$mbit Mbit/s", selected = kayitAyar["kayit_izlerken_mbit"] == "$mbit") { kayitYaz("kayit_izlerken_mbit", "$mbit") }
-        }
-        item { AdminSectionTitle("Kayıtlar — kimse izlemezken indirme hızı") }
-        items(BOSTA_ADIMLARI, key = { "b$it" }) { mbit ->
-            AdminRow(if (mbit == 0) "Sınırsız" else "$mbit Mbit/s", selected = kayitAyar["kayit_bosta_mbit"] == "$mbit") { kayitYaz("kayit_bosta_mbit", "$mbit") }
+        item { AdminSectionTitle("Kayıtlar — izlerken hat paylaşımı (izlemezken indirme tam hız)") }
+        item {
+            val indirme = ((kayitAyar["kayit_izlerken_mbit"]?.toDoubleOrNull() ?: 40.0) / 8).toInt().coerceIn(0, HAT_MB)
+            PayCubugu(indirme) { yeni -> kayitYaz("kayit_izlerken_mbit", "${yeni * 8}") }
         }
         item { AdminSectionTitle("Kayıtlar — Takip listesindeki dizilerin yeni bölümü") }
         item {
@@ -166,6 +171,44 @@ fun AdminScreen(onBack: () -> Unit) {
         }
 
         item { AdminSectionTitle("Diğer ayarlar (öne çıkanlar, harici depolar) web panelinde: /admin") }
+    }
+}
+
+/** ◀ ▶ ile 0..HAT_MB arası: sol izleme payı, sağ indirme payı (MB/s). */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PayCubugu(indirme: Int, onDegis: (Int) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (focused) NmColor.PrimarySelected else NmColor.Surface)
+            .nmFocusRing(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .onKeyEvent { ke ->
+                if (ke.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onKeyEvent false
+                when (ke.nativeKeyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> { if (indirme > 0) onDegis(indirme - 1); true }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { if (indirme < HAT_MB) onDegis(indirme + 1); true }
+                    else -> false
+                }
+            }
+            .focusable()
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = "İzleme ${HAT_MB - indirme} MB/s   ◀ ▶   İndirme " + if (indirme == 0) "durur" else "$indirme MB/s",
+            fontSize = NmType.Body,
+            color = NmColor.OnSurface,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(NmDim.PillRadius))) {
+            if (indirme < HAT_MB) Box(Modifier.weight((HAT_MB - indirme).toFloat()).fillMaxHeight().background(NmColor.Primary))
+            if (indirme > 0) Box(Modifier.weight(indirme.toFloat()).fillMaxHeight().background(NmColor.Rec))
+        }
     }
 }
 
