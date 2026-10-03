@@ -1,5 +1,5 @@
 # Handoff: 0.9.46 yazıldı, yayın izne takıldı
-> 2026-10-03 · `fix/general-stability` @ `444a501` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
+> 2026-10-03 · `fix/general-stability` @ `45773f1` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
 ## Goal
 Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla: yerel OTA, GitHub release, apps.json.
@@ -11,6 +11,7 @@ Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bi
 - **Sunucu:** Zima'da stream rebuild edildi (Created 2026-10-03T07:01Z, rebuild öncesi client_log boştu). Canlı `film_serileri` → 13 seri, ilk sıra Bıçak Sırtı (izleme geçmişinden). Tünel cevap veriyor (303 → giriş).
 - **Testler:** client-tv `testDebugUnitTest assembleDebug` yeşil, 71 test. stream unittest 215 OK (alt ajan laptopa global pip paketleri kurarak koşturdu).
 - **YAYINLANMADI:** TV'de hâlâ 0.9.45. `appVersion` hâlâ `0.9.45` (`client-tv/app/build.gradle.kts:4`). Auto-mode sınıflandırıcısı GitHub release + apps.json yayınını "Create Public Surface" diye reddetti. Dean onayı ya da izin kuralı gerekli. Cihazda hiçbir şey doğrulanmadı.
+- **`45773f1` WOL:** TV yerel sunucuya ulaşamazsa ZimaOS'a sihirli paket yollar (`data/ZimaUyandir.kt`, MAC `BuildConfig.WOL_MAC`), ana sayfa 3 dk boyunca 15 sn arayla yeniden dener. 73 test yeşil. Cihazda ve kapalı sunucuyla denenmedi.
 - Bilinen kusur: bazı seri adları TMDB'de Türkçe değil ("Super Troopers Collection").
 
 ## Next
