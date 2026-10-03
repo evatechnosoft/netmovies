@@ -1,46 +1,50 @@
-# Handoff: TV 0.9.45 yayında (üst bar tek satır), sistem denetimi yeşil
-> 2026-10-02 · `fix/general-stability` @ `194413c`+ (push'lu) · kirli: yalnız `atv-kopru.log`, `scripts/yedek_reddet.py` (izlenmeyen)
+# Handoff: 0.9.46 yazıldı, yayın izne takıldı
+> 2026-10-03 · `fix/general-stability` @ `444a501` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
 ## Goal
-Reklamsız TV uygulaması (client-tv, Mi Box) — Dean'in bildirdiği kusurları düzelt, bitince sorma yayınla (üç yer: yerel OTA, GitHub release, apps.json).
+Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla: yerel OTA, GitHub release, apps.json.
 
 ## State
-- **0.9.45 yayında, üç yer kanıtlı:** yerel OTA `app_update?target=tv` → `v0.9.45-poc` (indirme 200, 22 637 128 B) · GitHub `v0.9.45-poc` (prerelease) · evaglass-releases `netmovies-tv-v0.9.45` + apps.json tv/phone vc 945 (sha256 `2ca34e13…`). Cihazda DOĞRULANMADI.
-  Değişiklik: UpdateBanner (üst barın üstünde ayrı satır) silindi → güncelleme NetMovies markasının yanında tek düğme (`HomeScreen.kt` `TopBar`), güncel/boşta görünmez; 📱 kumanda düğmesi TV'den kaldırıldı. 71 birim test yeşil.
-- **Sistem denetimi (2 Ekim):** smoke YEŞİL (ZimaOS), chain_scan 54 OK / 3 ölü (FullHDFilmizlesene Soulm8te ×2, DDizi Anne Yarısı 504), tünel 200, proxy_token kurcalama → 403, admin 401, konteynerler 0 restart, /DATA %27.
-- **KultFilmler** Dram/Komedi slug'ları `-filmleri-izle-1` oldu (`cac0180`); motor Zima'da rebuild edildi (created 2026-10-02T14:24Z), Komedi 20 kart.
-- **Aktif sunucu ZimaOS** (`/DATA/AppData/netmovies`, repo `cac0180`+). Laptopta docker PATH'te yok; `smoke.sh` otomatik `ssh zima` dalına düşer. Zima'da compose için `export DOCKER_CONFIG=/tmp/dc` şart (yoksa "'compose' is not a docker command").
-- 0.9.44 cihaz geri bildirimi: Dean Blade Runner 2049'u açtı, biraz izledi, kapattı — "sorun yok". A.Ü.İ arşiv tasarımı hâlâ cevapsız.
+- **`07861e8` açılış paneli:** `StartPanel` silindi. İçerik açılınca `SettingsPanel` başlangıç kipinde gelir (`baslangic=true`): başlık + yıl/tür/puan, ikon sırası, altında "Devam et / baştan" ve "Son bölüm" satırları, odak OYNAT'ta. Bölüm listesi kapalı, ☰ aç/kapa. Kumandadaki "Bölümler" girişi listeyi açık getirir (`acilisBolumler`). İki oynatıcıda da (`PlayerScreen.kt`, `player2/PlayerScreen2.kt`). Dean'in isteği: "direkt bu 2 sayfa çıksın, bölümler kapalı, liste istersem açarım".
+- **`07861e8` M3U gizli:** Gözat artık `client_config.hidden_providers`'ı uyguluyor (canlıda M3UPlaylist, SezonlukDizi). Canlı TV etkilenmez (`quick_channels` ayrı uç).
+- **`444a501` Seriler sekmesi:** Gözat'ta "Tümü" yanında "Seriler" hapı. Sunucu ucu `GET /api/v1/film_serileri` (`stream/Public/API/v1/Routers/film_serileri.py`): TMDB popüler + izleme geçmişi → koleksiyonlar, 12 saat modül cache. Karta basınca başlıkla arama + otomatik aç (Ajanda yolu). Bu, eski "A.Ü.İ arşiv alanı / seri filmler" isteğinin karşılığı; Dean "Gözat'ta ayrı sekme" dedi.
+- **Sunucu:** Zima'da stream rebuild edildi (Created 2026-10-03T07:01Z, rebuild öncesi client_log boştu). Canlı `film_serileri` → 13 seri, ilk sıra Bıçak Sırtı (izleme geçmişinden). Tünel cevap veriyor (303 → giriş).
+- **Testler:** client-tv `testDebugUnitTest assembleDebug` yeşil, 71 test. stream unittest 215 OK (alt ajan laptopa global pip paketleri kurarak koşturdu).
+- **YAYINLANMADI:** TV'de hâlâ 0.9.45. `appVersion` hâlâ `0.9.45` (`client-tv/app/build.gradle.kts:4`). Auto-mode sınıflandırıcısı GitHub release + apps.json yayınını "Create Public Surface" diye reddetti. Dean onayı ya da izin kuralı gerekli. Cihazda hiçbir şey doğrulanmadı.
+- Bilinen kusur: bazı seri adları TMDB'de Türkçe değil ("Super Troopers Collection").
 
 ## Next
-1. Dean'den 0.9.45 cihaz geri bildirimi (üst barda ⬆ düğmesi görünüyor mu, odak tek satırda mı).
-2. A.Ü.İ "arşiv alanı / seri filmler gibi" isteği — iki soru hâlâ açık (hangi ekran; katlanır Arşiv kart dizisi mi). Cevapsız kodlama.
-3. Ölü kaynaklar: FullHDFilmizlesene Soulm8te (Orijinal+SetPlay) ve DDizi Anne Yarısı 504 — tekrar ederse eklentiye bak.
-4. `docs/HANDOFF.md` 24 Eylül'de kalmış; canlı devir bu dosya (kök `HANDOFF.md`). CLAUDE.md'deki `docs/HANDOFF.md` işareti düzeltilmeli.
+1. Dean "yayınla" derse: `client-tv/app/build.gradle.kts:4` `appVersion = "0.9.46"` → `cd client-tv && ./gradlew testDebugUnitTest assembleDebug` → üç yere yayın. Yöntem 0.9.45'teki gibi: `git show 30f7d85` ve hafıza `ota-release-target-flag`, `wear-app-and-catalog`, `ota-indirme-ayna-sirasi`. GitHub release'te `--target` şart. evaglass-releases: apps.json tv+phone vc 946, sha256+sizeBytes, push öncesi `git pull --rebase`.
+2. Dean'den cihaz geri bildirimi: açılış paneli odağı, ☰ ile liste, Seriler sekmesi.
+3. Ölü kaynaklar (FullHDFilmizlesene Soulm8te, DDizi Anne Yarısı 504) tekrar ederse eklentiye bak.
 
 ## Don't repeat
-- load_item'ı elle denerken `encoded_url` TEK kez quote_plus; `url` param → 410, çift kodlama → "unknown url type".
-- DDizi ham sayfasındaki 16/19/37. bölüm numaraları kenar çubuğundaki BAŞKA dizilerin (Muhtemel Aşk, Sevdiğim Sensin, Halef) — bölüm sayısı kanıtı değil.
-- Zima'da docker adres havuzu tükendi → yeni compose ağına `ipam.subnet` ver.
-- Kalıcı izin ekleme (`/permissions`) Claude'a engelli; Dean ekler.
+- Yayını alt ajana devretmek izni aşmaz; aynı sınıflandırıcıya takılır. İzni Dean verir, Claude ayar dosyasına izin yazmaz.
+- Zima'da compose yalnız `export DOCKER_CONFIG=/tmp/dc;` ile görünür; kanıt `docker inspect --format '{{.Created}}'`.
+- Stream rebuild'de `--profile tunnel` ile birlikte kur, yoksa tünel 530 (hafıza `stream-tunnel-netns-rebuild`).
+- Dean TV'de izlerken rebuild yok: önce `curl -s 192.168.1.186:3310/api/v1/client_log` boş mu bak.
+- Seriler önbelleği `Libs/__init__.py` TTL tablosuna eklenmez; o tablo yalnız engine proxy çağrıları için.
 
 ## Read first
-1. `~/.claude/projects/C--projects-netmovies/memory/MEMORY.md` — özellikle `card-may-be-episode-page`, `episode-list-slug-leak`
-2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/HomeScreen.kt` `PosterMenu` (~787) — bölüm listesi burada
+1. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/PlayerScreen.kt` `SettingsPanel` (~2438): `baslangic`, `listeAcik`, `oynatEtiketi`
+2. `git show 30f7d85`: 0.9.45 yayın kanıtları ve adımları
 
 ## Verify
-git -C C:/projects/netmovies rev-parse --short HEAD          # expect bu handoff commit'i (194413c'nin üstü)
-curl -s "http://192.168.1.186:3310/api/v1/app_update?target=tv"   # expect tag v0.9.45-poc
-cd client-tv && ./gradlew testDebugUnitTest -q                # expect exit 0
-Get-ScheduledTask 'LifeOS Finance Radar*' | % { $_.Actions.Arguments }   # expect C:\projects\evaitec\...
+```
+git -C C:/projects/netmovies rev-parse --short HEAD        # expect 444a501 (ya da bu handoff commit'i)
+curl -s "http://192.168.1.186:3310/api/v1/app_update?target=tv"   # expect hâlâ v0.9.45-poc (yayın yapılmadı)
+curl -s -m 90 http://192.168.1.186:3310/api/v1/film_serileri | head -c 200   # expect result dizisi
+cd client-tv && ./gradlew testDebugUnitTest -q              # expect exit 0
+```
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies TV (C:\projects
-etmovies, dal fix/general-stability). 0.9.45 yayında (üç yer), cihazda doğrulanmadı.
-Aktif sunucu ZimaOS; laptopta docker yok, smoke.sh ssh ile koşar. 2 Ekim sistem denetimi yeşil.
-Önce C:\projects
-etmovies\HANDOFF.md'yi oku, Verify bloğunu çalıştır.
-Öncelik: (1) Dean'in 0.9.45 cihaz geri bildirimi; (2) A.Ü.İ arşiv tasarımı — iki soru açık, cevapsız kodlama.
+NetMovies TV (C:\projects\netmovies, dal fix/general-stability @ 444a501, push'lu).
+Yeni: açılış paneli = Bölümler & Listeler paneli (liste ☰ arkasında kapalı), Gözat'ta M3U gizli,
+Gözat'ta "Seriler" sekmesi (sunucu ucu film_serileri canlıda çalışıyor). Kod hazır ama 0.9.46
+YAYINLANMADI: auto-mode GitHub release/apps.json'u reddetti, Dean onayı gerekli. Cihazda doğrulanmadı.
+Aktif sunucu ZimaOS (ssh zima, DOCKER_CONFIG=/tmp/dc). Laptopta docker yok.
+Önce C:\projects\netmovies\HANDOFF.md'yi oku, Verify bloğunu çalıştır.
+Öncelik: (1) Dean onay verirse 0.9.46'yı üç yere yayınla; (2) cihaz geri bildirimi.
 Dean istemeden yeni iş açma.
 ```
