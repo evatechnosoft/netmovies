@@ -17,6 +17,8 @@ Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bi
 - **AÇIK AĞ SORUNU (3 Ekim 17:01'den beri):** Mi Box TP-Link 5 GHz'e bağlı görünüyor ama trafik yok (4.7k paket), 1.105 ve 1.60'ta port/ping yok. Dean statik 192.168.1.60 + CF DNS girdi, ARP hâlâ .105. Telefon da yavaş (5 GHz). Kablolu ZimaOS 11 MB/s, laptop 2.4 GHz 2.4 MB/s, gecikmeler normal → şüphe TP-Link 5 GHz radyosu. TP-Link yeniden başlatma Dean onayı bekliyor. Benim değişikliklerim zaman çizelgesine göre sebep değil (köprü kutuya hiç bağlanmadı, 0.9.46 TV'de yok). Kutu .60'ta kalırsa Zima `.env` `ATV_HOST=192.168.1.60` + `docker compose up -d atv`.
 - 16:57 Lioness S3B2 (DiziPal) 75. sn'de dondu, 18 "proxy token geçersiz"; sonra sunucudan tüm 2.6k parça 200/206 — sebep bulunamadı, yeni günlük satırı bekleniyor.
 - **18:15 TP-Link restart sonrası:** Mi Box döndü (.105), ama TV istekleri YEREL↔TÜNEL arasında saniyeler içinde gidip geliyor (stream log, okhttp UA); Lioness tünelden çözüldü, 47-49. sn'de takıldı, red yok. Düzeltildi (`yapiskanYerel`, `data/ServerResolver.kt`): /24 içindeyken ve yerel son 10 dk çalıştıysa tünele geçmez; 80 test yeşil, 0.9.46'ya girer, cihazda denenmedi. Kalıcı çözüm Mi Box Ethernet.
+- Üst bar: güncelleme varken "NetMovies" → "NM" + güncelle düğmesi (commit sonrası). TV'de 📱 kumanda düğmesi 0.9.45'te zaten kalktı.
+- **Dean'in açık istekleri (3 Ekim, tasarım bekliyor):** (a) takip/favori dizilerin yeni bölümü yayınlanınca ZimaOS'a önceden indir, izlerken akış yerine diskten oynat (donmayı keser; örn. pazar 17:00 maç, gece yayın). (b) "takip/favori gibi birkaç şeyi basılı tutunca D-pad sağ/sola koy, rec gibi" — anlamı netleşmedi, sorulacak.
 - Bilinen kusur: bazı seri adları TMDB'de Türkçe değil ("Super Troopers Collection").
 
 ## Next
