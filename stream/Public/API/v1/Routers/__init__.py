@@ -45,6 +45,7 @@ from . import (
     unwatched,
     episodes_best,
     app_update,
+    film_serileri,
     youtube_search,
     yz,
 )

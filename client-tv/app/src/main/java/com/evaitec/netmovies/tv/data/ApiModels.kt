@@ -446,3 +446,23 @@ data class SimilarItem(
 
 @Serializable
 data class SimilarResponse(val result: List<SimilarItem> = emptyList())
+
+// /api/v1/film_serileri — film serileri (TMDB koleksiyonları). Parça tıklanınca
+// MediaItem'a çevrilmez; başlıkla arama yapılır (BrowseScreen'deki otomatik açma yolu).
+@Serializable
+data class FilmSerisiParcasi(
+    val baslik: String = "",
+    val yil: Int = 0,
+    val poster: String = "",
+)
+
+@Serializable
+data class FilmSerisi(
+    val id: Int = 0,
+    val ad: String = "",
+    val poster: String = "",
+    val parcalar: List<FilmSerisiParcasi> = emptyList(),
+)
+
+@Serializable
+data class FilmSerileriResponse(val result: List<FilmSerisi> = emptyList())

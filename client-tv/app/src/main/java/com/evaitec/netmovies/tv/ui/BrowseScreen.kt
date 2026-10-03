@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
+import com.evaitec.netmovies.tv.data.FilmSerisi
+import com.evaitec.netmovies.tv.data.FilmSerisiParcasi
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PluginInfo
@@ -219,6 +221,19 @@ fun BrowseScreen(
         }
     }
 
+    // "Seriler" sekmesi: film serileri (franchise) ayrı kaynaktan gelir, raflarla
+    // karışmaz. Plugin seçimi gibi persist edilmez — GERİ ya da kaynak değişince kapanır.
+    var seriesMode by remember { mutableStateOf(false) }
+    var filmSerileri by remember { mutableStateOf<List<FilmSerisi>>(emptyList()) }
+    var filmSerileriLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(seriesMode) {
+        if (seriesMode && filmSerileri.isEmpty() && !filmSerileriLoading) {
+            filmSerileriLoading = true
+            filmSerileri = runCatching { Network.api.filmSerileri().result }.getOrDefault(emptyList())
+            filmSerileriLoading = false
+        }
+    }
+
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var results by state::results
@@ -254,6 +269,8 @@ fun BrowseScreen(
         when {
             searchOpen      -> { searchOpen = false; query = "" }
             results != null -> results = null
+            // Seriler'den çıkış diğer kaynak hapları gibi "Tümü"ne döner.
+            seriesMode      -> seriesMode = false
             selectedPlugin != null -> {
                 state.plugin = null
                 state.shelf = 0
@@ -302,6 +319,13 @@ fun BrowseScreen(
         }
     }
 
+    // Seri parçasına basınca o başlıkla ara, tek eşleşme varsa doğrudan aç —
+    // Ajanda'dan gelen başlık akışıyla (remoteQuery/otomatikAc) AYNI yol.
+    fun openSeriesPart(parca: FilmSerisiParcasi) {
+        acilacakBaslik = parca.baslik
+        doSearch(parca.baslik)
+    }
+
     // Kumandadan metin geldiğinde ara. Eklentiler yüklenmeden arama boş döner —
     // `plugins` listesi dolana kadar bekler.
     LaunchedEffect(remoteQuery, plugins.size) {
@@ -339,6 +363,7 @@ fun BrowseScreen(
             SourceChips(
                 names = plugins.map { it.name },
                 selected = selectedPlugin,
+                seriesSelected = seriesMode,
                 favoriler = favKaynaklar,
                 onFavori = { ad ->
                     val yeni = if (ad in favKaynaklar) favKaynaklar - ad else favKaynaklar + ad
@@ -350,11 +375,13 @@ fun BrowseScreen(
                     }
                 },
                 onSelect = { name ->
+                    seriesMode = false
                     state.plugin = name
                     state.shelf = 0
                     state.card = 0          // yalnız raf sıfırlanırsa odak eski kartta kalır
                     browseScope.launch { listState.scrollToItem(0) }
                 },
+                onSelectSeries = { seriesMode = true },
             )
         }
         Box(Modifier.fillMaxSize()) {
@@ -367,6 +394,11 @@ fun BrowseScreen(
                 )
                 loading      -> Center("Eklentiler yükleniyor…")
                 error != null -> ErrorWithRetry(error!!) { error = null; loading = true; deneme++ }
+                seriesMode -> when {
+                    filmSerileriLoading && filmSerileri.isEmpty() -> Center("Seriler yükleniyor…")
+                    filmSerileri.isEmpty() -> Center("Seri bulunamadı")
+                    else -> SeriesShelfList(filmSerileri, onSelectParca = ::openSeriesPart)
+                }
                 shelves.isEmpty() -> Center(
                     if (vaultMode) "Bu koleksiyonda kaynak yok"
                     else "Kaynak bulunamadı",
@@ -489,9 +521,11 @@ private fun IconPill(glyph: String, onClick: () -> Unit) {
 private fun SourceChips(
     names: List<String>,
     selected: String?,
+    seriesSelected: Boolean,
     favoriler: Set<String>,
     onSelect: (String?) -> Unit,
     onFavori: (String) -> Unit,
+    onSelectSeries: () -> Unit,
 ) {
     // Yıldızlı kaynaklar başta: liste 16 eklentiye çıktı, en çok kullanılana
     // ulaşmak için sonuna kadar gitmek gerekiyordu (Dean: "cehennemi için sona
@@ -504,7 +538,9 @@ private fun SourceChips(
         contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { SourceChip("Tümü", selected == null, favori = false) { onSelect(null) } }
+        item { SourceChip("Tümü", selected == null && !seriesSelected, favori = false) { onSelect(null) } }
+        // Seri filmler (franchise): Blade Runner, Harry Potter, John Wick vb. — Tümü'nün hemen yanında.
+        item { SourceChip("Seriler", seriesSelected, favori = false) { onSelectSeries() } }
         items(sirali.size) { i ->
             val ad = sirali[i]
             // SAĞ ok kanallarda favori ekliyor; burada da aynı hareket.
@@ -714,6 +750,91 @@ private fun ShelfSkeleton() {
                     .background(NmColor.Surface),
             )
         }
+    }
+}
+
+// ------------------------------------------------------------------- Seriler
+// Her koleksiyon bir raf: raf adı = koleksiyon adı, kartlar = parçalar (çıkış
+// tarihine göre sıralı — sunucu sıralar). Tıklanınca MediaItem'a dönüştürülmez,
+// başlıkla arama yapılır (bkz. openSeriesPart / otomatikAc yolu).
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SeriesShelfList(
+    seriler: List<FilmSerisi>,
+    onSelectParca: (FilmSerisiParcasi) -> Unit,
+) {
+    val firstFocus = remember { FocusRequester() }
+    LaunchedEffect(seriler.firstOrNull()?.id) { runCatching { firstFocus.requestFocus() } }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = NmDim.SafeV + 16.dp),
+        verticalArrangement = Arrangement.spacedBy(NmDim.RowGap),
+    ) {
+        items(seriler.size) { i ->
+            val seri = seriler[i]
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    text = seri.ad,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = NmType.RowTitle,
+                    color = NmColor.OnSurfaceMuted,
+                    modifier = Modifier.padding(start = NmDim.SafeH),
+                )
+                LazyRow(
+                    modifier = Modifier.focusGroup(),
+                    contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = NmDim.RowPadV),
+                    horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                ) {
+                    itemsIndexed(seri.parcalar) { j, parca ->
+                        val mod = Modifier
+                            .width(com.evaitec.netmovies.tv.ui.theme.nmRafPosterGenisligi())
+                            .then(if (i == 0 && j == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                        SeriesPoster(parca, modifier = mod) { onSelectParca(parca) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SeriesPoster(parca: FilmSerisiParcasi, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale = nmFocusScale(focused, NmDim.FocusScaleCard, label = "seriesScale")
+    val shape = RoundedCornerShape(NmDim.CardRadius)
+    Box(
+        modifier = modifier
+            .aspectRatio(2f / 3f)
+            .nmScale(scale)
+            .zIndex(if (focused) 1f else 0f)
+            .clip(shape)
+            .background(NmColor.SurfaceHigh)
+            .nmFocusRingOnly(focused, shape)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable { onClick() },
+    ) {
+        PosterImage(poster = parca.poster, title = parca.baslik)
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(54.dp)
+                .background(nmBottomScrim),
+        )
+        Text(
+            text = if (parca.yil > 0) "${parca.baslik} (${parca.yil})" else parca.baslik,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = NmType.Caption,
+            color = NmColor.OnSurface,
+            fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 7.dp),
+        )
     }
 }
 

@@ -100,6 +100,10 @@ interface NetMoviesApi {
     @GET("api/v1/show_schedule")
     suspend fun showSchedule(@Query("title") title: String): ShowScheduleResponse
 
+    // Film serileri (franchise, TMDB koleksiyonları) — Gözat'ta "Seriler" sekmesi.
+    @GET("api/v1/film_serileri")
+    suspend fun filmSerileri(): FilmSerileriResponse
+
     @GET("similar")
     suspend fun similar(
         @Query("title") title: String,
