@@ -12,6 +12,10 @@ from .    import api_v1_router, api_v1_global_message
 from Public.Home.Libs import admin_config, watch_store
 from ..Libs           import kayit
 
+# İçerik → son bildirilen konum. TV duraklatılmışken de 15 sn'de bir yazıyor;
+# konum ilerlemiyorsa izleme sayılmaz, kayıt indirmesi boşuna kısılmaz.
+_son_konum: dict[str, str] = {}
+
 
 def _key_from(veri: dict) -> str:
     """İstek verisinden content_key üretir/alır.
@@ -70,7 +74,12 @@ async def save_progress(request: Request):
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}
     # TV 15 sn'de bir yazıyor: doğrudan CDN'den oynayan kaynak proxy'ye uğramaz,
     # izlendiğini kaydediciye bu söyler.
-    kayit.izleme_oldu()
+    konum = str(veri.get("position_seconds") or "")
+    if _son_konum.get(ck) not in (None, konum):
+        kayit.izleme_oldu()
+    if len(_son_konum) > 500:
+        _son_konum.clear()   # ponytail: tek kullanıcı, sınırsız büyümesin yeter
+    _son_konum[ck] = konum
     # Özel Koleksiyon izleme kaydı tutulmaz.
     if str(veri.get("plugin") or "") in set(admin_config.load_config()["adult_providers"]):
         return {**api_v1_global_message, "result": {"ok": True, "skipped": "adult"}}
