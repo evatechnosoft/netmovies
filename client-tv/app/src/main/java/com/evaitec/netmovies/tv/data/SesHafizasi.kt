@@ -12,19 +12,26 @@ import android.media.AudioManager
 object SesHafizasi {
     private const val PREFS = "player"
     private const val KEY = "medya_sesi"
+    /** Kayıt yoksa (ilk kurulum, kayıt hiç yazılmadıysa) başlangıç düzeyi (Dean: "9'dan başlasın"). */
+    internal const val VARSAYILAN = 9
+
+    /** Hedef düzey: kayıt varsa o, yoksa [VARSAYILAN]; cihazın tavanını aşmaz. */
+    internal fun hedef(kayit: Int, max: Int): Int = (if (kayit < 0) VARSAYILAN else kayit).coerceIn(0, max)
 
     private fun ses(context: Context) =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     fun geriYukle(context: Context) {
         val am = ses(context)
-        if (am.isVolumeFixed) return
         val kayit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY, -1)
-        if (kayit < 0) return
-        val hedef = kayit.coerceAtMost(am.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
-        if (am.getStreamVolume(AudioManager.STREAM_MUSIC) != hedef) {
-            am.setStreamVolume(AudioManager.STREAM_MUSIC, hedef, 0)
-        }
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val simdi = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        val hedef = hedef(kayit, max)
+        // Kanıt client_log'a: "hâlâ en yüksekten başlıyor" teşhisi cihazsız yapılamıyordu.
+        // sabit=true ise ses HDMI/CEC ile televizyonda, uygulama ayarlayamaz.
+        PlaybackLog.info("ses", "geri yükle: sabit=${am.isVolumeFixed} şimdi=$simdi kayıt=$kayit hedef=$hedef max=$max")
+        if (am.isVolumeFixed) return
+        if (simdi != hedef) am.setStreamVolume(AudioManager.STREAM_MUSIC, hedef, 0)
     }
 
     fun kaydet(context: Context) {

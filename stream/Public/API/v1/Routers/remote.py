@@ -163,6 +163,10 @@ async def remote_play(request: Request):
 async def remote_command(request: Request):
     """Kumanda çağırır: tuş, oynatma kontrolü, metin veya ekran değişimi."""
     veri = request.state.veri or {}
+    # Güç kuyruğa girmez (TV uygulaması kapalıyken de çalışmalı): köprüye gider.
+    # Widget tek uca yolladığı için burada da kabul edilir.
+    if str(veri.get("type") or "").strip().lower() == "power":
+        return await remote_power(request)
     cmd  = build_command(veri)
     if isinstance(cmd, str):
         return _err(cmd)

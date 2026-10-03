@@ -160,4 +160,17 @@
             android:text="▶" />
         <TextView android:id="@+id/widget_ileri" style="@style/NmWidgetDugme" android:text="+30" />
     </LinearLayout>
+
+    <!-- Güç (yalnız kapatır; uykudaki kutu ağdan açılamaz) ve ses. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:paddingTop="6dp">
+
+        <TextView android:id="@+id/widget_guc" style="@style/NmWidgetDugme" android:text="⏻" />
+        <TextView android:id="@+id/widget_ses_az" style="@style/NmWidgetDugme" android:text="🔉" />
+        <TextView android:id="@+id/widget_ses_cok" style="@style/NmWidgetDugme" android:text="🔊" />
+    </LinearLayout>
 </LinearLayout>

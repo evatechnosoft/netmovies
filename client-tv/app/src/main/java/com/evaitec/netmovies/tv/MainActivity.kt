@@ -137,6 +137,18 @@ class MainActivity : ComponentActivity() {
 
 
     @OptIn(ExperimentalTvMaterial3Api::class)
+    // Ses hafızası yalnız oynatıcıdaydı: kutu uykudan yüksek sesle uyanıyor, ana
+    // ekranda ve oynatıcı açılana kadar ses tavanda kalıyordu (Dean, 3 Ekim).
+    override fun onResume() {
+        super.onResume()
+        com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(this)
+    }
+
+    override fun onPause() {
+        com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(this)
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.evaitec.netmovies.tv.data.ServerResolver.init(this)

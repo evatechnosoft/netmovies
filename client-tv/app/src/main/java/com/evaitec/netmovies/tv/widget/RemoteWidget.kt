@@ -132,6 +132,9 @@ class RemoteWidget : AppWidgetProvider() {
             dugme(context, R.id.widget_oynat, KOMUT_OYNAT)
             dugme(context, R.id.widget_ileri, KOMUT_ILERI)
             dugme(context, R.id.widget_ev, KOMUT_EV)
+            dugme(context, R.id.widget_guc, KOMUT_GUC)
+            dugme(context, R.id.widget_ses_az, KOMUT_SES_AZ)
+            dugme(context, R.id.widget_ses_cok, KOMUT_SES_COK)
             // Yön pad'i: saatteki gezinmenin aynısı, aynı tuş gövdeleri.
             dugme(context, R.id.widget_sol, tus("LEFT"))
             dugme(context, R.id.widget_sag, tus("RIGHT"))
@@ -239,6 +242,9 @@ class RemoteWidget : AppWidgetProvider() {
         private const val KOMUT_ILERI = """{"type":"transport","action":"seek","value":30}"""
         private const val KOMUT_OYNAT = """{"type":"transport","action":"play_pause","value":0}"""
         private const val KOMUT_EV    = """{"type":"nav","screen":"home"}"""
+        private const val KOMUT_GUC   = """{"type":"power"}"""
+        private const val KOMUT_SES_AZ  = """{"type":"transport","action":"volume","value":-0.1}"""
+        private const val KOMUT_SES_COK = """{"type":"transport","action":"volume","value":0.1}"""
 
         // Yayın beş gözü; ortadaki (indeks 2) seçili olan.
         private val POSTER_ID = listOf(

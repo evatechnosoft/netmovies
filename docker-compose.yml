@@ -125,7 +125,7 @@ services:
       - ${NM_NET:-172.31.0}.53          # DoH resolver
       - 1.1.1.1              # Fallback 1 (Cloudflare Public DNS)
       - 8.8.8.8              # Fallback 2 (Google Public DNS)
-    # Kutu gücü köprüsü (scripts/atv_power.py) HOST'ta çalışır: konteyner LAN'a
+    # Kutu gücü köprüsü (atv servisi, host ağında) 3311'de: stream ona
     # TCP açamıyor ama host'a açabiliyor. Özel `dns:` yüzünden Docker'ın kendi
     # DNS'i devrede değil, bu yüzden isim /etc/hosts'a yazılıyor.
     extra_hosts:
@@ -192,3 +192,22 @@ services:
     network_mode: "service:stream"
     profiles:
       - tunnel
+
+  # Mi Box güç/tuş köprüsü (scripts/atv_power.py, Android TV Remote v2). Host ağında:
+  # kutuya LAN'dan konuşur, stream ona host.docker.internal:3311 ile ulaşır.
+  # Eşleşme sertifikası data/atv'de (bir kez `--eslestir`). Yalnız KAPATIR; uykudaki
+  # kutu ağda yok, açmak TV kumandası/CEC'te kalır.
+  # ponytail: her başlangıçta pip kurar (internet ister); sık yeniden başlarsa küçük imaj yap.
+  atv:
+    image          : python:3.12-slim
+    container_name : netmovies-atv
+    restart        : unless-stopped
+    network_mode   : host
+    working_dir    : /app
+    command        : sh -c "pip install -q --no-cache-dir androidtvremote2 && python -u scripts/atv_power.py"
+    environment:
+      ATV_HOST: ${ATV_HOST:-192.168.1.105}
+      ATV_PORT: "3311"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./data/atv:/app/data/atv

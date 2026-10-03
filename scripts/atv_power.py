@@ -108,7 +108,8 @@ class Kopru:
         if self.tv is None and not ayakta():
             return {"host": KUTU_IP, "acik": False, "cihaz": None, "uyanik": False}
         tv = self._tv()
-        return {"host": KUTU_IP, "acik": tv.is_on, "cihaz": tv.device_info, "uyanik": True}
+        return {"host": KUTU_IP, "acik": tv.is_on, "cihaz": tv.device_info, "uyanik": True,
+                "ses": tv.volume_info}
 
     def tus(self, ad: str) -> None:
         self._tv().send_key_command(ad)
