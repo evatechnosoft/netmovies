@@ -56,3 +56,23 @@ def validate_proxy_token(token: str, target_url: str) -> bool:
         return bool(target_host and target_host in payload.get("hosts", []))
     except (ValueError, TypeError, KeyError, json.JSONDecodeError, UnicodeError):
         return False
+
+
+def token_tanisi(token: str | None, target_url: str) -> str:
+    """Red sebebi tek satırda (yalnız günlük için): imza / süre / host / biçim.
+    3 Ekim'de TV 75. saniyede donmuştu; günlükte yalnız "geçersiz" yazıyordu."""
+    if not token:
+        return "jeton yok"
+    try:
+        encoded, imza = token.split(".", 1)
+        beklenen = _encode(hmac.new(_secret(), encoded.encode("ascii"), hashlib.sha256).digest())
+        payload = json.loads(_decode(encoded).decode("utf-8"))
+    except (ValueError, TypeError, json.JSONDecodeError, UnicodeError):
+        return "biçim bozuk"
+    yas = int(time.time()) - (int(payload.get("exp", 0)) - _TOKEN_TTL_SECONDS)
+    hedef = _host(target_url)
+    if not hmac.compare_digest(imza, beklenen):
+        return f"imza tutmuyor (başka anahtarla basılmış) · yaş {yas}s · hedef {hedef}"
+    if int(payload.get("exp", 0)) < int(time.time()):
+        return f"süresi dolmuş · yaş {yas}s · hedef {hedef}"
+    return f"host yok · hedef {hedef} · jeton {payload.get('hosts')}"

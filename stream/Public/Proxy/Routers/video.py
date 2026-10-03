@@ -8,7 +8,7 @@ from .                    import proxy_router
 from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, parse_extra_headers, url_is_public
 from ..Libs import manifest_cache
 from ..Libs.segment_cache import segment_cache
-from ..Libs.proxy_token   import validate_proxy_token
+from ..Libs.proxy_token   import token_tanisi, validate_proxy_token
 
 import asyncio
 from urllib.parse import urljoin
@@ -121,7 +121,8 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
     """Video proxy endpoint'i"""
     target_url           = url
     if not proxy_token or not validate_proxy_token(proxy_token, target_url):
-        konsol.print("[red]⛔ Proxy token geçersiz/süresi dolmuş[/red]")
+        istemci = request.client.host if request.client else "?"
+        konsol.print(f"[red]⛔ Proxy token reddedildi · {token_tanisi(proxy_token, target_url)} · {istemci}[/red]")
         return Response(status_code=403, content="Geçersiz veya süresi dolmuş proxy token")
     if not await url_is_public(target_url):
         return Response(status_code=403, content="Hedef adres proxy'lenemez")
