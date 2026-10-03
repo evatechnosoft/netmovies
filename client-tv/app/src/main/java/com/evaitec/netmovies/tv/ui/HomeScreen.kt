@@ -542,8 +542,14 @@ private fun TopBar(
         fun ad(isim: String) = Modifier.onFocusChanged {
             if (it.isFocused) odakAdi = isim else if (odakAdi == isim) odakAdi = null
         }
+        val updateVm: UpdateViewModel = viewModel()
+        val guncelleme by updateVm.ui.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { updateVm.recheckIfStale() }
+        // Güncelleme varken marka kısalır, düğme onun yerine oturur: satır uzamasın
+        // (Dean, 3 Ekim: "ismin yerine gelsin, kısa isim ve güncelle butonu").
+        val guncellemeVar = guncelleme !is UpdateUi.Idle && guncelleme !is UpdateUi.UpToDate
         Text(
-            text = "NetMovies",
+            text = if (guncellemeVar) "NM" else "NetMovies",
             fontWeight = FontWeight.ExtraBold,
             fontSize = if (telefon) NmType.Body else NmType.Wordmark,
             color = NmColor.Primary,
@@ -554,9 +560,6 @@ private fun TopBar(
         // çıkarken önce bar düğmelerinde geziyor, sonra bir satır daha çıkıyordu
         // (Dean: "tek satırda her şey olsun"). Şimdi markanın yanında bir düğme;
         // güncel/boşta iken görünmez.
-        val updateVm: UpdateViewModel = viewModel()
-        val guncelleme by updateVm.ui.collectAsStateWithLifecycle()
-        LaunchedEffect(Unit) { updateVm.recheckIfStale() }
         when (val u = guncelleme) {
             is UpdateUi.Available ->
                 TvTopBarButton("⬆ ${u.info.tag}", onClick = { updateVm.download(u.info) }, compact = true, modifier = ad("Güncelle"))
