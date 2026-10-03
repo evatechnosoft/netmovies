@@ -1781,38 +1781,19 @@ fun PlayerScreen(
                 },
                 onClose = { showStartPanel = false; panelAsList = false },
             )
-        } else if (showStartPanel) {
-            StartPanel(
-                title = item.title.orEmpty(),
-                details = details,
-                rating = item.rating,
-                episodes = episodes,
-                currentEpIndex = currentEpIndex,
-                links = links,
-                currentLinkIndex = currentLinkIndex,
-                resumeLabel = resumeLabel,
-                hazir = links.isNotEmpty(),
-                // Bölüme basmak DOĞRUDAN başlatır: seçtikten sonra panelin
-                // tepesindeki OYNAT'a dönmek fazladan bir yolculuktu (Dean).
-                onSelect = { idx ->
-                    // Bölüm seçildi: kayıt başka bölüme aitse "devam et" etiketi
-                    // artık yanıltıcı, düşer.
-                    if (resumeEpisode != null && resumeEpisode != idx) resumeLabel = null
-                    currentEpIndex = idx
-                    playRequested = true
-                    showStartPanel = false
-                    panelAsList = false
-                    exo.playWhenReady = true
-                },
-                onSelectLink = { idx -> currentLinkIndex = idx },
-                onPlay = { panelOynat() },
-                onOpenSettings = { showStartPanel = false; panelGeriGelsin = true; showSettings = true },
-                onOpenEpisodes = { panelAsList = true; secilenSezon = null },
-            )
         }
 
-        if (showSettings) {
+        // Başlangıç paneli = aynı ayar paneli (StartPanel kalktı): başlık üstte,
+        // OYNAT odakta, bölüm listesi ☰ arkasında kapalı (Dean, 3 Ekim).
+        val baslangic = showStartPanel && !panelAsList
+        if (showSettings || baslangic) {
             SettingsPanel(
+                baslangic = baslangic,
+                title = item.title.orEmpty(),
+                bilgi = icerikBilgisi(details, item.rating),
+                oynatEtiketi = oynatEtiketi(resumeLabel, episodes, currentEpIndex, oynuyor = !baslangic),
+                hazir = links.isNotEmpty(),
+                onPlay = { if (baslangic) panelOynat() else showSettings = false },
                 links = links,
                 currentLinkIndex = currentLinkIndex,
                 episodes = episodes,
@@ -1829,17 +1810,18 @@ fun PlayerScreen(
                     showSettings = false
                     if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
                 },
-                onOpenEpisodes = {
-                    showSettings = false
-                    panelGeriGelsin = false
-                    panelAsList = true
-                    secilenSezon = null
-                    showStartPanel = true
-                },
                 onSelectEpisode = { idx ->
                     showSettings = false
                     panelGeriGelsin = false
-                    goToEpisode(idx)
+                    if (baslangic) {
+                        // Bölüme basmak DOĞRUDAN başlatır; kayıt başka bölüme aitse
+                        // "devam et" etiketi artık yanıltıcı, düşer.
+                        if (resumeEpisode != null && resumeEpisode != idx) resumeLabel = null
+                        currentEpIndex = idx
+                        playRequested = true
+                        showStartPanel = false
+                        exo.playWhenReady = true
+                    } else goToEpisode(idx)
                 },
                 onSelectAudio = { group, trackIndex ->
                     exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
@@ -1882,6 +1864,8 @@ fun PlayerScreen(
                 onClose = {
                     showSettings = false
                     if (panelGeriGelsin) { panelGeriGelsin = false; showStartPanel = true }
+                    // Başlangıçta GERİ = OYNAT (kaynak yoksa çıkış) — tuş işleyicisiyle aynı.
+                    if (baslangic) { if (links.isNotEmpty()) panelOynat() else onBack() }
                 },
                 modifier = Modifier.align(Alignment.CenterEnd),
                 canli = canliYayin,
@@ -2447,9 +2431,19 @@ internal fun SettingsPanel(
     library: com.evaitec.netmovies.tv.data.Library,
     item: com.evaitec.netmovies.tv.data.MediaItem,
     onSelectSource: (Int) -> Unit,
-    onOpenEpisodes: () -> Unit = {},
-    /** Panel doğrudan Bölümler sekmesinde açılsın (kumandadaki "Bölümler" girişi). */
+    /** Panel doğrudan Bölümler sekmesinde, LİSTE AÇIK gelsin (kumandadaki "Bölümler" girişi). */
     acilisBolumler: Boolean = false,
+    /** İçerik açılırken aynı panel başlangıç panelidir: başlık üstte, odak OYNAT'ta.
+     *  Eskiden ayrı bir StartPanel vardı; Dean (3 Ekim): "direkt bu iki sayfa çıksın". */
+    baslangic: Boolean = false,
+    title: String = "",
+    /** Yıl · tür · puan satırı (yalnız başlangıçta çizilir). */
+    bilgi: String = "",
+    /** OYNAT satırı: devam / baştan / oynuyor. Boşsa satır çizilmez. */
+    oynatEtiketi: String = "",
+    /** Kaynak bulundu mu — başlangıçta "aranıyor" notu için. */
+    hazir: Boolean = true,
+    onPlay: () -> Unit = {},
     /** Bölüm listesi başka bir sağlayıcıdan geldiyse adı — kaç bölüm görüldüğü
      *  sağlayıcıya bağlı, kullanıcı hangisine baktığını bilsin. */
     listeKaynagi: String? = null,
@@ -2494,6 +2488,11 @@ internal fun SettingsPanel(
     val bolumFocus = remember { FocusRequester() }
     val kanalFocus = remember { FocusRequester() }
     val listeFocus = remember { FocusRequester() }
+    val oynatFocus = remember { FocusRequester() }
+    // Bölüm listesi panelde KAPALI başlar; ☰ açar. Dizide sekiz satır panelin
+    // tamamını alıyordu, OYNAT/son bölüm aşağı kayıyordu (Dean, 3 Ekim:
+    // "bölümler kapalı, liste istersem açarım"). Kumandadan "Bölümler" ile gelince açık.
+    var listeAcik by remember { mutableStateOf(acilisBolumler) }
     // GERİ sırası: açık chip listesi (SecimChip kendi kapatır) → odak üst segment
     // satırına → panel kapanır. Listenin derininden sekmeye tek tek çıkmak gerekiyordu.
     var usttekiSira by remember { mutableStateOf(false) }
@@ -2512,10 +2511,10 @@ internal fun SettingsPanel(
         onSec = onSec,
     )
 
-    // Açılış odağı: oynayan bölüm → oynayan kanal → filmde ilk liste hapı. Bağlı
-    // olmayan istek fırlatır; sıradaki denenir.
+    // Açılış odağı: oynayan bölüm (liste açıksa) → oynayan kanal → OYNAT satırı →
+    // ilk liste hapı. Bağlı olmayan istek fırlatır; sıradaki denenir.
     LaunchedEffect(Unit) {
-        val hedefler = listOf(bolumFocus, kanalFocus, listeFocus, sekmeFocus[0], panelFocus)
+        val hedefler = listOf(bolumFocus, kanalFocus, oynatFocus, listeFocus, sekmeFocus[0], panelFocus)
         repeat(6) {
             withFrameNanos {}
             if (hedefler.any { runCatching { it.requestFocus() }.isSuccess }) return@LaunchedEffect
@@ -2537,6 +2536,23 @@ internal fun SettingsPanel(
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap),
     ) {
+        if (baslangic && title.isNotBlank()) {
+            Text(
+                text = title,
+                fontSize = NmType.RowTitle,
+                fontWeight = FontWeight.Bold,
+                color = NmColor.OnSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (bilgi.isNotBlank()) Text(
+                text = bilgi,
+                fontSize = NmType.Caption,
+                color = NmColor.OnSurfaceMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         // Üst sıra: odak gelince sekme değişir ("buton içinde gezinir seçeriz").
         // YUKARI ile gelen odak geometrik en yakına değil seçili sekmeye iner —
         // yoksa içerikten çıkarken yanlışlıkla komşu sekme açılıyordu.
@@ -2587,7 +2603,7 @@ internal fun SettingsPanel(
                 // seçiliye tekrar basmak listeden çıkarır.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (episodes.isNotEmpty()) {
-                        IkonHap("Bölümler", Icons.Filled.FormatListBulleted, false) { onOpenEpisodes() }
+                        IkonHap("Bölümler", Icons.Filled.FormatListBulleted, listeAcik) { listeAcik = !listeAcik }
                         Spacer(Modifier.width(NmDim.ItemGap))
                     }
                     val suan = listOf(library.isFavorite(item), library.inTakip(item), library.inIzlenecek(item))
@@ -2619,8 +2635,21 @@ internal fun SettingsPanel(
                         }
                     }
                 }
+                // Kaldığım bölüm ve son bölüm liste kapalıyken de burada: tek tıkla
+                // devam / sona atla (Dean, 3 Ekim: "ikonlu olan yerde olsun").
+                if (!kanalModu && oynatEtiketi.isNotBlank()) {
+                    Box(Modifier.focusRequester(oynatFocus)) { SettingRow(oynatEtiketi, false) { onPlay() } }
+                }
+                if (baslangic && !hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
+                if (episodes.size > 1) {
+                    val sonIdx = episodes.lastIndex
+                    SettingRow(
+                        "⏭  Son bölüm — ${episodeLabel(episodes[sonIdx], sonIdx)}",
+                        sonIdx == currentEpIndex,
+                    ) { onSelectEpisode(sonIdx) }
+                }
                 when {
-                    episodes.isNotEmpty() -> {
+                    listeAcik && episodes.isNotEmpty() -> {
                         val sezonlar = remember(episodes) { episodes.map { it.season }.distinct().sorted() }
                         val simdikiSezon = episodes.getOrNull(currentEpIndex)?.season
                         val acikSezon = panelSezon ?: simdikiSezon ?: sezonlar.firstOrNull()
@@ -2664,7 +2693,7 @@ internal fun SettingsPanel(
                             ) { onKanal(k) }
                         }
                     }
-                    else -> MutedRow("OK ile listeye ekle / çıkar")
+                    episodes.isEmpty() -> MutedRow("OK ile listeye ekle / çıkar")
                 }
             }
 
@@ -3017,156 +3046,30 @@ internal fun episodeLabel(ep: com.evaitec.netmovies.tv.data.EpisodeItem, index: 
 // çözümleme sürerken paneli okuyup tek OK ile başlatır, "play'i arama" yok.
 // Bölüm listesi ve kaynak/dil aynı panelde — ayrı istek yok, liste zaten
 // resolve_sources yanıtından geliyor.
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-internal fun StartPanel(
-    title: String,
-    details: com.evaitec.netmovies.tv.data.ItemDetails?,
-    rating: Double?,
+/** Panelin OYNAT satırı tek cümlede ne yapacağını söyler: yarım kalan varsa devam,
+ *  yeni diziye giriliyorsa 1. bölüm, filmde düz oynat; oynarken hangi bölümün çaldığı. */
+internal fun oynatEtiketi(
+    resumeLabel: String?,
     episodes: List<com.evaitec.netmovies.tv.data.EpisodeItem>,
     currentEpIndex: Int,
-    links: List<com.evaitec.netmovies.tv.data.StreamLink>,
-    currentLinkIndex: Int,
-    resumeLabel: String?,
-    hazir: Boolean,
-    onSelect: (Int) -> Unit,
-    onSelectLink: (Int) -> Unit,
-    onPlay: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenEpisodes: () -> Unit,
-) {
-    val bilgi = listOfNotNull(
-        details?.yearText?.takeIf { it.isNotBlank() },
-        details?.tagsText?.takeIf { it.isNotBlank() },
-        (details?.ratingText?.takeIf { it.isNotBlank() } ?: rating?.let { "%.1f".format(it) })?.let { "★ $it" },
-    ).joinToString("  ·  ")
-    val playFocus = remember { FocusRequester() }
-    // Bölüm listesi olarak açıldığında odak OYNAT'ta değil, OYNAYAN BÖLÜMDE olmalı:
-    // aksi hâlde listeye inmek ve o bölümü bulmak kaydırmakla geçiyordu
-    // (Dean: "direkt bölümlere girmiyor").
-    // Tek requestFocus ilk karede sessizce düşüyor; birkaç kare denenir.
-    LaunchedEffect(Unit) {
-        repeat(6) {
-            withFrameNanos {}
-            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-        }
-    }
-    // Odak nöbeti: liste yeniden oluşunca (bölümler geç gelir, sezon değişir) odak
-    // hiçbir satırda kalmıyor ve D-pad ölüyordu (Dean: "cursor kayboluyor, bir daha
-    // bir şey seçmiyor"). Panelin tamamı odaksız kalırsa OYNAT'a geri alınır.
-    var panelOdakli by remember { mutableStateOf(false) }
-    LaunchedEffect(panelOdakli, episodes.size) {
-        if (panelOdakli) return@LaunchedEffect
-        repeat(8) {
-            withFrameNanos {}
-            if (panelOdakli) return@LaunchedEffect
-            if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-        }
-    }
-
-    // Oynat satırının ne yapacağı tek cümlede görünsün: yarım kalan varsa devam,
-    // yeni diziye giriliyorsa 1. bölüm, filmde düz oynat.
-    val playLabel = when {
-        resumeLabel != null   -> "▶  Devam et — $resumeLabel"
-        episodes.isNotEmpty() -> "▶  ${episodeLabel(episodes[currentEpIndex], currentEpIndex)} — baştan"
-        else                  -> "▶  Oynat"
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            // Tam perde yerine yumuşak gölge: panel yandayken arkası seçilsin.
-            .background(NmColor.ScrimSoft)
-            .onFocusChanged { panelOdakli = it.hasFocus }
-            .focusGroup(),
-        // Ortadaki geniş panel ekranı kapatıp "dolu" gösteriyordu (Dean): panel
-        // sağ kenara alındı, arkadaki afiş/video görünür kalıyor.
-        contentAlignment = Alignment.CenterEnd,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight(0.92f)
-                .width(NmDim.PanelWidth)
-                .clip(RoundedCornerShape(NmDim.PanelRadius))
-                .background(NmColor.SurfaceDialog)
-                // Açıklama gelince bölüm listesine yer kalmıyordu: panelin iç
-                // boşlukları ve satır araları yarıya indirildi (Dean).
-                .padding(horizontal = 22.dp, vertical = NmDim.SafeV / 2),
-            verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap / 2),
-        ) {
-            Text(
-                text = title,
-                fontSize = NmType.ScreenTitle,
-                fontWeight = FontWeight.Bold,
-                color = NmColor.OnSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (bilgi.isNotBlank()) MutedRow(bilgi)
-            // Dizide özet kısa tutulur: bölüm listesi kaydırmadan görünsün
-            // (Dean: "kaç bölüm olduğu gözükmüyor").
-            details?.description?.takeIf { it.isNotBlank() && it != "None" }?.let {
-                Text(
-                    text = it,
-                    fontSize = NmType.Body,
-                    color = NmColor.OnSurfaceMuted,
-                    maxLines = if (episodes.isEmpty()) 3 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Box(Modifier.focusRequester(playFocus)) {
-                SettingRow(playLabel, true) { onPlay() }
-            }
-            if (!hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
-
-            if (episodes.isNotEmpty()) {
-                // Sezon rafı (yatay) + bölüm listesi (dikey) BURADAYDI: aynı panelde
-                // iki ayrı yön, üstüne panel zaten oynatıcının üstünde bir katmandı
-                // (Dean: "çok karışık, iç içe hep geçiyor"). Bölüm seçimi artık ayrı
-                // bir sayfa — `BolumSecici`, kutucuk ızgarası, sezon → bölüm.
-                SettingRow("📑  Bölümler (${episodes.size}) — sezon ve bölüm seç", false) {
-                    onOpenEpisodes()
-                }
-                val sonIdx = episodes.lastIndex
-                if (episodes.size > 1) {
-                    SettingRow(
-                        "⏭  Son bölüm — ${episodeLabel(episodes[sonIdx], sonIdx)}",
-                        sonIdx == currentEpIndex,
-                    ) { onSelect(sonIdx) }
-                }
-                Spacer(Modifier.weight(1f))
-            } else {
-                // Bölüm listesi `load_item` ile geliyor ve saniyeler sürebiliyor.
-                // O ana kadar panelde yalnız "Devam et" duruyordu: kullanıcı bölüm
-                // satırlarının GELECEĞİNİ bilmeden kayıttaki bölümü açıyordu
-                // (Dean, 18 Eylül: "beklemesem göremeyeceğim bölümler yazısını").
-                MutedRow("📑  Bölümler yükleniyor…")
-                Spacer(Modifier.weight(1f))
-            }
-
-            // Dizide kaynak listesi paneli uzatıp bölümleri aşağı itiyordu; orada
-            // yalnız ayarlar satırı kalır, kaynak seçimi ayar panelinden yapılır.
-            if (links.isNotEmpty() && episodes.isEmpty()) {
-                SectionTitle("🌐 Kaynak · dil")
-                links.take(6).forEachIndexed { i, l ->
-                    SettingRow(languageLabel(l), i == currentLinkIndex) { onSelectLink(i) }
-                }
-            }
-            SettingRow("⚙  Kaynak · kalite · altyazı", false, onClick = onOpenSettings)
-        }
+    oynuyor: Boolean,
+): String {
+    val bolum = episodes.getOrNull(currentEpIndex)?.let { episodeLabel(it, currentEpIndex) }
+    return when {
+        oynuyor && bolum != null -> "▶  $bolum — oynuyor"
+        oynuyor                  -> "▶  Oynuyor"
+        resumeLabel != null      -> "▶  Devam et — $resumeLabel"
+        bolum != null            -> "▶  $bolum — baştan"
+        else                     -> "▶  Oynat"
     }
 }
 
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        color = NmColor.Primary,
-        fontWeight = FontWeight.Bold,
-        fontSize = NmType.RowTitle,
-        modifier = Modifier.padding(top = 6.dp, bottom = 1.dp),
-    )
-}
+/** Yıl · tür · ★ puan — başlangıç panelinin başlık altı satırı. */
+internal fun icerikBilgisi(details: com.evaitec.netmovies.tv.data.ItemDetails?, rating: Double?): String = listOfNotNull(
+    details?.yearText?.takeIf { it.isNotBlank() },
+    details?.tagsText?.takeIf { it.isNotBlank() },
+    (details?.ratingText?.takeIf { it.isNotBlank() } ?: rating?.let { "%.1f".format(it) })?.let { "★ $it" },
+).joinToString("  ·  ")
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable

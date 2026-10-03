@@ -43,8 +43,9 @@ import com.evaitec.netmovies.tv.ui.ScrubOverlay
 import com.evaitec.netmovies.tv.ui.SeekScreen
 import com.evaitec.netmovies.tv.ui.SettingsPanel
 import com.evaitec.netmovies.tv.ui.SkipIntroCard
-import com.evaitec.netmovies.tv.ui.StartPanel
 import com.evaitec.netmovies.tv.ui.episodeLabel
+import com.evaitec.netmovies.tv.ui.icerikBilgisi
+import com.evaitec.netmovies.tv.ui.oynatEtiketi
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -260,36 +261,23 @@ fun PlayerScreen2(
         onSelect = { bolumSec(it) },
         onClose = { core.showStartPanel = false; ui.panelAsList = false },
       )
-    } else if (core.showStartPanel) {
-      StartPanel(
-        title = item.title.orEmpty(),
-        details = core.details,
-        rating = item.rating,
-        episodes = core.episodes,
-        currentEpIndex = core.currentEpIndex,
-        links = core.links,
-        currentLinkIndex = core.currentLinkIndex,
-        resumeLabel = core.resumeLabel,
-        hazir = core.links.isNotEmpty(),
-        // Bölüme basmak DOĞRUDAN başlatır (Dean).
-        onSelect = { idx ->
-          bolumSec(idx)
-          core.showStartPanel = false
-          ui.panelAsList = false
-        },
-        onSelectLink = { core.selectLink(it) },
-        onPlay = { core.panelOynat() },
-        onOpenSettings = { core.showStartPanel = false; ui.panelGeriGelsin = true; ui.showSettings = true },
-        onOpenEpisodes = { ui.panelAsList = true; ui.secilenSezon = null },
-      )
     }
 
-    if (ui.showSettings) {
+    // Başlangıç paneli = aynı ayar paneli (StartPanel kalktı): başlık üstte,
+    // OYNAT odakta, bölüm listesi ☰ arkasında kapalı (Dean, 3 Ekim).
+    val baslangic = core.showStartPanel && !ui.panelAsList
+    if (ui.showSettings || baslangic) {
       fun ayarKapat() {
         ui.showSettings = false
         if (ui.panelGeriGelsin) { ui.panelGeriGelsin = false; core.showStartPanel = true }
       }
       SettingsPanel(
+        baslangic = baslangic,
+        title = item.title.orEmpty(),
+        bilgi = icerikBilgisi(core.details, item.rating),
+        oynatEtiketi = oynatEtiketi(core.resumeLabel, core.episodes, core.currentEpIndex, oynuyor = !baslangic),
+        hazir = core.links.isNotEmpty(),
+        onPlay = { if (baslangic) core.panelOynat() else ui.showSettings = false },
         links = core.links,
         currentLinkIndex = core.currentLinkIndex,
         episodes = core.episodes,
@@ -302,17 +290,11 @@ fun PlayerScreen2(
         library = library,
         item = item,
         onSelectSource = { idx -> core.selectLink(idx); ayarKapat() },
-        onOpenEpisodes = {
-          ui.showSettings = false
-          ui.panelGeriGelsin = false
-          ui.panelAsList = true
-          ui.secilenSezon = null
-          core.showStartPanel = true
-        },
         onSelectEpisode = { idx ->
           ui.showSettings = false
           ui.panelGeriGelsin = false
-          core.goToEpisode(idx)
+          // Başlangıçta bölüme basmak DOĞRUDAN başlatır (Dean).
+          if (baslangic) { bolumSec(idx); core.showStartPanel = false } else core.goToEpisode(idx)
         },
         onSelectAudio = { group, i -> core.selectAudio(group, i) },
         onSelectSubtitle = { group, i -> core.selectSubtitle(group, i) },

@@ -141,9 +141,16 @@ fun BrowseScreen(
     // sizinti). Tek nokta olsun diye ayri sabit.
     // Sunucudaki liste tam eklenti adı verir; yedek liste parça eşleşmesiyle çalışır.
     var adultFromServer by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Yönetim panelinde kapatılan kaynaklar (hidden_providers: M3UPlaylist, SezonlukDizi…)
+    // web'de süzülüyordu, TV'de hâlâ hap olarak duruyordu (Dean, 3 Ekim: "m3u listem
+    // kullanılmıyor, şimdilik disable"). Canlı TV etkilenmez: kanallar ayrı uçtan gelir.
+    var hiddenFromServer by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(Unit) {
-        runCatching { Network.api.clientConfig().result.adultProviders }
-            .onSuccess { if (it.isNotEmpty()) adultFromServer = it.map(String::lowercase) }
+        runCatching { Network.api.clientConfig().result }
+            .onSuccess {
+                if (it.adultProviders.isNotEmpty()) adultFromServer = it.adultProviders.map(String::lowercase)
+                hiddenFromServer = it.hiddenProviders.toSet()
+            }
     }
     // İkisi BİRDEN: sunucu tam adla eşleşir, yedek liste parça eşleşmesiyle yakalar.
     // Yalnız sunucuya güvenilseydi listede olmayan yeni bir kaynak sessizce sızardı;
@@ -153,13 +160,14 @@ fun BrowseScreen(
         n in adultFromServer || VAULT_FALLBACK.any { n.contains(it) }
     }
 
-    val plugins = remember(rawPlugins, showVault, vaultMode, adultFromServer) {
+    val plugins = remember(rawPlugins, showVault, vaultMode, adultFromServer, hiddenFromServer) {
+        val gorunen = rawPlugins.filter { it.name !in hiddenFromServer }
         if (vaultMode) {
-            rawPlugins.filter { isAdultPlugin(it.name) }
+            gorunen.filter { isAdultPlugin(it.name) }
         } else if (showVault) {
-            rawPlugins
+            gorunen
         } else {
-            rawPlugins.filter { !isAdultPlugin(it.name) }
+            gorunen.filter { !isAdultPlugin(it.name) }
         }
     }
 
