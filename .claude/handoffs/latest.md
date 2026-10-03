@@ -12,4 +12,6 @@ Ayrıntı kök `HANDOFF.md`'de (commit `715f77f`). Kısa baton:
 
 **Tekrarlama:** Yayını alt ajana devretme, aynı izne takılır. Zima compose için `export DOCKER_CONFIG=/tmp/dc`. TV izlerken rebuild yok (`client_log`/`remote/status` bak).
 
-**Tek sonraki iş:** Dean'in cevapları: (1) 0.9.46 "yayınla"; (2) Rec kararı: joystick SAĞ (✧ Benzer yerine) ⏺ kaydet, benzerler Hakkında'nın altına; (3) takip/favori yeni bölümlerini Zima'ya önden indirme — yeni oturumda tasarla.
+**Rec kararları (Dean):** joystick SAĞ ✧ Benzer → ⏺ Rec, benzerler Hakkında'nın altına; Rec yalnız elle seçilen, internetsiz oynamalı, izlenen disk dolmadan silinir. Disk: `/DATA/sata` (Dean seçti; yazma 105 MB/s, okuma 503 MB/s). İzlerken arkadan kaydedebilmeli. Liste adı "Kayıtlar"; ⏺ joystick SAĞ + alt haplarda Favori/İzlenecek/Takip yanında.
+
+**Tek sonraki iş:** Rec özelliği (kuyruk + Zima diskine indirme + diskten oynatma + joystick) — yeni oturumda, HANDOFF.md `8caec33`. 0.9.46 yayını hâlâ Dean onayı bekliyor.
