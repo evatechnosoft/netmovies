@@ -144,6 +144,29 @@ class MainActivity : ComponentActivity() {
         com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(this)
     }
 
+    // Ses Mi Box'a bağlı Bluetooth hoparlörden çıkıyor (Dean, 3 Ekim). Hoparlör
+    // uygulama açıldıktan SONRA bağlanınca Android onun kendi (yüksek) düzeyini
+    // açıyordu; onResume'daki geri yükleme kaçıyordu. Bağlandığı an yeniden uygula.
+    private val sesCihazi = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(eklenen: Array<out android.media.AudioDeviceInfo>) {
+            val bt = eklenen.any {
+                it.isSink && (it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO)
+            }
+            if (!bt) return
+            // A2DP yolu birkaç yüz ms sonra etkinleşir; hemen yazılan düzey eski cihaza gider.
+            window.decorView.postDelayed({
+                com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(this@MainActivity)
+            }, 1500)
+        }
+    }
+
+    override fun onDestroy() {
+        (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+            .unregisterAudioDeviceCallback(sesCihazi)
+        super.onDestroy()
+    }
+
     override fun onPause() {
         com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(this)
         super.onPause()
@@ -151,6 +174,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+            .registerAudioDeviceCallback(sesCihazi, null)
         com.evaitec.netmovies.tv.data.ServerResolver.init(this)
         // Çökme izi: bu açılıştan önceki çökme varsa sunucuya gider, sonra silinir.
         com.evaitec.netmovies.tv.data.CrashLog.kur(this)
