@@ -32,6 +32,8 @@ object ServerResolver {
     private const val PORT       = 3310
     private const val SCAN_MISS_TTL_MS = 5 * 60 * 1000L
     private const val LOCAL_RECHECK_MS = 60 * 1000L
+    /** Yerel sunucu bu süre içinde çalıştıysa anlık hata tünele düşürmez. */
+    private const val YEREL_YAPISKAN_MS = 10 * 60 * 1000L
 
     // Ev ağları. Cihazın kendi alt ağı ayrıca eklenir; burada olmayan bir ağa
     // taşınsa bile kendi /24'ü taranır.
@@ -53,6 +55,7 @@ object ServerResolver {
     @Volatile private var prefs: SharedPreferences? = null
     @Volatile private var lastScanMissAt = 0L
     @Volatile private var lastLocalRecheckAt = 0L
+    @Volatile private var sonYerelOk = 0L
 
     /** Uygulama açılışında bir kez: son çalışan adresin hatırlanabilmesi için. */
     fun init(context: Context) {
@@ -93,7 +96,7 @@ object ServerResolver {
         return synchronized(this) {
             active ?: run {
                 val remote = BuildConfig.BASE_URL.toHttpUrl()
-                val chosen = discoverLocal() ?: remote
+                val chosen = discoverLocal() ?: yapiskanYerel() ?: remote
                 active = chosen
                 chosen
             }
@@ -121,8 +124,29 @@ object ServerResolver {
     }
 
     private fun remember(base: HttpUrl) {
+        sonYerelOk = System.currentTimeMillis()
         prefs?.edit()?.putString(KEY_LAST, base.toString())?.apply()
     }
+
+    // Wi-Fi bir an takılınca tek yoklama düşüyor ve TV tünele geçiyordu; saniyeler
+    // içinde yerel ↔ tünel gidip geliyor, video Cloudflare'den akıp 47-49. sn'de
+    // donuyordu (Dean, 3 Ekim: "geçmesin"). Sunucunun alt ağındaysak ve yerel yakın
+    // zamanda çalıştıysa yerelde kal; istek hata verir, oynatıcı tampondan sürüp
+    // yeniden dener. Telefon evden çıkınca IP'si değişir, kural ona uygulanmaz.
+    private fun yapiskanYerel(): HttpUrl? {
+        val hatirlanan = prefs?.getString(KEY_LAST, null)?.toHttpUrlOrNull() ?: return null
+        val secim = yapiskanSecim(hatirlanan, sonYerelOk, System.currentTimeMillis(), ownPrefixes())
+            ?: return null
+        PlaybackLog.info("sunucu", "yerel yoklama düştü, tünele geçilmedi: ${secim.host}")
+        return secim
+    }
+
+    /** Saf karar: hatırlanan yerel adreste kalınır mı. */
+    internal fun yapiskanSecim(hatirlanan: HttpUrl, sonOk: Long, simdi: Long, onekler: List<String>): HttpUrl? =
+        hatirlanan.takeIf {
+            sonOk > 0 && simdi - sonOk < YEREL_YAPISKAN_MS &&
+                it.host.substringBeforeLast('.') in onekler
+        }
 
     /** Adayları paralel yoklar; ilk cevap veren kazanır (sıralı olsaydı her ölü
      *  aday açılışa 1,5 sn eklerdi). */
