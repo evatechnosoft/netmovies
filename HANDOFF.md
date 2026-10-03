@@ -1,5 +1,5 @@
 # Handoff: 0.9.46 yazıldı, yayın izne takıldı
-> 2026-10-03 · `fix/general-stability` @ `45773f1` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
+> 2026-10-03 · `fix/general-stability` @ `138cf02` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
 ## Goal
 Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla: yerel OTA, GitHub release, apps.json.
@@ -12,12 +12,14 @@ Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bi
 - **Testler:** client-tv `testDebugUnitTest assembleDebug` yeşil, 71 test. stream unittest 215 OK (alt ajan laptopa global pip paketleri kurarak koşturdu).
 - **YAYINLANMADI:** TV'de hâlâ 0.9.45. `appVersion` hâlâ `0.9.45` (`client-tv/app/build.gradle.kts:4`). Auto-mode sınıflandırıcısı GitHub release + apps.json yayınını "Create Public Surface" diye reddetti. Dean onayı ya da izin kuralı gerekli. Cihazda hiçbir şey doğrulanmadı.
 - **`45773f1` WOL:** TV yerel sunucuya ulaşamazsa ZimaOS'a sihirli paket yollar (`data/ZimaUyandir.kt`, MAC `BuildConfig.WOL_MAC`), ana sayfa 3 dk boyunca 15 sn arayla yeniden dener. 73 test yeşil. Cihazda ve kapalı sunucuyla denenmedi.
+- **`138cf02` güç/ses:** Mi Box güç köprüsü ZimaOS'ta `atv` servisi (Created 2026-10-03T11:21Z, `curl zima:3311/saglik` ok, kutu .105). Uçtan uca `{"type":"power"}` → köprü → "kutu uykuda" (doğru: uykudaki kutu ağdan açılamaz, yalnız kapatır). Widget'a ⏻ 🔉 🔊. Ses hafızası uygulama öne gelince de uygulanır, kayıt yoksa 9; `ses` satırı client_log'a düşer — `sabit=true` görünürse ses HDMI/CEC'te, uygulama ayarlayamaz, yeni çözüm gerekir. 76 test yeşil, cihazda denenmedi.
 - Bilinen kusur: bazı seri adları TMDB'de Türkçe değil ("Super Troopers Collection").
 
 ## Next
 1. Dean "yayınla" derse: `client-tv/app/build.gradle.kts:4` `appVersion = "0.9.46"` → `cd client-tv && ./gradlew testDebugUnitTest assembleDebug` → üç yere yayın. Yöntem 0.9.45'teki gibi: `git show 30f7d85` ve hafıza `ota-release-target-flag`, `wear-app-and-catalog`, `ota-indirme-ayna-sirasi`. GitHub release'te `--target` şart. evaglass-releases: apps.json tv+phone vc 946, sha256+sizeBytes, push öncesi `git pull --rebase`.
-2. Dean'den cihaz geri bildirimi: açılış paneli odağı, ☰ ile liste, Seriler sekmesi.
-3. Ölü kaynaklar (FullHDFilmizlesene Soulm8te, DDizi Anne Yarısı 504) tekrar ederse eklentiye bak.
+2. 0.9.46 kurulunca `curl -s 192.168.1.186:3310/api/v1/client_log | grep ses` ile `sabit=` değerine bak.
+3. Dean'den cihaz geri bildirimi: açılış paneli odağı, ☰ ile liste, Seriler sekmesi.
+4. Ölü kaynaklar (FullHDFilmizlesene Soulm8te, DDizi Anne Yarısı 504) tekrar ederse eklentiye bak.
 
 ## Don't repeat
 - Yayını alt ajana devretmek izni aşmaz; aynı sınıflandırıcıya takılır. İzni Dean verir, Claude ayar dosyasına izin yazmaz.
