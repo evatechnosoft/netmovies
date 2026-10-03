@@ -2,8 +2,8 @@
 > 2026-10-03 · `fix/general-stability` @ `0a67aad` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
 ## Kayıtlar — 3 Ekim gece (EN GÜNCEL)
-- **0.9.46 YAYINDA (üç yer):** yerel OTA `v0.9.46-poc` 22 670 096 B · GitHub `v0.9.46-poc` prerelease · evaglass `netmovies-tv-v0.9.46` + apps.json tv/phone vc 946 (sha256 `98775f62…`). Cihazda doğrulanmadı.
-- `d452782`: hız prefs'te (`kayit_izlerken_mbit` 3, `kayit_bosta_mbit` 7, 0 = sınırsız; ortak sınırlayıcı), `kayit_otomatik=1` → 3 saatte bir Takip'in en yeni bölümü kuyruğa (`POST /kayitlar/otomatik` hemen tur). TV: Yönetim'de ayarlar, joystick/oynatıcı ● kayıtlıysa siler, posterde kırmızı ●. Lioness S3B4 kuyrukta.
+- **0.9.46/0.9.47 YAYINDA (üç yer):** yerel OTA `v0.9.46-poc` 22 670 096 B · GitHub `v0.9.46-poc` prerelease · evaglass `netmovies-tv-v0.9.46` + apps.json tv/phone vc 946 (sha256 `98775f62…`). Cihazda doğrulanmadı.
+- `c6402f3` (0.9.47, üç yerde): Yönetim'de tek çubuk = izlerken hat paylaşımı 0-10 MB/s (orta 5/5 → `kayit_izlerken_mbit=40`, 0 = izlerken indirme durur); izlemezken sınırsız (`kayit_bosta_mbit=0`). `kayit_otomatik=1` → 3 saatte bir Takip'in en yeni bölümü. joystick/oynatıcı ● kayıtlıysa siler, posterde kırmızı ●. 7 Mbit sınırı ölçüldü 7,0.
 - `7f8ea27`+`567fa62` canlıda (Zima stream rebuild, mount `/DATA/sata/netmovies-kayitlar → /kayitlar`, `.env` `KAYIT_HOST_DIR`).
 - Sunucu: `stream/Public/API/v1/Libs/kayit.py` kuyruk + indirme (kendi proxy'miz, `X-NM-Kayit`), uçlar `GET /api/v1/kayitlar`, `POST /api/v1/kayitlar/ekle|sil`, dosyalar `/proxy/kayit/<id>/...`. Hazır kayıt `resolve_sources`'ta ilk kaynak, fast modda motora gitmez (internetsiz oynar). İzlerken tek bağlantı, boşta 4 paralel (hızlar prefs). Boş alan <20 GB → izlenmiş (son segmenti servis edilmiş) kayıt silinir.
 - TV (0.9.46'ya girer, YAYINLANMADI): joystick SAĞ ⏺ (dizide bölüm seçtirir), benzerler Özet'in altında (Özet sonunda ▼), ana sayfa "Kayıtlar" çipi (rozet ⏺ / %ilerleme / SIRADA / HATA). Cihazda denenmedi.
