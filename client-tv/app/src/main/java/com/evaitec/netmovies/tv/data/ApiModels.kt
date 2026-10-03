@@ -280,6 +280,29 @@ data class OkResult(
 @Serializable
 data class OkResponse(val result: OkResult = OkResult())
 
+// /api/v1/kayitlar — sunucu diskine indirilen (ya da sırada bekleyen) bölüm/film.
+@Serializable
+data class KayitRow(
+    val id: String = "",
+    val title: String = "",
+    val poster: String = "",
+    val plugin: String = "",
+    @SerialName("item_url") val itemUrl: String = "",
+    @SerialName("media_type") val mediaType: String = "",
+    @SerialName("episode_ref") val episodeRef: String = "",
+    val durum: String = "",          // bekliyor · iniyor · hazir · hata
+    val ilerleme: Double = 0.0,
+)
+
+@Serializable
+data class KayitlarResponse(val result: List<KayitRow> = emptyList())
+
+@Serializable
+data class KayitEkleResult(val ok: Boolean = false, val durum: String = "", val error: String = "")
+
+@Serializable
+data class KayitEkleResponse(val result: KayitEkleResult = KayitEkleResult())
+
 // /api/v1/client_config — istemciye açık yönetim ayarları (salt okunur).
 @Serializable
 data class ClientConfig(

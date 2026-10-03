@@ -81,6 +81,10 @@ async def lifespan(app: FastAPI):
 
     isitici = asyncio.create_task(_cache_isit())
 
+    # Kayıtlar kuyruğu: yarım kalan indirmeler açılışta devam eder.
+    from Public.API.v1.Libs import kayit
+    kayit.baslat()
+
     yield
 
     # Shutdown

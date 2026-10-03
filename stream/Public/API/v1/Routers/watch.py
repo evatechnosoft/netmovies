@@ -10,6 +10,7 @@ from Core import Request
 from .    import api_v1_router, api_v1_global_message
 
 from Public.Home.Libs import admin_config, watch_store
+from ..Libs           import kayit
 
 
 def _key_from(veri: dict) -> str:
@@ -67,6 +68,9 @@ async def save_progress(request: Request):
     ck   = _key_from(veri)
     if not ck:
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}
+    # TV 15 sn'de bir yazıyor: doğrudan CDN'den oynayan kaynak proxy'ye uğramaz,
+    # izlendiğini kaydediciye bu söyler.
+    kayit.izleme_oldu()
     # Özel Koleksiyon izleme kaydı tutulmaz.
     if str(veri.get("plugin") or "") in set(admin_config.load_config()["adult_providers"]):
         return {**api_v1_global_message, "result": {"ok": True, "skipped": "adult"}}

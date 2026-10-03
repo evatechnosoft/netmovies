@@ -44,7 +44,7 @@ def _altyazi_proxy(source: dict) -> dict:
     return {**source, "subtitles": yeni}
 
 
-def route_through_proxy(sources: list, base_url: str) -> list:
+def route_through_proxy(sources: list, base_url: str, hepsi: bool = False) -> list:
     """Ek başlık isteyen kaynakları sunucu proxy'sine bağlar.
 
     Bazı oynatıcılar tek kullanımlık imza başlığı (X-Sp) istiyor; imza her istekte
@@ -53,7 +53,8 @@ def route_through_proxy(sources: list, base_url: str) -> list:
     akışta ikisi de sunucunun sorunu olur — istemci yalnız URL'i çalar.
 
     Ek başlık istemeyen kaynaklara dokunulmaz: gereksiz yere ev bağlantısı
-    üzerinden trafik taşınmasın.
+    üzerinden trafik taşınmasın. `hepsi` (Kayıtlar) her kaynağı proxy'den
+    geçirir: kaydedici WARP yedeğini ve segment yeniden yazımını ister.
     """
     proxied = []
     for source in sources:
@@ -64,7 +65,7 @@ def route_through_proxy(sources: list, base_url: str) -> list:
         extra = source.get("extra_headers") or {}
         url   = str(source.get("url") or "")
         zorla = source.get("plugin") in _ALWAYS_PROXY_PLUGINS
-        if not url or (not extra and not zorla):
+        if not url or (not extra and not zorla and not hepsi):
             proxied.append(source)
             continue
 

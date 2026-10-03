@@ -9,6 +9,7 @@ from ..Libs.helpers       import prepare_request_headers, prepare_response_heade
 from ..Libs import manifest_cache
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import token_tanisi, validate_proxy_token
+from Public.API.v1.Libs  import kayit
 
 import asyncio
 from urllib.parse import urljoin
@@ -129,6 +130,10 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
     parsed_extra_headers = parse_extra_headers(extra_headers)
     request_headers      = prepare_request_headers(request, target_url, referer, user_agent, parsed_extra_headers)
     is_force_proxy       = force_proxy == "1"
+    # Kaydedici kendi isteğini izleme saymaz ve oynatıcının cache'ini doldurmaz.
+    kaydedici            = request.headers.get("x-nm-kayit") == "1"
+    if not kaydedici:
+        kayit.izleme_oldu()
 
     # HLS segment ise cache'i kontrol et
     if segment_mi(target_url):
@@ -225,7 +230,8 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             # Oynatma başlarken ilk segmentler daha istenmeden çekilsin: oynatıcı
             # varyant manifestini aldığı anda ilk N segmenti arka planda cache'e
             # alıyoruz, istemci sırası geldiğinde bellekten servis ediliyor.
-            prefetch_segments(content, target_url, request_headers)
+            if not kaydedici:
+                prefetch_segments(content, target_url, request_headers)
 
             # Content-Length güncelle
             final_headers["Content-Length"] = str(len(rewritten_content))
@@ -263,7 +269,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             content_length = int(response.headers.get("content-length", "0"))
             # Sınır cache'in kendi ayarı (SEGMENT_ITEM_MB): burada 5MB sabiti vardı,
             # gerçek segmentler 3–8MB olduğu için çoğu hiç cache'lenmiyordu.
-            if 0 < content_length <= segment_cache.max_item_bytes:
+            if not kaydedici and 0 < content_length <= segment_cache.max_item_bytes:
                 content = await response.aread()
                 await response.aclose()
 

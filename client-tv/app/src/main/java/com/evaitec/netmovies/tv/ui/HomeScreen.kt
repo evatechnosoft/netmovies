@@ -213,9 +213,10 @@ private fun CategoryRows(
     // seçili listenin TAM ızgarası (Dean, 29 Eylül gece: "raf değil, poster sayfası").
     // İlk üçü Dean'in istediği; Takip/İzlenecek başka yerde görünmediği için sonda.
     // Boş liste çip olarak görünmez.
-    val segmentler = remember(library.watched, library.izlenen, library.favorites, library.izlenecek, library.takip) {
+    val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip) {
         listOf(
             "Devam edenler" to library.watched.toList(),
+            "Kayıtlar" to library.kayitlar.toList(),
             "İzlediklerim" to library.izlenen.toList(),
             "Favoriler" to library.favorites.toList(),
             "Takip" to library.takip.toList(),
@@ -791,7 +792,7 @@ private sealed interface Yoklama {
 // Merkez oynatır, her yön kendi küçük katmanını açar, GERİ bir katman geri alır.
 //
 //            ▲ Bölümler
-//   ◀ Özet   ▶ OYNAT   Benzerleri ▶
+//   ◀ Özet+Benzerler   ▶ OYNAT   ⏺ Kayıt ▶
 //            ▼ Listeler
 //
 // Gezinme index'le yapılır, Compose odak ağacına GÜVENİLMEZ: aynı hata oynatıcıda
@@ -863,6 +864,9 @@ private fun PosterMenu(
     var benzerler by remember(item.url) { mutableStateOf<List<com.evaitec.netmovies.tv.data.SimilarItem>?>(null) }
     var benzerDurum by remember(item.url) { mutableStateOf("") }
     var benzerIdx by remember(item.url) { mutableStateOf(0) }
+    // ⏺ Kayıt: dizide bölüm seçilmemişse önce bölüm listesi açılır, OK kaydeder.
+    var kayitIcin by remember(item.url) { mutableStateOf(false) }
+    var kayitDurum by remember(item.url) { mutableStateOf("") }
 
     var mod by remember(item.url) { mutableStateOf(PadMod.PAD) }
     var bolumIdx by remember(item.url) { mutableStateOf(0) }
@@ -880,7 +884,8 @@ private fun PosterMenu(
     }
 
     LaunchedEffect(mod) {
-        if (mod == PadMod.BENZER && benzerler == null) {
+        // Benzerler Özet'in altında (Dean, 3 Ekim): Özet açılınca yüklenir.
+        if ((mod == PadMod.OZET || mod == PadMod.BENZER) && benzerler == null) {
             benzerDurum = "Benzerler aranıyor…"
             benzerler = runCatching {
                 Network.api.similar(item.title.orEmpty(), if (bolumler.isNotEmpty()) "serie" else "movie").result
@@ -905,6 +910,11 @@ private fun PosterMenu(
 
     fun oynat() {
         secilenBolum?.let(onPlayEpisode) ?: onPlay()
+    }
+
+    fun kaydet(idx: Int?) {
+        kayitDurum = "⏺ Kaydediliyor…"
+        kapsam.launch { kayitDurum = library.kaydet(item, bolumler, idx) }
     }
 
     fun listeUygula(i: Int) {
@@ -936,7 +946,8 @@ private fun PosterMenu(
                 android.view.KeyEvent.KEYCODE_DPAD_UP    -> if (bolumVar) mod = PadMod.BOLUM
                 android.view.KeyEvent.KEYCODE_DPAD_DOWN  -> mod = PadMod.LISTE
                 android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> mod = PadMod.OZET
-                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> mod = PadMod.BENZER
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT ->
+                    if (bolumVar && secilenBolum == null) { kayitIcin = true; mod = PadMod.BOLUM } else kaydet(secilenBolum)
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
                 android.view.KeyEvent.KEYCODE_ENTER      -> oynat()
                 else -> return false
@@ -945,8 +956,10 @@ private fun PosterMenu(
                 android.view.KeyEvent.KEYCODE_DPAD_UP   -> if (bolumIdx == 0) mod = PadMod.PAD else bolumIdx--
                 android.view.KeyEvent.KEYCODE_DPAD_DOWN -> bolumIdx = (bolumIdx + 1).coerceAtMost(bolumler.lastIndex)
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
-                android.view.KeyEvent.KEYCODE_ENTER     -> { secilenBolum = bolumIdx; onPlayEpisode(bolumIdx) }
-                android.view.KeyEvent.KEYCODE_BACK      -> mod = PadMod.PAD
+                android.view.KeyEvent.KEYCODE_ENTER     ->
+                    if (kayitIcin) { kayitIcin = false; secilenBolum = bolumIdx; mod = PadMod.PAD; kaydet(bolumIdx) }
+                    else { secilenBolum = bolumIdx; onPlayEpisode(bolumIdx) }
+                android.view.KeyEvent.KEYCODE_BACK      -> { kayitIcin = false; mod = PadMod.PAD }
                 else -> return false
             }
             PadMod.LISTE -> when (code) {
@@ -960,13 +973,17 @@ private fun PosterMenu(
             }
             PadMod.OZET -> when (code) {
                 android.view.KeyEvent.KEYCODE_DPAD_UP    -> kapsam.launch { ozetState.scrollTo((ozetState.value - 120).coerceAtLeast(0)) }
-                android.view.KeyEvent.KEYCODE_DPAD_DOWN  -> kapsam.launch { ozetState.scrollTo(ozetState.value + 120) }
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN  ->
+                    // Özetin sonu: benzerler şeridine in.
+                    if (ozetState.value >= ozetState.maxValue && !benzerler.isNullOrEmpty()) mod = PadMod.BENZER
+                    else kapsam.launch { ozetState.scrollTo(ozetState.value + 120) }
                 android.view.KeyEvent.KEYCODE_DPAD_RIGHT,
                 android.view.KeyEvent.KEYCODE_BACK       -> mod = PadMod.PAD
                 else -> return false
             }
             PadMod.BENZER -> when (code) {
-                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> if (benzerIdx == 0) mod = PadMod.PAD else benzerIdx--
+                android.view.KeyEvent.KEYCODE_DPAD_UP    -> mod = PadMod.OZET
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> benzerIdx = (benzerIdx - 1).coerceAtLeast(0)
                 android.view.KeyEvent.KEYCODE_DPAD_RIGHT ->
                     benzerIdx = (benzerIdx + 1).coerceAtMost(((benzerler?.size ?: 1) - 1).coerceAtLeast(0))
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
@@ -1099,9 +1116,12 @@ private fun PosterMenu(
                         ) {
                             YoncaKol("ℹ", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_LEFT) })
                             YoncaOrta(onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_CENTER) })
-                            YoncaKol("✧", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
+                            YoncaKol("⏺", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) })
                         }
                         YoncaKol("☆", onTap = { tus(android.view.KeyEvent.KEYCODE_DPAD_DOWN) })
+                        if (kayitDurum.isNotBlank()) {
+                            Text(kayitDurum, fontSize = NmType.Caption, color = NmColor.OnSurface)
+                        }
                         if (mod == PadMod.LISTE) {
                             val ikonlar = listOf(
                                 Icons.Filled.Bookmark,
@@ -1140,8 +1160,8 @@ private fun PosterMenu(
                     }
                 }
 
-                // SOL: özet — orta boy, kaydırılabilir.
-                PadMod.OZET -> {
+                // SOL: özet — orta boy, kaydırılabilir; altında benzerler şeridi.
+                PadMod.OZET, PadMod.BENZER -> {
                     SutunBasligi("Özet", true)
                     Column(Modifier.heightIn(max = 240.dp).verticalScroll(ozetState)) {
                         // Dizide takvim en üstte: son çıkan bölüm ve sıradaki bölümün
@@ -1156,11 +1176,10 @@ private fun PosterMenu(
                             color = NmColor.OnSurfaceMuted,
                         )
                     }
-                }
 
-                // SAĞ: benzerleri — yatay şerit. Katalog kartı değil, TMDB başlığı.
-                PadMod.BENZER -> {
-                    SutunBasligi("Benzerleri", true)
+                    // Benzerleri — yatay şerit. Katalog kartı değil, TMDB başlığı.
+                    Spacer(Modifier.height(10.dp))
+                    SutunBasligi("Benzerleri", mod == PadMod.BENZER)
                     if (benzerDurum.isNotBlank()) {
                         Text(benzerDurum, fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
                     }
@@ -1200,10 +1219,10 @@ private fun PosterMenu(
                 Text(
                     text = when (mod) {
                         PadMod.PAD    -> ""
-                        PadMod.BOLUM  -> "▲▼ gez   OK oynat   GERİ pad"
                         PadMod.LISTE  -> ""
-                        PadMod.OZET   -> "▲▼ kaydır   GERİ pad"
-                        PadMod.BENZER -> "◀▶ gez   OK ara ve aç   GERİ pad"
+                        PadMod.BOLUM  -> if (kayitIcin) "▲▼ gez   OK kaydet   GERİ pad" else "▲▼ gez   OK oynat   GERİ pad"
+                        PadMod.OZET   -> "▲▼ kaydır, sonda benzerler   GERİ pad"
+                        PadMod.BENZER -> "◀▶ gez   OK ara ve aç   ▲ özet   GERİ pad"
                     },
                     fontSize = NmType.Caption,
                     color = NmColor.OnSurfaceFaint,

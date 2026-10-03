@@ -167,10 +167,16 @@ services:
       # ör. http://192.168.1.186:4000/v1. Boşsa Google doğrudan çağrılır.
       YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
       YZ_GECIT_KEY         : ${YZ_GECIT_KEY:-}   # geçidin bu uygulamaya verdiği sanal anahtar
+      # Kayıtlar: izlerken indirme hızı (KB/s), boş alan tavanı (GB, altına inince izlenen silinir).
+      KAYIT_IZLERKEN_KBPS  : ${KAYIT_IZLERKEN_KBPS:-400}
+      KAYIT_MIN_BOS_GB     : ${KAYIT_MIN_BOS_GB:-20}
     volumes:
       - ./data:/data
       # Yönetim panelindeki "Canlı Kanallar" kartı buraya yazar, engine oradan okur.
       - ./lists:/lists
+      # Kayıtlar (elle seçilen bölüm/film, internetsiz oynatma). ZimaOS'ta .env:
+      # KAYIT_HOST_DIR=/DATA/sata/netmovies-kayitlar (boş 220G disk).
+      - ${KAYIT_HOST_DIR:-./kayitlar}:/kayitlar
     networks:
       - internal
 

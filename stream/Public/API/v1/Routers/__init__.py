@@ -48,4 +48,5 @@ from . import (
     film_serileri,
     youtube_search,
     yz,
+    kayitlar,
 )

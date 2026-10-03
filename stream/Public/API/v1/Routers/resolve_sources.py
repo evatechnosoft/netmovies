@@ -14,6 +14,7 @@ from ..Libs.source_proxy import route_through_proxy
 from ..Libs         import source_score
 from ..Libs         import lang_memo
 from ..Libs.title_rescue import alternatif_basliklar
+from ..Libs              import kayit
 
 
 def decorate(sources: list) -> list:
@@ -48,6 +49,22 @@ def _puanli_sira() -> str:
 @api_v1_router.get("/resolve_sources")
 async def resolve_sources(request: Request):
     params = dict(request.state.veri or {})
+
+    # Hazır kayıt varsa ilk kaynak odur; hızlı modda motora hiç gidilmez —
+    # internet yokken de anında oynar (Kayıtlar, Libs/kayit.py).
+    hazir = kayit.hazir_kayit(str(params.get("title") or ""), params.get("season_no"), params.get("episode_no"), params.get("episode"))
+    yerel = None
+    if hazir:
+        yerel = {
+            "plugin"   : "Kayıt",
+            "name"     : f"⏺ Kayıt · {hazir.get('kaynak') or 'sunucu diski'}",
+            "url"      : f"{str(request.base_url).rstrip('/')}/proxy/kayit/{hazir['id']}/{hazir['giris']}",
+            "language" : {"rank": 0, "label": "Kayıt"},
+        }
+        if params.get("mode") == "fast":
+            konsol.log(f"[green]▶ resolve:[/] kayıttan · {hazir['title']} {hazir.get('episode_ref', '')}")
+            return {**api_v1_global_message, "result": {"mode": "fast", "count": 1, "sources": [yerel], "episodes": [], "diagnostics": []}}
+
     # Alternatif tarama ağır olabilir: engine'in kendi timeout'una alan bırak.
     timeout = 25.0 if params.get("mode") == "fast" else 60.0
     # Tarama sırası: engine'in sabit listesi yerine kanıta dayalı sıra.
@@ -106,6 +123,8 @@ async def resolve_sources(request: Request):
             str(params.get("title") or ""),
             [s["language"]["rank"] for s in result["sources"] if isinstance(s, dict) and s.get("language")],
         )
+        if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
+            result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"
         konsol.log(
             f"[green]▶ resolve:[/] {params.get('plugin', '?')} · mod={params.get('mode', 'full')} · "

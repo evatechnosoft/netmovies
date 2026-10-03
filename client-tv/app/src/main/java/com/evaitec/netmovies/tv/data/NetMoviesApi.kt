@@ -233,6 +233,25 @@ interface NetMoviesApi {
 
     // Oynatma günlüğü sunucuya: kumandayla satır satır gezilemeyen rapor
     // tarayıcıdan okunur (GET /api/v1/client_log → düz metin).
+    // Kayıtlar: sunucu bölümü/filmi kendi diskine indirir, hazır olunca
+    // resolve_sources ilk kaynak olarak onu verir (internetsiz oynar).
+    @GET("api/v1/kayitlar")
+    suspend fun kayitlar(): KayitlarResponse
+
+    @POST("api/v1/kayitlar/ekle")
+    suspend fun kayitEkle(
+        @Query("plugin") plugin: String,
+        @Query("content_url") contentUrl: String,
+        @Query("item_url") itemUrl: String,
+        @Query("title") title: String,
+        @Query("poster") poster: String = "",
+        @Query("media_type") mediaType: String = "",
+        @Query("episode") episode: Int = 0,
+        @Query("episode_no") episodeNo: Int? = null,
+        @Query("season_no") seasonNo: Int? = null,
+        @Query("episode_ref") episodeRef: String = "",
+    ): KayitEkleResponse
+
     @POST("api/v1/client_log")
     suspend fun clientLog(@Body body: Map<String, List<String>>): OkResponse
 

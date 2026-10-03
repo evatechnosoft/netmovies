@@ -34,6 +34,8 @@ class Library(context: Context) {
     val izlenen = mutableStateListOf<MediaItem>()
     /** url → izlenen oran (0..1). Poster üstündeki ince ilerleme çubuğu için. */
     val progress = mutableStateMapOf<String, Float>()
+    /** Kayıtlar — sunucu diskindeki (ya da sıradaki) bölüm/filmler. */
+    val kayitlar = mutableStateListOf<MediaItem>()
 
     init {
         favorites.addAll(read(KEY_FAV))
@@ -41,6 +43,7 @@ class Library(context: Context) {
         izlenecek.addAll(read(KEY_IZLENECEK))
         takip.addAll(read(KEY_TAKIP))
         izlenen.addAll(read(KEY_IZLENEN))
+        kayitlar.addAll(read(KEY_KAYIT))
         sync()
     }
 
@@ -58,6 +61,8 @@ class Library(context: Context) {
                 .onSuccess { rows -> replace(takip, rows.map(::toItem), KEY_TAKIP) }
             runCatching { Network.api.watched(limit = 30).result }
                 .onSuccess { rows -> replace(izlenen, rows.map(::toItem), KEY_IZLENEN) }
+            runCatching { Network.api.kayitlar().result }
+                .onSuccess { rows -> replace(kayitlar, rows.map(::kayitItem), KEY_KAYIT) }
 
             runCatching { Network.api.continueWatching(limit = 30).result }
                 .onSuccess { rows ->
@@ -107,6 +112,51 @@ class Library(context: Context) {
         episodeRef = row.episode,
         contentKey = row.contentKey,
     )
+
+    // Durum poster rozetinde: hazır olan "⏺", inen yüzdesiyle görünür.
+    private fun kayitItem(row: KayitRow) = MediaItem(
+        plugin = row.plugin,
+        title = row.title,
+        url = encodedUrl(row.itemUrl),
+        poster = row.poster.takeIf { it.isNotBlank() },
+        mediaType = row.mediaType,
+        episodeRef = row.episodeRef,
+        lang = listOfNotNull(
+            row.episodeRef.takeIf { it.startsWith("S") },
+            when (row.durum) {
+                "hazir"  -> "⏺"
+                "iniyor" -> "%" + (row.ilerleme * 100).toInt()
+                "hata"   -> "HATA"
+                else     -> "SIRADA"
+            },
+        ),
+    )
+
+    /** Bölümü (film ise filmi) sunucu diskine kaydettirir; dönüş ekranda yazılacak durum. */
+    suspend fun kaydet(item: MediaItem, bolumler: List<EpisodeItem>, idx: Int?): String {
+        val ep = idx?.let { bolumler.getOrNull(it) }
+        val sonuc = runCatching {
+            Network.api.kayitEkle(
+                plugin = item.plugin,
+                // Oynatıcı gibi: bölümün kendi adresi varsa o çözülür (cozumHedefi).
+                contentUrl = rawUrl(ep?.url?.takeIf { it.isNotBlank() } ?: item.url),
+                itemUrl = rawUrl(item.url),
+                title = item.title.orEmpty(),
+                poster = item.poster.orEmpty(),
+                mediaType = item.mediaType.ifBlank { if (bolumler.isNotEmpty()) "serie" else "movie" },
+                episode = idx ?: 0,
+                episodeNo = ep?.episode,
+                seasonNo = ep?.season,
+                episodeRef = if (ep != null) episodeRef(ep.season, ep.episode, idx) else "",
+            ).result
+        }.getOrNull()
+        sync()
+        return when {
+            sonuc == null || !sonuc.ok -> "Kayıt eklenemedi" + (sonuc?.error?.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
+            sonuc.durum == "hazir"     -> "⏺ Zaten kayıtlı — internetsiz oynar"
+            else                       -> "⏺ Kayıtlara eklendi — sunucu indiriyor"
+        }
+    }
 
     private fun read(key: String): List<MediaItem> =
         prefs.getString(key, null)?.let {
@@ -248,6 +298,7 @@ class Library(context: Context) {
         const val KEY_IZLENECEK = "izlenecek"
         const val KEY_TAKIP = "takip"
         const val KEY_IZLENEN = "izlenen"
+        const val KEY_KAYIT = "kayitlar"
         // Sunucudaki liste adları (watch_store.ALLOWED_LISTS).
         const val LISTE_IZLENECEK = "izlenecek"
         const val LISTE_TAKIP = "takip"
