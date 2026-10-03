@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.ServerResolver
+import com.evaitec.netmovies.tv.data.ZimaUyandir
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -56,8 +57,19 @@ class HomeViewModel : ViewModel() {
             } catch (e: Exception) {
                 HomeState.Error(e.kullaniciMesaji("İçerik yüklenemedi"))
             }
+            // Sunucu uyandırıldıysa açılmasını bekle: ~1-2 dk, kendiliğinden yeniden dene.
+            if (_state.value is HomeState.Error && ZimaUyandir.yakinda() && uyanmaDenemesi < UYANMA_DENEME) {
+                uyanmaDenemesi++
+                _state.value = HomeState.Error("Sunucu uyandırılıyor… birkaç dakika sürebilir")
+                kotlinx.coroutines.delay(UYANMA_BEKLEME_MS)
+                load()
+            } else if (_state.value is HomeState.Ready) {
+                uyanmaDenemesi = 0
+            }
         }
     }
+
+    private var uyanmaDenemesi = 0
 
     // Tek bir tipi çeker; hata veren/boş tip sessizce boş döner (diğerleri gelsin).
     private suspend fun fetchType(type: String): List<MediaItem> =
@@ -75,6 +87,8 @@ class HomeViewModel : ViewModel() {
     }
 
     companion object {
+        private const val UYANMA_DENEME = 12          // 12 × 15 sn = 3 dk
+        private const val UYANMA_BEKLEME_MS = 15_000L
         const val KANALLARIM_RAFI = "Kanallarım"
         const val DUBLAJ_RAFI = "Türkçe Dublaj Diziler"
 

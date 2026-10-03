@@ -109,6 +109,10 @@ object ServerResolver {
     private fun discoverLocal(): HttpUrl? {
         quickLocal()?.let { return it }
 
+        // Bilinen adres cevap vermiyor: sunucu kapalı olabilir (gece kapanıyor).
+        // Uyandırma paketi taramadan önce gider; açılınca sonraki yoklama bulur.
+        ZimaUyandir.gonder()
+
         // Tarama pahalı (≤508 bağlantı); ev dışında her yeniden yüklemede tekrarlanmasın.
         if (System.currentTimeMillis() - lastScanMissAt < SCAN_MISS_TTL_MS) return null
         val found = firstAlive(subnetHosts(ownPrefixes() + KNOWN_PREFIXES), scanProbe, poolSize = 64)

@@ -35,6 +35,8 @@ android {
             // Hızlı yol; listede yoksa ServerResolver /24 taramasıyla bulur.
             ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.186:3310,http://192.168.0.11:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
+        // ZimaOS NIC (TP-Link rezervasyonu .186): sunucu kapalıysa TV uyandırır.
+        buildConfigField("String", "WOL_MAC", "\"38:14:28:35:9A:AE\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.
         buildConfigField("String", "RELEASE_TAG", "\"v$appVersion-poc\"")
