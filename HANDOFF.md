@@ -1,5 +1,5 @@
 # Handoff: 0.9.46 yazıldı, yayın izne takıldı
-> 2026-10-03 · `fix/general-stability` @ `138cf02` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
+> 2026-10-03 · `fix/general-stability` @ `0a67aad` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
 ## Goal
 Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla: yerel OTA, GitHub release, apps.json.
@@ -13,9 +13,13 @@ Reklamsız TV uygulaması (client-tv, Mi Box). Dean'in kusurlarını düzelt, bi
 - **YAYINLANMADI:** TV'de hâlâ 0.9.45. `appVersion` hâlâ `0.9.45` (`client-tv/app/build.gradle.kts:4`). Auto-mode sınıflandırıcısı GitHub release + apps.json yayınını "Create Public Surface" diye reddetti. Dean onayı ya da izin kuralı gerekli. Cihazda hiçbir şey doğrulanmadı.
 - **`45773f1` WOL:** TV yerel sunucuya ulaşamazsa ZimaOS'a sihirli paket yollar (`data/ZimaUyandir.kt`, MAC `BuildConfig.WOL_MAC`), ana sayfa 3 dk boyunca 15 sn arayla yeniden dener. 73 test yeşil. Cihazda ve kapalı sunucuyla denenmedi.
 - **`138cf02` güç/ses:** Mi Box güç köprüsü ZimaOS'ta `atv` servisi (Created 2026-10-03T11:21Z, `curl zima:3311/saglik` ok, kutu .105). Uçtan uca `{"type":"power"}` → köprü → "kutu uykuda" (doğru: uykudaki kutu ağdan açılamaz, yalnız kapatır). Widget'a ⏻ 🔉 🔊. Ses hafızası uygulama öne gelince de uygulanır, kayıt yoksa 9; `ses` satırı client_log'a düşer — `sabit=true` görünürse ses HDMI/CEC'te, uygulama ayarlayamaz, yeni çözüm gerekir. 76 test yeşil, cihazda denenmedi.
+- **`a0d090a`** BT hoparlör bağlanınca kayıtlı ses yeniden uygulanır (ses Mi Box'a bağlı BT hoparlörden). **`0a67aad`** proxy jeton reddinde sebep+host+istemci günlüğe (canlıda, kurcalama testi "biçim bozuk" yazdı).
+- **AÇIK AĞ SORUNU (3 Ekim 17:01'den beri):** Mi Box TP-Link 5 GHz'e bağlı görünüyor ama trafik yok (4.7k paket), 1.105 ve 1.60'ta port/ping yok. Dean statik 192.168.1.60 + CF DNS girdi, ARP hâlâ .105. Telefon da yavaş (5 GHz). Kablolu ZimaOS 11 MB/s, laptop 2.4 GHz 2.4 MB/s, gecikmeler normal → şüphe TP-Link 5 GHz radyosu. TP-Link yeniden başlatma Dean onayı bekliyor. Benim değişikliklerim zaman çizelgesine göre sebep değil (köprü kutuya hiç bağlanmadı, 0.9.46 TV'de yok). Kutu .60'ta kalırsa Zima `.env` `ATV_HOST=192.168.1.60` + `docker compose up -d atv`.
+- 16:57 Lioness S3B2 (DiziPal) 75. sn'de dondu, 18 "proxy token geçersiz"; sonra sunucudan tüm 2.6k parça 200/206 — sebep bulunamadı, yeni günlük satırı bekleniyor.
 - Bilinen kusur: bazı seri adları TMDB'de Türkçe değil ("Super Troopers Collection").
 
 ## Next
+0. Ağ: Dean onay verirse TP-Link yeniden başlat (`~/.ai/scripts/home-net`, ROUTER_PASS=vg.env HOME_TPLINK_PASS); sonra Mi Box adresi + `client_log`/`reddedildi` günlüğü.
 1. Dean "yayınla" derse: `client-tv/app/build.gradle.kts:4` `appVersion = "0.9.46"` → `cd client-tv && ./gradlew testDebugUnitTest assembleDebug` → üç yere yayın. Yöntem 0.9.45'teki gibi: `git show 30f7d85` ve hafıza `ota-release-target-flag`, `wear-app-and-catalog`, `ota-indirme-ayna-sirasi`. GitHub release'te `--target` şart. evaglass-releases: apps.json tv+phone vc 946, sha256+sizeBytes, push öncesi `git pull --rebase`.
 2. 0.9.46 kurulunca `curl -s 192.168.1.186:3310/api/v1/client_log | grep ses` ile `sabit=` değerine bak.
 3. Dean'den cihaz geri bildirimi: açılış paneli odağı, ☰ ile liste, Seriler sekmesi.
