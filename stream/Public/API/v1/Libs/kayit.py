@@ -353,10 +353,15 @@ async def _kaynagi_indir(meta: dict, adres: str) -> None:
         return
     inf, varyant, ses_satiri, ses = _ayikla_master(metin, taban)
     pay = 2 if ses else 1
-    meta["son_segment"] = await _medya_indir(meta, *await _getir_metin(varyant), klasor / "v", (0, pay))
+    # Alt playlist adresleri tek kullanımlık/kısa ömürlü (pichive l.php?v=): ses
+    # listesini video inerken beklettiğimizde 403 veriyordu ve 1,3 GB çöpe gidiyordu.
+    # İkisini de hemen al, segmentleri sonra indir.
+    video_pl = await _getir_metin(varyant)
+    ses_pl   = await _getir_metin(ses) if ses else None
+    meta["son_segment"] = await _medya_indir(meta, *video_pl, klasor / "v", (0, pay))
     master = ["#EXTM3U"]
-    if ses:
-        await _medya_indir(meta, *await _getir_metin(ses), klasor / "a", (1, pay))
+    if ses_pl:
+        await _medya_indir(meta, *ses_pl, klasor / "a", (1, pay))
         master.append(_URI_RE.sub('URI="a/index.m3u8"', ses_satiri))
     master += [inf, "v/index.m3u8"]
     (klasor / "index.m3u8").write_text("\n".join(master) + "\n", "utf-8")
