@@ -5,6 +5,10 @@
 # ve web aynı listeyi, aynı sırada, aynı etiketlerle görür — istemcide kural
 # tekrarı yok.
 
+import asyncio
+import time
+from urllib.parse import quote_plus
+
 from CLI            import konsol
 from Core           import Request
 from .              import api_v1_router, api_v1_global_message
@@ -46,6 +50,40 @@ def _puanli_sira() -> str:
     return ",".join(source_score.sirala(adaylar, favoriler if isinstance(favoriler, list) else []))
 
 
+# Resmi YouTube bölüm listesi (Dean, 4 Ekim: "her dizinin resmi kanalı var, ilk o
+# yolu denesin"). Hızlı modda seçili sağlayıcıyla PARALEL sorulur, bulunursa ilk
+# kaynak olur. Listesi olmayan başlık 12 saat yeniden sorulmaz (yabancı dizi her
+# açılışta bir YouTube araması ödemesin).
+_YT_YOK: dict[str, float] = {}
+_YT_YOK_SURE = 12 * 3600
+_YT_BEKLE    = 15.0
+
+
+async def _youtube_kaynaklari(params: dict, istemci_basliklari: dict) -> list:
+    baslik = str(params.get("title") or "").strip()
+    if (
+        params.get("mode") != "fast" or params.get("plugin") == "YouTube" or not baslik
+        or params.get("episode_no") in (None, "") or time.time() - _YT_YOK.get(baslik, 0) < _YT_YOK_SURE
+    ):
+        return []
+    try:
+        sonuc = await asyncio.wait_for(fuck_dmca(
+            "/resolve_sources",
+            params = {
+                "plugin": "YouTube", "title": baslik, "mode": "fast",
+                "encoded_url": f"https://www.youtube.com/results?search_query={quote_plus(baslik)}",
+                "episode_no": params.get("episode_no"), "season_no": params.get("season_no") or 1,
+            },
+            timeout = _YT_BEKLE, client_headers = istemci_basliklari,
+        ), _YT_BEKLE)
+    except Exception:
+        return []   # yavaş/düşen YouTube hızlı yolu bekletmez; tam zincir onu yine tarar
+    kaynaklar = [k for k in ((sonuc or {}).get("sources") or []) if isinstance(k, dict) and k.get("plugin") == "YouTube"]
+    if not kaynaklar:
+        _YT_YOK[baslik] = time.time()
+    return kaynaklar
+
+
 @api_v1_router.get("/resolve_sources")
 async def resolve_sources(request: Request):
     params = dict(request.state.veri or {})
@@ -74,11 +112,14 @@ async def resolve_sources(request: Request):
         params["order"] = sira
 
     istemci_basliklari = get_client_headers(request)
-    result = await fuck_dmca(
-        "/resolve_sources",
-        params         = params,
-        timeout        = timeout,
-        client_headers = istemci_basliklari,
+    result, youtube = await asyncio.gather(
+        fuck_dmca(
+            "/resolve_sources",
+            params         = params,
+            timeout        = timeout,
+            client_headers = istemci_basliklari,
+        ),
+        _youtube_kaynaklari(params, istemci_basliklari),
     )
 
     # Zincirin TAMAMI boş döndüyse başlık kurtarma: sağlayıcı aramaları harfi
@@ -123,6 +164,10 @@ async def resolve_sources(request: Request):
             str(params.get("title") or ""),
             [s["language"]["rank"] for s in result["sources"] if isinstance(s, dict) and s.get("language")],
         )
+        if youtube:
+            resmi = route_through_proxy(decorate(youtube), base_url)
+            adresler = {k.get("url") for k in resmi}
+            result["sources"] = resmi + [k for k in result["sources"] if k.get("url") not in adresler]
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"
