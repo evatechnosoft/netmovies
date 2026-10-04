@@ -30,6 +30,8 @@ class Library(context: Context) {
     val izlenecek = mutableStateListOf<MediaItem>()
     /** Takip ettiklerim — yeni bölümü çıkınca ajandada görünen diziler. */
     val takip = mutableStateListOf<MediaItem>()
+    /** "Devamı insin" dizileri: sunucu izlenen/kayıtlı son bölümden sonrakileri önden indirir. */
+    val kayitTakip = mutableStateListOf<MediaItem>()
     /** İzlediklerim — sunucuda bitmiş (%92+) izlemeler. Eski sunucuda boş kalır. */
     val izlenen = mutableStateListOf<MediaItem>()
     /** url → izlenen oran (0..1). Poster üstündeki ince ilerleme çubuğu için. */
@@ -42,6 +44,7 @@ class Library(context: Context) {
         watched.addAll(read(KEY_WATCHED))
         izlenecek.addAll(read(KEY_IZLENECEK))
         takip.addAll(read(KEY_TAKIP))
+        kayitTakip.addAll(read(KEY_KAYIT_TAKIP))
         izlenen.addAll(read(KEY_IZLENEN))
         kayitlar.addAll(read(KEY_KAYIT))
         sync()
@@ -59,6 +62,8 @@ class Library(context: Context) {
                 .onSuccess { rows -> replace(izlenecek, rows.map(::toItem), KEY_IZLENECEK) }
             runCatching { Network.api.userList(LISTE_TAKIP).result }
                 .onSuccess { rows -> replace(takip, rows.map(::toItem), KEY_TAKIP) }
+            runCatching { Network.api.userList(LISTE_KAYIT_TAKIP).result }
+                .onSuccess { rows -> replace(kayitTakip, rows.map(::toItem), KEY_KAYIT_TAKIP) }
             runCatching { Network.api.watched(limit = 30).result }
                 .onSuccess { rows -> replace(izlenen, rows.map(::toItem), KEY_IZLENEN) }
             runCatching { Network.api.kayitlar().result }
@@ -208,6 +213,7 @@ class Library(context: Context) {
 
     fun inIzlenecek(item: MediaItem): Boolean = izlenecek.any { sameItem(it, item) }
     fun inTakip(item: MediaItem): Boolean = takip.any { sameItem(it, item) }
+    fun inKayitTakip(item: MediaItem): Boolean = kayitTakip.any { sameItem(it, item) }
 
     /** Sunucudaki kullanıcı listesine ekler/çıkarır. Yerel liste hemen güncellenir:
      *  raf ve menü satırı beklemeden doğru durumu gösterir. */
@@ -215,6 +221,7 @@ class Library(context: Context) {
         val (hedef, anahtar) = when (liste) {
             LISTE_IZLENECEK -> izlenecek to KEY_IZLENECEK
             LISTE_TAKIP     -> takip to KEY_TAKIP
+            LISTE_KAYIT_TAKIP -> kayitTakip to KEY_KAYIT_TAKIP
             else            -> return
         }
         val idx = hedef.indexOfFirst { sameItem(it, item) }
@@ -229,6 +236,8 @@ class Library(context: Context) {
                     poster = item.poster.orEmpty(),
                     contentUrl = rawUrl(item.url),
                 )
+                // Devamı insin: beklemeden (normalde 3 saatte bir) sonraki bölümleri kuyruğa al.
+                if (liste == LISTE_KAYIT_TAKIP && idx < 0) Network.api.kayitOtomatik()
             }
         }
     }
@@ -315,6 +324,7 @@ class Library(context: Context) {
         const val KEY_WATCHED = "watched"
         const val KEY_IZLENECEK = "izlenecek"
         const val KEY_TAKIP = "takip"
+        const val KEY_KAYIT_TAKIP = "kayit_takip"
         const val KEY_IZLENEN = "izlenen"
         const val KEY_KAYIT = "kayitlar"
         /** Kayıt işareti; ekranda NmColor.Rec ile çizilir. */
@@ -322,6 +332,7 @@ class Library(context: Context) {
         // Sunucudaki liste adları (watch_store.ALLOWED_LISTS).
         const val LISTE_IZLENECEK = "izlenecek"
         const val LISTE_TAKIP = "takip"
+        const val LISTE_KAYIT_TAKIP = "kayit_takip"
         const val KEY_PUSHED = "favorites_pushed_v1"
         const val MAX_WATCHED = 30
     }

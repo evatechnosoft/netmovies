@@ -2,6 +2,7 @@ package com.evaitec.netmovies.tv.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -821,7 +822,9 @@ private val LISTE_SIRASI = listOf(
     Library.LISTE_IZLENECEK,
     Library.LISTE_TAKIP,
     "favori",
+    Library.LISTE_KAYIT_TAKIP,   // ⏺ devamı insin (Dean, 4 Ekim)
 )
+private val LISTE_ETIKET = listOf("İzlenecek", "Takip", "Favori", "Devamı insin ⏺")
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -946,6 +949,7 @@ private fun PosterMenu(
         when (LISTE_SIRASI.getOrNull(i)) {
             Library.LISTE_IZLENECEK -> library.toggleListe(item, Library.LISTE_IZLENECEK)
             Library.LISTE_TAKIP     -> library.toggleListe(item, Library.LISTE_TAKIP)
+            Library.LISTE_KAYIT_TAKIP -> library.toggleListe(item, Library.LISTE_KAYIT_TAKIP)
             else                    -> library.toggleFavorite(item)
         }
     }
@@ -1158,8 +1162,9 @@ private fun PosterMenu(
                                 Icons.Filled.Bookmark,
                                 Icons.Filled.Visibility,
                                 Icons.Filled.Star,
+                                Icons.Filled.FiberManualRecord,
                             )
-                            val listede = listOf(library.inIzlenecek(item), library.inTakip(item), library.isFavorite(item))
+                            val listede = listOf(library.inIzlenecek(item), library.inTakip(item), library.isFavorite(item), library.inKayitTakip(item))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 ikonlar.forEachIndexed { i, ikon ->
                                     ListeIkonu(ikon, secili = i == listeIdx, listede = listede[i]) {
@@ -1167,6 +1172,12 @@ private fun PosterMenu(
                                     }
                                 }
                             }
+                            // Dört yazısız ikon: seçili olanın adı altta, yoksa ⏺ ile ☆ karışır.
+                            Text(
+                                LISTE_ETIKET.getOrElse(listeIdx) { "" } + if (listede.getOrElse(listeIdx) { false }) " ✓" else "",
+                                fontSize = NmType.Caption,
+                                color = NmColor.OnSurface,
+                            )
                         }
                     }
                 }
