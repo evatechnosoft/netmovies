@@ -38,6 +38,7 @@ PARALEL          = 4
 IZLEME_PENCERESI = 45
 MAX_DENEME       = 3
 MAX_KAYNAK       = 4
+ONDE             = 3    # takipte önden hazır tutulan bölüm sayısı
 ISARET           = {"X-NM-Kayit": "1"}   # proxy bu isteği "izleme" saymaz, cache'e yazmaz
 
 _ID_RE    = re.compile(r"^[0-9a-f]{16}$")
@@ -448,13 +449,20 @@ async def _calis() -> None:
                 await asyncio.sleep(60)
 
 
+def _bolum_sira(ref: str) -> tuple[int, int] | None:
+    m = re.fullmatch(r"S(\d+)B(\d+)", ref or "")
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
 async def _otomatik_tur() -> int:
-    """Takip listesindeki her dizinin en yeni bölümünü kuyruğa koyar."""
+    """`kayit_takip` listesindeki her dizi için izlenen/kayıtlı son bölümden SONRAKİ
+    bölümleri (en çok ONDE) kuyruğa koyar; hiç iz yoksa en yeni bölümü. 3 saatte bir."""
     from . import fuck_dmca
     from Public.Home.Libs import watch_store
 
+    kayitli = {(normalize_key(m["title"]), m.get("episode_ref")) for m in liste()}
     eklenen = 0
-    for satir in watch_store.list_user_list("takip", 200):
+    for satir in watch_store.list_user_list("kayit_takip", 200):
         adres = satir.get("content_url") or ""
         if not adres or not satir.get("title"):
             continue
@@ -463,25 +471,27 @@ async def _otomatik_tur() -> int:
         except Exception:
             continue
         bolumler = (detay.get("episodes") or []) if isinstance(detay, dict) else []
-        numarali = [(i, b) for i, b in enumerate(bolumler) if isinstance(b, dict) and b.get("episode") is not None]
-        if not numarali:
+        sirali = sorted(
+            ((int(b.get("season") or 1), int(b["episode"]), i, b) for i, b in enumerate(bolumler)
+             if isinstance(b, dict) and b.get("episode") is not None),
+        )
+        if not sirali:
             continue
-        i, son = max(numarali, key=lambda ib: (int(ib[1].get("season") or 1), int(ib[1]["episode"])))
-        sezon = int(son.get("season") or 1)
-        kid = kayit_id(satir["title"], sezon, son["episode"], i)
-        if _oku(kid):
-            continue
-        # Bitirilmiş bölümü yeniden indirme (izleme %90+). Yarıda kalan iner: diskten sürer.
+        anahtar = normalize_key(satir["title"])
+        izler = [_bolum_sira(ref) for t, ref in kayitli if t == anahtar]
         gecmis = watch_store.get_progress(satir.get("content_key") or "") or {}
-        if gecmis.get("episode") == f"S{sezon}B{son['episode']}" and float(gecmis.get("duration_seconds") or 0) > 0                 and float(gecmis.get("position_seconds") or 0) / float(gecmis["duration_seconds"]) >= 0.9:
-            continue
-        ekle({
-            "plugin": satir["plugin"], "title": satir["title"], "poster": satir.get("poster"),
-            "content_url": son.get("url") or adres, "item_url": adres, "media_type": "serie",
-            "episode": i, "episode_no": son["episode"], "season_no": sezon,
-            "episode_ref": f"S{sezon}B{son['episode']}",
-        })
-        eklenen += 1
+        izler.append(_bolum_sira(gecmis.get("episode") or ""))
+        son = max((x for x in izler if x), default=None)
+        adaylar = [x for x in sirali if son is None or (x[0], x[1]) > son]
+        if son is None:
+            adaylar = sirali[-1:]
+        for sezon, no, i, b in adaylar[:ONDE]:
+            ekle({
+                "plugin": satir["plugin"], "title": satir["title"], "poster": satir.get("poster"),
+                "content_url": b.get("url") or adres, "item_url": adres, "media_type": "serie",
+                "episode": i, "episode_no": no, "season_no": sezon, "episode_ref": f"S{sezon}B{no}",
+            })
+            eklenen += 1
     return eklenen
 
 

@@ -110,6 +110,23 @@ class KayitTest(unittest.TestCase):
         self.assertAlmostEqual(beklenen[1], 2.0, delta=0.05)
         self.assertEqual(len(beklenen), 2)
 
+    def test_otomatik_tur_izlenenden_sonraki_onde_bolum(self):
+        """kayit_takip: S1B15'te kalınan dizide 16-17-18 kuyruğa girer, 19 girmez; 15 tekrar inmez."""
+        from unittest import mock
+        from Public.API.v1 import Libs
+        from Public.Home.Libs import watch_store
+        bolumler = [{"season": 1, "episode": n, "url": f"https://x/{n}"} for n in range(1, 20)]
+
+        async def sahte_dmca(endpoint, params=None, timeout=0):
+            return {"episodes": bolumler}
+        liste = [{"title": "Dizi", "plugin": "P", "content_url": "https://x/dizi", "content_key": "dizi"}]
+        with mock.patch.object(Libs, "fuck_dmca", sahte_dmca),              mock.patch.object(watch_store, "list_user_list", lambda ad, n=100: liste if ad == "kayit_takip" else []),              mock.patch.object(watch_store, "get_progress", lambda ck: {"episode": "S1B15"}),              mock.patch.object(kayit, "baslat", lambda: None):
+            self.assertEqual(asyncio.run(kayit._otomatik_tur()), 3)
+            self.assertEqual(sorted(m["episode_ref"] for m in kayit.liste()), ["S1B16", "S1B17", "S1B18"])
+            # ikinci tur: 16-18 kayıtlı → sadece 19 gelir
+            self.assertEqual(asyncio.run(kayit._otomatik_tur()), 1)
+            self.assertIn("S1B19", [m["episode_ref"] for m in kayit.liste()])
+
 
 if __name__ == "__main__":
     unittest.main()

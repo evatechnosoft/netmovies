@@ -396,7 +396,8 @@ def list_favorites() -> list[dict]:
 
 
 # ------------------------------------------------------------------------ lists
-ALLOWED_LISTS = ("izlenecek", "planlandi", "takip")
+# kayit_takip: "devamı insin" dizileri — otomatik kayıt turu yalnız bu listeyi tarar.
+ALLOWED_LISTS = ("izlenecek", "planlandi", "takip", "kayit_takip")
 
 
 def toggle_user_list(
