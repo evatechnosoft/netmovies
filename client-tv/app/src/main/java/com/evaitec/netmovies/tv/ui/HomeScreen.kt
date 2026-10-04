@@ -221,13 +221,13 @@ private fun CategoryRows(
             "Devam edenler" to library.watched.toList(),
             // Dizi başına TEK kart (Dean, 4 Ekim: "bölümler kendi içinde olmalı"): kart
             // diziyi açar, bölümler listede ● ile görünür. Rozet: bölüm sayısı + durum.
-            "Kayıtlar" to library.kayitlar.groupBy { it.title.lowercase() }.values.map { grup ->
+            "Kayıtlar" to library.kayitlar.groupBy { it.title.orEmpty().lowercase() }.values.map { grup ->
                 val sirali = grup.sortedBy { parseEpisodeRef(it.episodeRef)?.let { (s, b) -> s * 1000 + b } ?: 0 }
                 if (sirali.size == 1) sirali[0] else sirali.last().copy(
                     episodeRef = "",
                     lang = listOf("${sirali.size} bölüm") + sirali.flatMap { it.lang }.filter { it != Library.REC && !it.startsWith("S") }.distinct().take(1) + Library.REC,
                 )
-            }.sortedBy { it.title.lowercase() },
+            }.sortedBy { it.title.orEmpty().lowercase() },
             "İzlediklerim" to library.izlenen.toList(),
             "Favoriler" to library.favorites.toList(),
             "Takip" to library.takip.toList(),
