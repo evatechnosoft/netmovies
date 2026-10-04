@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 import unicodedata
 
 from pathlib      import Path
@@ -58,7 +59,24 @@ def bolum_numarasi(baslik: str) -> tuple[int, int] | None:
     return (int(next(g for g in z.groups() if g)) if z else 1, no)
 
 
+# Arama + liste okuma soğukta ~15 sn; hızlı yolun 15 sn bütçesine bölüm bağlantısı
+# (yt-dlp ~8 sn) kalmıyordu. Liste nadiren değişir: 1 saat bellekte.
+_ONBELLEK: dict[tuple, tuple[float, dict | None]] = {}
+_ONBELLEK_SURE = 3600
+
+
 async def _ytdlp_json(url: str, *ek: str, timeout: float = 60.0) -> dict | None:
+    anahtar = (url, ek)
+    kayit = _ONBELLEK.get(anahtar)
+    if kayit and time.time() - kayit[0] < _ONBELLEK_SURE:
+        return kayit[1]
+    sonuc = await _ytdlp_json_cek(url, *ek, timeout=timeout)
+    if sonuc is not None:
+        _ONBELLEK[anahtar] = (time.time(), sonuc)
+    return sonuc
+
+
+async def _ytdlp_json_cek(url: str, *ek: str, timeout: float = 60.0) -> dict | None:
     proc = await asyncio.create_subprocess_exec(
         "yt-dlp", "--no-warnings", "--flat-playlist", "-J", "--proxy", WARP_PROXY, *ek, url,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,

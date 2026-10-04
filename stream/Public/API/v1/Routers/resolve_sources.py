@@ -56,7 +56,7 @@ def _puanli_sira() -> str:
 # açılışta bir YouTube araması ödemesin).
 _YT_YOK: dict[str, float] = {}
 _YT_YOK_SURE = 12 * 3600
-_YT_BEKLE    = 15.0
+_YT_BEKLE    = 20.0
 
 
 async def _youtube_kaynaklari(params: dict, istemci_basliklari: dict) -> list:
@@ -66,6 +66,7 @@ async def _youtube_kaynaklari(params: dict, istemci_basliklari: dict) -> list:
         or params.get("episode_no") in (None, "") or time.time() - _YT_YOK.get(baslik, 0) < _YT_YOK_SURE
     ):
         return []
+    basla = time.time()
     try:
         sonuc = await asyncio.wait_for(fuck_dmca(
             "/resolve_sources",
@@ -79,7 +80,9 @@ async def _youtube_kaynaklari(params: dict, istemci_basliklari: dict) -> list:
     except Exception:
         return []   # yavaş/düşen YouTube hızlı yolu bekletmez; tam zincir onu yine tarar
     kaynaklar = [k for k in ((sonuc or {}).get("sources") or []) if isinstance(k, dict) and k.get("plugin") == "YouTube"]
-    if not kaynaklar:
+    # Bütçe dolarak boş döndüyse liste "yok" değil "yavaş"tır: hatırlanmaz, sonraki
+    # açılışta (motor önbelleği ısınmış) yeniden denenir.
+    if not kaynaklar and time.time() - basla < _YT_BEKLE - 2:
         _YT_YOK[baslik] = time.time()
     return kaynaklar
 
