@@ -465,6 +465,10 @@ async def _otomatik_tur() -> int:
         kid = kayit_id(satir["title"], sezon, son["episode"], i)
         if _oku(kid):
             continue
+        # Bitirilmiş bölümü yeniden indirme (izleme %90+). Yarıda kalan iner: diskten sürer.
+        gecmis = watch_store.get_progress(satir.get("content_key") or "") or {}
+        if gecmis.get("episode") == f"S{sezon}B{son['episode']}" and float(gecmis.get("duration_seconds") or 0) > 0                 and float(gecmis.get("position_seconds") or 0) / float(gecmis["duration_seconds"]) >= 0.9:
+            continue
         ekle({
             "plugin": satir["plugin"], "title": satir["title"], "poster": satir.get("poster"),
             "content_url": son.get("url") or adres, "item_url": adres, "media_type": "serie",
