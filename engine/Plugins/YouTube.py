@@ -14,9 +14,10 @@ import json
 import re
 import unicodedata
 
+from pathlib      import Path
 from urllib.parse import parse_qs, quote_plus, urlparse
 
-from KekikStream.Core import Episode, ExtractResult, PluginBase, SearchResult, SeriesInfo
+from KekikStream.Core import Episode, ExtractResult, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__warp_client import WARP_PROXY, ytdlp_info
 
 # Playlist filtresi (sp=EgIQAw==): arama yalnız oynatma listesi döndürür.
@@ -24,6 +25,10 @@ _ARAMA    = "https://www.youtube.com/results?search_query={}&sp=EgIQAw%253D%253D
 _YAYINCI  = ("atv", "show tv", "star tv", "kanal d", "trt", "now", "tv8", "fox", "tabii", "exxen", "gain")
 _BOLUM_NO = re.compile(r"(\d+)\s*\.?\s*b[öo]l[üu]m|b[öo]l[üu]m\s*(\d+)|episode\s*(\d+)", re.I)
 _SEZON_NO = re.compile(r"(\d+)\s*\.?\s*sezon|season\s*(\d+)", re.I)
+# Elle seçilmiş listeler (Dean, 4 Ekim): resmi kanalı olmayan yayınlar, ör. Kaos
+# Show sunucunun kendi kanalında ("Hayrettin"). Yeni yayın = bu dosyaya bir satır
+# + `docker compose up -d --build engine`.
+_LISTEM: list[dict] = json.loads((Path(__file__).with_name("youtube_listem.json")).read_text("utf-8"))
 # Fragman/kesit 20 dakikayı geçmez; tam bölüm 40+ dakika.
 _MIN_SURE = 20 * 60
 
@@ -75,12 +80,18 @@ class YouTube(PluginBase):
     main_url    = "https://www.youtube.com"
     favicon     = "https://www.google.com/s2/favicons?domain=youtube.com&sz=64"
     description = "Yerli dizilerin resmi YouTube kanallarındaki tam bölüm listeleri (1080p)."
-    main_page   = {}
+    main_page   = {"listem": "YouTube Listem"}
 
-    async def get_main_page(self, page: int, url: str, category: str) -> list:
-        return []
+    async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
+        if page > 1:
+            return []
+        return [MainPageResult(category=category, title=l["title"], url=l["url"], poster=l.get("poster")) for l in _LISTEM]
 
     async def search(self, query: str) -> list[SearchResult]:
+        s = _sade(query)
+        secili = [SearchResult(title=l["title"], url=l["url"], poster=l.get("poster")) for l in _LISTEM if _sade(l["title"]) == s]
+        if secili:
+            return secili   # elle seçilmiş liste aramaya gerek bırakmaz
         d = await _ytdlp_json(_ARAMA.format(quote_plus(f"{query} bölümler")), "--playlist-items", "1-10")
         sonuc = []
         for e in (d or {}).get("entries") or []:
@@ -111,7 +122,7 @@ class YouTube(PluginBase):
         kapak = (d.get("thumbnails") or [{}])[-1].get("url")
         return SeriesInfo(
             url         = url,
-            title       = d.get("channel") or d.get("title") or "",
+            title       = next((l["title"] for l in _LISTEM if l["url"] == url), None) or d.get("channel") or d.get("title") or "",
             poster      = kapak,
             description = d.get("description") or None,
             episodes    = [bolumler[k] for k in sorted(bolumler)],

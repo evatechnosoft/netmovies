@@ -17,6 +17,10 @@ class YouTubeResmiTest(unittest.TestCase):
         self.assertEqual(bolum_numarasi("A.B.İ. Episode 20"), (1, 20))
         self.assertEqual(bolum_numarasi("Kızılcık Şerbeti 3. Sezon 12. Bölüm"), (3, 12))
         self.assertIsNone(bolum_numarasi("A.B.İ. 2. Fragman"))
+        # Kaos Show: Türkçe ve İngilizce başlıklar karışık.
+        self.assertEqual(bolum_numarasi("Hayrettin ile Kaos Show - 2.Sezon 17.Bölüm | Kaos Allstar"), (2, 17))
+        self.assertEqual(bolum_numarasi("Chaos Show with Hayrettin - Season 2 Episode 15 | X"), (2, 15))
+        self.assertEqual(bolum_numarasi("Hayrettin and Chaos Show - Episode 1 | Music Festival"), (1, 1))
 
 
 if __name__ == "__main__":
