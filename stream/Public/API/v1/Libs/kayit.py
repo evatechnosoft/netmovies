@@ -21,7 +21,7 @@ import re
 import shutil
 import time
 from pathlib      import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote_plus
 
 import httpx
 
@@ -144,6 +144,12 @@ def ekle(veri: dict) -> dict:
     title = str(veri.get("title") or "").strip()
     if not title or not veri.get("plugin") or not veri.get("content_url"):
         raise ValueError("title, plugin ve content_url gerekli")
+    # load_item bölüm adresleri quote_plus KODLU gelir (TV sözleşmesi); motor ham
+    # adres bekler. Kodlu giden adres "kaynak bulunamadı" oluyordu (A.B.İ. 9 bölüm).
+    for anahtar in ("content_url", "item_url"):
+        deger = str(veri.get(anahtar) or "")
+        if deger.lower().startswith(("http%3a", "https%3a")):
+            veri[anahtar] = unquote_plus(deger)
     kid  = kayit_id(title, veri.get("season_no"), veri.get("episode_no"), veri.get("episode"))
     eski = _oku(kid)
     if eski and eski.get("durum") in ("bekliyor", "iniyor", "hazir"):
