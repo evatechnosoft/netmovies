@@ -1,5 +1,12 @@
-# Handoff: 0.9.48 yayında, kayıt kuyruğu dolu, otomatik açık
+# Handoff: 0.9.49 yayında, kayit_takip canlı, kuyruk akıyor
 > 2026-10-03 · `fix/general-stability` @ `0a67aad` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
+
+## 4 Ekim öğleden sonra — 0.9.49, kayit_takip, kuyruk kök nedenleri
+- **0.9.49 üç yerde** (yerel OTA 22 686 484 B · GitHub `v0.9.49-poc` · evaglass `netmovies-tv-v0.9.49` vc 949, sha `6d5ad9c7…`). Cihazda doğrulanmadı. Basılı-tut menüsü alt sırasına 4. hap ⏺ "Devamı insin" (`LISTE_KAYIT_TAKIP`), seçili hapın adı altta yazar. Hapı işaretlemek sunucuda hemen bir otomatik tur attırır.
+- **Sunucu (`644bf9d`, Zima'da 10:44Z):** `kayit_takip` listesi (`watch_store.ALLOWED_LISTS`); `_otomatik_tur` yalnız bu listeyi tarar, izlenen (progress `episode`) ya da kayıtlı son bölümden SONRAKİ `ONDE=3` bölümü kuyruğa koyar, iz yoksa en yeni bölüm. Global `takip` listesi artık indirmeyi tetiklemez. `kayit_otomatik=1` ana şalter. Liste tohumlandı: Lioness, A.B.İ., MobLand, Yeraltı, Haysiyet, Anne Yarısı, Daha 17, Altı Üstü İstanbul. Test `test_otomatik_tur_izlenenden_sonraki_onde_bolum`; 221 stream testi yeşil.
+- **Kuyruk kök nedenleri (ikisi de çözüldü):** (1) `load_item` bölüm adresleri quote_plus KODLU; kayıt `ekle` artık çözer (`1341771`), yoksa motor "kaynak bulunamadı" diyordu (A.B.İ. 9 bölüm). (2) Lioness'ta DiziPal+Dizilla aynı konağa (pichive) gidiyor, konak 403, WARP da geçmiyor; DiziMom adresleriyle (`special-ops-lioness-3-sezon-N-bolum-izle`) yeniden kuyruğa alındı, S3B6/S3B8 indi. Dean: A.B.İ. 16-18 geriye dönük, 19 izlenmedi (hepsi kuyrukta/indi), Lioness S3B8 de.
+- Dean'in "ilk 20-30 dk'yı indir" fikri konuşuldu ve Dean "önemli değil" dedi — YAPILMADI (EVENT playlist + iç içe v/a indirme + öncelik gerekir).
+- Ses playlist düzeltmesi (`620d187`) S3B5 403'ünü çözmedi; 403 konak kaynaklı çıktı.
 
 ## 4 Ekim sabah — 0.9.48 + kayıt kuyruğu
 - **0.9.48 üç yerde** (yerel OTA `v0.9.48-poc` 22 670 100 B · GitHub `v0.9.48-poc` · evaglass `netmovies-tv-v0.9.48`, apps.json tv/phone vc 948, sha256 `25d5f529…`). Cihazda doğrulanmadı. İçerik: `remote/state` artık bölümün adresini yollar (kart url'si "8. bölüm" gösteriyordu, `episodes[currentEpIndex].url`), kayıt ● posterin SOL üstünde, puan 26 dp sağa kayar. 80 test yeşil.
