@@ -81,6 +81,7 @@ import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.encodedUrl
 import com.evaitec.netmovies.tv.data.episodeRef
+import com.evaitec.netmovies.tv.data.parseEpisodeRef
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -218,7 +219,15 @@ private fun CategoryRows(
     val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip) {
         listOf(
             "Devam edenler" to library.watched.toList(),
-            "Kayıtlar" to library.kayitlar.toList(),
+            // Dizi başına TEK kart (Dean, 4 Ekim: "bölümler kendi içinde olmalı"): kart
+            // diziyi açar, bölümler listede ● ile görünür. Rozet: bölüm sayısı + durum.
+            "Kayıtlar" to library.kayitlar.groupBy { it.title.lowercase() }.values.map { grup ->
+                val sirali = grup.sortedBy { parseEpisodeRef(it.episodeRef)?.let { (s, b) -> s * 1000 + b } ?: 0 }
+                if (sirali.size == 1) sirali[0] else sirali.last().copy(
+                    episodeRef = "",
+                    lang = listOf("${sirali.size} bölüm") + sirali.flatMap { it.lang }.filter { it != Library.REC && !it.startsWith("S") }.distinct().take(1) + Library.REC,
+                )
+            }.sortedBy { it.title.lowercase() },
             "İzlediklerim" to library.izlenen.toList(),
             "Favoriler" to library.favorites.toList(),
             "Takip" to library.takip.toList(),
@@ -1186,18 +1195,18 @@ private fun PosterMenu(
                 PadMod.BOLUM -> {
                     SutunBasligi("Bölümler (" + bolumler.size + ")", true)
                     LazyColumn(state = bolumState, modifier = Modifier.heightIn(max = 260.dp)) {
+                        // Oynatıcıdaki bölüm listesiyle aynı satır (Dean, 4 Ekim): numara,
+                        // ad, izlenen ✓, kalınan ▶, kayıtlı ●.
+                        val kalinan = secilenBolum ?: item.episode.takeIf { it >= 0 }
                         itemsIndexed(bolumler) { i, ep ->
-                            val numara = ep.episode?.let { "S" + ep.season + "B" + it } ?: ("Bölüm " + (i + 1))
-                            val ad = ep.title?.takeIf { it.isNotBlank() }
-                            Box(Modifier.pointerInput(i) {
-                                detectTapGestures { bolumIdx = i; secilenBolum = i; onPlayEpisode(i) }
-                            }) {
-                                KartSatir(
-                                    label = if (ad != null) numara + " · " + ad else numara,
-                                    secili = i == bolumIdx,
-                                    isaretli = i == secilenBolum,
-                                )
-                            }
+                            BolumSatiri(
+                                ep = ep,
+                                index = i,
+                                oynuyor = i == kalinan,
+                                izlendi = kalinan != null && i < kalinan,
+                                secili = i == bolumIdx,
+                                kayitli = library.kayitBul(item.title, episodeRef(ep.season, ep.episode, i)) != null,
+                            ) { bolumIdx = i; secilenBolum = i; onPlayEpisode(i) }
                         }
                     }
                 }

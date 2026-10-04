@@ -2704,6 +2704,7 @@ internal fun SettingsPanel(
                                     oynuyor = oynuyor,
                                     // Kayıt tek "nereye kadar" tutar: öncekiler izlenmiş sayılır.
                                     izlendi = idx < currentEpIndex,
+                                    kayitli = library.kayitBul(item.title, episodeRef(ep.season, ep.episode, idx)) != null,
                                     modifier = if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier,
                                 ) { onSelectEpisode(idx) }
                             }
@@ -2996,15 +2997,20 @@ private fun IkonSekme(
  *  Seçim indeksle geri döner ama indeks bu listeden gelir, numara yalnız etikettir. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun BolumSatiri(
+internal fun BolumSatiri(
     ep: com.evaitec.netmovies.tv.data.EpisodeItem,
     index: Int,
     oynuyor: Boolean,
     izlendi: Boolean = false,
+    // Odak yerine tuşla seçim (kart pad'i): aynı satır, aynı görünüm.
+    secili: Boolean = false,
+    // Sunucu diskinde hazır kaydı var: kırmızı ● (internetsiz oynar).
+    kayitli: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     var odakli by remember { mutableStateOf(false) }
+    if (secili) odakli = true
     val shape = RoundedCornerShape(NmDim.RowRadius)
     val yazi = when {
         odakli -> NmColor.OnPrimary
@@ -3026,7 +3032,7 @@ private fun BolumSatiri(
                 },
             )
             .nmFocusRing(odakli, shape)
-            .onFocusChanged { odakli = it.isFocused }
+            .onFocusChanged { if (!secili) odakli = it.isFocused }
             .clickable { onClick() }
             // SettingRow ile aynı iç boşluk: Kitaplık ve Bölümler aynı satır boyunda.
             .padding(horizontal = 14.dp, vertical = 6.dp),
@@ -3054,6 +3060,7 @@ private fun BolumSatiri(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        if (kayitli) Text(com.evaitec.netmovies.tv.data.Library.REC, fontSize = NmType.Body, color = NmColor.Rec)
         when {
             oynuyor -> Text("▶", fontSize = NmType.Body, color = if (odakli) NmColor.OnPrimary else NmColor.Primary)
             izlendi -> Text("✓", fontSize = NmType.Body, color = yazi)
