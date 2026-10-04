@@ -1,5 +1,11 @@
-# Handoff: 0.9.49 yayında, kayit_takip canlı, kuyruk akıyor
+# Handoff: 0.9.50 yayında, indirme Dean isteğiyle DURDU, inenler duruyor
 > 2026-10-03 · `fix/general-stability` @ `0a67aad` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
+
+## 4 Ekim 16:xx — İNDİRME DURDU (Dean), 0.9.50
+- **Dean kararı:** "İndirme özelliği olsun ama dursun şimdilik; inenler kalsın." `kayit_otomatik=0`, bekleyen/hatalı kayıtlar silindi; yalnız Lioness S3B5 (DiziMom TÜRKÇE DUBLAJ sayfası `special-ops-lioness-turkce-dublaj-izle-hd16`) bitiyordu, bırakıldı. Hazır kayıtlar duruyor (A.B.İ. 16-22, Lioness S3B4/5/7, Yeraltı 16, Haysiyet 4, Anne Yarısı 2, Neagley 8, Altı Üstü 15). Yeni kuyruk eklemeden önce Dean'e sor.
+- **0.9.50 üç yerde** (yerel OTA 22 686 484 B · `v0.9.50-poc` · evaglass vc 950, sha `d08fd0b5…`): Kayıtlar ızgarası dizi başına TEK kart ("N bölüm" rozeti, kart diziyi açar), kart pad'indeki bölüm listesi oynatıcıdaki `BolumSatiri` ile aynı (✓ izlenen, ▶ kalınan, ● kayıtlı; oynatıcıda da ●). Cihazda doğrulanmadı. Dean'in eleştirisi: "kayıtlar indirme sırasına dizilmiş, bölümler kendi içinde olmalı" → bu.
+- **İngilizce kayıt kök nedeni:** DiziMom'da dublaj AYRI dizi sayfası (`…-turkce-dublaj-izle-hdNN`); genel sayfadan inen "DiziMom | Kaynak" altyazılı. Lioness S3B6/S3B8 İngilizce indi ve silindi. DiziPal/Dizilla Lioness konağı (pichive) 403 → kayıt dışı her seçim İngilizce DiziMom'a düşüyordu. Kalıcı çözüm (yapılmadı): kayıt alırken dublaj varyantını seç / dili meta'ya yaz.
+- Daha 17 S1B19 ve Ömür Usta S1B2 çözülmüş adresle de "kaynak bulunamadı" — ayrı kök neden, bakılmadı.
 
 ## 4 Ekim öğleden sonra — 0.9.49, kayit_takip, kuyruk kök nedenleri
 - **0.9.49 üç yerde** (yerel OTA 22 686 484 B · GitHub `v0.9.49-poc` · evaglass `netmovies-tv-v0.9.49` vc 949, sha `6d5ad9c7…`). Cihazda doğrulanmadı. Basılı-tut menüsü alt sırasına 4. hap ⏺ "Devamı insin" (`LISTE_KAYIT_TAKIP`), seçili hapın adı altta yazar. Hapı işaretlemek sunucuda hemen bir otomatik tur attırır.
