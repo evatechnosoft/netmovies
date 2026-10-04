@@ -706,8 +706,12 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
                     position = exo.currentPosition / 1000.0,
                     duration = sure / 1000.0,
                     playing = exo.isPlaying,
-                    plugin = item.plugin,
-                    url = com.evaitec.netmovies.tv.data.rawUrl(item.url),
+                    plugin = core.aktifPlugin,
+                    // Bölümün adresi, kartın değil: kart dizinin son açılan bölümünü
+                    // taşır; kayıttan S3B4 oynarken telefona "8. bölüm" gidiyordu.
+                    url = com.evaitec.netmovies.tv.data.rawUrl(
+                        core.episodes.getOrNull(core.currentEpIndex)?.url?.takeIf { it.isNotBlank() } ?: item.url,
+                    ),
                     poster = item.poster.orEmpty(),
                 )
             }

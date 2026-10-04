@@ -717,14 +717,14 @@ private fun PosterCard(
                     .padding(6.dp),
             )
         }
-        // Hazır kaydı var: yıldızın altında kırmızı ● (internetsiz oynar).
+        // Hazır kaydı var: sol üstte kırmızı ● (internetsiz oynar); puan yanına kayar.
         if (kayitli) {
             Text(
                 text = Library.REC,
                 color = NmColor.Rec,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = if (isFavorite) 28.dp else 6.dp, end = 6.dp),
+                    .align(Alignment.TopStart)
+                    .padding(6.dp),
             )
         }
         // TMDB puanı — sol üstte, okunsun diye kendi zemininde.
@@ -736,7 +736,7 @@ private fun PosterCard(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(6.dp)
+                    .padding(start = if (kayitli) 26.dp else 6.dp, top = 6.dp)
                     .clip(RoundedCornerShape(NmDim.PillRadius))
                     .background(NmColor.ScrimSoft)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
