@@ -1,7 +1,13 @@
-# Handoff: 0.9.46 yazıldı, yayın izne takıldı
+# Handoff: 0.9.48 yayında, kayıt kuyruğu dolu, otomatik açık
 > 2026-10-03 · `fix/general-stability` @ `0a67aad` (push'lu, Zima reposu aynı) · kirli: `.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` (son ikisi izlenmeyen, bu oturumun değil)
 
-## Kayıtlar — 3 Ekim gece (EN GÜNCEL)
+## 4 Ekim sabah — 0.9.48 + kayıt kuyruğu
+- **0.9.48 üç yerde** (yerel OTA `v0.9.48-poc` 22 670 100 B · GitHub `v0.9.48-poc` · evaglass `netmovies-tv-v0.9.48`, apps.json tv/phone vc 948, sha256 `25d5f529…`). Cihazda doğrulanmadı. İçerik: `remote/state` artık bölümün adresini yollar (kart url'si "8. bölüm" gösteriyordu, `episodes[currentEpIndex].url`), kayıt ● posterin SOL üstünde, puan 26 dp sağa kayar. 80 test yeşil.
+- Diskten oynatma kanıtlandı: 09:45 `resolve: kayıttan · Lioness S3B4`, S3B4 klasöründen 3 dk'da 75 segment okundu, sda1 11 MB/20 sn. Gece TV'den istek yok (23:32–09:16), indirme 23:32'de bitmişti. Stream konteyneri 00:24/00:26'da iki kez yeniden başlamış (RestartCount 0 → elle/compose, kim yaptı bilinmiyor).
+- Dean sohbetten kuyruğa yazdırdı: Lioness S3B5-6, A.B.İ. S1B20-22, Daha 17 S1B19, Haysiyet S1B4, Yeraltı S1B16 (`POST /kayitlar/ekle` JSON gövde çalışıyor). `kayit_otomatik=1` AÇILDI (Dean "yayınlanınca indir" dedi; önceki "yalnız elle" kararı kalktı). Takip'e eklendi: Lioness, A.B.İ., MobLand, Yeraltı. Altı Üstü İstanbul 16-18 ve MobLand S2B4 henüz yok → otomatik tur yakalar (3 saatte bir, Takip'in EN YENİ bölümü; aradaki bölümleri almaz).
+- DiziPal `load_item` Lioness/MobLand için 0 bölüm döndü (dizipal2221/2224); `episodes_best` DiziMom'a düştü. Bölüm listesi için `episodes_best` kullan.
+
+## Kayıtlar — 3 Ekim gece
 - **0.9.46/0.9.47 YAYINDA (üç yer):** yerel OTA `v0.9.46-poc` 22 670 096 B · GitHub `v0.9.46-poc` prerelease · evaglass `netmovies-tv-v0.9.46` + apps.json tv/phone vc 946 (sha256 `98775f62…`). Cihazda doğrulanmadı.
 - `c6402f3` (0.9.47, üç yerde): Yönetim'de tek çubuk = izlerken hat paylaşımı 0-10 MB/s (orta 5/5 → `kayit_izlerken_mbit=40`, 0 = izlerken indirme durur); izlemezken sınırsız (`kayit_bosta_mbit=0`). `kayit_otomatik=1` → 3 saatte bir Takip'in en yeni bölümü. joystick/oynatıcı ● kayıtlıysa siler, posterde kırmızı ●. 7 Mbit sınırı ölçüldü 7,0.
 - `7f8ea27`+`567fa62` canlıda (Zima stream rebuild, mount `/DATA/sata/netmovies-kayitlar → /kayitlar`, `.env` `KAYIT_HOST_DIR`).
