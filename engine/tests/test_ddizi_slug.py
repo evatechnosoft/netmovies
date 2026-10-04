@@ -6,7 +6,7 @@
 
 import unittest
 
-from Plugins.DDizi import _slug
+from Plugins.DDizi import _HLS, _YOUTUBE, _slug
 
 
 class DDiziSlugTest(unittest.TestCase):
@@ -29,6 +29,20 @@ class DDiziSlugTest(unittest.TestCase):
         self.assertNotIn("mercan-kosk", yabanci)
         self.assertNotIn("gonul-dagi", yabanci)
         self.assertEqual(len(yabanci), 2)
+
+
+class DDiziOynaticiTest(unittest.TestCase):
+    def test_telif_sayfasi_youtube_kimligi(self):
+        # A.B.İ. 16-18: telif sayfası resmi atv YouTube videosuna bağlı; eski kalıp
+        # yalnız `youtube.php?id=` arıyordu, bölüm "kaynak yok" düşüp 360p'ye iniyordu.
+        html = '<iframe src="/player/telif/index.php?id=https://www.youtube.com/watch?v=GkGzfQwJsBc">'
+        self.assertEqual(_YOUTUBE.search(html).group(1), "GkGzfQwJsBc")
+        self.assertEqual(_YOUTUBE.search("ddizi.re/player/youtube.php?id=abc123XYZ").group(1), "abc123XYZ")
+
+    def test_uzantisiz_oynatici_dosyasi(self):
+        # A.B.İ. 21: streambox `master.txt` veriyor; `.m3u8` şartı kaynağı düşürüyordu.
+        js = 'sources: [{file:"https://streambox.xyz/hls/f49c/master.txt?s=1&d="}]'
+        self.assertTrue(_HLS.search(js).group(1).startswith("https://streambox.xyz/"))
 
 
 if __name__ == "__main__":

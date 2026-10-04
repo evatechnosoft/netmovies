@@ -33,11 +33,14 @@ _BOLUM_N = re.compile(r"-(\d+)-bolum")
 _SAYFA   = re.compile(r'href="(https?://[^"]*/sayfa-\d+)"')
 # Uzun dizide onlarca sayfa olabilir; her biri ayrı istek — üst sınır konur.
 _MAX_SAYFA = 6
-_YOUTUBE = re.compile(r'youtube\.php\?id=([A-Za-z0-9_-]{6,})')
+# İki biçim: `player/youtube.php?id=<vid>` ve telif sayfası
+# `player/telif/index.php?id=https://www.youtube.com/watch?v=<vid>` (A.B.İ. 16-18).
+_YOUTUBE = re.compile(r'(?:youtube\.php\?id=|youtube\.com/watch\?v=)([A-Za-z0-9_-]{6,})')
 # Some episodes skip YouTube: iframe `/player/oynat/<hash>` whose page carries a
 # plain HLS `file:"...m3u8"` (seen: Haysiyet 3, video.twimg.com).
 _OYNAT   = re.compile(r'src="([^"]*/player/oynat/[0-9A-Za-z]+)"')
-_HLS     = re.compile(r'file\s*:\s*"([^"]+\.m3u8[^"]*)"')
+# Uzantı şart değil: streambox `master.txt` veriyor (A.B.İ. 21); proxy manifesti gövdeden tanır.
+_HLS     = re.compile(r'file\s*:\s*"(https?://[^"]+)"')
 
 # Adresin son parçasından dizi slug'ını çıkarır; bölüm ve dizi adresleri aynı
 # slug'a iner:
