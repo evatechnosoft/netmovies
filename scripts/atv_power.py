@@ -108,8 +108,9 @@ class Kopru:
         if self.tv is None and not ayakta():
             return {"host": KUTU_IP, "acik": False, "cihaz": None, "uyanik": False}
         tv = self._tv()
+        # Ön plandaki uygulama: "uygulama donuk" şikâyetinde NetMovies'te mi, başlatıcıda mı?
         return {"host": KUTU_IP, "acik": tv.is_on, "cihaz": tv.device_info, "uyanik": True,
-                "ses": tv.volume_info}
+                "ses": tv.volume_info, "uygulama": tv.current_app}
 
     def tus(self, ad: str) -> None:
         self._tv().send_key_command(ad)

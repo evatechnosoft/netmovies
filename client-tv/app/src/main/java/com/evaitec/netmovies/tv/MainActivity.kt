@@ -179,6 +179,7 @@ class MainActivity : ComponentActivity() {
         com.evaitec.netmovies.tv.data.ServerResolver.init(this)
         // Çökme izi: bu açılıştan önceki çökme varsa sunucuya gider, sonra silinir.
         com.evaitec.netmovies.tv.data.CrashLog.kur(this)
+        com.evaitec.netmovies.tv.data.CrashLog.donmaBekcisi(this)
         com.evaitec.netmovies.tv.data.CrashLog.bekleyen(this)?.let { satirlar ->
             satirlar.forEach { com.evaitec.netmovies.tv.data.PlaybackLog.warn("cokme", it) }
             // Ekranda da göster: sunucuya gönderim ağa bağlı, iki turdur hiçbir iz
