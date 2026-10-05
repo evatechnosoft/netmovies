@@ -1,7 +1,7 @@
 # YouTube araması genel aramanın başında; aynı liste iki kez çıkmaz.
 import unittest
 
-from Public.API.v1.Routers.search_all import youtube_kartlari, youtube_one
+from Public.API.v1.Routers.search_all import _alakali, youtube_kartlari, youtube_one
 
 
 class YouTubeAramaTest(unittest.TestCase):
@@ -19,6 +19,14 @@ class YouTubeAramaTest(unittest.TestCase):
         ogeler = [{"plugin": "DDizi", "url": "d1"}, {"plugin": "YouTube", "url": yt[0]["url"]}]
         sonuc = youtube_one(yt, ogeler)
         self.assertEqual([o["plugin"] for o in sonuc], ["YouTube", "DDizi"])
+
+
+    def test_noktali_ad_alakali_sayilir(self):
+        # "abi" araması resmi kanal kartını ("A.B.İ.") düşürmemeli; tersi de.
+        ogeler = [{"plugin": "YouTube", "title": "A.B.İ.", "url": "y"}, {"plugin": "DDizi", "title": "Abi", "url": "d"}]
+        self.assertEqual(len(_alakali(ogeler, "abi")), 2)
+        self.assertEqual(len(_alakali(ogeler, "A.B.İ.")), 2)
+        self.assertEqual(_alakali([{"plugin": "X", "title": "Babies", "url": "b"}], "abi"), [{"plugin": "X", "title": "Babies", "url": "b"}])
 
 
 if __name__ == "__main__":

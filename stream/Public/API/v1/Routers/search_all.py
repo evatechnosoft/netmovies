@@ -62,6 +62,10 @@ def _varyantlar(sorgu: str) -> list[str]:
     return list(dict.fromkeys(v for v in varyant if len(v) >= 3))
 
 
+def _bitisik(metin: str) -> str:
+    return "".join(c for c in metin if c.isalnum())
+
+
 def _alakali(ogeler: list, sorgu: str) -> list:
     """Sorguyu yok sayan kaynakları eler.
 
@@ -74,7 +78,9 @@ def _alakali(ogeler: list, sorgu: str) -> list:
 
     def eslesiyor(oge: dict) -> bool:
         baslik = _sade(oge.get("title"))
-        return any(k in baslik for k in kelimeler)
+        # Noktalamasız da bakılır: site "Abi", resmi kanal "A.B.İ." yazıyor.
+        bitisik = _bitisik(baslik)
+        return any(k in baslik or (_bitisik(k) and _bitisik(k) in bitisik) for k in kelimeler)
 
     kaynaklar: dict[str, list] = {}
     for oge in ogeler:
