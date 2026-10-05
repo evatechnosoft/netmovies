@@ -215,8 +215,14 @@ private fun CategoryRows(
     // Kişisel listeler TEK blok, ana sayfanın en üstünde: segment çipleri, altında
     // seçili listenin TAM ızgarası (Dean, 29 Eylül gece: "raf değil, poster sayfası").
     // İlk üçü Dean'in istediği; Takip/İzlenecek başka yerde görünmediği için sonda.
-    // Boş liste çip olarak görünmez.
-    val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip) {
+    // Boş liste çip olarak görünmez. Sırayı Dean çipe basılı tutup değiştirir
+    // (Gözat kaynak çipleriyle aynı jest); sıra sunucuda (prefs).
+    var segmentSirasi by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        runCatching { Network.api.prefsGet().result }
+            .onSuccess { segmentSirasi = okuSatirlar(it, SEGMENT_SIRA_ANAHTAR) }
+    }
+    val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip, segmentSirasi) {
         listOf(
             "Devam edenler" to library.watched.toList(),
             // Dizi başına TEK kart (Dean, 4 Ekim: "bölümler kendi içinde olmalı"): kart
@@ -232,7 +238,10 @@ private fun CategoryRows(
             "Favoriler" to library.favorites.toList(),
             "Takip" to library.takip.toList(),
             "İzlenecek" to library.izlenecek.toList(),
-        ).filter { it.second.isNotEmpty() }
+        ).filter { it.second.isNotEmpty() }.let { liste ->
+            val sira = siralaCipler(liste.map { it.first }, segmentSirasi)
+            liste.sortedBy { sira.indexOf(it.first) }
+        }
     }
     val secili = segmentler.firstOrNull { it.first == position.segment } ?: segmentler.firstOrNull()
     // Raf sırası Dean'in (29 Eylül): kişisel blok, Türk dizileri, Kanallarım,
@@ -356,17 +365,30 @@ private fun CategoryRows(
                     Column {
                         if (kisisel) {
                             // SAĞ/SOL çipten çipe geçer ve odaklanan çip seçilir;
-                            // AŞAĞI şeride iner.
+                            // AŞAĞI şeride iner. Basılı tut → taşı (Tasima.kt).
+                            val tasima = rememberTasima(segmentler.map { it.first }, segmentSirasi) { yeni ->
+                                segmentSirasi = yeni
+                                scope.launch {
+                                    runCatching { Network.api.prefsPost(mapOf(SEGMENT_SIRA_ANAHTAR to yeni.joinToString("\n"))) }
+                                }
+                            }
+                            val segmentHarita = segmentler.toMap()
                             Row(
                                 modifier = Modifier
                                     .focusGroup()
                                     .padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
                                 horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
                             ) {
-                                segmentler.forEach { (ad, liste) ->
+                                tasima.sira.forEach { ad ->
+                                  val liste = segmentHarita[ad].orEmpty()
+                                  // key: taşınan çip aynı düğüm kalsın, odak onunla gitsin.
+                                  androidx.compose.runtime.key(ad) {
                                     SegmentChip(
-                                        label = "$ad  ${liste.size}",
+                                        label = if (tasima.tasinan == ad) tasimaEtiketi(ad) else "$ad  ${liste.size}",
                                         active = ad == secili?.first,
+                                        tasiniyor = tasima.tasinan == ad,
+                                        onLongPress = { tasima.baslat(ad) },
+                                        onMove = { tasima.tasi(it) },
                                         modifier = Modifier
                                             .focusRequester(cipOdak.getOrPut(ad) { FocusRequester() })
                                             .onFocusChanged {
@@ -376,10 +398,18 @@ private fun CategoryRows(
                                                     position.card = 0
                                                 }
                                             },
-                                        onClick = { position.segment = ad },
+                                        onClick = {
+                                            if (tasima.tasinan != null) tasima.bitir() else position.segment = ad
+                                        },
+                                        onFocusLost = { if (tasima.tasinan == ad) tasima.bitir() },
                                     )
+                                  }
                                 }
                             }
+                            TasimaIpucu(
+                                tasima.tasinan != null,
+                                Modifier.padding(start = com.evaitec.netmovies.tv.ui.theme.nmKenar()),
+                            )
                         } else {
                             Text(
                                 text = title,
@@ -496,7 +526,16 @@ internal fun rafAdi(kategori: String?): String = when (val k = kategori?.takeIf 
 // Kişisel blok segmenti: seçili = soluk mor zemin, odak = dolu mor + beyaz halka.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SegmentChip(label: String, active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun SegmentChip(
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tasiniyor: Boolean = false,
+    onLongPress: () -> Unit = {},
+    onMove: (Int) -> Unit = {},
+    onFocusLost: () -> Unit = {},
+) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.PillRadius)
     Box(
@@ -504,25 +543,36 @@ private fun SegmentChip(label: String, active: Boolean, onClick: () -> Unit, mod
             .clip(shape)
             .background(
                 when {
+                    tasiniyor -> NmColor.Star
                     focused -> NmColor.Primary
                     active -> NmColor.PrimarySelected
                     else -> NmColor.Surface
                 },
             )
             .nmFocusRing(focused, shape)
-            .onFocusChanged { focused = it.isFocused }
-            .clickable { onClick() }
+            .onFocusChanged {
+                if (focused && !it.isFocused) onFocusLost()
+                focused = it.isFocused
+            }
+            .tasimaTuslari(tasiniyor, onLongPress, onMove, onClick)
             .padding(horizontal = 14.dp, vertical = 5.dp),
     ) {
         Text(
             text = label,
             fontSize = NmType.RowTitle,
             maxLines = 1,
-            fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Normal,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
+            fontWeight = if (active || focused || tasiniyor) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                tasiniyor -> androidx.compose.ui.graphics.Color.Black
+                focused -> NmColor.OnPrimary
+                else -> NmColor.OnSurface
+            },
         )
     }
 }
+
+// Ana sayfa kişisel blok çiplerinin elle sırası (prefs): satır başına bir ad.
+internal const val SEGMENT_SIRA_ANAHTAR = "home_segment_order"
 
 // Üst bar bir GEZİNME çubuğudur: marka (ana sayfa) + Canlı TV · Ajanda · Listem.
 // Bu üçü Ayarlar menüsünün içine gömülüydü; en çok kullanılan ekranlar iki adım

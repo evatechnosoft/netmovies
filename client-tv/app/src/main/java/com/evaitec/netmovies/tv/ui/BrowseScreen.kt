@@ -48,7 +48,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -544,59 +543,50 @@ private fun SourceChips(
             names.filter { it in favoriler && it != YOUTUBE }.sorted() +
             names.filterNot { it in favoriler || it == YOUTUBE }
     }
-    var sira by remember(varsayilan, kayitliSira) { mutableStateOf(siralaCipler(varsayilan, kayitliSira)) }
-    var tasinan by remember { mutableStateOf<String?>(null) }
+    val tasima = rememberTasima(varsayilan, kayitliSira, onSiraKaydet)
     val rowState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val bitir = {
-        if (tasinan != null) {
-            tasinan = null
-            onSiraKaydet(sira)
-        }
-    }
-    NmBackHandler(enabled = tasinan != null) { bitir() }
-    LazyRow(
-        state = rowState,
-        modifier = Modifier.fillMaxWidth().focusGroup(),
-        contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        // Anahtar = ad: yer değiştiren çip aynı düğüm kalır, odak onunla gider.
-        itemsIndexed(sira, key = { _, ad -> ad }) { _, ad ->
-            val active = when (ad) {
-                TUMU -> selected == null && !seriesSelected
-                SERILER -> seriesSelected
-                else -> selected == ad
-            }
-            SourceChip(
-                label = ad,
-                active = active,
-                favori = ad in favoriler,
-                tasiniyor = tasinan == ad,
-                onLongPress = { tasinan = ad },
-                onMove = { yon ->
-                    val i = sira.indexOf(ad)
-                    val j = i + yon
-                    if (i >= 0 && j in sira.indices) {
-                        sira = sira.toMutableList().apply { add(j, removeAt(i)) }
+    Column {
+        LazyRow(
+            state = rowState,
+            modifier = Modifier.fillMaxWidth().focusGroup(),
+            contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // Anahtar = ad: yer değiştiren çip aynı düğüm kalır, odak onunla gider.
+            itemsIndexed(tasima.sira, key = { _, ad -> ad }) { _, ad ->
+                val active = when (ad) {
+                    TUMU -> selected == null && !seriesSelected
+                    SERILER -> seriesSelected
+                    else -> selected == ad
+                }
+                SourceChip(
+                    label = ad,
+                    active = active,
+                    favori = ad in favoriler,
+                    tasiniyor = tasima.tasinan == ad,
+                    onLongPress = { tasima.baslat(ad) },
+                    onMove = { yon ->
+                        val j = tasima.tasi(yon) ?: return@SourceChip
                         // Kenara dayandıysa şeridi kaydır, çip ekranda kalsın.
                         val gorunen = rowState.layoutInfo.visibleItemsInfo
                         if (gorunen.isNotEmpty() && (j <= gorunen.first().index || j >= gorunen.last().index)) {
                             scope.launch { rowState.animateScrollBy(yon * 220f) }
                         }
+                    },
+                    // Odak YUKARI/AŞAĞI ile şeritten çıkarsa taşıma biter, sıra kaybolmaz.
+                    onFocusLost = { if (tasima.tasinan == ad) tasima.bitir() },
+                ) {
+                    when {
+                        tasima.tasinan != null -> tasima.bitir()
+                        ad == TUMU -> onSelect(null)
+                        ad == SERILER -> onSelectSeries()
+                        else -> onSelect(ad)
                     }
-                },
-                // Odak YUKARI/AŞAĞI ile şeritten çıkarsa taşıma biter, sıra kaybolmaz.
-                onFocusLost = { if (tasinan == ad) bitir() },
-            ) {
-                when {
-                    tasinan != null -> bitir()
-                    ad == TUMU -> onSelect(null)
-                    ad == SERILER -> onSelectSeries()
-                    else -> onSelect(ad)
                 }
             }
         }
+        TasimaIpucu(tasima.tasinan != null, Modifier.padding(start = NmDim.SafeH))
     }
 }
 
@@ -617,17 +607,6 @@ internal fun SourceChip(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    // Kumandanın OK'u combinedClickable(onLongClick)'e düşmez (yalnız dokunma);
-    // uzun basış key event'ten okunur, bırakıştaki ACTION_UP tıklama sayılmaz.
-    var uzunBasildi by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    var uzunZamanlayici by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    val uzunBas = {
-        if (!uzunBasildi) {
-            uzunBasildi = true
-            onLongPress?.invoke()
-        }
-    }
     val shape = RoundedCornerShape(NmDim.PillRadius)
     Box(
         modifier = Modifier
@@ -645,50 +624,18 @@ internal fun SourceChip(
                 if (focused && !it.isFocused) onFocusLost()
                 focused = it.isFocused
             }
-            .onPreviewKeyEvent { ke ->
-                val ne = ke.nativeKeyEvent
-                when {
-                    onLongPress == null -> false
-                    tasiniyor && (ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
-                        ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) -> {
-                        if (ne.action == android.view.KeyEvent.ACTION_DOWN) {
-                            onMove?.invoke(if (ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1)
-                        }
-                        true
-                    }
-                    ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
-                        ne.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
-                        ne.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                        when (ne.action) {
-                            android.view.KeyEvent.ACTION_DOWN ->
-                                if (ne.repeatCount == 0) {
-                                    uzunBasildi = false
-                                    uzunZamanlayici?.cancel()
-                                    uzunZamanlayici = scope.launch {
-                                        kotlinx.coroutines.delay(CIP_UZUN_BASIS_MS)
-                                        uzunBas()
-                                    }
-                                } else {
-                                    uzunBas()
-                                }
-                            android.view.KeyEvent.ACTION_UP -> {
-                                uzunZamanlayici?.cancel()
-                                if (!uzunBasildi) onClick()
-                                uzunBasildi = false
-                            }
-                        }
-                        true
-                    }
-                    else -> false
+            .then(
+                if (onLongPress != null) {
+                    Modifier.tasimaTuslari(tasiniyor, onLongPress, { onMove?.invoke(it) }, onClick)
+                } else {
+                    Modifier.clickable(onClick = onClick)
                 }
-            }
-            // Dokunma yolu (telefon): uzun basış pointer'la burada.
-            .combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() })
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
             text = when {
-                tasiniyor -> "◀ $label ▶"
+                tasiniyor -> tasimaEtiketi(label)
                 favori -> "★ $label"
                 else -> label
             },
@@ -704,7 +651,6 @@ internal fun SourceChip(
     }
 }
 
-private const val CIP_UZUN_BASIS_MS = 500L
 
 // --------------------------------------------------------------------- Raflar
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -1071,8 +1017,4 @@ internal fun okuSatirlar(
     return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }
 }
 
-/** Kayıtlı sıradaki çipler önce (artık olmayanlar düşer), yeni gelenler varsayılan yerinden sona. */
-internal fun siralaCipler(varsayilan: List<String>, kayitli: List<String>): List<String> {
-    val kayitliVar = kayitli.filter { it in varsayilan }.distinct()
-    return kayitliVar + varsayilan.filterNot { it in kayitliVar }
-}
+

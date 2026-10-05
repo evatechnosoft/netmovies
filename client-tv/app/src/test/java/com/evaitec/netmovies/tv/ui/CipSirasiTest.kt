@@ -20,3 +20,38 @@ class CipSirasiTest {
         )
     }
 }
+
+class TasimaDurumuTest {
+    @Test
+    fun tasiBitirKaydeder() {
+        var kayit: List<String>? = null
+        val d = TasimaDurumu(listOf("A", "B", "C")) { kayit = it }
+        d.baslat("C")
+        assertEquals(1, d.tasi(-1))
+        assertEquals(0, d.tasi(-1))
+        assertEquals(null, d.tasi(-1))   // kenarda durur
+        d.bitir()
+        assertEquals(listOf("C", "A", "B"), kayit)
+        assertEquals(null, d.tasinan)
+    }
+
+    @Test
+    fun iptalEskiSirayaDonerKaydetmez() {
+        var kayit: List<String>? = null
+        val d = TasimaDurumu(listOf("A", "B", "C")) { kayit = it }
+        d.baslat("A")
+        d.tasi(1)
+        d.iptal()
+        assertEquals(listOf("A", "B", "C"), d.sira)
+        assertEquals(null, kayit)
+    }
+
+    @Test
+    fun degismeyenSiraKaydedilmez() {
+        var kayit: List<String>? = null
+        val d = TasimaDurumu(listOf("A", "B")) { kayit = it }
+        d.baslat("A")
+        d.bitir()
+        assertEquals(null, kayit)
+    }
+}
