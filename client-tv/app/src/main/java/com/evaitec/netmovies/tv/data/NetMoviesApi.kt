@@ -225,6 +225,10 @@ interface NetMoviesApi {
     @GET("api/v1/prefs")
     suspend fun prefsGet(): PrefsResponse
 
+    // Sağlayıcı puanı (oynatma başarısı): Gözat'ta elle dizilmemiş çiplerin sırası.
+    @GET("api/v1/source_score")
+    suspend fun sourceScore(): SourceScoreResponse
+
     @POST("api/v1/prefs")
     suspend fun prefsPost(@Body body: Map<String, String>): OkResponse
 

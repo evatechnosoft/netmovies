@@ -4,8 +4,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import com.evaitec.netmovies.tv.data.KisiselDuzen
+import com.evaitec.netmovies.tv.data.baslikAnahtari
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -207,8 +212,11 @@ private fun CategoryRows(
     // Kaynağın "Yerli" adları Dean'in diliyle; aynı içerik iki tipten (serie +
     // serie_local) ya da iki sağlayıcıdan gelip rafta iki kez görünüyordu —
     // başlıkla tekilleşir.
-    val groups = remember(items) {
-        items.groupBy { rafAdi(it.category) }
+    // "Bunu gösterme" denen başlıklar raflardan düşer (kişisel listelerden değil).
+    val gizliBasliklar = KisiselDuzen.gizliBasliklar
+    val groups = remember(items, gizliBasliklar) {
+        items.filterNot { baslikAnahtari(it.title) in gizliBasliklar }
+            .groupBy { rafAdi(it.category) }
             .mapValues { (_, v) -> v.distinctBy { it.title?.trim()?.lowercase() ?: it.url } }
             .filter { (k, v) -> v.size >= MIN_ROW_ITEMS || k == HomeViewModel.KANALLARIM_RAFI }
     }
@@ -217,11 +225,8 @@ private fun CategoryRows(
     // İlk üçü Dean'in istediği; Takip/İzlenecek başka yerde görünmediği için sonda.
     // Boş liste çip olarak görünmez. Sırayı Dean çipe basılı tutup değiştirir
     // (Gözat kaynak çipleriyle aynı jest); sıra sunucuda (prefs).
-    var segmentSirasi by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        runCatching { Network.api.prefsGet().result }
-            .onSuccess { segmentSirasi = okuSatirlar(it, SEGMENT_SIRA_ANAHTAR) }
-    }
+    LaunchedEffect(Unit) { KisiselDuzen.yukle() }
+    val segmentSirasi = KisiselDuzen.segmentSirasi
     val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip, segmentSirasi) {
         listOf(
             "Devam edenler" to library.watched.toList(),
@@ -248,11 +253,19 @@ private fun CategoryRows(
     // Türkçe film, Türkçe dublaj dizi, Yeni Çıkanlar, gerisi.
     // remember ŞART: bu liste 500+ öğe taşıyor ve her recomposition'da yeniden
     // kurulursa raflar arasında gezinmek takılıyor.
-    val sections = remember(groups, secili) {
+    // Dean raf sırasını/gizliliği "Rafları düzenle"den değiştirir; kayıtlı sıra
+    // varsayılanın üstüne biner, yeni raf varsayılan yerinden sona eklenir.
+    val rafSirasi = KisiselDuzen.rafSirasi
+    val gizliRaflar = KisiselDuzen.gizliRaflar
+    val tumRaflar = remember(groups, secili) {
         val kalan = LinkedHashMap(groups)
         if (secili != null) kalan[KISISEL] = secili.second
         val once = RAF_SIRASI.mapNotNull { k -> kalan.remove(k)?.let { k to it } }
         once + kalan.toList()
+    }
+    val sections = remember(tumRaflar, rafSirasi, gizliRaflar) {
+        val sira = siralaCipler(tumRaflar.map { it.first }, rafSirasi)
+        tumRaflar.filterNot { it.first in gizliRaflar }.sortedBy { sira.indexOf(it.first) }
     }
     // Segment çiplerinin odak isteyicileri: şeritten YUKARI seçili çipe döner
     // (geometrik arama en yakın çipe gidiyordu, seçili olana değil).
@@ -266,6 +279,7 @@ private fun CategoryRows(
 
     // Ayarlar menüsü durumu
     var showSettingsMenu by remember { mutableStateOf(false) }
+    var showRafDuzenle by remember { mutableStateOf(false) }
 
     // Başlangıç odağı — yoksa D-pad'de hiçbir şey seçilemiyor. Hedef ilk poster
     // DEĞİL, son kalınan poster: oynatıcıdan dönüşte kullanıcı çıktığı içeriği
@@ -301,7 +315,7 @@ private fun CategoryRows(
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 } }
     // Modal (Ayarlar / poster menüsü) açıkken bu handler DEVRE DIŞI: GERİ tuşu
     // modalı kapatmalı, uygulamadan atmamalı. Modalın kendi handler'ı devralır.
-    val modalOpen = showSettingsMenu || menuItem != null
+    val modalOpen = showSettingsMenu || showRafDuzenle || menuItem != null
     val context = androidx.compose.ui.platform.LocalContext.current
     NmBackHandler(enabled = !modalOpen) {
         if (atTop) {
@@ -366,12 +380,7 @@ private fun CategoryRows(
                         if (kisisel) {
                             // SAĞ/SOL çipten çipe geçer ve odaklanan çip seçilir;
                             // AŞAĞI şeride iner. Basılı tut → taşı (Tasima.kt).
-                            val tasima = rememberTasima(segmentler.map { it.first }, segmentSirasi) { yeni ->
-                                segmentSirasi = yeni
-                                scope.launch {
-                                    runCatching { Network.api.prefsPost(mapOf(SEGMENT_SIRA_ANAHTAR to yeni.joinToString("\n"))) }
-                                }
-                            }
+                            val tasima = rememberTasima(segmentler.map { it.first }, segmentSirasi, KisiselDuzen::segmentSirasiYaz)
                             val segmentHarita = segmentler.toMap()
                             Row(
                                 modifier = Modifier
@@ -491,6 +500,13 @@ private fun CategoryRows(
             )
         }
 
+        if (showRafDuzenle) {
+            RafDuzenleMenu(
+                raflar = tumRaflar.map { it.first },
+                onClose = { showRafDuzenle = false },
+            )
+        }
+
         if (showSettingsMenu) {
             SettingsMenu(
                 onOpenKeyMap = onOpenKeyMap,
@@ -498,6 +514,7 @@ private fun CategoryRows(
                 onOpenAdmin = onOpenAdmin,
                 onOpenChannels = onOpenChannels,
                 onOpenTemizle = onOpenTemizle,
+                onOpenRafDuzenle = { showRafDuzenle = true },
                 onClose = { showSettingsMenu = false }
             )
         }
@@ -570,9 +587,6 @@ private fun SegmentChip(
         )
     }
 }
-
-// Ana sayfa kişisel blok çiplerinin elle sırası (prefs): satır başına bir ad.
-internal const val SEGMENT_SIRA_ANAHTAR = "home_segment_order"
 
 // Üst bar bir GEZİNME çubuğudur: marka (ana sayfa) + Canlı TV · Ajanda · Listem.
 // Bu üçü Ayarlar menüsünün içine gömülüydü; en çok kullanılan ekranlar iki adım
@@ -882,8 +896,16 @@ private val LISTE_SIRASI = listOf(
     Library.LISTE_TAKIP,
     "favori",
     Library.LISTE_KAYIT_TAKIP,   // ⏺ devamı insin (Dean, 4 Ekim)
+    // Netflix/Disney+ deseni: tek başlığı Devam Et'ten çıkar. İlerleme sunucuda
+    // silindiği için geri alınamaz → iki basış (ilki "emin misin" sorar).
+    LISTE_DEVAMDAN_CIKAR,
+    // YouTube "ilgilenmiyorum" deseni: başlık raflarda/Yeni Çıkanlar'da görünmez;
+    // geri açmak tekrar basmak ya da Ayarlar → Rafları düzenle.
+    LISTE_GOSTERME,
 )
-private val LISTE_ETIKET = listOf("İzlenecek", "Takip", "Favori", "Devamı insin ⏺")
+private val LISTE_ETIKET = listOf("İzlenecek", "Takip", "Favori", "Devamı insin ⏺", "Devam Et'ten çıkar", "Raflarda gösterme")
+private const val LISTE_DEVAMDAN_CIKAR = "devamdan_cikar"
+private const val LISTE_GOSTERME = "gosterme"
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -950,6 +972,7 @@ private fun PosterMenu(
     var mod by remember(item.url) { mutableStateOf(PadMod.PAD) }
     var bolumIdx by remember(item.url) { mutableStateOf(0) }
     var listeIdx by remember(item.url) { mutableStateOf(0) }
+    var cikarOnay by remember(item.url) { mutableStateOf(false) }
     val bolumState = rememberLazyListState()
     val benzerState = rememberLazyListState()
     val ozetState = rememberScrollState()
@@ -1006,6 +1029,21 @@ private fun PosterMenu(
 
     fun listeUygula(i: Int) {
         when (LISTE_SIRASI.getOrNull(i)) {
+            LISTE_DEVAMDAN_CIKAR -> when {
+                library.devamKaydi(item) == null -> kayitDurum = "Devam Et'te değil"
+                !cikarOnay -> { cikarOnay = true; kayitDurum = "Çıkarılsın mı? OK'a tekrar bas" }
+                else -> {
+                    cikarOnay = false
+                    kapsam.launch {
+                        val kayit = library.devamKaydi(item)
+                        kayitDurum = if (kayit != null && library.removeWatched(listOf(kayit.contentKey))) "Devam Et'ten çıkarıldı" else "Çıkarılamadı"
+                    }
+                }
+            }
+            LISTE_GOSTERME -> {
+                KisiselDuzen.baslikGizleGoster(item.title)
+                kayitDurum = if (KisiselDuzen.gizliMi(item)) "Raflarda gösterilmeyecek" else "Raflarda yeniden görünür"
+            }
             Library.LISTE_IZLENECEK -> library.toggleListe(item, Library.LISTE_IZLENECEK)
             Library.LISTE_TAKIP     -> library.toggleListe(item, Library.LISTE_TAKIP)
             Library.LISTE_KAYIT_TAKIP -> library.toggleListe(item, Library.LISTE_KAYIT_TAKIP)
@@ -1057,8 +1095,8 @@ private fun PosterMenu(
                 else -> return false
             }
             PadMod.LISTE -> when (code) {
-                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> listeIdx = (listeIdx - 1).coerceAtLeast(0)
-                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> listeIdx = (listeIdx + 1).coerceAtMost(LISTE_SIRASI.lastIndex)
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT  -> { listeIdx = (listeIdx - 1).coerceAtLeast(0); cikarOnay = false }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { listeIdx = (listeIdx + 1).coerceAtMost(LISTE_SIRASI.lastIndex); cikarOnay = false }
                 android.view.KeyEvent.KEYCODE_DPAD_UP    -> mod = PadMod.PAD
                 android.view.KeyEvent.KEYCODE_DPAD_CENTER,
                 android.view.KeyEvent.KEYCODE_ENTER      -> listeUygula(listeIdx)
@@ -1222,8 +1260,13 @@ private fun PosterMenu(
                                 Icons.Filled.Visibility,
                                 Icons.Filled.Star,
                                 Icons.Filled.FiberManualRecord,
+                                Icons.Filled.History,
+                                Icons.Filled.VisibilityOff,
                             )
-                            val listede = listOf(library.inIzlenecek(item), library.inTakip(item), library.isFavorite(item), library.inKayitTakip(item))
+                            val listede = listOf(
+                                library.inIzlenecek(item), library.inTakip(item), library.isFavorite(item), library.inKayitTakip(item),
+                                library.devamKaydi(item) != null, KisiselDuzen.gizliMi(item),
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 ikonlar.forEachIndexed { i, ikon ->
                                     ListeIkonu(ikon, secili = i == listeIdx, listede = listede[i]) {
@@ -1591,6 +1634,7 @@ private fun SettingsMenu(
     onOpenAdmin: () -> Unit,
     onOpenChannels: () -> Unit,
     onOpenTemizle: () -> Unit,
+    onOpenRafDuzenle: () -> Unit,
     onClose: () -> Unit,
     updateVm: UpdateViewModel = viewModel(),
 ) {
@@ -1658,9 +1702,101 @@ private fun SettingsMenu(
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
         // Listem ve Ajanda üst barda (★ / 🗓); burada ikinci kopyaları vardı.
         MenuRow("🧹  Devam Et'i temizle", onClick = { onClose(); onOpenTemizle() })
+        MenuRow("☰  Rafları düzenle", onClick = { onClose(); onOpenRafDuzenle() })
         MenuRow("🗂  Koleksiyon", onClick = { onClose(); onOpenVault() })
         // Web'deki /admin paneli — gizli kaynak/kategori, öne çıkanlar, puan eşiği.
         MenuRow("🛠  Yönetim Paneli", onClick = { onClose(); onOpenAdmin() })
         MenuRow("✕  Kapat", onClose)
+    }
+}
+
+// Ana sayfa raflarını sırala/gizle (Infuse/Plex deseni). OK raf gizler/gösterir,
+// basılı tut → ▲▼ taşır (Gözat çipleriyle aynı jest, dikey). Altta "Raflarda
+// gösterme" denen başlıklar; OK geri getirir.
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun RafDuzenleMenu(raflar: List<String>, onClose: () -> Unit) {
+    val tasima = rememberTasima(raflar, KisiselDuzen.rafSirasi, KisiselDuzen::rafSirasiYaz)
+    ModalCard(title = "Rafları düzenle", onClose = onClose) {
+        Text("OK gizle/göster · basılı tut → ▲▼ taşı", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+        tasima.sira.forEachIndexed { konum, raf ->
+            androidx.compose.runtime.key(raf) {
+                val gizli = raf in KisiselDuzen.gizliRaflar
+                val ad = if (raf == KISISEL) "Kişisel listeler" else raf
+                DuzenSatiri(
+                    label = when {
+                        tasima.tasinan == raf -> "▲  $ad  ▼"
+                        gizli -> "🚫  $ad"
+                        else -> "👁  $ad"
+                    },
+                    soluk = gizli,
+                    tasiniyor = tasima.tasinan == raf,
+                    konum = konum,
+                    onLongPress = { tasima.baslat(raf) },
+                    onMove = { tasima.tasi(it) },
+                    onFocusLost = { if (tasima.tasinan == raf) tasima.bitir() },
+                ) {
+                    if (tasima.tasinan != null) tasima.bitir() else KisiselDuzen.rafGizleGoster(raf)
+                }
+            }
+        }
+        TasimaIpucu(tasima.tasinan != null, metin = "▲ ▼ taşı · OK bırak · GERİ iptal")
+        val gizliBasliklar = KisiselDuzen.gizliBasliklar.sorted()
+        if (gizliBasliklar.isNotEmpty()) {
+            Text("Raflarda gösterilmeyenler — OK geri getirir", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+            gizliBasliklar.forEach { b -> MenuRow("↩  $b", onClick = { KisiselDuzen.baslikGizleGoster(b) }) }
+        }
+        MenuRow("✕  Kapat", onClose)
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun DuzenSatiri(
+    label: String,
+    soluk: Boolean,
+    tasiniyor: Boolean,
+    konum: Int,
+    onLongPress: () -> Unit,
+    onMove: (Int) -> Unit,
+    onFocusLost: () -> Unit,
+    onClick: () -> Unit,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(NmDim.RowRadius)
+    // Taşınan satır kaydırılan panelin dışına çıkmasın.
+    val gorunur = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(konum, tasiniyor) { if (tasiniyor) runCatching { gorunur.bringIntoView() } }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(gorunur)
+            .clip(shape)
+            .background(
+                when {
+                    tasiniyor -> NmColor.Star
+                    isFocused -> NmColor.Primary
+                    else -> NmColor.Surface
+                },
+            )
+            .nmFocusRing(isFocused, shape)
+            .onFocusChanged {
+                if (isFocused && !it.isFocused) onFocusLost()
+                isFocused = it.isFocused
+            }
+            .tasimaTuslari(tasiniyor, onLongPress, onMove, onClick, dikey = true)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = NmType.Body,
+            color = when {
+                tasiniyor -> androidx.compose.ui.graphics.Color.Black
+                isFocused -> NmColor.OnPrimary
+                soluk -> NmColor.OnSurfaceFaint
+                else -> NmColor.OnSurface
+            },
+            fontWeight = if (isFocused || tasiniyor) FontWeight.Bold else FontWeight.Normal,
+        )
     }
 }

@@ -61,6 +61,7 @@ import com.evaitec.netmovies.tv.data.FilmSerisi
 import com.evaitec.netmovies.tv.data.FilmSerisiParcasi
 import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
+import com.evaitec.netmovies.tv.data.okuSatirlar
 import com.evaitec.netmovies.tv.data.PluginInfo
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
@@ -246,11 +247,15 @@ fun BrowseScreen(
     var favKaynaklar by remember { mutableStateOf<Set<String>>(emptySet()) }
     // Çiplerin elle dizilmiş sırası (basılı tut → taşı); aynı prefs deposunda.
     var kaynakSirasi by remember { mutableStateOf<List<String>>(emptyList()) }
+    var kaynakPuani by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
         runCatching { Network.api.prefsGet().result }.onSuccess { prefs ->
             favKaynaklar = okuSatirlar(prefs, FAV_KAYNAK_ANAHTAR).toSet()
             kaynakSirasi = okuSatirlar(prefs, KAYNAK_SIRA_ANAHTAR)
         }
+        runCatching { Network.api.sourceScore().result.kaynaklar }
+            .onSuccess { l -> kaynakPuani = l.associate { it.plugin to it.puan } }
     }
 
     LaunchedEffect(deneme) {
@@ -370,7 +375,27 @@ fun BrowseScreen(
                 selected = selectedPlugin,
                 seriesSelected = seriesMode,
                 favoriler = favKaynaklar,
+                puanlar = kaynakPuani,
                 kayitliSira = kaynakSirasi,
+                // Taşırken AŞAĞI: kaynağı gizle (yönetim panelindeki hidden_providers;
+                // sunucu onu Yeni Çıkanlar/arama/zincirden de düşürür). Geri açmak:
+                // Ayarlar → Yönetim Paneli.
+                onGizle = { ad ->
+                    hiddenFromServer = hiddenFromServer + ad
+                    if (state.plugin == ad) state.plugin = null
+                    android.widget.Toast.makeText(context, "$ad gizlendi — Yönetim Paneli'nden geri açılır", android.widget.Toast.LENGTH_LONG).show()
+                    browseScope.launch {
+                        runCatching {
+                            val cfg = Network.api.adminConfig()
+                            val eski = (cfg["hidden_providers"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+                                .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                            val yeni = (eski + ad).distinct().map { kotlinx.serialization.json.JsonPrimitive(it) }
+                            Network.api.saveAdminConfig(
+                                kotlinx.serialization.json.JsonObject(cfg + ("hidden_providers" to kotlinx.serialization.json.JsonArray(yeni)))
+                            )
+                        }
+                    }
+                },
                 onSiraKaydet = { yeni ->
                     kaynakSirasi = yeni
                     browseScope.launch {
@@ -528,21 +553,19 @@ private fun SourceChips(
     selected: String?,
     seriesSelected: Boolean,
     favoriler: Set<String>,
+    puanlar: Map<String, Double>,
     kayitliSira: List<String>,
+    onGizle: (String) -> Unit,
     onSelect: (String?) -> Unit,
     onSiraKaydet: (List<String>) -> Unit,
     onSelectSeries: () -> Unit,
 ) {
-    // Varsayılan sıra: Tümü, Seriler, YouTube, yıldızlılar (alfabetik), kalanlar.
+    // Varsayılan sıra: Tümü, Seriler, YouTube, yıldızlılar, kalanlar; yıldızlılar ve
+    // kalanlar kendi içinde oynatma puanına göre (en çok çalışan önde).
     // Dean bunu elle değiştirir: çipe BASILI TUT → çip sarıya döner, SOL/SAĞ
     // taşır, OK ya da GERİ bırakır; sıra sunucuya yazılır (Dean, 5 Ekim:
     // "serileri en sona, DiziMom en öne").
-    val varsayilan = remember(names, favoriler) {
-        val yt = names.filter { it == YOUTUBE }
-        listOf(TUMU, SERILER) + yt +
-            names.filter { it in favoriler && it != YOUTUBE }.sorted() +
-            names.filterNot { it in favoriler || it == YOUTUBE }
-    }
+    val varsayilan = remember(names, favoriler, puanlar) { varsayilanKaynakSirasi(names, favoriler, puanlar) }
     val tasima = rememberTasima(varsayilan, kayitliSira, onSiraKaydet)
     val rowState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -576,6 +599,7 @@ private fun SourceChips(
                     },
                     // Odak YUKARI/AŞAĞI ile şeritten çıkarsa taşıma biter, sıra kaybolmaz.
                     onFocusLost = { if (tasima.tasinan == ad) tasima.bitir() },
+                    onAsagi = if (ad == TUMU || ad == SERILER) null else ({ tasima.bitir(); onGizle(ad) }),
                 ) {
                     when {
                         tasima.tasinan != null -> tasima.bitir()
@@ -586,8 +610,25 @@ private fun SourceChips(
                 }
             }
         }
-        TasimaIpucu(tasima.tasinan != null, Modifier.padding(start = NmDim.SafeH))
+        TasimaIpucu(
+            tasima.tasinan != null,
+            Modifier.padding(start = NmDim.SafeH),
+            metin = if (tasima.tasinan in setOf(TUMU, SERILER)) "◀ ▶ taşı · OK bırak · GERİ iptal"
+                else "◀ ▶ taşı · ▼ gizle · OK bırak · GERİ iptal",
+        )
     }
+}
+
+/** Tümü, Seriler, YouTube, yıldızlılar, kalanlar; son ikisi kendi içinde puana göre (puansız sonda, özgün sırada). */
+internal fun varsayilanKaynakSirasi(
+    names: List<String>,
+    favoriler: Set<String>,
+    puanlar: Map<String, Double>,
+): List<String> {
+    val puanSirali = { l: List<String> -> l.sortedByDescending { puanlar[it] ?: Double.NEGATIVE_INFINITY } }
+    return listOf(TUMU, SERILER) + names.filter { it == YOUTUBE } +
+        puanSirali(names.filter { it in favoriler && it != YOUTUBE }) +
+        puanSirali(names.filterNot { it in favoriler || it == YOUTUBE })
 }
 
 private const val TUMU = "Tümü"
@@ -604,6 +645,7 @@ internal fun SourceChip(
     onLongPress: (() -> Unit)? = null,
     onMove: ((Int) -> Unit)? = null,
     onFocusLost: () -> Unit = {},
+    onAsagi: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -626,7 +668,7 @@ internal fun SourceChip(
             }
             .then(
                 if (onLongPress != null) {
-                    Modifier.tasimaTuslari(tasiniyor, onLongPress, { onMove?.invoke(it) }, onClick)
+                    Modifier.tasimaTuslari(tasiniyor, onLongPress, { onMove?.invoke(it) }, onClick, onAsagi = onAsagi)
                 } else {
                     Modifier.clickable(onClick = onClick)
                 }
@@ -1008,13 +1050,5 @@ internal const val FAV_KAYNAK_ANAHTAR = "fav_providers"
 // Kaynak çiplerinin elle dizilmiş sırası: satır başına bir çip adı.
 internal const val KAYNAK_SIRA_ANAHTAR = "provider_order"
 
-internal fun okuSatirlar(
-    prefs: Map<String, kotlinx.serialization.json.JsonElement>,
-    anahtar: String,
-): List<String> {
-    val ham = prefs[anahtar] ?: return emptyList()
-    val metin = (ham as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return emptyList()
-    return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }
-}
 
 

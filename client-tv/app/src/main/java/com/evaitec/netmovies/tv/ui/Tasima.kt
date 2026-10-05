@@ -83,7 +83,8 @@ internal fun rememberTasima(
 }
 
 /**
- * OK kısa bas = [onClick], basılı tut = [onLongPress]; [tasiniyor] iken SOL/SAĞ = [onMove].
+ * OK kısa bas = [onClick], basılı tut = [onLongPress]; [tasiniyor] iken SOL/SAĞ = [onMove]
+ * ([dikey] listede YUKARI/AŞAĞI). Yatay şeritte taşırken AŞAĞI = [onAsagi] (varsa; ör. gizle).
  * Kumandanın OK'u `combinedClickable(onLongClick)`'e düşmez (yalnız dokunma); uzun basış
  * key event'ten okunur, bırakıştaki ACTION_UP tıklama sayılmaz.
  */
@@ -93,6 +94,8 @@ internal fun Modifier.tasimaTuslari(
     onLongPress: () -> Unit,
     onMove: (Int) -> Unit,
     onClick: () -> Unit,
+    dikey: Boolean = false,
+    onAsagi: (() -> Unit)? = null,
 ): Modifier = composed {
     var uzunBasildi by remember { mutableStateOf(false) }
     var zamanlayici by remember { mutableStateOf<Job?>(null) }
@@ -105,10 +108,17 @@ internal fun Modifier.tasimaTuslari(
     }
     onPreviewKeyEvent { ke ->
         val ne = ke.nativeKeyEvent
+        val geri = if (dikey) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_LEFT
+        val ileri = if (dikey) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_RIGHT
         when (ne.keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+            geri, ileri -> {
                 if (!tasiniyor) return@onPreviewKeyEvent false
-                if (ne.action == KeyEvent.ACTION_DOWN) onMove(if (ne.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1)
+                if (ne.action == KeyEvent.ACTION_DOWN) onMove(if (ne.keyCode == geri) -1 else 1)
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (!tasiniyor || onAsagi == null) return@onPreviewKeyEvent false
+                if (ne.action == KeyEvent.ACTION_DOWN && ne.repeatCount == 0) onAsagi()
                 true
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
@@ -144,10 +154,14 @@ internal fun tasimaEtiketi(label: String) = "◀ $label ▶"
 
 /** Şeridin altındaki tek satırlık ipucu; taşıma yokken hiçbir şey çizmez. */
 @Composable
-internal fun TasimaIpucu(gorunur: Boolean, modifier: Modifier = Modifier) {
+internal fun TasimaIpucu(
+    gorunur: Boolean,
+    modifier: Modifier = Modifier,
+    metin: String = "◀ ▶ taşı · OK bırak · GERİ iptal",
+) {
     if (gorunur) {
         Text(
-            "◀ ▶ taşı · OK bırak · GERİ iptal",
+            metin,
             fontSize = NmType.Label,
             color = NmColor.Star,
             modifier = modifier,

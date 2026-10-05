@@ -55,3 +55,15 @@ class TasimaDurumuTest {
         assertEquals(null, kayit)
     }
 }
+
+class VarsayilanKaynakSirasiTest {
+    @Test
+    fun yildizlilarVeKalanlarPuanaGore() {
+        val sira = varsayilanKaynakSirasi(
+            names = listOf("DiziPal", "YouTube", "Puansiz", "DiziMom", "DDizi"),
+            favoriler = setOf("DDizi"),
+            puanlar = mapOf("DiziMom" to 404.0, "DiziPal" to 320.0, "DDizi" to 239.0),
+        )
+        assertEquals(listOf("Tümü", "Seriler", "YouTube", "DDizi", "DiziMom", "DiziPal", "Puansiz"), sira)
+    }
+}

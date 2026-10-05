@@ -27,12 +27,12 @@ Apple tvOS (jiggle), Samsung, Google TV (uzun bas → "Move" menüsü), Channels
 | 1 | Gözat kaynak çiplerini taşı | `BrowseScreen.kt` `SourceChips` | S | **Yapıldı** 0.9.54 |
 | 2 | Taşıma ipucu + GERİ = iptal (eski sıra) | `Tasima.kt` `TasimaIpucu`, `iptal()` | S | **Yapıldı** 0.9.55 |
 | 3 | Ana sayfa kişisel çiplerini taşı (Devam edenler, Kayıtlar, Favoriler…) | `HomeScreen.kt` `SegmentChip`, prefs `home_segment_order` | S | **Yapıldı** 0.9.55 |
-| 4 | Çip sırası = ana sayfa raf sırası (Plex) | raf sırası sabit kodda (`HomeScreen.kt` sections) | M | Sırada |
-| 5 | Raf yönetimi ekranı: ana sayfa raflarını sırala/gizle (Infuse) | yok | M | Sırada — `TasimaDurumu` dikey listede yeniden kullanılır |
-| 6 | Kaynağı TV'den gizle → Yeni Çıkanlar'dan da düşsün | admin'de var (`AdminScreen.kt` `hidden_providers`) | S | Kısmen var; Gözat'tan kısayol sırada |
-| 7 | "Devam Et"ten kaldır + Geri al | toplu ekran var (`DevamTemizleScreen.kt`); poster menüsünde tek tık yok | S | Sırada |
-| 8 | "Bunu gösterme" (Yeni Çıkanlar/öneri dışı) | yok | M | Sırada |
-| 9 | Karma sıralama: elle sabitlenen önde, gerisi `source_score` | puan var (`/api/v1/source_score`) | M | Değerlendir — elle sıra yeni geldi, önce kullanılsın |
+| 4 | Çip sırası = ana sayfa raf sırası (Plex) | Bizde raflar sağlayıcı değil kategori; doğrudan raf sırası (#5) karşılıyor | M | **Birleşti → #5** |
+| 5 | Raf yönetimi: ana sayfa raflarını sırala/gizle (Infuse) | Ayarlar → "Rafları düzenle" (`HomeScreen.kt` `RafDuzenleMenu`), prefs `home_row_order`/`home_row_hidden` | M | **Yapıldı** 0.9.56 |
+| 6 | Kaynağı Gözat'tan gizle → Yeni Çıkanlar/aramadan da düşer | taşırken ▼ = gizle (`SourceChips` `onGizle` → admin `hidden_providers`); geri açmak Yönetim Paneli | S | **Yapıldı** 0.9.56 |
+| 7 | "Devam Et"ten çıkar | poster menüsü ▼ Listeler → ⟲ (iki basış: ilerleme sunucuda silinir, geri alınamaz) | S | **Yapıldı** 0.9.56 |
+| 8 | "Raflarda gösterme" | poster menüsü ▼ Listeler → 👁‍🗨 (prefs `hidden_titles`); geri: tekrar bas ya da Rafları düzenle → altta liste | M | **Yapıldı** 0.9.56 |
+| 9 | Karma sıralama: elle dizilen önde, gerisi puana göre | `varsayilanKaynakSirasi` — elle dizilmemiş çipler `source_score`'a göre | M | **Yapıldı** 0.9.56 |
 | 10 | Profil (çocuk/misafir) | yok | L | Reddedildi — tek kullanıcı, YAGNI |
 | 11 | Canlı TV favori/koleksiyon (Channels DVR) | kanal favorisi var | M | Reddedildi — canlı TV UI'ı Dean kararıyla gizli |
 
@@ -40,4 +40,7 @@ Apple tvOS (jiggle), Samsung, Google TV (uzun bas → "Move" menüsü), Channels
 - Birim: `CipSirasiTest`, `TasimaDurumuTest` (taşı/kenar/iptal/değişmeyen sıra kaydedilmez).
 - Emülatör (`evabench_shot`, gerçek sunucu): ana sayfa ve Gözat'ta uzun bas → sarı çip + ipucu,
   SAĞ taşıdı, GERİ eski sıraya döndü, `prefs`'e yazılmadı; taşı-geri-OK değişmeyen sırayı yazmadı.
+- 0.9.56 birim: `VarsayilanKaynakSirasiTest` (87 test yeşil). Emülatör: "Rafları düzenle" açılıp
+  rafları listeledi; dikey taşıma/gizle ve poster menüsünün yeni iki düğmesi emülatörde
+  denenemedi (dokunma kipi tuşları arka ekrana yolladı) — ortak `Tasima.kt` koduyla aynı yol.
 - Cihaz (Mi Box): doğrulanmadı.

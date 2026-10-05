@@ -195,6 +195,10 @@ class Library(context: Context) {
 
     fun isFavorite(item: MediaItem): Boolean = favorites.any { sameItem(it, item) }
 
+    /** Bu içeriğin Devam Et kaydı (katalog kartında content_key boş olabilir; adresle de eşleşir). */
+    fun devamKaydi(item: MediaItem): MediaItem? =
+        watched.firstOrNull { sameItem(it, item) || (item.contentKey.isNotBlank() && it.contentKey == item.contentKey) }
+
     fun toggleFavorite(item: MediaItem) {
         val idx = favorites.indexOfFirst { sameItem(it, item) }
         if (idx >= 0) favorites.removeAt(idx) else favorites.add(0, item)
