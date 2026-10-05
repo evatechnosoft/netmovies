@@ -213,9 +213,16 @@ def youtube_kartlari(videolar: list) -> list[dict]:
 
 
 def youtube_one(youtube: list[dict], ogeler: list[dict]) -> list[dict]:
-    """YouTube kartları başa; sağlayıcı aramasından gelen aynı liste ikinci kez çıkmaz."""
-    adresler = {k["url"] for k in youtube}
-    return youtube + [o for o in ogeler if o.get("url") not in adresler]
+    """Sıra: resmi YouTube dizi kartı → YouTube araması → diğer sağlayıcılar.
+
+    Resmi kart (eklenti aramasından, bölüm listeli) videolardan önce: "abi" yazınca
+    dizinin kendisi tek tek bölüm videolarının arkasında kalmasın.
+    """
+    resmi    = [o for o in ogeler if o.get("plugin") == "YouTube"]
+    adresler = {o.get("url") for o in resmi}
+    youtube  = [k for k in youtube if k["url"] not in adresler]
+    adresler |= {k["url"] for k in youtube}
+    return resmi + youtube + [o for o in ogeler if o.get("url") not in adresler]
 
 
 @api_v1_router.get("/search_all")

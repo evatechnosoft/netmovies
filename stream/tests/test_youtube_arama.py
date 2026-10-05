@@ -20,6 +20,11 @@ class YouTubeAramaTest(unittest.TestCase):
         sonuc = youtube_one(yt, ogeler)
         self.assertEqual([o["plugin"] for o in sonuc], ["YouTube", "DDizi"])
 
+    def test_resmi_kart_videolardan_once(self):
+        video = youtube_kartlari([{"title": "A.B.İ. 22. Bölüm", "url": "https://www.youtube.com/watch?v=v1"}])
+        ogeler = [{"plugin": "DDizi", "title": "Abi", "url": "d1"}, {"plugin": "YouTube", "title": "A.B.İ.", "url": "liste"}]
+        self.assertEqual([o["url"] for o in youtube_one(video, ogeler)], ["liste", video[0]["url"], "d1"])
+
 
     def test_noktali_ad_alakali_sayilir(self):
         # "abi" araması resmi kanal kartını ("A.B.İ.") düşürmemeli; tersi de.
