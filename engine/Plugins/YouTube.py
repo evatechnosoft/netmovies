@@ -39,12 +39,18 @@ def _sade(metin: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", "".join(c for c in metin if not unicodedata.combining(c))).strip()
 
 
+def kanal_dizinin_mi(sorgu: str, kanal: str) -> bool:
+    """Kanal dizinin kendi kanalı mı ("A.B.İ." ↔ "abi": noktalama/boşluk sayılmaz)."""
+    s, k = _sade(sorgu).replace(" ", ""), _sade(kanal).replace(" ", "")
+    return bool(s) and k == s
+
+
 def resmi_mi(sorgu: str, kanal: str, liste: str) -> bool:
     """Kanal dizinin kendi kanalı mı, ya da bilinen yayıncı + liste adı diziyi taşıyor mu."""
     s, k, l = _sade(sorgu), _sade(kanal), _sade(liste)
     if not s:
         return False
-    if k == s or k.replace(" ", "") == s.replace(" ", ""):
+    if kanal_dizinin_mi(sorgu, kanal):
         return True
     return any(k == y or k.startswith(y + " ") for y in _YAYINCI) and s in l
 
@@ -122,7 +128,9 @@ class YouTube(PluginBase):
             kanal, baslik = e.get("channel") or e.get("uploader") or "", e.get("title") or ""
             if e.get("url") and resmi_mi(query, kanal, baslik):
                 # Kart adı dizinin adı olmalı (eşleştirme başlıkla yapılıyor), liste adı değil.
-                ad = kanal if _sade(kanal) == _sade(query) else query
+                # Dizinin kendi kanalıysa kanal adı: DDizi "Abi" diye arıyor, kart "A.B.İ."
+                # kalsın ki izleme geçmişi ve kayıt eşleşmesi tek ada toplansın.
+                ad = kanal if kanal_dizinin_mi(query, kanal) else query
                 sonuc.append(SearchResult(title=ad, url=e["url"], poster=(e.get("thumbnails") or [{}])[-1].get("url")))
         return sonuc
 

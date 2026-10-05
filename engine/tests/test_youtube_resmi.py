@@ -1,7 +1,7 @@
 # YouTube eklentisi: yalnız resmi liste, bölüm numarası başlıktan.
 import unittest
 
-from Plugins.YouTube import bolum_numarasi, resmi_mi, video_mu
+from Plugins.YouTube import bolum_numarasi, kanal_dizinin_mi, resmi_mi, video_mu
 
 
 class YouTubeResmiTest(unittest.TestCase):
@@ -11,6 +11,13 @@ class YouTubeResmiTest(unittest.TestCase):
         # Hayran yüklemesi elenir.
         self.assertFalse(resmi_mi("A.B.İ.", "Farid Ragimhov", "A.B.İ Tüm Bölümler"))
         self.assertFalse(resmi_mi("A.B.İ.", "Serial kino Videoları", "A.B.İ Bölümler"))
+
+    def test_kanal_dizinin_mi(self):
+        # Sitenin "Abi" yazdığı dizi YouTube'da "A.B.İ." kanalı: kart adı kanaldan gelir.
+        self.assertTrue(kanal_dizinin_mi("Abi", "A.B.İ."))
+        self.assertTrue(kanal_dizinin_mi("A.B.İ.", "A.B.İ."))
+        self.assertFalse(kanal_dizinin_mi("Gönül Dağı", "TRT 1"))
+        self.assertFalse(kanal_dizinin_mi("", "A.B.İ."))
 
     def test_bolum_numarasi(self):
         self.assertEqual(bolum_numarasi("A.B.İ. 16. Bölüm @atvturkiye"), (1, 16))
