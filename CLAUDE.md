@@ -17,7 +17,7 @@ Laptop (`C:\projects\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunu
 docker PATH'te yok. Hangisi aktif: `bash scripts/sunucu.sh durum`; geçiş: `sunucu.sh gec zima|laptop`.
 `scripts/smoke.sh` yerel docker bulamazsa BASE'i ZimaOS'a çevirir, docker adımlarını ssh ile koşar.
 Sunucu kodu değişince ZimaOS'ta: `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"` (DOCKER_CONFIG olmadan compose eklentisi görünmez).
-Dean TV'de izlerken rebuild/restart YAPMA (`curl -s 192.168.1.186:3310/api/v1/client_log` boşsa serbest).
+Dean TV'de izlerken rebuild/restart YAPMA. Boşta mı: `ssh zima "docker logs --since 2m netmovies-stream 2>&1 | grep -c remote/state"` 0 ise serbest (TV oynarken 5 sn'de bir yazar). `client_log` boşluğu kanıt DEĞİL: bellekte tutulur, her stream rebuild'de sıfırlanır.
 ```bash
 cp .env.example .env      # AUTH_USER=dean, AUTH_PASS=1234
 
