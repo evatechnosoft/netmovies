@@ -1,49 +1,52 @@
-# Handoff: 0.9.53 yayında, donma ve kaynak açık
-> 2026-10-05 10:30 · `fix/general-stability` @ `9e0f3d9` (push'lu; Zima reposu `e66e23a`, aradaki yalnız docs) · 2 izlenmeyen dosya (`atv-kopru.log`, `scripts/yedek_reddet.py`, bu oturumun değil, dokunma)
+# Handoff: 0.9.56 kişiselleştirme yayında, cihaz doğrulaması bekliyor
+> 2026-10-05 21:30 · `fix/general-stability` @ `19bd3eb` (push'lu) · 2 izlenmeyen dosya (`atv-kopru.log`, `scripts/yedek_reddet.py`, bu oturumun değil, dokunma)
 
 ## Goal
-Reklamsız TV uygulaması (client-tv, Mi Box) + ZimaOS sunucu. Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla (yerel OTA, GitHub release, evaglass `apps.json`). Kurallar: `CLAUDE.md`; geçmiş gerekçe: `git log`, `.claude/handoffs/latest.md` GÜNCELLEME 7-10.
+Reklamsız TV uygulaması (client-tv, Mi Box) + ZimaOS sunucu. Dean'in isteklerini yap, bitince sormadan üç yere yayınla (yerel OTA, GitHub release, evaglass `apps.json`). Kurallar: `CLAUDE.md`. Bu oturumun işi: TV kişiselleştirme — plan ve gerekçe `docs/PLAN-kisisellestirme.md` (web kaynaklarıyla).
 
 ## State
-- **0.9.54-0.9.56 (5 Ekim akşam) üç yerde:** kişiselleştirme planı `docs/PLAN-kisisellestirme.md` (1-9 yapıldı). Ortak taşıma jesti `ui/Tasima.kt`; düzen `data/KisiselDuzen.kt` (prefs `home_segment_order`, `home_row_order`, `home_row_hidden`, `hidden_titles`, `provider_order`). Persona `.claude/agents/tv-urun.md`. Cihazda doğrulanmadı; 0.9.56'nın Rafları düzenle taşıma/gizle ve poster menüsü yeni iki düğmesi emülatörde de denenemedi.
-- **0.9.53 üç yerde** (yerel OTA `app_update` → `v0.9.53-poc` doğrulandı; GitHub `v0.9.53-poc`; evaglass `netmovies-tv-v0.9.53` + apps.json tv/phone vc 953, sha `d82c98e5…`). Cihazda doğrulanmadı. Dean TV'de henüz 0.9.50/51'de olabilir; TV güncellemeyi kendiliğinden denetlemedi, menüden "Güncellemeyi kontrol et" gerekiyor.
-- **Sunucu canlı** (engine 06:25Z, stream 06:34Z): YouTube aramada en önde (`search_all?yt=video|liste|0`), resmi dizi kartı videolardan önce, YouTube tek video film gibi açılır, sıradan oynatma listesi sırayla bölüm. Hızlı yolda YouTube ilk kaynak (`5cca2dd`, kök neden: `load_links` arama adresiyle çağrılıyordu).
-- **TV (0.9.51-0.9.53):** arama ekranında "YouTube: ▶ Video / ☰ Oynatma listesi" hapları; Gözat'ta YouTube hapı başta; `CrashLog.donmaBekcisi` (ana iş parçacığı 8 sn kilitlenirse yığın `son_crash.txt` → sonraki açılışta şerit + `client_log`, satır `DONMA:`); WOL yalnız uygulama ekrandayken ve 07-24 (`ZimaUyandir.izinli`).
-- **Testler:** client-tv 81/81 (`./gradlew testDebugUnitTest assembleDebug`), stream 228 OK, engine YouTube 5 OK (ikisi de Zima konteynerinde geçici kopyada).
-- **AÇIK 1 — donma:** 5 Ekim 09:54:08'de Lioness S3B7 (kayıttan) 27:49'da TV'den sunucuya istekler tamamen kesildi, 10:16'da Dean yeniden açınca döndü. Çökme izi yok, kök neden bilinmiyor. Bekçi bir sonraki donmayı yakalar.
-- **AÇIK 2 — "kaynak bulamıyor":** 10:16:50 Lioness `load_item` OK (DiziMom, 24 bölüm, S3B7 var) ama TV `resolve_sources` HİÇ çağırmadı. Dean'in gördüğü ekran doğrulanmadı.
-- **Gece kapanma:** kök neden telefon widget'ı dahil her süreçten WOL (`journalctl --list-boots`: 00:00:11 → 00:01:28 açılış). 0.9.53 düzeltir; telefon da 0.9.53'e güncellenmeli. Bu gece doğrulanmadı.
+- **0.9.56 üç yerde:** yerel OTA `app_update` → `v0.9.56-poc`; GitHub `v0.9.56-poc`; evaglass `netmovies-tv-v0.9.56` + apps.json tv/phone vc 956, sha `747e4e48…`, sizeBytes 22719252, indirme 200.
+- **Plan maddeleri 1-9 yapıldı** (`docs/PLAN-kisisellestirme.md` tablosu, 10-11 reddedildi):
+  - Ortak jest `client-tv/.../ui/Tasima.kt`: OK basılı tut → sarı, SOL/SAĞ (dikey listede ▲▼) taşı, OK bırak+kaydet, GERİ iptal.
+  - Gözat kaynak çipleri (`BrowseScreen.kt` `SourceChips`): taşı; taşırken ▼ = kaynağı gizle (admin `hidden_providers`); elle dizilmemişler `source_score`'a göre (`varsayilanKaynakSirasi`).
+  - Ana sayfa kişisel çipleri taşınır; Ayarlar → "☰ Rafları düzenle" (`HomeScreen.kt` `RafDuzenleMenu`): raf sırala/gizle + "raflarda gösterme" listesi.
+  - Poster menüsü ▼ Listeler: "Devam Et'ten çıkar" (iki basış, geri alınamaz) ve "Raflarda gösterme".
+  - Düzen durumu `data/KisiselDuzen.kt`; prefs anahtarları `home_segment_order`, `home_row_order`, `home_row_hidden`, `hidden_titles`, `provider_order`.
+- **Doğrulama:** `./gradlew testDebugUnitTest assembleDebug` → 87 test, 0 hata. Emülatörde DOĞRULANDI: Gözat ve ana sayfa çip taşıma, ipucu, GERİ iptal, değişmeyen sıra prefs'e yazılmıyor. Emülatörde DOĞRULANMADI: Rafları düzenle taşı/gizle (yalnız açılıp listelediği görüldü), poster menüsünün yeni iki düğmesi, Gözat ▼ gizle. Cihazda hiçbiri doğrulanmadı.
+- **Sunucu prefs:** 21:20'de 5 anahtar (`fav_channels`, `kayit_otomatik`, `rc_dokunmatik`, `rc_olcek`, `rc_sira`); yeni anahtarlar Dean kullanınca oluşur.
+- **Yan etki:** emülator testinde Altı Üstü İstanbul yanlışlıkla açıldı → Devam Et'te en öne geçti, konumu korundu (S1B15, 146 sn).
+- **Öncekinden açık kalanlar** (detay `git show aff2db6:HANDOFF.md`): 5 Ekim 09:54 TV donması (bekçi `CrashLog.donmaBekcisi` yakalayacak), "kaynak bulunamadı" ama `resolve_sources` çağrılmamış, gece 00:00 kapanması (0.9.53 düzeltmesi) doğrulanmadı.
 
 ## Next
-1. Bu geceyi doğrula (yarın sabah): `ssh zima "journalctl --list-boots | tail -4"` → 00:00'dan sonra sabaha kadar açılış olmamalı. Varsa telefon/TV eski sürümde mi bak (`apps.json` vc 953).
-2. Dean donma ya da "kaynak bulunamadı" bildirirse: `curl -s 192.168.1.186:3310/api/v1/client_log | grep -E "DONMA|cokme|resolve"`; stream günlüğünde o dakikada `resolve_sources` var mı (`docker logs --since 10m netmovies-stream | grep resolve`). İstek yoksa sorun TV içinde, `client-tv/.../ui/HomeScreen.kt` Devam Et → oynatıcı akışı.
-3. Dean'den bekleyen: YouTube "ilgili videolar" rafı istiyor mu (yapılmadı); yeni `youtube_listem.json` adları.
+1. Gece kapanmasını doğrula: `ssh zima "journalctl --list-boots | tail -4"` → 5 Ekim 00:00'dan sonra sabaha kadar yeni açılış olmamalı.
+2. Dean 0.9.56'yı TV'de denediğinde geri bildirime göre düzelt. Önce denenmeyenler: Ayarlar → Rafları düzenle (OK gizle, basılı tut ▲▼), poster ▼ menüsünde son iki ikon, Gözat'ta çip taşırken ▼. Prefs'i kontrol: `ssh zima 'curl -s localhost:3310/api/v1/prefs'`.
+3. Donma / "kaynak bulunamadı" bildirimi gelirse: `curl -s 192.168.1.186:3310/api/v1/client_log | grep -E "DONMA|cokme|resolve"` ve `ssh zima 'docker logs --since 10m netmovies-stream | grep resolve'`.
 
 ## Don't repeat
-- `client_log` boşluğu "TV boşta" demek değil (bellekte, stream rebuild'de sıfırlanır). Rebuild öncesi: `docker logs --since 2m netmovies-stream | grep -c remote/state` 0 olmalı. Bu oturumda Dean izlerken 3 rebuild yapıldı.
-- YouTube yavaşlığını WARP'a bağlamak: ölçüldü, fark yok (2,6 vs 3,6 sn).
-- YouTube eklentisinin `search`üne her videoyu katmak: zincir başlık eşleştirmede kullanıyor, rastgele video eşler. Genel arama ayrı (`search_all.youtube_kartlari`).
-- Güç köprüsü `current_app` boş dönüyor (`scripts/atv_power.py`), ön plan uygulamasını göstermiyor.
-- Engine/stream testleri laptopta koşmaz; konteynerde `/tmp/dd` (engine) ve `/tmp/st` + `unittest discover -s tests` (stream).
+- Emülatörde ekrana DOKUNDUKTAN sonra D-pad: dokunma kipi modalın odak isteğini düşürüyor, tuşlar arkadaki posterlere gidiyor (bir dizi yanlışlıkla açıldı). Emülatörde yalnız `input keyevent` kullan, dokunma yok; ya da cihazda dene.
+- Dean TV'de izlerken emülatörü "Televizyon" kipinde açmak: o da bir TV istemcisi (ilerleme yazar, kumanda kuyruğunu yoklar). Önce `ssh zima "docker logs --since 2m netmovies-stream 2>&1 | grep -c remote/state"` 0 olmalı.
+- Gerçek sunucuya karşı test öncesi prefs yedeği al (`curl .../api/v1/prefs > yedek`), sonra karşılaştır.
+- Kumandada uzun basış `combinedClickable(onLongClick)` ile yakalanmaz; `Tasima.kt` `tasimaTuslari` key event yolunu kullan.
+- `client_log` boşluğu "TV boşta" demek değil; rebuild öncesi `remote/state` sayısına bak.
+- evaglass-releases push reddedilirse `git pull --rebase` çakışır (apps.json başkası da yazıyor): `git reset --hard @{u}` + değişikliği yeniden uygula.
 
 ## Read first
-1. `CLAUDE.md` — çalıştırma, Zima compose (`DOCKER_CONFIG=/tmp/dc`), boşta kuralı
-2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/data/CrashLog.kt` — donma bekçisi, Next #2'nin kanıt kaynağı
-3. `stream/Public/API/v1/Routers/search_all.py` — YouTube araması (`youtube_kartlari`, `youtube_one`)
+1. `docs/PLAN-kisisellestirme.md` — ne yapıldı, nerede, ne doğrulanmadı
+2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/Tasima.kt` — tüm taşıma/gizleme jestinin tek kaynağı
+3. `.claude/agents/tv-urun.md` — trend/ürün işleri için persona (Pi + Fable)
 
 ## Verify
 ```bash
-git rev-parse --short HEAD                       # 9e0f3d9 — değilse: git log 9e0f3d9..HEAD --oneline
+git rev-parse --short HEAD                       # 19bd3eb — değilse: git log 19bd3eb..HEAD --oneline
 git status --porcelain | wc -l                   # 2 (izlenmeyen, başkasının)
-ssh zima 'curl -s localhost:3310/api/v1/app_update?target=tv | grep -o "\"tag\":\"[^\"]*\""'   # v0.9.53-poc
-ssh zima 'export DOCKER_CONFIG=/tmp/dc; docker ps --format "{{.Names}} {{.Status}}" | grep netmovies'   # 6 konteyner Up
-cd client-tv && ./gradlew -q testDebugUnitTest   # 81 test yeşil
+ssh zima 'curl -s localhost:3310/api/v1/app_update?target=tv | grep -o "\"tag\":\"[^\"]*\""'   # v0.9.56-poc
+cd client-tv && ./gradlew -q testDebugUnitTest   # 87 test yeşil
 ```
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies, dal fix/general-stability @ 9e0f3d9. 0.9.53 üç yerde yayında (YouTube aramada önde + Video/Oynatma listesi anahtarı, donma bekçisi, gece WOL düzeltmesi), cihazda doğrulanmadı. Açık: (1) 5 Ekim 09:54 TV donması, kök neden bilinmiyor, bekçi yakalayacak; (2) Dean "kaynak bulunamadı" dedi ama TV resolve_sources çağırmamış; (3) gece 00:00 kapanması bu gece doğrulanacak.
+NetMovies, dal fix/general-stability @ 19bd3eb. 0.9.56 üç yerde yayında: TV kişiselleştirme (çip taşıma, Rafları düzenle, Devam Et'ten çıkar, Raflarda gösterme, Gözat'ta ▼ gizle, puana göre kaynak sırası) — plan docs/PLAN-kisisellestirme.md, ortak jest ui/Tasima.kt, durum data/KisiselDuzen.kt. Cihazda doğrulanmadı; Rafları düzenle taşı/gizle ve poster menüsünün yeni iki düğmesi emülatörde de denenmedi. Açık: gece 00:00 kapanması doğrulanacak, eski donma/"kaynak bulunamadı" bildirimleri bekleniyor.
 Ortam: aktif sunucu ZimaOS (ssh zima, /DATA/AppData/netmovies, compose için export DOCKER_CONFIG=/tmp/dc). Laptop yalnız kod + APK derleme.
-Önce HANDOFF.md oku, Verify bloğunu koştur. Sıra: gece kapanmasını doğrula → Dean'in donma/kaynak bildirimi gelirse client_log DONMA satırı + stream resolve günlüğü.
-TV oynarken rebuild yok (remote/state sayısı 0 olmalı). Yeni iş açma; Dean istemeden YouTube "ilgili videolar" rafına başlama.
+Önce HANDOFF.md oku, Verify bloğunu koştur. Sıra: gece kapanmasını doğrula → Dean'in 0.9.56 cihaz geri bildirimine göre düzelt → donma/kaynak bildirimi gelirse client_log + resolve günlüğü.
+Emülatörde dokunma yok, Dean izlerken emülatörü TV kipinde açma, TV oynarken rebuild yok. Yeni iş açma.
 ```
