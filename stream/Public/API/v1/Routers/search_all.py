@@ -9,7 +9,7 @@
 import asyncio
 
 from dataclasses import asdict
-from urllib.parse import unquote_plus
+from urllib.parse import quote_plus, unquote_plus
 
 from Core   import Request
 from .      import api_v1_router, api_v1_global_message
@@ -181,6 +181,37 @@ async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
     await asyncio.gather(*(bolumler(o) for o in ogeler[:_ZENGIN_TAVANI]), return_exceptions=True)
 
 
+# YouTube araması (Dean, 5 Ekim: "ne yazarsam bulsun, öne al"). Sağlayıcı
+# aramasından AYRI: YouTube eklentisinin kendi `search`ü yalnız resmi dizi
+# listesi döner, çünkü kaynak zinciri onu başlık eşleştirmede kullanıyor; her
+# videoyu oraya katmak "Abi" filmine rastgele bir video eşlerdi.
+# yt: "video" (varsayılan) | "liste" (oynatma listesi) | "0" (kapalı).
+_YT_ADET = 12
+
+
+def youtube_kartlari(videolar: list) -> list[dict]:
+    """Motorun /youtube-search satırlarını katalog kartına çevirir (adres kodlu)."""
+    kartlar = []
+    for v in videolar or []:
+        if not isinstance(v, dict) or not v.get("url"):
+            continue
+        kanal = v.get("channel") or ""
+        kartlar.append({
+            "plugin"  : "YouTube",
+            "title"   : v.get("title") or "YouTube",
+            "url"     : quote_plus(v["url"]),
+            "poster"  : v.get("poster") or "",
+            "category": f"YouTube · {kanal}" if kanal else "YouTube",
+        })
+    return kartlar
+
+
+def youtube_one(youtube: list[dict], ogeler: list[dict]) -> list[dict]:
+    """YouTube kartları başa; sağlayıcı aramasından gelen aynı liste ikinci kez çıkmaz."""
+    adresler = {k["url"] for k in youtube}
+    return youtube + [o for o in ogeler if o.get("url") not in adresler]
+
+
 @api_v1_router.get("/search_all")
 async def search_all(request: Request):
     veri  = request.state.veri or {}
@@ -224,7 +255,22 @@ async def search_all(request: Request):
                 return ogeler
         return []
 
-    gruplar = await asyncio.gather(*(tek(ad) for ad in adlar), return_exceptions=True)
+    yt_tur = str(veri.get("yt") or "video")
+
+    async def youtube() -> list[dict]:
+        if yt_tur not in ("video", "liste"):
+            return []
+        try:
+            sonuc = await asyncio.wait_for(
+                fuck_dmca("/youtube-search", params={"query": sorgu, "limit": _YT_ADET, "tur": yt_tur}, client_headers=basliklar),
+                timeout = _KAYNAK_TIMEOUT,
+            )
+        except Exception:
+            return []   # YouTube düşerse sağlayıcı sonuçları yine gelir
+        return youtube_kartlari(sonuc if isinstance(sonuc, list) else [])
+
+    yt_gorev = asyncio.create_task(youtube())
+    gruplar  = await asyncio.gather(*(tek(ad) for ad in adlar), return_exceptions=True)
 
     ogeler: list[dict] = []
     for grup in gruplar:
@@ -262,5 +308,7 @@ async def search_all(request: Request):
     ogeler = sorted(ogeler, key=lambda o: -agirlik.get(lang_memo.anahtar(o.get("title") or ""), 0))
 
     await _bolum_sayilari(ogeler, basliklar)
+    # Bölüm sayımı YouTube kartlarına yapılmaz: her video için yt-dlp koşardı.
+    ogeler = youtube_one(await yt_gorev, ogeler)
 
     return {**api_v1_global_message, "result": ogeler, "niyet": asdict(niyet)}

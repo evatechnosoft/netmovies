@@ -18,7 +18,7 @@ import unicodedata
 from pathlib      import Path
 from urllib.parse import parse_qs, quote_plus, urlparse
 
-from KekikStream.Core import Episode, ExtractResult, MainPageResult, PluginBase, SearchResult, SeriesInfo
+from KekikStream.Core import Episode, ExtractResult, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo
 from Plugins.__warp_client import WARP_PROXY, ytdlp_info
 
 # Playlist filtresi (sp=EgIQAw==): arama yalnız oynatma listesi döndürür.
@@ -69,6 +69,24 @@ def bolum_numarasi(baslik: str) -> tuple[int, int] | None:
     no = int(next(g for g in m.groups() if g))
     z  = _SEZON_NO.search(baslik or "")
     return (int(next(g for g in z.groups() if g)) if z else 1, no)
+
+
+def liste_bolumleri(entries: list[dict]) -> list[Episode]:
+    """Resmi listede bölüm no başlıktan (fragman elenir); numarasız listede sıra = bölüm."""
+    bolumler: dict[tuple[int, int], Episode] = {}
+    for e in entries:
+        no = bolum_numarasi(e.get("title") or "")
+        if not no or (e.get("duration") or 0) < _MIN_SURE or not e.get("id"):
+            continue
+        # Aynı bölüm iki kez yüklenmiş olabilir (ör. "Episode 20" + "20. Bölüm"): ilki kalır.
+        bolumler.setdefault(no, Episode(season=no[0], episode=no[1], title=f"{no[1]}. Bölüm",
+                                        url=f"https://www.youtube.com/watch?v={e['id']}"))
+    if bolumler:
+        return [bolumler[k] for k in sorted(bolumler)]
+    # Aramadan açılan sıradan liste (konser, belgesel, program): listedeki sırayla.
+    videolar = [e for e in entries if e.get("id")]
+    return [Episode(season=1, episode=i + 1, title=e.get("title") or f"{i + 1}. video",
+                    url=f"https://www.youtube.com/watch?v={e['id']}") for i, e in enumerate(videolar)]
 
 
 # Arama + liste okuma soğukta ~15 sn; hızlı yolun 15 sn bütçesine bölüm bağlantısı
@@ -134,7 +152,7 @@ class YouTube(PluginBase):
                 sonuc.append(SearchResult(title=ad, url=e["url"], poster=(e.get("thumbnails") or [{}])[-1].get("url")))
         return sonuc
 
-    async def load_item(self, url: str) -> SeriesInfo:
+    async def load_item(self, url: str) -> SeriesInfo | MovieInfo:
         # Arama adresi de kabul edilir: zincir "<dizi> için resmi liste" diye sorabilsin.
         if "/results?" in url:
             sorgu = parse_qs(urlparse(url).query).get("search_query", [""])[0]
@@ -143,21 +161,21 @@ class YouTube(PluginBase):
                 return SeriesInfo(url=url, title=sorgu, episodes=[])
             url = bulunan[0].url
         d = await _ytdlp_json(url, timeout=90.0) or {}
-        bolumler: dict[tuple[int, int], Episode] = {}
-        for e in d.get("entries") or []:
-            no = bolum_numarasi(e.get("title") or "")
-            if not no or (e.get("duration") or 0) < _MIN_SURE or not e.get("id"):
-                continue
-            # Aynı bölüm iki kez yüklenmiş olabilir (ör. "Episode 20" + "20. Bölüm"): ilki kalır.
-            bolumler.setdefault(no, Episode(season=no[0], episode=no[1], title=f"{no[1]}. Bölüm",
-                                            url=f"https://www.youtube.com/watch?v={e['id']}"))
         kapak = (d.get("thumbnails") or [{}])[-1].get("url")
+        # Aramadan açılan tek video film gibi oynar; açıklama/yorum taşınmaz (Dean: "derli toplu").
+        if video_mu(url) and not d.get("entries"):
+            kimlik = d.get("id") or ""
+            return MovieInfo(url=url, title=d.get("title") or "", poster=kapak or f"https://i.ytimg.com/vi/{kimlik}/hqdefault.jpg")
+        bolumler = liste_bolumleri(d.get("entries") or [])
+        resmi    = bool(bolumler) and all(b.title.endswith(". Bölüm") for b in bolumler)
         return SeriesInfo(
             url         = url,
-            title       = next((l["title"] for l in _LISTEM if l["url"] == url), None) or d.get("channel") or d.get("title") or "",
+            # Resmi listede kanal = dizinin adı; sıradan listede liste adı anlamlı.
+            title       = next((l["title"] for l in _LISTEM if l["url"] == url), None)
+                          or (d.get("channel") if resmi else d.get("title")) or d.get("title") or "",
             poster      = kapak,
             description = d.get("description") or None,
-            episodes    = [bolumler[k] for k in sorted(bolumler)],
+            episodes    = bolumler,
         )
 
     async def load_links(self, url: str) -> list[ExtractResult]:

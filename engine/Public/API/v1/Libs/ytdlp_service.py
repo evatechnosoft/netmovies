@@ -156,15 +156,25 @@ async def _extract_with_ytdlp(url: str, yeniden: bool = False):
         return None
 
 
-async def ytdlp_search(query: str, limit: int = 20):
-    """YouTube'da arar ve kart listesi döndürür.
+# Oynatma listesi filtresi (sp=EgIQAw==): arama yalnız liste döndürür.
+_LISTE_ARAMA = "https://www.youtube.com/results?search_query={}&sp=EgIQAw%253D%253D"
+# Shorts ve kesitler arama sonucunu kalabalıklaştırıyor (Dean: "derli toplu").
+_MIN_VIDEO_SN = 60
+
+
+async def ytdlp_search(query: str, limit: int = 20, tur: str = "video"):
+    """YouTube'da arar ve kart listesi döndürür. `tur="liste"` oynatma listesi arar.
 
     `--flat-playlist` ile tek istek: her sonuç için ayrı çözümleme yapılmaz,
     adres oynatma anında `ytdlp_extract_video_info` ile çözülür.
     """
+    from urllib.parse import quote_plus
+    liste = tur == "liste"
+    hedef = _LISTE_ARAMA.format(quote_plus(query)) if liste else f"ytsearch{int(limit)}:{query}"
+    ek    = ["--playlist-items", f"1-{int(limit)}"] if liste else []
     try:
         process = await asyncio.create_subprocess_exec(
-            "yt-dlp", "--no-warnings", "--flat-playlist", "-J", f"ytsearch{int(limit)}:{query}",
+            "yt-dlp", "--no-warnings", "--flat-playlist", "-J", *ek, hedef,
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE,
         )
@@ -178,6 +188,18 @@ async def ytdlp_search(query: str, limit: int = 20):
         for e in entries:
             kimlik = e.get("id")
             if not kimlik:
+                continue
+            if liste:
+                sonuclar.append({
+                    "id"      : kimlik,
+                    "title"   : e.get("title") or "Oynatma listesi",
+                    "url"     : f"https://www.youtube.com/playlist?list={kimlik}",
+                    "poster"  : ((e.get("thumbnails") or [{}])[-1]).get("url") or "",
+                    "duration": 0,
+                    "channel" : e.get("channel") or e.get("uploader") or "",
+                })
+                continue
+            if (e.get("duration") or 0) and e["duration"] < _MIN_VIDEO_SN:
                 continue
             sonuclar.append({
                 "id"       : kimlik,

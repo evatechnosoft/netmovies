@@ -14,4 +14,5 @@ async def youtube_search(request: Request):
         return JSONResponse(status_code=400, content={"hata": "query parametresi gerekli"})
 
     limit = int(istek.get("limit", 20) or 20)
-    return {**api_v1_global_message, "result": await ytdlp_search(query, limit)}
+    tur   = "liste" if istek.get("tur") == "liste" else "video"
+    return {**api_v1_global_message, "result": await ytdlp_search(query, limit, tur)}

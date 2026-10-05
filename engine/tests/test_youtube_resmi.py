@@ -1,7 +1,7 @@
 # YouTube eklentisi: yalnız resmi liste, bölüm numarası başlıktan.
 import unittest
 
-from Plugins.YouTube import bolum_numarasi, kanal_dizinin_mi, resmi_mi, video_mu
+from Plugins.YouTube import bolum_numarasi, kanal_dizinin_mi, liste_bolumleri, resmi_mi, video_mu
 
 
 class YouTubeResmiTest(unittest.TestCase):
@@ -28,6 +28,15 @@ class YouTubeResmiTest(unittest.TestCase):
         self.assertEqual(bolum_numarasi("Hayrettin ile Kaos Show - 2.Sezon 17.Bölüm | Kaos Allstar"), (2, 17))
         self.assertEqual(bolum_numarasi("Chaos Show with Hayrettin - Season 2 Episode 15 | X"), (2, 15))
         self.assertEqual(bolum_numarasi("Hayrettin and Chaos Show - Episode 1 | Music Festival"), (1, 1))
+
+    def test_liste_bolumleri(self):
+        resmi = [{"id": "a", "title": "A.B.İ. 2. Bölüm", "duration": 7200},
+                 {"id": "f", "title": "A.B.İ. 3. Fragman", "duration": 90},
+                 {"id": "b", "title": "A.B.İ. 1. Bölüm", "duration": 7200}]
+        self.assertEqual([(b.episode, b.url[-1]) for b in liste_bolumleri(resmi)], [(1, "b"), (2, "a")])
+        # Numarasız liste: sıra korunur, kısa video da girer.
+        siradan = [{"id": "x", "title": "Konser", "duration": 300}, {"id": "y", "title": "Röportaj"}]
+        self.assertEqual([(b.episode, b.title) for b in liste_bolumleri(siradan)], [(1, "Konser"), (2, "Röportaj")])
 
     def test_video_mu(self):
         # Hızlı yolun arama adresi ve liste adresi load_links'e yt-dlp koşturmaz.
