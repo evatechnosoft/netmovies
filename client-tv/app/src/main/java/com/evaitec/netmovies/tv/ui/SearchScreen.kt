@@ -58,6 +58,8 @@ class SearchState {
     var loading by mutableStateOf(false)
     /** Arama kutusu açık mı — dönüşte klavyeyi yeniden açmamak için. */
     var typing by mutableStateOf(false)
+    /** YouTube'da video yerine oynatma listesi ara (Dean: "oynatma listesi seçeneği, switch"). */
+    var ytListe by mutableStateOf(false)
 }
 
 /** Son aranan metinler; cihazda kalır, oturum aşar. */
@@ -113,7 +115,7 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
         history.add(temiz)
         gecmis = history.all()
         scope.launch {
-            state.results = runCatching { Network.api.searchAll(temiz).result }
+            state.results = runCatching { Network.api.searchAll(temiz, yt = if (state.ytListe) "liste" else null).result }
                 .onFailure { aramaHatasi = it.kullaniciMesaji("Arama yapılamadı") }
                 .getOrDefault(emptyList())
             state.loading = false
@@ -135,6 +137,24 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             onOpen = { state.typing = true },
             onSearch = { ara(state.query) },
         )
+
+        // YouTube sonuçları listenin başında gelir; anahtar ne aranacağını seçer.
+        // Sonuç varken değiştirmek aynı metni yeniden arar.
+        Row(
+            modifier = Modifier.focusGroup().padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("YouTube:", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
+            listOf(false to "▶  Video", true to "☰  Oynatma listesi").forEach { (liste, etiket) ->
+                SourceChip(etiket, active = state.ytListe == liste, favori = false) {
+                    if (state.ytListe != liste) {
+                        state.ytListe = liste
+                        if (state.results != null && state.query.isNotBlank()) ara(state.query)
+                    }
+                }
+            }
+        }
 
         when {
             state.results != null -> {

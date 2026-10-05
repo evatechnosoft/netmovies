@@ -531,7 +531,9 @@ private fun SourceChips(
     // ulaşmak için sonuna kadar gitmek gerekiyordu (Dean: "cehennemi için sona
     // kadar gidiyorum"). Sıra: favoriler (alfabetik) → kalanlar (özgün sıra).
     val sirali = remember(names, favoriler) {
-        names.filter { it in favoriler }.sorted() + names.filterNot { it in favoriler }
+        // YouTube favorilerden de önde (Dean, 5 Ekim: "DDizi'nin önüne").
+        val yt = names.filter { it == YOUTUBE }
+        yt + names.filter { it in favoriler && it != YOUTUBE }.sorted() + names.filterNot { it in favoriler || it == YOUTUBE }
     }
     LazyRow(
         modifier = Modifier.fillMaxWidth().focusGroup(),
@@ -551,9 +553,11 @@ private fun SourceChips(
     }
 }
 
+private const val YOUTUBE = "YouTube"
+
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun SourceChip(
+internal fun SourceChip(
     label: String,
     active: Boolean,
     favori: Boolean,

@@ -93,6 +93,8 @@ interface NetMoviesApi {
         // group=1: aynı içerik tek satır, sağlayıcılar `providers` altında.
         // Telefon arama ekranı böyle ister; TV Gözat düz listeyi kullanmaya devam eder.
         @Query("group") group: Int? = null,
+        // YouTube araması: "video" (sunucu varsayılanı) | "liste" (oynatma listesi) | "0".
+        @Query("yt") yt: String? = null,
     ): MainPageResponse
 
     // Benzer yapımlar (TMDB). Katalog ucu değil: sonuç başlıkları aramaya beslenir.
