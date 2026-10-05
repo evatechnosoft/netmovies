@@ -1,5 +1,5 @@
 # Handoff: 0.9.56 kişiselleştirme yayında, cihaz doğrulaması bekliyor
-> 2026-10-05 21:30 · `fix/general-stability` @ `19bd3eb` (push'lu) · 2 izlenmeyen dosya (`atv-kopru.log`, `scripts/yedek_reddet.py`, bu oturumun değil, dokunma)
+> 2026-10-05 22:10 · `fix/general-stability` @ `19bd3eb` (push'lu) · 2 izlenmeyen dosya (`atv-kopru.log`, `scripts/yedek_reddet.py`, bu oturumun değil, dokunma)
 
 ## Goal
 Reklamsız TV uygulaması (client-tv, Mi Box) + ZimaOS sunucu. Dean'in isteklerini yap, bitince sormadan üç yere yayınla (yerel OTA, GitHub release, evaglass `apps.json`). Kurallar: `CLAUDE.md`. Bu oturumun işi: TV kişiselleştirme — plan ve gerekçe `docs/PLAN-kisisellestirme.md` (web kaynaklarıyla).
@@ -18,7 +18,7 @@ Reklamsız TV uygulaması (client-tv, Mi Box) + ZimaOS sunucu. Dean'in istekleri
 - **Öncekinden açık kalanlar** (detay `git show aff2db6:HANDOFF.md`): 5 Ekim 09:54 TV donması (bekçi `CrashLog.donmaBekcisi` yakalayacak), "kaynak bulunamadı" ama `resolve_sources` çağrılmamış, gece 00:00 kapanması (0.9.53 düzeltmesi) doğrulanmadı.
 
 ## Next
-1. Gece kapanmasını doğrula: `ssh zima "journalctl --list-boots | tail -4"` → 5 Ekim 00:00'dan sonra sabaha kadar yeni açılış olmamalı.
+1. Gece kapanmasını doğrula: `ssh zima "journalctl --list-boots | tail -4"` → 6 Ekim 00:00'da kapanış (`gece-kapanma.timer` → `systemctl poweroff`), sabaha kadar YENİ AÇILIŞ OLMAMALI. Önceki gece (fix öncesi) 00:00:11 kapanıp 00:01/00:15/00:19'da üç kez WOL ile açılmıştı. Açılış varsa: telefon/TV 0.9.53+ mı (WOL kuralı `ZimaUyandir.izinli`: yalnız `onResume`–`onPause` arası ve 07-24; asıl suçlu telefon widget'ıydı). TV APK'sı 5 Ekim 21:52'de 192.168.1.105'ten indirildi, kurulumu doğrulanmadı; telefon sürümü bilinmiyor.
 2. Dean 0.9.56'yı TV'de denediğinde geri bildirime göre düzelt. Önce denenmeyenler: Ayarlar → Rafları düzenle (OK gizle, basılı tut ▲▼), poster ▼ menüsünde son iki ikon, Gözat'ta çip taşırken ▼. Prefs'i kontrol: `ssh zima 'curl -s localhost:3310/api/v1/prefs'`.
 3. Donma / "kaynak bulunamadı" bildirimi gelirse: `curl -s 192.168.1.186:3310/api/v1/client_log | grep -E "DONMA|cokme|resolve"` ve `ssh zima 'docker logs --since 10m netmovies-stream | grep resolve'`.
 
