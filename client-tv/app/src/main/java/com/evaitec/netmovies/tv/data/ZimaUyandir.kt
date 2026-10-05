@@ -16,6 +16,19 @@ object ZimaUyandir {
 
     @Volatile private var sonGonderim = 0L
 
+    // Gece 00:00 kapanması tutmuyordu (Dean, 5 Ekim): ZimaOS 00:00'da kapanıp
+    // 88 sn sonra yeniden açılıyordu, elle kapatınca da yine. Mi Box kapalıyken
+    // bile — telefondaki aynı uygulamanın dakikalık widget'ı sunucuyu bulamayınca
+    // paket yolluyordu. Paket artık yalnız uygulama EKRANDAYKEN (kullanıcı bakıyor)
+    // ve gece yarısı ile sabah 07:00 arası DIŞINDA gider; sabah açılışı BIOS'ta.
+    @Volatile var onPlanda = false
+    private const val SESSIZ_BAS = 0
+    private const val SESSIZ_BIT = 7
+
+    /** Paket gönderilebilir mi: ekranda + sessiz saatlerin dışında. */
+    internal fun izinli(onPlanda: Boolean, saat: Int): Boolean =
+        onPlanda && saat !in SESSIZ_BAS until SESSIZ_BIT
+
     /** 6×FF + MAC×16. MAC "AA:BB:..." ya da "AA-BB-..." biçiminde. */
     internal fun sihirliPaket(mac: String): ByteArray {
         val baytlar = mac.split(':', '-').map { it.toInt(16).toByte() }
@@ -28,6 +41,7 @@ object ZimaUyandir {
 
     /** Ağ iş parçacığından çağrılır. Dakikada en fazla bir kez gönderir. */
     fun gonder() {
+        if (!izinli(onPlanda, java.time.LocalTime.now().hour)) return
         val simdi = System.currentTimeMillis()
         if (simdi - sonGonderim < ARALIK_MS) return
         sonGonderim = simdi

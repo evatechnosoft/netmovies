@@ -13,6 +13,17 @@ class ZimaUyandirTest {
     (0 until 16).forEach { i -> assertEquals(mac, p.drop(6 + i * 6).take(6)) }
   }
 
+  @Test
+  fun yalnizEkrandaVeGeceDisinda() {
+    // Widget / arka plan: hiç gönderilmez (gece kapanmasını bozan buydu).
+    assertEquals(false, ZimaUyandir.izinli(onPlanda = false, saat = 20))
+    // Ekranda ama gece yarısı–07:00: sunucu bilerek kapalı.
+    assertEquals(false, ZimaUyandir.izinli(onPlanda = true, saat = 0))
+    assertEquals(false, ZimaUyandir.izinli(onPlanda = true, saat = 6))
+    assertEquals(true, ZimaUyandir.izinli(onPlanda = true, saat = 7))
+    assertEquals(true, ZimaUyandir.izinli(onPlanda = true, saat = 23))
+  }
+
   @Test(expected = IllegalArgumentException::class)
   fun eksikMacReddedilir() {
     ZimaUyandir.sihirliPaket("38:14:28")

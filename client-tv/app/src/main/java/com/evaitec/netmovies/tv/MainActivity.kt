@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
     // ekranda ve oynatıcı açılana kadar ses tavanda kalıyordu (Dean, 3 Ekim).
     override fun onResume() {
         super.onResume()
+        com.evaitec.netmovies.tv.data.ZimaUyandir.onPlanda = true
         com.evaitec.netmovies.tv.data.SesHafizasi.geriYukle(this)
     }
 
@@ -168,6 +169,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        com.evaitec.netmovies.tv.data.ZimaUyandir.onPlanda = false
         com.evaitec.netmovies.tv.data.SesHafizasi.kaydet(this)
         super.onPause()
     }
