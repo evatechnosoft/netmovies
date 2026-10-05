@@ -47,6 +47,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -243,9 +245,13 @@ fun BrowseScreen(
     // Yıldızlı kaynaklar SUNUCUDA (prefs): kanal favorileriyle aynı yer, aynı
     // mantık — başka TV'den girince ya da yeniden kurunca kaybolmasın.
     var favKaynaklar by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // Çiplerin elle dizilmiş sırası (basılı tut → taşı); aynı prefs deposunda.
+    var kaynakSirasi by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
-        favKaynaklar = runCatching { okuFavoriKaynaklar(Network.api.prefsGet().result) }
-            .getOrDefault(emptySet())
+        runCatching { Network.api.prefsGet().result }.onSuccess { prefs ->
+            favKaynaklar = okuSatirlar(prefs, FAV_KAYNAK_ANAHTAR).toSet()
+            kaynakSirasi = okuSatirlar(prefs, KAYNAK_SIRA_ANAHTAR)
+        }
     }
 
     LaunchedEffect(deneme) {
@@ -365,12 +371,12 @@ fun BrowseScreen(
                 selected = selectedPlugin,
                 seriesSelected = seriesMode,
                 favoriler = favKaynaklar,
-                onFavori = { ad ->
-                    val yeni = if (ad in favKaynaklar) favKaynaklar - ad else favKaynaklar + ad
-                    favKaynaklar = yeni
+                kayitliSira = kaynakSirasi,
+                onSiraKaydet = { yeni ->
+                    kaynakSirasi = yeni
                     browseScope.launch {
                         runCatching {
-                            Network.api.prefsPost(mapOf(FAV_KAYNAK_ANAHTAR to yeni.joinToString("\n")))
+                            Network.api.prefsPost(mapOf(KAYNAK_SIRA_ANAHTAR to yeni.joinToString("\n")))
                         }
                     }
                 },
@@ -523,36 +529,79 @@ private fun SourceChips(
     selected: String?,
     seriesSelected: Boolean,
     favoriler: Set<String>,
+    kayitliSira: List<String>,
     onSelect: (String?) -> Unit,
-    onFavori: (String) -> Unit,
+    onSiraKaydet: (List<String>) -> Unit,
     onSelectSeries: () -> Unit,
 ) {
-    // Yıldızlı kaynaklar başta: liste 16 eklentiye çıktı, en çok kullanılana
-    // ulaşmak için sonuna kadar gitmek gerekiyordu (Dean: "cehennemi için sona
-    // kadar gidiyorum"). Sıra: favoriler (alfabetik) → kalanlar (özgün sıra).
-    val sirali = remember(names, favoriler) {
-        // YouTube favorilerden de önde (Dean, 5 Ekim: "DDizi'nin önüne").
+    // Varsayılan sıra: Tümü, Seriler, YouTube, yıldızlılar (alfabetik), kalanlar.
+    // Dean bunu elle değiştirir: çipe BASILI TUT → çip sarıya döner, SOL/SAĞ
+    // taşır, OK ya da GERİ bırakır; sıra sunucuya yazılır (Dean, 5 Ekim:
+    // "serileri en sona, DiziMom en öne").
+    val varsayilan = remember(names, favoriler) {
         val yt = names.filter { it == YOUTUBE }
-        yt + names.filter { it in favoriler && it != YOUTUBE }.sorted() + names.filterNot { it in favoriler || it == YOUTUBE }
+        listOf(TUMU, SERILER) + yt +
+            names.filter { it in favoriler && it != YOUTUBE }.sorted() +
+            names.filterNot { it in favoriler || it == YOUTUBE }
     }
+    var sira by remember(varsayilan, kayitliSira) { mutableStateOf(siralaCipler(varsayilan, kayitliSira)) }
+    var tasinan by remember { mutableStateOf<String?>(null) }
+    val rowState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val bitir = {
+        if (tasinan != null) {
+            tasinan = null
+            onSiraKaydet(sira)
+        }
+    }
+    NmBackHandler(enabled = tasinan != null) { bitir() }
     LazyRow(
+        state = rowState,
         modifier = Modifier.fillMaxWidth().focusGroup(),
         contentPadding = PaddingValues(horizontal = NmDim.SafeH, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { SourceChip("Tümü", selected == null && !seriesSelected, favori = false) { onSelect(null) } }
-        // Seri filmler (franchise): Blade Runner, Harry Potter, John Wick vb. — Tümü'nün hemen yanında.
-        item { SourceChip("Seriler", seriesSelected, favori = false) { onSelectSeries() } }
-        items(sirali.size) { i ->
-            val ad = sirali[i]
-            // SAĞ ok kanallarda favori ekliyor; burada da aynı hareket.
-            SourceChip(ad, selected == ad, favori = ad in favoriler, onFavori = { onFavori(ad) }) {
-                onSelect(ad)
+        // Anahtar = ad: yer değiştiren çip aynı düğüm kalır, odak onunla gider.
+        itemsIndexed(sira, key = { _, ad -> ad }) { _, ad ->
+            val active = when (ad) {
+                TUMU -> selected == null && !seriesSelected
+                SERILER -> seriesSelected
+                else -> selected == ad
+            }
+            SourceChip(
+                label = ad,
+                active = active,
+                favori = ad in favoriler,
+                tasiniyor = tasinan == ad,
+                onLongPress = { tasinan = ad },
+                onMove = { yon ->
+                    val i = sira.indexOf(ad)
+                    val j = i + yon
+                    if (i >= 0 && j in sira.indices) {
+                        sira = sira.toMutableList().apply { add(j, removeAt(i)) }
+                        // Kenara dayandıysa şeridi kaydır, çip ekranda kalsın.
+                        val gorunen = rowState.layoutInfo.visibleItemsInfo
+                        if (gorunen.isNotEmpty() && (j <= gorunen.first().index || j >= gorunen.last().index)) {
+                            scope.launch { rowState.animateScrollBy(yon * 220f) }
+                        }
+                    }
+                },
+                // Odak YUKARI/AŞAĞI ile şeritten çıkarsa taşıma biter, sıra kaybolmaz.
+                onFocusLost = { if (tasinan == ad) bitir() },
+            ) {
+                when {
+                    tasinan != null -> bitir()
+                    ad == TUMU -> onSelect(null)
+                    ad == SERILER -> onSelectSeries()
+                    else -> onSelect(ad)
+                }
             }
         }
     }
 }
 
+private const val TUMU = "Tümü"
+private const val SERILER = "Seriler"
 private const val YOUTUBE = "YouTube"
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -561,39 +610,101 @@ internal fun SourceChip(
     label: String,
     active: Boolean,
     favori: Boolean,
-    onFavori: (() -> Unit)? = null,
+    tasiniyor: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
+    onMove: ((Int) -> Unit)? = null,
+    onFocusLost: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // Kumandanın OK'u combinedClickable(onLongClick)'e düşmez (yalnız dokunma);
+    // uzun basış key event'ten okunur, bırakıştaki ACTION_UP tıklama sayılmaz.
+    var uzunBasildi by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var uzunZamanlayici by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val uzunBas = {
+        if (!uzunBasildi) {
+            uzunBasildi = true
+            onLongPress?.invoke()
+        }
+    }
     val shape = RoundedCornerShape(NmDim.PillRadius)
     Box(
         modifier = Modifier
             .clip(shape)
-
             .background(
                 when {
+                    tasiniyor -> NmColor.Star
                     focused -> NmColor.Primary
                     active  -> NmColor.PrimarySelected
                     else    -> NmColor.Surface
                 }
             )
             .nmFocusRing(focused, shape)
-            .onFocusChanged { focused = it.isFocused }
-            // Yıldız SAĞ ok ile değil, OK'a BASILI TUTARAK: çip şeridi yatay,
-            // SAĞ/SOL zaten çipler arasında geziniyor. Kanal listesi dikey
-            // olduğu için orada SAĞ ok boştaydı, burada değil.
-            .combinedClickable(onClick = onClick, onLongClick = { onFavori?.invoke() })
+            .onFocusChanged {
+                if (focused && !it.isFocused) onFocusLost()
+                focused = it.isFocused
+            }
+            .onPreviewKeyEvent { ke ->
+                val ne = ke.nativeKeyEvent
+                when {
+                    onLongPress == null -> false
+                    tasiniyor && (ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
+                        ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) -> {
+                        if (ne.action == android.view.KeyEvent.ACTION_DOWN) {
+                            onMove?.invoke(if (ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1)
+                        }
+                        true
+                    }
+                    ne.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                        ne.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                        ne.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        when (ne.action) {
+                            android.view.KeyEvent.ACTION_DOWN ->
+                                if (ne.repeatCount == 0) {
+                                    uzunBasildi = false
+                                    uzunZamanlayici?.cancel()
+                                    uzunZamanlayici = scope.launch {
+                                        kotlinx.coroutines.delay(CIP_UZUN_BASIS_MS)
+                                        uzunBas()
+                                    }
+                                } else {
+                                    uzunBas()
+                                }
+                            android.view.KeyEvent.ACTION_UP -> {
+                                uzunZamanlayici?.cancel()
+                                if (!uzunBasildi) onClick()
+                                uzunBasildi = false
+                            }
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+            // Dokunma yolu (telefon): uzun basış pointer'la burada.
+            .combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() })
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
-            text = if (favori) "★ $label" else label,
+            text = when {
+                tasiniyor -> "◀ $label ▶"
+                favori -> "★ $label"
+                else -> label
+            },
             fontSize = NmType.Label,
             maxLines = 1,
-            color = if (focused) NmColor.OnPrimary else NmColor.OnSurface,
-            fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                tasiniyor -> androidx.compose.ui.graphics.Color.Black
+                focused -> NmColor.OnPrimary
+                else -> NmColor.OnSurface
+            },
+            fontWeight = if (active || focused || tasiniyor) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }
+
+private const val CIP_UZUN_BASIS_MS = 500L
 
 // --------------------------------------------------------------------- Raflar
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -948,10 +1059,20 @@ private fun Center(text: String) {
 // prefs'teki yıldızlı kaynak kaydı: satır başına bir eklenti adı.
 internal const val FAV_KAYNAK_ANAHTAR = "fav_providers"
 
-internal fun okuFavoriKaynaklar(
+// Kaynak çiplerinin elle dizilmiş sırası: satır başına bir çip adı.
+internal const val KAYNAK_SIRA_ANAHTAR = "provider_order"
+
+internal fun okuSatirlar(
     prefs: Map<String, kotlinx.serialization.json.JsonElement>,
-): Set<String> {
-    val ham = prefs[FAV_KAYNAK_ANAHTAR] ?: return emptySet()
-    val metin = (ham as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return emptySet()
-    return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    anahtar: String,
+): List<String> {
+    val ham = prefs[anahtar] ?: return emptyList()
+    val metin = (ham as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return emptyList()
+    return metin.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+}
+
+/** Kayıtlı sıradaki çipler önce (artık olmayanlar düşer), yeni gelenler varsayılan yerinden sona. */
+internal fun siralaCipler(varsayilan: List<String>, kayitli: List<String>): List<String> {
+    val kayitliVar = kayitli.filter { it in varsayilan }.distinct()
+    return kayitliVar + varsayilan.filterNot { it in kayitliVar }
 }
