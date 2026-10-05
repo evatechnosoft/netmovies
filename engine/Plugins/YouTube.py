@@ -49,6 +49,12 @@ def resmi_mi(sorgu: str, kanal: str, liste: str) -> bool:
     return any(k == y or k.startswith(y + " ") for y in _YAYINCI) and s in l
 
 
+def video_mu(url: str) -> bool:
+    """Tek video adresi mi (watch?v= / youtu.be); arama ve liste sayfası değil."""
+    p = urlparse(url or "")
+    return bool(parse_qs(p.query).get("v")) or p.netloc.endswith("youtu.be")
+
+
 def bolum_numarasi(baslik: str) -> tuple[int, int] | None:
     """'A.B.İ. 16. Bölüm @atvturkiye' → (1, 16); 'Episode 20' → (1, 20)."""
     m = _BOLUM_NO.search(baslik or "")
@@ -147,6 +153,11 @@ class YouTube(PluginBase):
         )
 
     async def load_links(self, url: str) -> list[ExtractResult]:
+        # Hızlı yol kart adresi olarak arama/liste adresi gönderir; `_links_for` önce
+        # load_links'i dener. yt-dlp o sayfada her videoyu tek tek açıyor (60+ sn),
+        # motorun 30 sn'si burada bitiyordu. Yalnız video adresi çözülür.
+        if not video_mu(url):
+            return []
         info = await ytdlp_info(url, timeout=90.0)
         master = next((f["manifest_url"] for f in (info or {}).get("formats") or [] if f.get("manifest_url")), None)
         if not master:

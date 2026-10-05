@@ -1,7 +1,7 @@
 # YouTube eklentisi: yalnız resmi liste, bölüm numarası başlıktan.
 import unittest
 
-from Plugins.YouTube import bolum_numarasi, resmi_mi
+from Plugins.YouTube import bolum_numarasi, resmi_mi, video_mu
 
 
 class YouTubeResmiTest(unittest.TestCase):
@@ -21,6 +21,14 @@ class YouTubeResmiTest(unittest.TestCase):
         self.assertEqual(bolum_numarasi("Hayrettin ile Kaos Show - 2.Sezon 17.Bölüm | Kaos Allstar"), (2, 17))
         self.assertEqual(bolum_numarasi("Chaos Show with Hayrettin - Season 2 Episode 15 | X"), (2, 15))
         self.assertEqual(bolum_numarasi("Hayrettin and Chaos Show - Episode 1 | Music Festival"), (1, 1))
+
+    def test_video_mu(self):
+        # Hızlı yolun arama adresi ve liste adresi load_links'e yt-dlp koşturmaz.
+        self.assertTrue(video_mu("https://www.youtube.com/watch?v=OMHZ22RfJ3o"))
+        self.assertTrue(video_mu("https://youtu.be/OMHZ22RfJ3o"))
+        self.assertFalse(video_mu("https://www.youtube.com/results?search_query=A.B.%C4%B0."))
+        self.assertFalse(video_mu("https://www.youtube.com/playlist?list=PL8pI2u3SrDIbaS04otJLPEnHduFSA0mPs"))
+        self.assertFalse(video_mu(""))
 
 
 if __name__ == "__main__":
