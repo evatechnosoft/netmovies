@@ -20,8 +20,11 @@ object KisiselDuzen {
     const val RAF_SIRA = "home_row_order"
     const val GIZLI_RAF = "home_row_hidden"
     const val GIZLI_BASLIK = "hidden_titles"
+    const val GIZLI_SEGMENT = "home_segment_hidden"
 
     var segmentSirasi by mutableStateOf<List<String>>(emptyList())
+        private set
+    var gizliSegmentler by mutableStateOf<Set<String>>(emptySet())
         private set
     var rafSirasi by mutableStateOf<List<String>>(emptyList())
         private set
@@ -36,7 +39,8 @@ object KisiselDuzen {
     suspend fun yukle() {
         if (yuklendi) return
         runCatching { Network.api.prefsGet().result }.onSuccess { p ->
-            segmentSirasi = okuSatirlar(p, SEGMENT_SIRA)
+            segmentSirasi = eskiDevamiBol(okuSatirlar(p, SEGMENT_SIRA))
+            gizliSegmentler = okuSatirlar(p, GIZLI_SEGMENT).toSet()
             rafSirasi = okuSatirlar(p, RAF_SIRA)
             gizliRaflar = okuSatirlar(p, GIZLI_RAF).toSet()
             gizliBasliklar = okuSatirlar(p, GIZLI_BASLIK).toSet()
@@ -50,6 +54,11 @@ object KisiselDuzen {
     fun rafGizleGoster(raf: String) {
         gizliRaflar = if (raf in gizliRaflar) gizliRaflar - raf else gizliRaflar + raf
         yaz(GIZLI_RAF, gizliRaflar.toList())
+    }
+
+    fun segmentGizleGoster(ad: String) {
+        gizliSegmentler = if (ad in gizliSegmentler) gizliSegmentler - ad else gizliSegmentler + ad
+        yaz(GIZLI_SEGMENT, gizliSegmentler.toList())
     }
 
     fun gizliMi(item: MediaItem) = baslikAnahtari(item.title) in gizliBasliklar
@@ -68,6 +77,15 @@ object KisiselDuzen {
 
 /** Başlık eşleştirme anahtarı: sağlayıcılar aynı diziyi farklı büyük/küçük harfle yazıyor. */
 internal fun baslikAnahtari(baslik: String?) = baslik.orEmpty().trim().lowercase()
+
+// Kişisel blok segmentleri. Devam Et film/dizi diye ikiye bölündü (Dean, 6 Ekim).
+const val DEVAM_DIZI = "Devam · Dizi"
+const val DEVAM_FILM = "Devam · Film"
+private const val ESKI_DEVAM = "Devam edenler"
+
+/** 0.9.56 öncesi kayıtlı sırada tek "Devam edenler" vardı; yerini ikisi alır. */
+internal fun eskiDevamiBol(sira: List<String>): List<String> =
+    sira.flatMap { if (it == ESKI_DEVAM) listOf(DEVAM_DIZI, DEVAM_FILM) else listOf(it) }
 
 /** prefs'te satır başına bir ad tutan kayıt. */
 internal fun okuSatirlar(prefs: Map<String, JsonElement>, anahtar: String): List<String> {

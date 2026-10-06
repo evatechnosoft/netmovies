@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import com.evaitec.netmovies.tv.data.DEVAM_DIZI
+import com.evaitec.netmovies.tv.data.DEVAM_FILM
 import com.evaitec.netmovies.tv.data.KisiselDuzen
 import com.evaitec.netmovies.tv.data.baslikAnahtari
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -227,9 +229,12 @@ private fun CategoryRows(
     // (Gözat kaynak çipleriyle aynı jest); sıra sunucuda (prefs).
     LaunchedEffect(Unit) { KisiselDuzen.yukle() }
     val segmentSirasi = KisiselDuzen.segmentSirasi
-    val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip, segmentSirasi) {
+    val gizliSegmentler = KisiselDuzen.gizliSegmentler
+    val segmentler = remember(library.watched, library.kayitlar, library.izlenen, library.favorites, library.izlenecek, library.takip, segmentSirasi, gizliSegmentler) {
+        val (devamDizi, devamFilm) = library.watched.partition { it.mediaType == "serie" }
         listOf(
-            "Devam edenler" to library.watched.toList(),
+            DEVAM_DIZI to devamDizi,
+            DEVAM_FILM to devamFilm,
             // Dizi başına TEK kart (Dean, 4 Ekim: "bölümler kendi içinde olmalı"): kart
             // diziyi açar, bölümler listede ● ile görünür. Rozet: bölüm sayısı + durum.
             "Kayıtlar" to library.kayitlar.groupBy { it.title.orEmpty().lowercase() }.values.map { grup ->
@@ -243,7 +248,7 @@ private fun CategoryRows(
             "Favoriler" to library.favorites.toList(),
             "Takip" to library.takip.toList(),
             "İzlenecek" to library.izlenecek.toList(),
-        ).filter { it.second.isNotEmpty() }.let { liste ->
+        ).filter { it.second.isNotEmpty() && it.first !in gizliSegmentler }.let { liste ->
             val sira = siralaCipler(liste.map { it.first }, segmentSirasi)
             liste.sortedBy { sira.indexOf(it.first) }
         }
@@ -523,6 +528,9 @@ private fun CategoryRows(
 
 // Kişisel bloğun LazyColumn anahtarı; gerçek bir kategori adı olamaz.
 private const val KISISEL = "@@kisisel"
+
+// Kişisel bloğun varsayılan sekme sırası (boş olanlar ana sayfada görünmez).
+private val SEGMENT_ADLARI = listOf(DEVAM_DIZI, DEVAM_FILM, "Kayıtlar", "İzlediklerim", "Favoriler", "Takip", "İzlenecek")
 
 private val RAF_SIRASI = listOf(
     KISISEL,
@@ -1741,6 +1749,29 @@ private fun RafDuzenleMenu(raflar: List<String>, onClose: () -> Unit) {
             }
         }
         TasimaIpucu(tasima.tasinan != null, metin = "▲ ▼ taşı · OK bırak · GERİ iptal")
+        // Kişisel listelerin alt sekmeleri: aynı jest, ayrı sıra/gizlilik kaydı.
+        val segTasima = rememberTasima(SEGMENT_ADLARI, KisiselDuzen.segmentSirasi, KisiselDuzen::segmentSirasiYaz)
+        Text("Kişisel listeler — sekmeler", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)
+        segTasima.sira.forEachIndexed { konum, ad ->
+            androidx.compose.runtime.key("seg:$ad") {
+                val gizli = ad in KisiselDuzen.gizliSegmentler
+                DuzenSatiri(
+                    label = when {
+                        segTasima.tasinan == ad -> "▲  $ad  ▼"
+                        gizli -> "🚫  $ad"
+                        else -> "👁  $ad"
+                    },
+                    soluk = gizli,
+                    tasiniyor = segTasima.tasinan == ad,
+                    konum = konum,
+                    onLongPress = { segTasima.baslat(ad) },
+                    onMove = { segTasima.tasi(it) },
+                    onFocusLost = { if (segTasima.tasinan == ad) segTasima.bitir() },
+                ) {
+                    if (segTasima.tasinan != null) segTasima.bitir() else KisiselDuzen.segmentGizleGoster(ad)
+                }
+            }
+        }
         val gizliBasliklar = KisiselDuzen.gizliBasliklar.sorted()
         if (gizliBasliklar.isNotEmpty()) {
             Text("Raflarda gösterilmeyenler — OK geri getirir", fontSize = NmType.Caption, color = NmColor.OnSurfaceMuted)

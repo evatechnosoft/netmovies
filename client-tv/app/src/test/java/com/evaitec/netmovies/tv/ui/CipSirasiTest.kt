@@ -21,6 +21,16 @@ class CipSirasiTest {
     }
 }
 
+class EskiDevamTest {
+    @Test
+    fun eskiDevamYerindeIkiyeBolunur() {
+        assertEquals(
+            listOf("Favoriler", "Devam · Dizi", "Devam · Film", "Kayıtlar"),
+            com.evaitec.netmovies.tv.data.eskiDevamiBol(listOf("Favoriler", "Devam edenler", "Kayıtlar")),
+        )
+    }
+}
+
 class TasimaDurumuTest {
     @Test
     fun tasiBitirKaydeder() {
