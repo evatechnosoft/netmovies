@@ -44,8 +44,15 @@ async def continue_watching(request: Request):
         limit = 20
     # Özel Koleksiyon izlemesi Devam Et'e çıkmaz (eski kayıtlar da süzülür).
     yetiskin = set(admin_config.load_config()["adult_providers"])
-    result = [r for r in watch_store.list_continue_watching(limit=limit + 20) if r.get("plugin") not in yetiskin][:limit]
-    return {**api_v1_global_message, "result": result}
+    result = [r for r in watch_store.list_continue_watching(limit=limit + 20) if r.get("plugin") not in yetiskin]
+    # Tek YouTube videosu yarım kalan diziyi öne geçmesin (Dean, 6 Ekim); resmi
+    # kanaldaki dizi (media_type serie) dizi gibi yerinde kalır. Stabil sıralama.
+    result.sort(key=_youtube_tek_video)
+    return {**api_v1_global_message, "result": result[:limit]}
+
+
+def _youtube_tek_video(r: dict) -> bool:
+    return r.get("plugin") == "YouTube" and r.get("media_type") != "serie"
 
 
 @api_v1_router.get("/watched")

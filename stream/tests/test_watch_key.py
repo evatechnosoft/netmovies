@@ -94,3 +94,15 @@ class RemoveProgressTest(unittest.TestCase):
         devam = {r["content_key"] for r in watch_store.list_continue_watching(limit=50)}
         self.assertEqual(izlenen, {"bitti"})
         self.assertEqual(devam, {"yarim", "suresiz"})
+
+
+class YoutubeSiraTest(unittest.TestCase):
+    def test_tek_video_sona_dizi_yerinde(self):
+        from Public.API.v1.Routers.watch import _youtube_tek_video
+        satirlar = [
+            {"plugin": "YouTube", "media_type": "movie", "title": "video"},
+            {"plugin": "YouTube", "media_type": "serie", "title": "kanal dizisi"},
+            {"plugin": "DDizi", "media_type": "serie", "title": "dizi"},
+        ]
+        satirlar.sort(key=_youtube_tek_video)
+        self.assertEqual([s["title"] for s in satirlar], ["kanal dizisi", "dizi", "video"])
