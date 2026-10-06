@@ -507,6 +507,7 @@ class MainActivity : ComponentActivity() {
                                     onRemoteQueryUsed = { kumandaMetni = null },
                                     // Ajandadan gelen başlıkta tek eşleşme doğrudan açılır.
                                     otomatikAc = ajandadanGeldi,
+                                    onOpenChannels = { showChannels = true },
                                     // ...ve GERİ, gelinen yere döner: ajandadan girip
                                     // ana ekrana düşmek "teker teker dönmek" oluyordu.
                                     onBack = {

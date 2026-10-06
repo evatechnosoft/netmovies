@@ -132,6 +132,8 @@ fun BrowseScreen(
     // gitmiyor"). Birden çok sonuçta liste kalır — yanlış diziyi açmaktansa
     // seçtirmek doğru.
     otomatikAc: Boolean = false,
+    // "TV" hapı Canlı TV ekranını açar; GERİ Gözat'a döner.
+    onOpenChannels: () -> Unit = {},
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -322,8 +324,11 @@ fun BrowseScreen(
                         }
                     }.awaitAll().flatten()
                 }
+            } else if (selectedPlugin == YOUTUBE) {
+                // YouTube seçiliyken YouTube'da arar; genel arama YouTube'suz (Dean, 6 Ekim).
+                runCatching { Network.api.searchAll(term, yt = "video", sadece = "youtube").result }.getOrDefault(emptyList())
             } else {
-                runCatching { Network.api.searchAll(term).result }.getOrDefault(emptyList())
+                runCatching { Network.api.searchAll(term, yt = "0").result }.getOrDefault(emptyList())
             }
             resultsLoading = false
         }
@@ -412,6 +417,7 @@ fun BrowseScreen(
                     browseScope.launch { listState.scrollToItem(0) }
                 },
                 onSelectSeries = { seriesMode = true },
+                onOpenChannels = onOpenChannels,
             )
         }
         Box(Modifier.fillMaxSize()) {
@@ -559,6 +565,7 @@ private fun SourceChips(
     onSelect: (String?) -> Unit,
     onSiraKaydet: (List<String>) -> Unit,
     onSelectSeries: () -> Unit,
+    onOpenChannels: () -> Unit,
 ) {
     // Varsayılan sıra: Tümü, Seriler, YouTube, yıldızlılar, kalanlar; yıldızlılar ve
     // kalanlar kendi içinde oynatma puanına göre (en çok çalışan önde).
@@ -599,12 +606,13 @@ private fun SourceChips(
                     },
                     // Odak YUKARI/AŞAĞI ile şeritten çıkarsa taşıma biter, sıra kaybolmaz.
                     onFocusLost = { if (tasima.tasinan == ad) tasima.bitir() },
-                    onAsagi = if (ad == TUMU || ad == SERILER) null else ({ tasima.bitir(); onGizle(ad) }),
+                    onAsagi = if (ad in SABIT_CIPLER) null else ({ tasima.bitir(); onGizle(ad) }),
                 ) {
                     when {
                         tasima.tasinan != null -> tasima.bitir()
                         ad == TUMU -> onSelect(null)
                         ad == SERILER -> onSelectSeries()
+                        ad == TV -> onOpenChannels()
                         else -> onSelect(ad)
                     }
                 }
@@ -613,20 +621,20 @@ private fun SourceChips(
         TasimaIpucu(
             tasima.tasinan != null,
             Modifier.padding(start = NmDim.SafeH),
-            metin = if (tasima.tasinan in setOf(TUMU, SERILER)) "◀ ▶ taşı · OK bırak · GERİ iptal"
+            metin = if (tasima.tasinan in SABIT_CIPLER) "◀ ▶ taşı · OK bırak · GERİ iptal"
                 else "◀ ▶ taşı · ▼ gizle · OK bırak · GERİ iptal",
         )
     }
 }
 
-/** Tümü, Seriler, YouTube, yıldızlılar, kalanlar; son ikisi kendi içinde puana göre (puansız sonda, özgün sırada). */
+/** Tümü, Seriler, YouTube, TV, yıldızlılar, kalanlar; son ikisi kendi içinde puana göre (puansız sonda, özgün sırada). */
 internal fun varsayilanKaynakSirasi(
     names: List<String>,
     favoriler: Set<String>,
     puanlar: Map<String, Double>,
 ): List<String> {
     val puanSirali = { l: List<String> -> l.sortedByDescending { puanlar[it] ?: Double.NEGATIVE_INFINITY } }
-    return listOf(TUMU, SERILER) + names.filter { it == YOUTUBE } +
+    return listOf(TUMU, SERILER) + names.filter { it == YOUTUBE } + TV +
         puanSirali(names.filter { it in favoriler && it != YOUTUBE }) +
         puanSirali(names.filterNot { it in favoriler || it == YOUTUBE })
 }
@@ -634,6 +642,10 @@ internal fun varsayilanKaynakSirasi(
 private const val TUMU = "Tümü"
 private const val SERILER = "Seriler"
 private const val YOUTUBE = "YouTube"
+// Canlı kanallar (Show, Kanal D, ATV…) eklenti değil: hap Canlı TV ekranını açar (Dean, 6 Ekim).
+private const val TV = "TV"
+// Eklenti olmayan haplar ▼ ile gizlenemez.
+private val SABIT_CIPLER = setOf(TUMU, SERILER, TV)
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

@@ -74,6 +74,6 @@ class VarsayilanKaynakSirasiTest {
             favoriler = setOf("DDizi"),
             puanlar = mapOf("DiziMom" to 404.0, "DiziPal" to 320.0, "DDizi" to 239.0),
         )
-        assertEquals(listOf("Tümü", "Seriler", "YouTube", "DDizi", "DiziMom", "DiziPal", "Puansiz"), sira)
+        assertEquals(listOf("Tümü", "Seriler", "YouTube", "TV", "DDizi", "DiziMom", "DiziPal", "Puansiz"), sira)
     }
 }

@@ -58,8 +58,9 @@ class SearchState {
     var loading by mutableStateOf(false)
     /** Arama kutusu açık mı — dönüşte klavyeyi yeniden açmamak için. */
     var typing by mutableStateOf(false)
-    /** YouTube'da video yerine oynatma listesi ara (Dean: "oynatma listesi seçeneği, switch"). */
-    var ytListe by mutableStateOf(false)
+    /** YouTube araması: "0" kapalı (varsayılan), "video", "liste" (oynatma listesi).
+     *  Kapalı: açıkken asıl diziler kısa videoların altında kalıyordu (Dean, 6 Ekim). */
+    var ytMod by mutableStateOf("0")
 }
 
 /** Son aranan metinler; cihazda kalır, oturum aşar. */
@@ -115,7 +116,7 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
         history.add(temiz)
         gecmis = history.all()
         scope.launch {
-            state.results = runCatching { Network.api.searchAll(temiz, yt = if (state.ytListe) "liste" else null).result }
+            state.results = runCatching { Network.api.searchAll(temiz, yt = state.ytMod).result }
                 .onFailure { aramaHatasi = it.kullaniciMesaji("Arama yapılamadı") }
                 .getOrDefault(emptyList())
             state.loading = false
@@ -138,7 +139,7 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             onSearch = { ara(state.query) },
         )
 
-        // YouTube sonuçları listenin başında gelir; anahtar ne aranacağını seçer.
+        // YouTube varsayılan kapalı; açılırsa sonuçları listenin başında gelir.
         // Sonuç varken değiştirmek aynı metni yeniden arar.
         Row(
             modifier = Modifier.focusGroup().padding(vertical = 6.dp),
@@ -146,10 +147,10 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("YouTube:", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
-            listOf(false to "▶  Video", true to "☰  Oynatma listesi").forEach { (liste, etiket) ->
-                SourceChip(etiket, active = state.ytListe == liste, favori = false) {
-                    if (state.ytListe != liste) {
-                        state.ytListe = liste
+            listOf("0" to "Kapalı", "video" to "▶  Video", "liste" to "☰  Oynatma listesi").forEach { (mod, etiket) ->
+                SourceChip(etiket, active = state.ytMod == mod, favori = false) {
+                    if (state.ytMod != mod) {
+                        state.ytMod = mod
                         if (state.results != null && state.query.isNotBlank()) ara(state.query)
                     }
                 }

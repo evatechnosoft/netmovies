@@ -191,7 +191,10 @@ async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
 # aramasından AYRI: YouTube eklentisinin kendi `search`ü yalnız resmi dizi
 # listesi döner, çünkü kaynak zinciri onu başlık eşleştirmede kullanıyor; her
 # videoyu oraya katmak "Abi" filmine rastgele bir video eşlerdi.
-# yt: "video" (varsayılan) | "liste" (oynatma listesi) | "0" (kapalı).
+# yt: "0" (varsayılan, kapalı) | "video" | "liste" (oynatma listesi).
+# Varsayılan kapalı (Dean, 6 Ekim): YouTube önde olunca asıl diziler kısa videoların
+# altında kalıyordu; YouTube araması Gözat'ta YouTube seçiliyken ya da elle açılır.
+# sadece=youtube: sağlayıcılar sorulmaz, yalnız YouTube (Gözat → YouTube → ara).
 _YT_ADET = 12
 
 
@@ -242,6 +245,8 @@ async def search_all(request: Request):
 
     adlar = await fuck_dmca("/get_plugin_names", client_headers=basliklar)
     adlar = [ad for ad in (adlar or []) if ad not in gizli]
+    if veri.get("sadece") == "youtube":
+        adlar = [ad for ad in adlar if ad == "YouTube"]
 
     # "resident evil dublaj 2026" → başlık "resident evil"; işaret sözcükleri
     # sağlayıcıya gitmez (HDFilmCehennemi "resident evil 2026" için 0 döndürüyor).
@@ -268,7 +273,7 @@ async def search_all(request: Request):
                 return ogeler
         return []
 
-    yt_tur = str(veri.get("yt") or "video")
+    yt_tur = str(veri.get("yt") or "0")
 
     async def youtube() -> list[dict]:
         if yt_tur not in ("video", "liste"):
@@ -322,6 +327,7 @@ async def search_all(request: Request):
 
     await _bolum_sayilari(ogeler, basliklar)
     # Bölüm sayımı YouTube kartlarına yapılmaz: her video için yt-dlp koşardı.
-    ogeler = youtube_one(await yt_gorev, ogeler)
+    if yt_tur in ("video", "liste"):
+        ogeler = youtube_one(await yt_gorev, ogeler)
 
     return {**api_v1_global_message, "result": ogeler, "niyet": asdict(niyet)}
