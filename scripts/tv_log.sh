@@ -8,6 +8,8 @@ HOST="${ATV_HOST}:5555"
 LOG=/app/data/atv/tv.log
 while true; do
   [ -f "$LOG" ] && [ "$(stat -c %s "$LOG")" -gt 20971520 ] && mv "$LOG" "$LOG.1"
+  # "unauthorized" bağlantı onaydan sonra kendiliğinden düzelmez; kopar, yeniden bağlan.
+  adb -s "$HOST" get-state 2>/dev/null | grep -q device || adb disconnect "$HOST" >/dev/null 2>&1
   adb connect "$HOST" >/dev/null 2>&1
   if adb -s "$HOST" get-state 2>/dev/null | grep -q device; then
     adb -s "$HOST" logcat -v time -T 1 NetMoviesPlayback:V AndroidRuntime:E '*:S' >> "$LOG" 2>&1
