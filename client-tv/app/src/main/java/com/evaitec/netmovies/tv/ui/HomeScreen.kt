@@ -170,14 +170,14 @@ fun HomeScreen(
         is HomeState.Error   -> {
             // İçerik yüklenemese bile Favoriler/İzlenenler doluysa onları göster.
             if (library.favorites.isEmpty() && library.watched.isEmpty()) {
-                ErrorWithRetry(s.message, onRetry = vm::load)
+                ErrorWithRetry(s.message, onRetry = vm::tekrarDene)
             } else {
                 CategoryRows(position, emptyList(), library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote, onOpenTemizle)
             }
         }
         is HomeState.Ready   -> {
             if (s.items.isEmpty() && library.favorites.isEmpty() && library.watched.isEmpty()) {
-                ErrorWithRetry("İçerik yok", onRetry = vm::load)
+                ErrorWithRetry("İçerik yok", onRetry = vm::tekrarDene)
             } else {
                 CategoryRows(position, s.items, library, onSelect, onSelectEpisode, onExit, onOpenBrowse, onOpenSearch, onOpenKeyMap, onOpenVault, onOpenAdmin, onOpenFollowing, onOpenAgenda, onOpenChannels, onOpenRemote, onOpenTemizle)
             }
@@ -834,11 +834,16 @@ private fun PosterCard(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 7.dp),
         ) {
-            if (item.lang.isNotEmpty()) {
+            // ORJ gösterilmez: ALT zaten orijinal ses demek, üçüncü rozet dar kartta
+            // sığmayıp "O/R/J" diye dikey kırılıyordu (Dean, 8 Ekim: "çirkin").
+            val rozetler = item.lang.filter { it != "ORJ" }
+            if (rozetler.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    item.lang.forEach { rozet ->
+                    rozetler.forEach { rozet ->
                         Text(
                             text = rozet,
+                            maxLines = 1,
+                            softWrap = false,
                             fontSize = NmType.Caption,
                             fontWeight = FontWeight.SemiBold,
                             color = when (rozet) {

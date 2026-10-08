@@ -4,6 +4,7 @@
 # Hata veren/çalışmayan kaynak sessizce atlanır → yalnızca çalışan (yeşil) kaynaklar gelir.
 
 import asyncio
+import html
 
 from CLI    import konsol
 from Core   import Request, JSONResponse
@@ -108,7 +109,10 @@ async def _fetch_category(plugin, name: str, page: int, url: str, cat):
     out = []
     for item in results or []:
         item_url = getattr(item, "url", "") or ""
+        # Some providers (FilmMakinesi, FullHDFilmizlesene) return raw HTML
+        # entities: "Efes&#8217;in Sırrı" showed up verbatim on TV posters.
         item_title = getattr(item, "title", None)
+        item_title = html.unescape(item_title) if item_title else item_title
         item_category = str(getattr(item, "category", cat) or cat)
         media_hint = f"{item_title or ''} {item_url} {item_category}".lower()
         if "dublaj" in media_hint and "dublaj" not in item_category.lower():

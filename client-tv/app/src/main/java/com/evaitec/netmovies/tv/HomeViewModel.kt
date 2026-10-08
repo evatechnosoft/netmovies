@@ -28,6 +28,12 @@ class HomeViewModel : ViewModel() {
 
     init { load() }
 
+    /** Hata ekranındaki "Tekrar dene": açık istek, gece saat engelini aşar. */
+    fun tekrarDene() {
+        ZimaUyandir.elleIste()
+        load()
+    }
+
     fun load() {
         _state.value = HomeState.Loading
         ServerResolver.reset()   // her (yeniden) yüklemede local/uzak'ı taze seç
@@ -65,6 +71,9 @@ class HomeViewModel : ViewModel() {
                 load()
             } else if (_state.value is HomeState.Ready) {
                 uyanmaDenemesi = 0
+            } else if (_state.value is HomeState.Error && !ZimaUyandir.yakinda() && ZimaUyandir.geceMi()) {
+                // Gece paketi kendiliğinden gitmez; kullanıcı neden beklediğini bilsin.
+                _state.value = HomeState.Error("Sunucu gece kapalı — uyandırmak için Tekrar dene")
             }
         }
     }

@@ -25,9 +25,23 @@ object ZimaUyandir {
     private const val SESSIZ_BAS = 0
     private const val SESSIZ_BIT = 7
 
-    /** Paket gönderilebilir mi: ekranda + sessiz saatlerin dışında. */
-    internal fun izinli(onPlanda: Boolean, saat: Int): Boolean =
-        onPlanda && saat !in SESSIZ_BAS until SESSIZ_BIT
+    /** Paket gönderilebilir mi: ekranda + (sessiz saatlerin dışında ya da elle istendi). */
+    internal fun izinli(onPlanda: Boolean, saat: Int, elle: Boolean = false): Boolean =
+        onPlanda && (elle || saat !in SESSIZ_BAS until SESSIZ_BIT)
+
+    /** Şu an sessiz saatlerde mi — hata ekranı "gece kapalı" desin diye. */
+    fun geceMi(): Boolean = java.time.LocalTime.now().hour in SESSIZ_BAS until SESSIZ_BIT
+
+    // TV 07:00'dan önce açılınca paket sessizce engelleniyor, otomatik yeniden
+    // deneme de yalnız paket gittiyse çalıştığı için ekran hatada kalıyordu
+    // (Dean, 8 Ekim: "göndermedi wol"). "Tekrar dene" açık kullanıcı isteğidir:
+    // kısa bir pencere için saat engelini ve dakikalık sınırı kaldırır.
+    @Volatile private var elleBitis = 0L
+
+    fun elleIste() {
+        elleBitis = System.currentTimeMillis() + ARALIK_MS
+        sonGonderim = 0L
+    }
 
     /** 6×FF + MAC×16. MAC "AA:BB:..." ya da "AA-BB-..." biçiminde. */
     internal fun sihirliPaket(mac: String): ByteArray {
@@ -41,10 +55,12 @@ object ZimaUyandir {
 
     /** Ağ iş parçacığından çağrılır. Dakikada en fazla bir kez gönderir. */
     fun gonder() {
-        if (!izinli(onPlanda, java.time.LocalTime.now().hour)) return
+        val elle = System.currentTimeMillis() < elleBitis
+        if (!izinli(onPlanda, java.time.LocalTime.now().hour, elle)) return
         val simdi = System.currentTimeMillis()
         if (simdi - sonGonderim < ARALIK_MS) return
         sonGonderim = simdi
+        elleBitis = 0L
         val paket = sihirliPaket(BuildConfig.WOL_MAC)
         runCatching {
             DatagramSocket().use { s ->

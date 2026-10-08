@@ -22,6 +22,9 @@ class ZimaUyandirTest {
     assertEquals(false, ZimaUyandir.izinli(onPlanda = true, saat = 6))
     assertEquals(true, ZimaUyandir.izinli(onPlanda = true, saat = 7))
     assertEquals(true, ZimaUyandir.izinli(onPlanda = true, saat = 23))
+    // "Tekrar dene" gece engelini aşar, ekranda olma şartını aşmaz.
+    assertEquals(true, ZimaUyandir.izinli(onPlanda = true, saat = 6, elle = true))
+    assertEquals(false, ZimaUyandir.izinli(onPlanda = false, saat = 6, elle = true))
   }
 
   @Test(expected = IllegalArgumentException::class)
