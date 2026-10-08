@@ -47,6 +47,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -478,6 +485,8 @@ internal fun NmSearchHeader(
 ) {
     val fieldFocus = remember { FocusRequester() }
     LaunchedEffect(open) { if (open) runCatching { fieldFocus.requestFocus() } }
+    val context = LocalContext.current
+    val klavye = LocalSoftwareKeyboardController.current
 
     Row(
         modifier = Modifier
@@ -514,7 +523,17 @@ internal fun NmSearchHeader(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(fieldFocus)
-                        .onFocusChanged { focused = it.isFocused },
+                        .onFocusChanged { focused = it.isFocused }
+                        // GERİ klavyeyi kapatınca odak kutuda kalıyor ve OK klavyeyi
+                        // geri açmıyordu (Compose OK'u yutuyor). Telefon kumandası
+                        // bağlanınca sistem varsayılan klavyeyi "Mobil cihazınızdaki
+                        // klavyeyi kullanın" köprüsüne çeviriyor; o durumda OK ekran
+                        // klavyesi seçicisini açar — telefon yolu yine durur.
+                        .onPreviewKeyEvent { ke ->
+                            if (ke.key != Key.DirectionCenter) return@onPreviewKeyEvent false
+                            if (ke.type == KeyEventType.KeyUp) ekranKlavyesiAc(context) { klavye?.show() }
+                            true
+                        },
                     decorationBox = { inner ->
                         if (query.isEmpty()) {
                             Text("Ara…", color = NmColor.OnSurfaceFaint, fontSize = NmType.Body)
@@ -528,6 +547,22 @@ internal fun NmSearchHeader(
         }
     }
 }
+
+/** Varsayılan klavye telefon köprüsüyse seçiciyi aç, değilse ekran klavyesini göster. */
+private fun ekranKlavyesiAc(context: android.content.Context, goster: () -> Unit) {
+    val ime = android.provider.Settings.Secure.getString(
+        context.contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD,
+    ).orEmpty()
+    if (ime.contains(TELEFON_KOPRU_IME)) {
+        (context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .showInputMethodPicker()
+    } else {
+        goster()
+    }
+}
+
+/** Android TV Remote Service'in klavyesi: ekranda tuş yok, yalnız telefondan yazdırır. */
+private const val TELEFON_KOPRU_IME = "com.google.android.tv.remote.service"
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
