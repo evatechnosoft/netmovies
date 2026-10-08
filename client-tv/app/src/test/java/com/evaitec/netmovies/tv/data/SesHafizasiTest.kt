@@ -8,6 +8,9 @@ class SesHafizasiTest {
     fun kayitYoksaDokuzdanBaslar() = assertEquals(9, SesHafizasi.hedef(-1, 15))
 
     @Test
+    fun sifirKayitDokuzdanBaslar() = assertEquals(9, SesHafizasi.hedef(0, 15))
+
+    @Test
     fun kayitVarsaKaldigiYerden() = assertEquals(4, SesHafizasi.hedef(4, 15))
 
     @Test
