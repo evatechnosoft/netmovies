@@ -824,41 +824,26 @@ private fun PosterCard(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        // Dil rozetleri başlığın hemen üstünde. Önceden sabit bottom=34dp ile duruyorlardı;
-        // başlık iki satır olunca ORJ/ALT rozetleri yazının üstüne biniyordu. Artık tek
-        // sütunda başlığın üstünde duruyorlar, başlık kaç satır olursa olsun çakışmıyorlar.
-        Column(
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+        // Başlık sol altta, dil rozetleri sağ alt köşede tek harf (A = altyazı,
+        // D = dublaj). Üç tam etiket dar kartta sığmayıp "O/R/J" diye dikey
+        // kırılıyordu (Dean, 8 Ekim: "A ve D sadece köşe bandı kalsın alt sağda").
+        // Aynı satırda durdukları için başlık kaç satır olursa olsun çakışmazlar.
+        val rozetler = item.lang.mapNotNull {
+            when (it) {
+                "ALT"       -> "A"
+                "DUB"       -> "D"
+                Library.REC -> it
+                else        -> null
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 7.dp),
+                .padding(start = 8.dp, end = 6.dp, bottom = 7.dp),
         ) {
-            // ORJ gösterilmez: ALT zaten orijinal ses demek, üçüncü rozet dar kartta
-            // sığmayıp "O/R/J" diye dikey kırılıyordu (Dean, 8 Ekim: "çirkin").
-            val rozetler = item.lang.filter { it != "ORJ" }
-            if (rozetler.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    rozetler.forEach { rozet ->
-                        Text(
-                            text = rozet,
-                            maxLines = 1,
-                            softWrap = false,
-                            fontSize = NmType.Caption,
-                            fontWeight = FontWeight.SemiBold,
-                            color = when (rozet) {
-                                "DUB"       -> NmColor.Primary
-                                Library.REC -> NmColor.Rec
-                                else        -> NmColor.OnSurface
-                            },
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(NmDim.PillRadius))
-                                .background(NmColor.ScrimSoft)
-                                .padding(horizontal = 5.dp, vertical = 1.dp),
-                        )
-                    }
-                }
-            }
             Text(
                 text = item.title.orEmpty(),
                 maxLines = 2,
@@ -867,7 +852,32 @@ private fun PosterCard(
                 lineHeight = NmType.Label * 1.15f,
                 color = NmColor.OnSurface,
                 fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.weight(1f),
             )
+            if (rozetler.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(NmDim.PillRadius))
+                        .background(NmColor.ScrimSoft)
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    rozetler.forEach { rozet ->
+                        Text(
+                            text = rozet,
+                            maxLines = 1,
+                            softWrap = false,
+                            fontSize = NmType.Caption,
+                            fontWeight = FontWeight.Bold,
+                            color = when (rozet) {
+                                "D"         -> NmColor.Primary
+                                Library.REC -> NmColor.Rec
+                                else        -> NmColor.OnSurface
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }
