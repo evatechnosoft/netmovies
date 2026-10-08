@@ -212,9 +212,11 @@ services:
     restart        : unless-stopped
     network_mode   : host
     working_dir    : /app
-    command        : sh -c "pip install -q --no-cache-dir androidtvremote2 && python -u scripts/atv_power.py"
+    command        : sh -c "apt-get update -qq && apt-get install -y -qq adb >/dev/null; sh scripts/tv_log.sh & pip install -q --no-cache-dir androidtvremote2 && python -u scripts/atv_power.py"
     environment:
+      # IP TP-Link'te MAC 24:18:C6:B8:05:B8'e rezerve (8 Ekim).
       ATV_HOST: ${ATV_HOST:-192.168.1.105}
+      HOME    : /app/data/atv   # adb anahtarı kalıcı olsun
       ATV_PORT: "3311"
     volumes:
       - ./scripts:/app/scripts:ro
