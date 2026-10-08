@@ -1,5 +1,5 @@
-# Handoff: Mi Box sadeleştirme + 0.9.62 yayında
-> 2026-10-08 10:50 · `fix/general-stability` @ `7d30a84` (push'lu) · 3 kirli (`.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` — bu oturumun değil, dokunma)
+# Handoff: Samba paylaşımları + telefon sadeleştirme (0.9.62 yayında)
+> 2026-10-08 17:30 · `fix/general-stability` @ `1ead029` (+ bu handoff commit'i; repo kodu değişmedi) · 3 kirli (`.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` — bu oturumun değil, dokunma)
 
 ## Goal
 Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince sormadan üç yere yayınla (yerel OTA, GitHub release `--target`, evaglass `apps.json`). Mi Box durumu ve geri alma komutları: hafıza `mibox-adb-ve-sadelestirme.md`.
@@ -9,17 +9,23 @@ Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince
 - TV Quick Actions erişilebilirlik servisi 10:34te NPE ile çöküp D-pad donmasına yol açtı → KAPATILDI (hiç erişilebilirlik servisi açık değil). Chromecast kaldırıldı.
 - Mi Box S (192.168.1.105, MAC rezerve): ağdan ADB 5555 (laptop + Zima atv konteyneri yetkili). TV logcat → `zima:/DATA/AppData/netmovies/data/atv/tv.log` (`scripts/tv_log.sh`). Animasyon 0, ekran koruyucu kapalı, launcher Projectivy, klavye LeanKey, bloat + Chromecast kaldırıldı.
 - Kayıtlar boş (9 kayıt silindi). Zima: eski OTA betaları + çift yedek silindi (`/DATA` 121 GB).
+- Zima Samba (Dean onaylı, canlı): `/etc/samba/casa.conf` (yedek `.bak-20261008`) → `[recs]` kayıtlar anonim salt-okunur, `[shared]` /DATA/shared dean'e yazılır (apps/pictures/documents), `[apps]` /DATA/shared/apps anonim yazılır (TV 0.9.62 + Wear 0.1.19 APK içinde). Dean CX ile telefondan ve Mi Box'tan bağlandı. Hafıza `zima-samba-casa-conf`.
+- LG SIMPLINK döngüsü 10:46'da hâlâ sürüyordu (kutu Vendor Id 00 00 00, rootsuz değişmez). Kutu `hdmi_control_auto_device_off_enabled=1`; kutu uyuyunca TV "sinyal yok"ta kalıyor — Standby gidiyor mu görülmedi.
+- Dean'in telefonları (NetMovies dışı): S24 42 uygulama kaldırıldı, Fold 8 13 kaldırıldı + 22 devre dışı (sistem uygulaması rootsuz silinmiyor). Liste + geri alma: hafıza `telefon-sadelestirme`. Fold mikrofon çakışması = Hey Google HOTWORD (Dean kalsın dedi), Bixby kapatıldı.
 - ZimaOS Plus başvurusu Gmail TASLAĞI (support@icewhale.org, kanıt eki var) — gönderilmedi; panel şifresi yok, ekran görüntüsü eklenemedi.
 
 ## Next
-1. Dean'den LG SIMPLINK sonucu: `adb -s 192.168.1.105:5555 shell dumpsys hdmi_control | grep -E "\] time" | tail -6` — LG `Give Device Vendor Id` döngüsü (kutu 00 00 00) bitmiş mi.
-2. Air mouse USB alıcısı + HDD: tek USB port → güçlü hub önerildi; "USB hata ayıklama açıkken alıcı çalışmıyor" iddiası doğrulanmadı.
-3. Onay bekleyen işler (Dean "evet" demedi): Zima Samba `[Kayitlar]` salt-okunur + `[Paylasim]` + Nextcloud cron/indeks (systemd timer — auto-mode sınıflandırıcısı reddetti, Dean açık onay vermeli); TV arama ızgara klavye (Türkçe alfabe, sarmalı; ref `halilozel1903/android-tv-search-keyboard`).
-4. Zima konteyner temizliği: envanter yapıldı (HA supervised, Coolify %42 CPU, çift Flowise vb.), Dean "kontrol eder değerlendiririz" dedi — kaldırma yok.
+1. Kapatma: Dean cevaplamadı (TV ikinci basışta mı, kendiliğinden mi kapanıyor). Önce LG'de SIMPLINK + Otomatik Güç Senkronizasyonu açık mı; sonra Dean kutuyu kapatınca 1 dk içinde `adb -s 192.168.1.105:5555 shell dumpsys hdmi_control | grep -E "\] time" | tail -20` → `<Standby>` gidiyor mu.
+2. Fold'da Samsung otomatik yeniden başlatma: ekran açıldı, Dean elle kuracak (04:00, her gün). Arka plan işlem sınırı İSTENMEDİ.
+3. Onay bekleyen: Nextcloud cron/indeks; TV arama ızgara klavye (ref `halilozel1903/android-tv-search-keyboard`).
+4. Air mouse: USB alıcı Mi Box'a (hub ile) takılmalı, LG'ye takılırsa yalnız LG'yi sürer.
+5. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
 
 ## Don't repeat
 - Custom ROM/slimBOXtv: Mi Box S secure boot eFuse'ta, kurulamaz.
 - Magic Remote imleci CEC'ten geçmez.
+- Samba'yı `casa.dean.conf`/`smb.conf`'a yazma: ZimaOS açılışta yeniden üretir; yalnız `casa.conf`.
+- Fold'da arka plan işlem sınırı: 5 seçeneği yok, yeniden başlatmada sıfırlanır, saat/bildirim öldürür — Dean vazgeçti.
 - Masaüstü ekran görüntüsü kanıt değil (VS Code önde, kişisel içerik).
 - tvQA 3.5.0 erişilebilirliği NPE ile çöküyor (D-pad donar) — güncellemeden açma. Projectivy erişilebilirliğini de açma; HOME zaten Projectivy (tvlauncher disabled).
 
