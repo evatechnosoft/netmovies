@@ -38,6 +38,28 @@ class YouTubeResmiTest(unittest.TestCase):
         siradan = [{"id": "x", "title": "Konser", "duration": 300}, {"id": "y", "title": "Röportaj"}]
         self.assertEqual([(b.episode, b.title) for b in liste_bolumleri(siradan)], [(1, "Konser"), (2, "Röportaj")])
 
+    def test_arama_adresi_yalniz_resmi_liste(self):
+        # Lioness → "LioNess" yemek kanalı: numarasız liste zincire bölüm olarak verilmez.
+        import asyncio
+        from unittest import mock
+        from KekikStream.Core import SearchResult
+        import Plugins.YouTube as yt
+
+        siradan = {"entries": [{"id": "k", "title": "Kitchen tour", "duration": 329}]}
+        resmi = {"entries": [{"id": "a", "title": "A.B.İ. 1. Bölüm", "duration": 7200}]}
+        bulunan = [SearchResult(title="Lioness", url="https://www.youtube.com/playlist?list=X")]
+        eklenti = yt.YouTube.__new__(yt.YouTube)
+
+        async def calistir(veri, url):
+            with mock.patch.object(yt, "_ytdlp_json", mock.AsyncMock(return_value=veri)),                  mock.patch.object(yt.YouTube, "search", mock.AsyncMock(return_value=bulunan)):
+                return (await eklenti.load_item(url)).episodes
+
+        arama = "https://www.youtube.com/results?search_query=Lioness"
+        self.assertEqual(asyncio.run(calistir(siradan, arama)), [])
+        self.assertEqual(len(asyncio.run(calistir(resmi, arama))), 1)
+        # Gözat'ta liste adresi doğrudan açılınca sıradan liste korunur (konser vb.).
+        self.assertEqual(len(asyncio.run(calistir(siradan, bulunan[0].url))), 1)
+
     def test_video_mu(self):
         # Hızlı yolun arama adresi ve liste adresi load_links'e yt-dlp koşturmaz.
         self.assertTrue(video_mu("https://www.youtube.com/watch?v=OMHZ22RfJ3o"))

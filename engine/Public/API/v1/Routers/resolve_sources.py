@@ -42,7 +42,7 @@ class Diagnostics:
         konsol.log(f"{mark} resolve: {stage} — {message}")
 
 
-async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None, season_no: int | None = None) -> tuple[list[dict], list[dict]]:
+async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None, season_no: int | None = None, liste_once: bool = True) -> tuple[list[dict], list[dict]]:
     """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır.
 
     `content_url` DÜZ url'dir (kodlanmış değil): eklentiler httpx'e doğrudan verir.
@@ -71,7 +71,7 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
     # başına oynatılabilir olduğu için aşağıdaki ilk deneme tutuyor ve seçilen
     # bölüm hiç dikkate alınmıyordu — hangi bölüme basılsa karttaki (son) bölüm
     # açılıyordu. index 0 "seçim yok"tur: fazladan istek atılmaz, eski yol işler.
-    if episode_index > 0 or episode_no is not None:
+    if episode_index > 0 or (episode_no is not None and liste_once):
         secilenler = await _episode_objects()
         if secilenler:
             episodes = [
@@ -224,10 +224,12 @@ async def resolve_sources(request: Request):
     diag.add("info", "oturum", f"{title or '?'} · seçili sağlayıcı: {selected} · mod: {mode}")
 
     # Seçili sağlayıcıda ilk bölüm için liste ÖNCEDEN çözülmez (hızlı açılış):
-    # istemci zaten bölümün kendi adresini gönderiyor.
+    # istemci zaten bölümün kendi adresini gönderiyor. Adres bölüm değilse (liste
+    # ya da arama sayfası) numara yine geçerli: geçidin paralel YouTube sorusu
+    # indeks göndermez, numara düşünce Lioness S3B8 için listenin 1. videosu
+    # ("kitchen") açılıyordu (Dean, 8 Ekim).
     sources, episodes = await _links_for(
-        selected, content, episode, diag,
-        secili_no if episode > 0 else None, secili_sez if episode > 0 else None,
+        selected, content, episode, diag, secili_no, secili_sez, liste_once=episode > 0,
     )
     episodes_plugin   = selected if episodes else None
 

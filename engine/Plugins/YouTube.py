@@ -154,7 +154,8 @@ class YouTube(PluginBase):
 
     async def load_item(self, url: str) -> SeriesInfo | MovieInfo:
         # Arama adresi de kabul edilir: zincir "<dizi> için resmi liste" diye sorabilsin.
-        if "/results?" in url:
+        arama = "/results?" in url
+        if arama:
             sorgu = parse_qs(urlparse(url).query).get("search_query", [""])[0]
             bulunan = await self.search(sorgu)
             if not bulunan:
@@ -167,7 +168,13 @@ class YouTube(PluginBase):
             kimlik = d.get("id") or ""
             return MovieInfo(url=url, title=d.get("title") or "", poster=kapak or f"https://i.ytimg.com/vi/{kimlik}/hqdefault.jpg")
         bolumler = liste_bolumleri(d.get("entries") or [])
-        resmi    = bool(bolumler) and all(b.title.endswith(". Bölüm") for b in bolumler)
+        # Çekirdek "1. Bölüm" gibi jenerik adı None yapıyor: None = resmi bölüm adı.
+        resmi    = bool(bolumler) and all(not b.title or b.title.endswith(". Bölüm") for b in bolumler)
+        # Arama adresi = zincir "resmi bölüm listesi" soruyor. Adı diziyle aynı
+        # rastgele kanal (Lioness → "LioNess" yemek kanalı) numarasız liste verir;
+        # sıra numarası bölüm sanılınca dizi yerine yemek videosu oynuyordu.
+        if arama and not resmi:
+            bolumler = []
         return SeriesInfo(
             url         = url,
             # Resmi listede kanal = dizinin adı; sıradan listede liste adı anlamlı.
