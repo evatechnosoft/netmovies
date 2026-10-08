@@ -1,10 +1,12 @@
-# Handoff: Samba paylaşımları + telefon sadeleştirme (0.9.62 yayında)
+# Handoff: 0.9.63 ızgara klavye + Samba/Nextcloud + telefon sadeleştirme
 > 2026-10-08 17:30 · `fix/general-stability` @ `1ead029` (+ bu handoff commit'i; repo kodu değişmedi) · 3 kirli (`.claude/handoffs/latest.md`, `atv-kopru.log`, `scripts/yedek_reddet.py` — bu oturumun değil, dokunma)
 
 ## Goal
 Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince sormadan üç yere yayınla (yerel OTA, GitHub release `--target`, evaglass `apps.json`). Mi Box durumu ve geri alma komutları: hafıza `mibox-adb-ve-sadelestirme.md`.
 
 ## State
+- 0.9.63 üç yerde (`157f4db`, sha `517eeeb9…`, indirme sha eşleşti): aramada Türkçe ızgara klavye (`SearchKeys.kt`/`SearchKeyboard.kt`, 4 test), canlı arama 2+ karakter 600 ms. Cihazda/emülatörde DOĞRULANMADI (TV oynatıyordu; evabench_shot emülatörü açılışta kaldı). Sonuç ızgarası klavye yanında ~3 sütuna daralabilir — Dean'den bak.
+- Nextcloud: compose'a /mnt/shared + /mnt/recs(ro), files_external ile dean'e bağlı, cron modu + `nextcloud-cron.timer` 5 dk. Web arayüzünde görülmedi.
 - 0.9.59–0.9.62 üç yerde yayında (0.9.62 sha `03d91bf3…`, ses 0 kayıttan 9 başlar): gece "Tekrar dene" WOL saat engelini aşar; kart rozetleri sağ altta A/D; aramada OK klavyeyi açar; Lioness S3B8'de "LioNess" yemek kanalı açılmaz (engine `e2fc1cb`, canlı). Hepsi cihazda doğrulanmadı.
 - TV Quick Actions erişilebilirlik servisi 10:34te NPE ile çöküp D-pad donmasına yol açtı → KAPATILDI (hiç erişilebilirlik servisi açık değil). Chromecast kaldırıldı.
 - Mi Box S (192.168.1.105, MAC rezerve): ağdan ADB 5555 (laptop + Zima atv konteyneri yetkili). TV logcat → `zima:/DATA/AppData/netmovies/data/atv/tv.log` (`scripts/tv_log.sh`). Animasyon 0, ekran koruyucu kapalı, launcher Projectivy, klavye LeanKey, bloat + Chromecast kaldırıldı.
@@ -17,7 +19,7 @@ Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince
 ## Next
 1. Kapatma: Dean cevaplamadı (TV ikinci basışta mı, kendiliğinden mi kapanıyor). Önce LG'de SIMPLINK + Otomatik Güç Senkronizasyonu açık mı; sonra Dean kutuyu kapatınca 1 dk içinde `adb -s 192.168.1.105:5555 shell dumpsys hdmi_control | grep -E "\] time" | tail -20` → `<Standby>` gidiyor mu.
 2. Fold'da Samsung otomatik yeniden başlatma: ekran açıldı, Dean elle kuracak (04:00, her gün). Arka plan işlem sınırı İSTENMEDİ.
-3. Onay bekleyen: Nextcloud cron/indeks; TV arama ızgara klavye (ref `halilozel1903/android-tv-search-keyboard`).
+3. Dean'in 0.9.63 klavye geri bildirimi (odak geçişleri, sonuç sütun sayısı).
 4. Air mouse: USB alıcı Mi Box'a (hub ile) takılmalı, LG'ye takılırsa yalnız LG'yi sürer.
 5. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
 
