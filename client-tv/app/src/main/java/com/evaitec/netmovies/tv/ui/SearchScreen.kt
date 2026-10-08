@@ -41,6 +41,9 @@ import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
 import com.evaitec.netmovies.tv.ui.theme.nmFocusRingOnly
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Arama, Gözat'ın içinden çıkıp KENDİ ekranı oldu: büyüteç ana ekranın sol
@@ -56,8 +59,10 @@ class SearchState {
     var query by mutableStateOf("")
     var results by mutableStateOf<List<MediaItem>?>(null)
     var loading by mutableStateOf(false)
-    /** Arama kutusu açık mı — dönüşte klavyeyi yeniden açmamak için. */
-    var typing by mutableStateOf(false)
+    /** Last focused grid key — re-entry and screen return land on it. */
+    var tus by mutableStateOf(0)
+    /** Last searched term; the live search does not re-run it when the screen returns. */
+    var aranan = ""
     /** YouTube araması: "0" kapalı (varsayılan), "video", "liste" (oynatma listesi).
      *  Kapalı: açıkken asıl diziler kısa videoların altında kalıyordu (Dean, 6 Ekim). */
     var ytMod by mutableStateOf("0")
@@ -105,38 +110,71 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
     // Ağ hatası "sonuç yok" gibi görünmesin: ayrı mesaj + Tekrar dene.
     var aramaHatasi by remember { mutableStateOf<String?>(null) }
 
-    fun ara(terim: String) {
+    var aramaIsi by remember { mutableStateOf<Job?>(null) }
+
+    // kaydet=false: live search from the grid keyboard; partial words must not fill history.
+    fun ara(terim: String, kaydet: Boolean = true) {
         val temiz = terim.trim()
         if (temiz.isEmpty()) return
-        state.query = temiz
-        state.typing = false
+        // Only overwrite when different: trimming mid-typing would eat the space just typed.
+        if (state.query.trim() != temiz) state.query = temiz
+        state.aranan = temiz
         state.results = emptyList()
         state.loading = true
         aramaHatasi = null
-        history.add(temiz)
-        gecmis = history.all()
-        scope.launch {
-            state.results = runCatching { Network.api.searchAll(temiz, yt = state.ytMod).result }
-                .onFailure { aramaHatasi = it.kullaniciMesaji("Arama yapılamadı") }
-                .getOrDefault(emptyList())
+        if (kaydet) {
+            history.add(temiz)
+            gecmis = history.all()
+        }
+        // Live search fires per pause; an older, slower reply must not overwrite a newer one.
+        aramaIsi?.cancel()
+        aramaIsi = scope.launch {
+            state.results = try {
+                Network.api.searchAll(temiz, yt = state.ytMod).result
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                aramaHatasi = e.kullaniciMesaji("Arama yapılamadı")
+                emptyList()
+            }
             state.loading = false
         }
     }
 
-    // Ekrana ilk girişte odak arama kutusunda; dönüşte sonuçlar duruyorsa
-    // kutuyu açmaz, kullanıcı listeye devam eder.
-    LaunchedEffect(Unit) {
-        if (state.results == null) state.typing = true
+    // Debounced live search: every grid key press edits the query, a short pause searches.
+    LaunchedEffect(state.query) {
+        val temiz = state.query.trim()
+        if (temiz == state.aranan) return@LaunchedEffect
+        if (temiz.isEmpty()) {
+            state.aranan = ""
+            aramaIsi?.cancel()
+            state.loading = false
+            state.results = null
+            return@LaunchedEffect
+        }
+        if (temiz.length < CANLI_ARAMA_EN_AZ) return@LaunchedEffect
+        delay(CANLI_ARAMA_BEKLE_MS)
+        ara(temiz, kaydet = false)
+    }
+
+    // A result picked from a live search is what Dean meant: that goes to history.
+    val sec: (MediaItem) -> Unit = { oge ->
+        history.add(state.query)
+        gecmis = history.all()
+        onSelect(oge)
     }
 
     Column(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH)) {
         NmSearchHeader(
             title = "🔎  Arama",
-            open = state.typing,
+            // Field always shown: it displays the grid's text and OK on it still opens
+            // the system keyboard (LeanKey / phone bridge), reached with UP from the grid.
+            open = true,
             query = state.query,
             onQueryChange = { state.query = it },
-            onOpen = { state.typing = true },
+            onOpen = {},
             onSearch = { ara(state.query) },
+            autoFocus = false,
         )
 
         // YouTube varsayılan kapalı; açılırsa sonuçları listenin başında gelir.
@@ -157,67 +195,81 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             }
         }
 
-        when {
-            state.results != null -> {
-                Text(
-                    text = if (state.loading) "Aranıyor: ${state.query}…"
-                           else "Sonuç: ${state.query} (${state.results!!.size})",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = NmType.RowTitle,
-                    color = NmColor.OnSurface,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-                val hata = aramaHatasi
-                if (hata != null && !state.loading) {
-                    ErrorWithRetry(hata) { ara(state.query) }
-                } else if (state.results!!.isEmpty() && !state.loading) {
-                    Kutu("Sonuç bulunamadı — başka bir yazım deneyin.")
-                } else {
-                    LazyVerticalGrid(
-                        modifier = Modifier.fillMaxSize().focusGroup(),
-                        columns = GridCells.Adaptive(minSize = NmDim.GridPosterMin),
-                        contentPadding = PaddingValues(bottom = NmDim.SafeV),
-                        horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
-                        verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
-                    ) {
-                        items(state.results!!.size) { i ->
-                            val oge = state.results!![i]
-                            BrowsePoster(oge) { onSelect(oge) }
+        val sonucVar = !state.results.isNullOrEmpty()
+        val sagdaIcerikVar = if (state.results != null) sonucVar || aramaHatasi != null else gecmis.isNotEmpty()
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(NmDim.SafeH / 2)) {
+            SearchKeyboard(
+                sonTus = state.tus,
+                onSonTus = { state.tus = it },
+                // Returning to existing results: focus is left to the results, as before.
+                ilkOdak = state.results == null,
+                sagdaIcerikVar = sagdaIcerikVar,
+                onTus = { state.query = tusUygula(state.query, it) },
+            )
+            Column(Modifier.weight(1f)) {
+                when {
+                    state.results != null -> {
+                        Text(
+                            text = if (state.loading) "Aranıyor: ${state.query}…"
+                                   else "Sonuç: ${state.query} (${state.results!!.size})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = NmType.RowTitle,
+                            color = NmColor.OnSurface,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
+                        val hata = aramaHatasi
+                        if (hata != null && !state.loading) {
+                            ErrorWithRetry(hata) { ara(state.query) }
+                        } else if (state.results!!.isEmpty() && !state.loading) {
+                            Kutu("Sonuç bulunamadı — başka bir yazım deneyin.")
+                        } else {
+                            LazyVerticalGrid(
+                                modifier = Modifier.fillMaxSize().focusGroup(),
+                                columns = GridCells.Adaptive(minSize = NmDim.GridPosterMin),
+                                contentPadding = PaddingValues(bottom = NmDim.SafeV),
+                                horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                                verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
+                            ) {
+                                items(state.results!!.size) { i ->
+                                    val oge = state.results!![i]
+                                    BrowsePoster(oge) { sec(oge) }
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            gecmis.isEmpty() -> Kutu("Aramak için büyüteç kutusuna yazın.")
+                    gecmis.isEmpty() -> Kutu("Soldaki harflerle yazın.")
 
-            else -> {
-                // Üstte son birkaç arama hızlı erişim için; listenin tamamı
-                // istenirse açılır (Dean: "üstte birkaç arama cümlesi, aşağı
-                // kadar doldurma, hepsini göster koyabiliriz").
-                val gosterilen = if (hepsiniGoster) gecmis else gecmis.take(KISA_GECMIS)
-                Text(
-                    text = "Son Aramalar (${gecmis.size})",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = NmType.RowTitle,
-                    color = NmColor.OnSurface,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().focusGroup(),
-                    contentPadding = PaddingValues(bottom = NmDim.SafeV),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    items(gosterilen.size) { i ->
-                        GecmisSatiri(gosterilen[i]) { ara(gosterilen[i]) }
-                    }
-                    if (!hepsiniGoster && gecmis.size > KISA_GECMIS) {
-                        item { GecmisSatiri("⤵  Hepsini göster (${gecmis.size})") { hepsiniGoster = true } }
-                    }
-                    item {
-                        GecmisSatiri("🗑  Geçmişi temizle") {
-                            history.clear()
-                            gecmis = emptyList()
-                            hepsiniGoster = false
+                    else -> {
+                        // Üstte son birkaç arama hızlı erişim için; listenin tamamı
+                        // istenirse açılır (Dean: "üstte birkaç arama cümlesi, aşağı
+                        // kadar doldurma, hepsini göster koyabiliriz").
+                        val gosterilen = if (hepsiniGoster) gecmis else gecmis.take(KISA_GECMIS)
+                        Text(
+                            text = "Son Aramalar (${gecmis.size})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = NmType.RowTitle,
+                            color = NmColor.OnSurface,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().focusGroup(),
+                            contentPadding = PaddingValues(bottom = NmDim.SafeV),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(gosterilen.size) { i ->
+                                GecmisSatiri(gosterilen[i]) { ara(gosterilen[i]) }
+                            }
+                            if (!hepsiniGoster && gecmis.size > KISA_GECMIS) {
+                                item { GecmisSatiri("⤵  Hepsini göster (${gecmis.size})") { hepsiniGoster = true } }
+                            }
+                            item {
+                                GecmisSatiri("🗑  Geçmişi temizle") {
+                                    history.clear()
+                                    gecmis = emptyList()
+                                    hepsiniGoster = false
+                                }
+                            }
                         }
                     }
                 }
@@ -227,6 +279,8 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
 }
 
 private const val KISA_GECMIS = 6
+private const val CANLI_ARAMA_EN_AZ = 2
+private const val CANLI_ARAMA_BEKLE_MS = 600L
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable

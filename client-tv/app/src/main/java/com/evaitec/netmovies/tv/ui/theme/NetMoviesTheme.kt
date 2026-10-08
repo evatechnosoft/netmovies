@@ -97,6 +97,8 @@ object NmDim {
     val SegmentWidth    = 64.dp   // bitişik ikon segmentinin bir dilimi (ikon + ✓ sığar)
     val SegmentGap      = 2.dp    // segment dilimleri arası ince çizgi
     val DialogWidth = 380.dp
+    // Search on-screen keyboard key (square); 7 columns + gaps ≈ 344dp, results get the rest.
+    val KeySize = 44.dp
 }
 
 object NmType {

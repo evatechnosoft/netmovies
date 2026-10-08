@@ -482,9 +482,11 @@ internal fun NmSearchHeader(
     onQueryChange: (String) -> Unit,
     onOpen: () -> Unit,
     onSearch: () -> Unit,
+    // Search screen keeps the field open but starts focus on its grid keyboard.
+    autoFocus: Boolean = true,
 ) {
     val fieldFocus = remember { FocusRequester() }
-    LaunchedEffect(open) { if (open) runCatching { fieldFocus.requestFocus() } }
+    LaunchedEffect(open) { if (open && autoFocus) runCatching { fieldFocus.requestFocus() } }
     val context = LocalContext.current
     val klavye = LocalSoftwareKeyboardController.current
 
