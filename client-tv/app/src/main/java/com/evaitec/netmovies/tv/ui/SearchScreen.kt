@@ -101,6 +101,9 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
     var gecmis by remember { mutableStateOf(history.all()) }
     var hepsiniGoster by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    // Keyboard choice survives app restarts (same prefs file as the history).
+    val prefs = remember(context) { context.getSharedPreferences("netmovies_search", Context.MODE_PRIVATE) }
+    var klavye by remember { mutableStateOf(KlavyeModu.bul(prefs.getString("klavye", null))) }
 
     NmBackHandler {
         // Sonuç ekranındayken GERİ arama listesine döner, oradan ana ekrana.
@@ -174,7 +177,8 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             onQueryChange = { state.query = it },
             onOpen = {},
             onSearch = { ara(state.query) },
-            autoFocus = false,
+            // System keyboard mode has no grid: focus starts on the field, OK opens LeanKey.
+            autoFocus = klavye == KlavyeModu.NORMAL,
         )
 
         // YouTube varsayılan kapalı; açılırsa sonuçları listenin başında gelir.
@@ -193,12 +197,21 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
                     }
                 }
             }
+            Text("   Klavye:", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
+            KlavyeModu.entries.forEach { mod ->
+                SourceChip(mod.etiket, active = klavye == mod, favori = false) {
+                    klavye = mod
+                    prefs.edit().putString("klavye", mod.anahtar).apply()
+                }
+            }
         }
 
         val sonucVar = !state.results.isNullOrEmpty()
         val sagdaIcerikVar = if (state.results != null) sonucVar || aramaHatasi != null else gecmis.isNotEmpty()
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(NmDim.SafeH / 2)) {
-            SearchKeyboard(
+            val duzen = klavye.duzen()
+            if (duzen != null) SearchKeyboard(
+                duzen = duzen,
                 sonTus = state.tus,
                 onSonTus = { state.tus = it },
                 // Returning to existing results: focus is left to the results, as before.
@@ -238,7 +251,7 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
                         }
                     }
 
-                    gecmis.isEmpty() -> Kutu("Soldaki harflerle yazın.")
+                    gecmis.isEmpty() -> Kutu(if (duzen != null) "Soldaki harflerle yazın." else "Yukarıdaki alana OK ile yazın.")
 
                     else -> {
                         // Üstte son birkaç arama hızlı erişim için; listenin tamamı

@@ -99,6 +99,7 @@ object NmDim {
     val DialogWidth = 380.dp
     // Search on-screen keyboard key (square); 7 columns + gaps ≈ 344dp, results get the rest.
     val KeySize = 44.dp
+    val KeySizeWide = 38.dp  // 12-column QWERTY grid; results still get two poster columns
 }
 
 object NmType {

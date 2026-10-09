@@ -9,17 +9,46 @@ internal const val TUS_BOSLUK = "␣"
 internal const val TUS_SIL = "⌫"
 internal const val TUS_TEMIZLE = "✕"
 
-internal const val KLAVYE_SUTUN = 7
+/** Search input mode; [anahtar] is what is persisted. NORMAL hides the grid (system keyboard only). */
+internal enum class KlavyeModu(val anahtar: String, val etiket: String) {
+    ABC("abc", "▦  ABC"),
+    QWERTY("qwerty", "⌨  QWERTY"),
+    NORMAL("normal", "✎  Sistem");
+
+    companion object {
+        fun bul(anahtar: String?): KlavyeModu = entries.firstOrNull { it.anahtar == anahtar } ?: ABC
+    }
+}
+
+/** One grid layout: keys row by row, [sutun] per row. Grids must be full for edge wrap. */
+internal class KlavyeDuzeni(val tuslar: List<String>, val sutun: Int)
+
+private fun tuslar(vararg satirlar: String): List<String> =
+    satirlar.flatMap { satir -> satir.map { it.toString() } }
 
 /** Turkish alphabet, digits and the three edit keys: 42 keys = full 6x7 grid. */
-internal val KLAVYE_TUSLARI: List<String> =
-    "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ1234567890".map { it.toString() } +
-        listOf(TUS_BOSLUK, TUS_SIL, TUS_TEMIZLE)
+internal val KLAVYE_ABC = KlavyeDuzeni(
+    tuslar("ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ1234567890") + listOf(TUS_BOSLUK, TUS_SIL, TUS_TEMIZLE),
+    sutun = 7,
+)
+
+/** Turkish Q layout, 4x12; digits on top like a real keyboard, punctuation common in titles. */
+internal val KLAVYE_QWERTY = KlavyeDuzeni(
+    tuslar("1234567890") + listOf(TUS_SIL, TUS_TEMIZLE) +
+        tuslar("QWERTYUIOPĞÜ", "ASDFGHJKLŞİ'", "ZXCVBNMÖÇ") + listOf(TUS_BOSLUK, "-", "."),
+    sutun = 12,
+)
+
+internal fun KlavyeModu.duzen(): KlavyeDuzeni? = when (this) {
+    KlavyeModu.ABC -> KLAVYE_ABC
+    KlavyeModu.QWERTY -> KLAVYE_QWERTY
+    KlavyeModu.NORMAL -> null
+}
 
 private val TR = Locale.forLanguageTag("tr-TR")
 
 /** Neighbour of [index] moving by ([dx], [dy]); wraps around every edge of a full grid. */
-internal fun sarmaliKomsu(index: Int, dx: Int, dy: Int, sutun: Int = KLAVYE_SUTUN, adet: Int = KLAVYE_TUSLARI.size): Int {
+internal fun sarmaliKomsu(index: Int, dx: Int, dy: Int, sutun: Int, adet: Int): Int {
     require(adet % sutun == 0) { "grid must be full" }
     val satir = adet / sutun
     val x = Math.floorMod(index % sutun + dx, sutun)

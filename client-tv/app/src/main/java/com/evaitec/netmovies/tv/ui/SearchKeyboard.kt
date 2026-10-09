@@ -25,6 +25,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.evaitec.netmovies.tv.ui.theme.NmColor
@@ -41,6 +42,7 @@ import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 internal fun SearchKeyboard(
+    duzen: KlavyeDuzeni,
     sonTus: Int,
     onSonTus: (Int) -> Unit,
     ilkOdak: Boolean,
@@ -48,8 +50,13 @@ internal fun SearchKeyboard(
     onTus: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val istekler = remember { List(KLAVYE_TUSLARI.size) { FocusRequester() } }
-    val son = sonTus.coerceIn(0, KLAVYE_TUSLARI.lastIndex)
+    val adet = duzen.tuslar.size
+    val sutunSayisi = duzen.sutun
+    val istekler = remember(duzen) { List(adet) { FocusRequester() } }
+    val son = sonTus.coerceIn(0, adet - 1)
+    fun komsu(i: Int, dx: Int, dy: Int) = istekler[sarmaliKomsu(i, dx, dy, sutunSayisi, adet)]
+    // Wide layouts get smaller keys so the results keep room for posters.
+    val tusBoyu = if (sutunSayisi > 7) NmDim.KeySizeWide else NmDim.KeySize
 
     // A single requestFocus on the first frame is silently dropped (tv-focus trap #2).
     LaunchedEffect(Unit) {
@@ -66,21 +73,22 @@ internal fun SearchKeyboard(
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
     ) {
-        KLAVYE_TUSLARI.chunked(KLAVYE_SUTUN).forEachIndexed { satir, tuslar ->
+        duzen.tuslar.chunked(sutunSayisi).forEachIndexed { satir, tuslar ->
             Row(horizontalArrangement = Arrangement.spacedBy(NmDim.ChipGap)) {
                 tuslar.forEachIndexed { sutun, tus ->
-                    val i = satir * KLAVYE_SUTUN + sutun
+                    val i = satir * sutunSayisi + sutun
                     Tus(
                         tus = tus,
+                        boyut = tusBoyu,
                         modifier = Modifier
                             .focusRequester(istekler[i])
                             .focusProperties {
-                                left = istekler[sarmaliKomsu(i, -1, 0)]
-                                down = istekler[sarmaliKomsu(i, 0, 1)]
-                                right = if (sutun == KLAVYE_SUTUN - 1 && sagdaIcerikVar) FocusRequester.Default
-                                        else istekler[sarmaliKomsu(i, 1, 0)]
+                                left = komsu(i, -1, 0)
+                                down = komsu(i, 0, 1)
+                                right = if (sutun == sutunSayisi - 1 && sagdaIcerikVar) FocusRequester.Default
+                                        else komsu(i, 1, 0)
                                 // Top row: UP exits to the header field (system keyboard stays reachable).
-                                up = if (satir == 0) FocusRequester.Default else istekler[sarmaliKomsu(i, 0, -1)]
+                                up = if (satir == 0) FocusRequester.Default else komsu(i, 0, -1)
                             },
                         onFocus = { onSonTus(i) },
                         onClick = { onTus(tus) },
@@ -93,13 +101,13 @@ internal fun SearchKeyboard(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Tus(tus: String, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit) {
+private fun Tus(tus: String, boyut: Dp, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NmDim.RowRadius)
     Box(
         // onFocusChanged before clickable: one focus target (tv-focus trap #1).
         modifier = modifier
-            .size(NmDim.KeySize)
+            .size(boyut)
             .clip(shape)
             .background(if (focused) NmColor.Primary else NmColor.Surface)
             .nmFocusRing(focused, shape)
