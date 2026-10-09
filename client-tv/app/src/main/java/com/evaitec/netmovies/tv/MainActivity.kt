@@ -222,6 +222,7 @@ class MainActivity : ComponentActivity() {
                         var showRemote by remember { mutableStateOf(false) }
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
+                        var webAdresi by remember { mutableStateOf<String?>(null) }
                         var showFollowing by remember { mutableStateOf(false) }
                         var showAgenda by remember { mutableStateOf(false) }
                         // Gözat'a ajandadan mı girildi: GERİ oraya dönsün, arama
@@ -318,7 +319,7 @@ class MainActivity : ComponentActivity() {
                         // oynatıcıdaki hızlı pad. Sistemin HOME tuşu DEĞİL: o tuş uygulamaya
                         // hiç gelmez (Android onu launcher'a verir), uygulamayı arka plana atar.
                         val anaSayfa = {
-                            selected = null; showBrowse = false; showAdmin = false
+                            selected = null; showBrowse = false; showAdmin = false; webAdresi = null
                             showFollowing = false; showChannels = false; showKeyMap = false; showAgenda = false
                             showTemizle = false
                             showSearch = false; showRemote = false
@@ -387,6 +388,8 @@ class MainActivity : ComponentActivity() {
                                             if (!showBrowse) { browseVaultMode = false; showBrowse = true }
                                             kumandaMetni = cmd.text.ifBlank { null }
                                         }
+
+                                        "web" -> if (cmd.url.startsWith("http")) webAdresi = cmd.url
 
                                         "nav" -> when (cmd.screen) {
                                             "home" -> anaSayfa()
@@ -466,6 +469,11 @@ class MainActivity : ComponentActivity() {
                                 )
                             showAdmin ->
                                 com.evaitec.netmovies.tv.ui.AdminScreen(onBack = { showAdmin = false })
+                            webAdresi != null ->
+                                // key: a second share replaces the page instead of reusing the old WebView.
+                                androidx.compose.runtime.key(webAdresi) {
+                                    com.evaitec.netmovies.tv.ui.WebEkrani(url = webAdresi!!, onBack = { webAdresi = null })
+                                }
                             showChannels ->
                                 com.evaitec.netmovies.tv.ui.ChannelsScreen(
                                     onSelect = pick,

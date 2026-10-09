@@ -114,6 +114,14 @@ def build_command(veri: dict) -> dict | str:
             return f"gecersiz screen: {screen or '(bos)'}"
         return {"type": "nav", "screen": screen}
 
+    if tur == "web":
+        # Telefonda "Paylaş → TV'de aç": sayfa TV'nin kendi WebView'ında açılır.
+        # Yalnız http(s): javascript:/file:/intent: şemaları TV'de çalıştırılmaz.
+        adres = str(veri.get("url") or "").strip()
+        if not adres.lower().startswith(("http://", "https://")) or len(adres) > 2000:
+            return "url http(s) olmali"
+        return {"type": "web", "url": adres}
+
     return f"gecersiz type: {tur}"
 
 

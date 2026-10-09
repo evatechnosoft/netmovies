@@ -60,6 +60,11 @@ class RemoteCommandTest(unittest.TestCase):
 
         self.assertEqual("taze", remote._next_fresh()["n"])
 
+    def test_web_only_http(self):
+        self.assertEqual(remote.build_command({"type": "web", "url": "https://a.b/c"}), {"type": "web", "url": "https://a.b/c"})
+        self.assertIsInstance(remote.build_command({"type": "web", "url": "javascript:alert(1)"}), str)
+        self.assertIsInstance(remote.build_command({"type": "web", "url": "file:///etc/passwd"}), str)
+
 
 if __name__ == "__main__":
     unittest.main()

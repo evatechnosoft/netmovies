@@ -53,6 +53,20 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Telefonda "Paylaş → TV'de aç": bağlantıyı TV'nin sayfa ekranına yollar. -->
+        <activity
+            android:name=".widget.PaylasActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="TV'de aç"
+            android:theme="@style/Theme.NetMoviesTV.Saydam">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Widget'taki mikrofon/arama: şeffaf, tek işlik giriş ekranı. -->
         <activity
             android:name=".widget.KumandaGirisActivity"

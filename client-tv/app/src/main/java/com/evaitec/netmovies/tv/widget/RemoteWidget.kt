@@ -562,7 +562,7 @@ class RemoteWidget : AppWidgetProvider() {
           }.getOrDefault(false)
         }
 
-        private fun komutYolla(context: Context, govde: String): Boolean = tabanla(context, false) { taban ->
+        internal fun komutYolla(context: Context, govde: String): Boolean = tabanla(context, false) { taban ->
           runCatching {
             val conn = (URL(taban + "/api/v1/remote/command")
                 .openConnection() as HttpURLConnection).apply {
