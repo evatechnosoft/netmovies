@@ -1,4 +1,4 @@
-## DEVİR — 2026-10-09 23:25 (EN GÜNCEL) → kök HANDOFF.md State ilk üç madde (saat faresi 0.1.23, TV 0.9.66 paylaş/imleç, sunucu web tipi rebuild bekliyor).
+## DEVİR — 2026-10-09 23:40 (EN GÜNCEL) → kök HANDOFF.md State; ek: saat 0.1.24 (hız 1400, ⇄/⇅ eksen, ⌃ alt yay menü) yayında, yön geri bildirimi bekleniyor. Laptop Dean isteğiyle kapatıldı.
 
 ## DEVİR — 2026-10-09 10:30 (EN GÜNCEL; kök HANDOFF.md ile aynı)
 Hedef: reklamsız TV istemcisi + ZimaOS sunucu; bitince sormadan üç yere yayınla.
