@@ -1,9 +1,14 @@
+## DEVİR — 2026-10-09 23:25 (EN GÜNCEL) → kök HANDOFF.md State ilk üç madde (saat faresi 0.1.23, TV 0.9.66 paylaş/imleç, sunucu web tipi rebuild bekliyor).
+
 ## DEVİR — 2026-10-09 10:30 (EN GÜNCEL; kök HANDOFF.md ile aynı)
 Hedef: reklamsız TV istemcisi + ZimaOS sunucu; bitince sormadan üç yere yayınla.
 Durum (kanıtlı): `f80d40d` push'lu, çalışma alanı temiz, smoke YEŞİL. 0.9.64 üç yerde (yerel OTA + GitHub `v0.9.64-poc` indirme sha `208418f0…` eşleşti; evaglass `apps.json` vc 964 `355bb2b`; ota-ayna 10 dk'da kendi çeker). Aramada "Klavye:" ABC / QWERTY (Türkçe Q 12x4) / Sistem (ızgara gizli, LeanKey) — emülatörde görüldü, Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI. `sunucu.sh` laptop yedeğe geçince `yedek_reddet.py` başlatır (:3310 RST, TV anında yeniden keşfeder), aktife geçerken durdurur; şu an laptopta açık, yeniden başlatmada kalkmaz (autostart'a eklenmedi).
 Karar: QWERTY 12 sütun → tuş 38 dp (sonuçlara ~3 poster kalsın); Sistem modu izgara yanında daralan sonuç sorununu çözer.
 Tekrarlama: Start-Process'e MSYS yolu (/c/...) verme → python açılmaz, `cygpath -m` şart. apps.json CRLF.
 Tek sonraki iş: Dean'in 0.9.64 klavye geri bildirimi + Yeraltı Devam Et konumu korundu mu (Sistem modunda LeanKey kendiliğinden açılıyor mu).
+
+AÇIK (9 Eki öğlen): Dean "dün Fold 8'de bir şey kalktı, saat bağlanmıyor; ekranda gösterge yok". Kanıt: Fold 192.168.1.111 ping yok, `adb mdns services` boş → kablosuz ADB kapalı/telefon ağda değil; teşhis YAPILAMADI. Dean'den istendi: Fold'da Kablosuz hata ayıklama aç + IP:port yaz, saat modeli + hangi telefona bağlı. Şüpheliler (doğrulanmadı): S24'ten kaldırılan `com.samsung.android.app.watchmanager`, `com.samsung.wearable.watch6plugin`, `com.samsung.android.shealthmonitor`; Fold'da `app.find`, `beaconmanager` devre dışı. Geri alma: kaldırılan `cmd package install-existing <p>`, devre dışı `pm enable <p>` (hafıza telefon-sadelestirme).
+Tek sonraki iş: Dean ADB IP:port verince saatin eşli olduğu telefonu bul, ilgili paketi geri aç.
 
 ## DEVİR — 2026-10-08 öğlen (eski)
 Repo kodu değişmedi (`1ead029`). Bu oturum ev ağı/cihaz işi:

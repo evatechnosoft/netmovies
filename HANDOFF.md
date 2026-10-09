@@ -1,10 +1,14 @@
-# Handoff: 0.9.64 klavye seçimi + yedek reddet
-> 2026-10-09 10:30 · `fix/general-stability` @ `0fea3ca` (+ bu handoff commit'i) · temiz
+# Handoff: saat hava faresi + TV imleç + Paylaş → TV'de aç
+> 2026-10-09 23:25 · `fix/general-stability` @ `7cd36f6` (+ bu handoff commit'i)
 
 ## Goal
 Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince sormadan üç yere yayınla (yerel OTA, GitHub release `--target`, evaglass `apps.json`). Mi Box durumu ve geri alma komutları: hafıza `mibox-adb-ve-sadelestirme.md`.
 
 ## State
+- 9 Eki akşam (kanıtlı yayın, cihaz kullanımı DOĞRULANMADI): saat 0.1.23 (saatte kurulu, ADB 192.168.1.188:5555) — ✥ ekranında sol yan anahtar pad/🖱 fare. Fare = Bluetooth HID (Fare.kt, wearmouse yaklaşımı): bilek imleç, dokun tık (2× çift), basılı/kaydır pad, ↩ sağ tık=GERİ, halka tekerlek, 🖱/🎯 odak kipi (HID klavye ok tuşları, dokun Enter, hareketsiz basılı = Enter basılı). İlk açılış el seçimi; ⚙ X/Y/Hız (eksi=ters), 📺 hedef cihaz. Dean Mi Box'ta kullandı: ilk sürüm yavaş+ters → 0.1.21'de yön çevrildi, hız 2x; yeni yön doğrulanmadı.
+- TV 0.9.66 üç yerde (sha `e1d8fa24…`) ve Mi Box'a ADB ile kuruldu (versionName=0.9.66, Daha 17 duraklatılmışken): büyük halka imleç (`ui/BuyukImlec.kt`), telefonda Paylaş → "TV'de aç" (`widget/PaylasActivity.kt` → `/remote/command {"type":"web"}` → `ui/WebEkrani.kt`). Sunucu `web` tipi (yalnız http/https, test) ZimaOS'ta `izleme-bitince-kur.sh` ile bekliyor (`kur.log`; 23:20 pause) — rebuild olduysa `docker inspect -f '{{.Created}}' netmovies-stream` 9 Eki göstermeli. Fold'daki NetMovies 0.9.66'ya güncellenmeli (paylaş menüsü).
+- Saat temizliği: geminiman×3, samsung.sree×4, tileapplauncher kaldırıldı; WowMouse + Forigon (armeabi-v7a) kuruldu. Hafıza `saat-adb-kablosuz`. Chrome: Mi Box Android 9/32-bit → Dean "kurma, paylaşım" dedi.
+- Ders: test sırasında saatten pad'e düşen dokunuş TV'ye OK yolladı (Dean izlerken başka şey açtı) — TV oynarken saatte uzaktan dokunma testi yapma.
 - 0.9.64 üç yerde (`0fea3ca`, sha `208418f0…`, GitHub + yerel OTA indirme sha eşleşti; ota-ayna 10 dk'da kendi çeker): aramada "Klavye:" hapları ABC (7x6) / QWERTY (Türkçe Q 12x4, 38 dp tuş, ' - .) / Sistem (ızgara gizli, alan odaklı, LeanKey; sonuçlar tam genişlik). Seçim prefs `netmovies_search/klavye`. Emülatörde (evabench_shot) üç mod + canlı arama "lioness" + D-pad odağı + kalıcılık görüldü; Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI.
 - `sunucu.sh`: laptop yedeğe geçince `yedek_reddet.py` gizli başlar (:3310 RST, TV anında yeniden keşfeder), laptop aktife geçerken durur; elle `sunucu.sh reddet`, `durum` sayıyı gösterir (penv'de 2 süreç = 1 örnek). Şu an laptopta çalışıyor (yeniden başlatmada kalkmaz — autostart'a eklenmedi).
 - 0.9.63 üç yerde (`157f4db`, sha `517eeeb9…`, indirme sha eşleşti): aramada Türkçe ızgara klavye (`SearchKeys.kt`/`SearchKeyboard.kt`, 4 test), canlı arama 2+ karakter 600 ms. Cihazda/emülatörde DOĞRULANMADI (TV oynatıyordu; evabench_shot emülatörü açılışta kaldı). Sonuç ızgarası klavye yanında ~3 sütuna daralabilir — Dean'den bak.
@@ -19,6 +23,7 @@ Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince
 - ZimaOS Plus başvurusu Gmail TASLAĞI (support@icewhale.org, kanıt eki var) — gönderilmedi; panel şifresi yok, ekran görüntüsü eklenemedi.
 
 ## Next
+1. Dean'den: fare yönü/hızı doğru mu, odak kipi, Paylaş → TV'de aç (sunucu rebuild bitti mi önce bak).
 1. Dean'in 0.9.64 klavye seçimi geri bildirimi (Sistem modunda LeanKey kendiliğinden açılıyor mu, QWERTY okunuyor mu) + Yeraltı Devam Et 1:34:31 korundu mu (`client_log`).
 2. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
 (9 Ekim: Dean "kapatma işleri tamam, klavye de aynı" dedi — LG kapatma/SIMPLINK, Fold yeniden başlatma, air mouse, 0.9.63 klavye geri bildirimi KAPANDI; tekrar açma. Açık iş YOK, yeni iş Dean'den gelir.)
