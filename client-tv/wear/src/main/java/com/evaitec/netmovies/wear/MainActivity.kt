@@ -833,7 +833,8 @@ private fun YuzeyEkrani(komut: (String) -> Unit, onKapat: () -> Unit) {
                     }
                     when (ilk) {
                         true -> { sonYon = "OK"; komut("""{"type":"key","key":"CENTER"}""") }
-                        null -> { sonYon = "GERİ"; komut("""{"type":"key","key":"BACK"}""") }
+                        // Long press no longer sends BACK: it left the app too easily (Dean, 9 Oct).
+                        null -> Unit
                         false -> Unit
                     }
                     // Kalan hareket: kaydıkça yön tuşu (uzun basıştan sonra da yutulur).
@@ -848,13 +849,16 @@ private fun YuzeyEkrani(komut: (String) -> Unit, onKapat: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (sonYon.isBlank()) "kaydır: yön · dokun: OK\nbasılı tut: geri" else sonYon,
+            text = if (sonYon.isBlank()) "kaydır: yön · dokun: OK\n↩: geri" else sonYon,
             color = Soluk,
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
         )
         Box(Modifier.fillMaxSize().padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
-            YuvarlakDugme(yazi = "✕", boyut = 34.dp, onClick = onKapat)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                YuvarlakDugme(yazi = "↩", boyut = 34.dp) { sonYon = "GERİ"; komut("""{"type":"key","key":"BACK"}""") }
+                YuvarlakDugme(yazi = "✕", boyut = 34.dp, onClick = onKapat)
+            }
         }
     }
 }
@@ -1130,6 +1134,22 @@ private fun FareEkrani(onKapat: () -> Unit) {
         return
     }
 
+    // First use: which wrist. Saved; changeable later in ⚙.
+    if (ayar.el == null) {
+        Column(
+            Modifier.fillMaxSize().background(Zemin),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Saat hangi kolda?", color = Metin, fontSize = 13.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                YuvarlakDugme("Sol", 52.dp) { ayar = ayar.copy(el = "sol") }
+                YuvarlakDugme("Sağ", 52.dp) { ayar = ayar.copy(el = "sag") }
+            }
+        }
+        return
+    }
+
     // First use: pick the TV from paired devices (the Mi Box is "MyBoX").
     if (hedef == null) {
         @Suppress("MissingPermission")
@@ -1176,9 +1196,15 @@ private fun FareEkrani(onKapat: () -> Unit) {
             Satir("X", ayar.x) { ayar = ayar.copy(x = it) }
             Satir("Y", ayar.y) { ayar = ayar.copy(y = it) }
             Satir("Hız", ayar.hiz) { ayar = ayar.copy(hiz = it.coerceAtLeast(1)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("El", color = Soluk, fontSize = 11.sp)
+                listOf("sol" to "Sol", "sag" to "Sağ").forEach { (k, ad) ->
+                    YuvarlakDugme(ad, 30.dp, renk = if (ayar.el == k) Vurgu2 else Soluk) { ayar = ayar.copy(el = k) }
+                }
+            }
             Text("eksi = ters yön", color = Soluk, fontSize = 9.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                YuvarlakDugme("↺", 30.dp) { ayar = FareAyari() }
+                YuvarlakDugme("↺", 30.dp) { ayar = FareAyari(el = ayar.el) }
                 YuvarlakDugme("✓", 30.dp, renk = Vurgu2) { ayarAcik = false }
             }
         }
@@ -1194,17 +1220,32 @@ private fun FareEkrani(onKapat: () -> Unit) {
             .focusable()
             .pointerInput(Unit) {
                 awaitEachGesture {
+                    // Tap = click (two quick taps = double click, the TV times it). Long press
+                    // or sliding turns the glass into a touch pad: the cursor follows the finger
+                    // and stays where released. BACK is the ↩ button: long press = BACK left
+                    // the app too easily (Dean, 9 Oct).
                     awaitFirstDown()
                     fare.dondur = true
+                    var yol = 0f
                     val kalkti = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
                         while (true) {
-                            if (!awaitPointerEvent().changes.first().pressed) return@withTimeoutOrNull true
+                            val c = awaitPointerEvent().changes.first()
+                            if (!c.pressed) return@withTimeoutOrNull true
+                            val d = c.positionChange()
+                            yol += kotlin.math.abs(d.x) + kotlin.math.abs(d.y)
+                            if (yol > viewConfiguration.touchSlop) return@withTimeoutOrNull false
                         }
                         @Suppress("UNREACHABLE_CODE") false
                     }
                     if (kalkti == true) fare.tikla(1) else {
-                        fare.tikla(2)
-                        while (awaitPointerEvent().changes.first().pressed) Unit
+                        titret(baglam)
+                        while (true) {
+                            val c = awaitPointerEvent().changes.first()
+                            if (!c.pressed) break
+                            val d = c.positionChange()
+                            fare.surukle(d.x, d.y)
+                            c.consume()
+                        }
                     }
                     fare.dondur = false
                 }
@@ -1212,7 +1253,7 @@ private fun FareEkrani(onKapat: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "${durum.ifBlank { "fare" }}\nbilek: imleç · dokun: tıkla\nbasılı tut: geri · halka: kaydır",
+            text = "${durum.ifBlank { "fare" }}\nbilek: imleç · dokun: tık (2× çift)\nbasılı tut/kaydır: pad · halka: kaydır",
             color = Soluk,
             fontSize = 11.sp,
             textAlign = TextAlign.Center,
@@ -1220,10 +1261,18 @@ private fun FareEkrani(onKapat: () -> Unit) {
         Box(Modifier.fillMaxSize().padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 YuvarlakDugme("⚙", 32.dp) { ayarAcik = true }
+                YuvarlakDugme("↩", 32.dp) { fare.tikla(2) }
                 YuvarlakDugme("✕", 32.dp, onUzun = {
                     tercih.edit().remove("hedef").apply(); hedef = null
                 }) { onKapat() }
             }
         }
+    }
+}
+
+private fun titret(baglam: Context) {
+    runCatching {
+        baglam.getSystemService(Vibrator::class.java)
+            ?.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 }

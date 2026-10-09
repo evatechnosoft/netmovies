@@ -21,37 +21,40 @@ import kotlin.math.roundToInt
 // The Mi Box sees a plain Bluetooth mouse — nothing to install on the TV side.
 
 /** Pointer tuning, persisted. X/Y are signed gains (negative = inverted axis), hiz scales both. */
-data class FareAyari(val x: Int = 5, val y: Int = 5, val hiz: Int = 5) {
+data class FareAyari(val x: Int = 5, val y: Int = 5, val hiz: Int = 5, val el: String? = null) {
     companion object {
         const val EN_AZ = -10
         const val EN_COK = 10
 
         fun oku(context: Context): FareAyari {
             val p = context.getSharedPreferences("fare", Context.MODE_PRIVATE)
-            return FareAyari(p.getInt("x", 5), p.getInt("y", 5), p.getInt("hiz", 5))
+            return FareAyari(p.getInt("x", 5), p.getInt("y", 5), p.getInt("hiz", 5), p.getString("el", null))
         }
     }
 
     fun yaz(context: Context) {
         context.getSharedPreferences("fare", Context.MODE_PRIVATE).edit()
-            .putInt("x", x).putInt("y", y).putInt("hiz", hiz).apply()
+            .putInt("x", x).putInt("y", y).putInt("hiz", hiz).putString("el", el).apply()
     }
 }
 
 /**
  * Pure motion math: gyroscope rates (rad/s) and dt (s) → cursor delta in pixels.
- * Watch on the left wrist, screen up, forearm pointing at the TV: turning the hand
- * left/right spins around the screen normal (Z), tilting up/down around Y.
- * 45° of wrist turn ≈ 1024 px at gain 5 / speed 5 (wearmouse's default feel).
+ * Screen up, forearm pointing at the TV: turning the hand left/right spins around the
+ * screen normal (Z), tilting up/down around Y. Signs come from Dean's first try on the
+ * Watch6 (left wrist): the theory-derived ones moved the cursor the wrong way. The right
+ * wrist is the same watch turned 180° around Z, which flips Y only.
+ * 45° of wrist turn ≈ 2048 px at gain 5 / speed 5 (1024 felt slow on the Mi Box).
  */
 internal fun fareHareketi(gy: Float, gz: Float, dt: Float, ayar: FareAyari): Pair<Float, Float> {
     // Gyro noise floor: below this the hand is "still", without it the cursor creeps.
     fun temiz(v: Float) = if (abs(v) < OLU_BOLGE) 0f else v
     val olcek = PIKSEL_PER_RADYAN * dt * (ayar.hiz / 5f)
-    return Pair(-temiz(gz) * olcek * (ayar.x / 5f), temiz(gy) * olcek * (ayar.y / 5f))
+    val el = if (ayar.el == "sag") -1f else 1f
+    return Pair(temiz(gz) * olcek * (ayar.x / 5f), -temiz(gy) * olcek * (ayar.y / 5f) * el)
 }
 
-private const val PIKSEL_PER_RADYAN = (1024.0 / (Math.PI / 4)).toFloat()
+private const val PIKSEL_PER_RADYAN = (2048.0 / (Math.PI / 4)).toFloat()
 private const val OLU_BOLGE = 0.03f
 
 /** HID mouse report: 3 buttons + relative X/Y/wheel, int8 each. Report ID 2. */
@@ -164,6 +167,7 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
 
     /** Button bits: 1 = left (OK), 2 = right (Android: BACK). */
     fun tikla(dugme: Int) {
+        if (yurutucu.isShutdown) return
         yurutucu.execute {
             dugmeler = dugme; gonder(0)
             Thread.sleep(40)
@@ -171,7 +175,14 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
         }
     }
 
-    fun tekerlek(adim: Int) = yurutucu.execute { gonder(adim) }
+    /** Touch-pad drag on the watch glass (px of finger travel); scaled by the speed setting. */
+    fun surukle(dx: Float, dy: Float) {
+        if (yurutucu.isShutdown) return
+        val k = 2.5f * (ayar.hiz / 5f)
+        yurutucu.execute { birikX += dx * k; birikY += dy * k; gonder(0) }
+    }
+
+    fun tekerlek(adim: Int) { if (!yurutucu.isShutdown) yurutucu.execute { gonder(adim) } }
 
     @Synchronized
     private fun gonder(tekerlek: Int) {
