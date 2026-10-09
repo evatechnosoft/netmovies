@@ -7,6 +7,7 @@
 #   bash scripts/sunucu.sh gec zima       # move data + traffic to ZimaOS
 #   bash scripts/sunucu.sh gec laptop     # move back to this laptop
 #   ... gec <hedef> --zorla               # switch even if proxy secrets differ
+#   bash scripts/sunucu.sh reddet         # (re)start the :3310 RST responder on a standby laptop
 #
 # gec order keeps the TV outage short (it has ~5 min of buffer):
 #   0. both .env must sign proxy tokens with the same secret (sha256 compared)
@@ -29,12 +30,23 @@ on() { # on <laptop|zima> <command...>
   if [ "$host" = laptop ]; then (cd "$LAPTOP_DIR" && bash -c "$*"); else ssh zima "export DOCKER_CONFIG=/tmp/dc; cd $ZIMA_DIR && $*"; fi
 }
 
+# Standby laptop keeps :3310 answered with an instant RST (scripts/yedek_reddet.py) so a TV
+# still pointing here fails fast and rediscovers instead of hanging on the stealth firewall.
+REDDET_PS="Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | ? CommandLine -match 'yedek_reddet' | % { Stop-Process -Id \$_.ProcessId -Force }"
+reddet_dur() { powershell -NoProfile -Command "$REDDET_PS" >/dev/null 2>&1 || true; }
+reddet_bas() {
+  reddet_dur
+  powershell -NoProfile -Command "Start-Process python -ArgumentList '\"$(cygpath -m "$LAPTOP_DIR")/scripts/yedek_reddet.py\"' -WindowStyle Hidden"
+}
+reddet_var() { powershell -NoProfile -Command "@(Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | ? CommandLine -match 'yedek_reddet').Count" | tr -d ''; }
+
 health() { on "$1" "curl -s -o /dev/null -w '%{http_code}' --max-time 5 localhost:3310/api/v1/health || true"; }
 
 durum() {
   for h in laptop zima; do
     echo "$h: health=$(health $h) rol=$(on $h 'cat .sunucu 2>/dev/null || echo ?') tunel=$(on $h "docker ps -q -f name=netmovies-tunnel | wc -l")"
   done
+  echo "laptop reddet: $(reddet_var)"
   echo "w.evaitec.com: $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://w.evaitec.com)"
 }
 
@@ -91,6 +103,7 @@ gec() {
   echo "2/3 kesim: $src -> $dst"
   local t0=$SECONDS
   on "$src" "$COMPOSE stop cloudflared stream"
+  [ "$dst" = laptop ] && reddet_dur  # frees :3310 for the stream container
   tasi "$src" "$dst"
   on "$dst" "$COMPOSE up -d stream cloudflared && $COMPOSE up -d --force-recreate cloudflared"
   for i in $(seq 1 12); do [ "$(health "$dst")" = 200 ] && break; sleep 5; done
@@ -100,6 +113,7 @@ gec() {
   echo "3/3 $src: yedek moda"
   on "$src" "$COMPOSE stop && echo yedek > .sunucu"
   on "$dst" "echo aktif > .sunucu"
+  [ "$src" = laptop ] && reddet_bas
   durum
   echo "kesinti: $kesinti sn"
 }
@@ -107,5 +121,6 @@ gec() {
 case "${1:-durum}" in
   durum) durum ;;
   gec) gec "${2:-}" "${3:-}" ;;
-  *) echo "kullanım: $0 durum | gec <laptop|zima> [--zorla]" >&2; exit 2 ;;
+  reddet) [ "$(on laptop 'cat .sunucu 2>/dev/null')" = yedek ] && reddet_bas || echo "laptop yedek değil, reddet başlatılmadı" >&2 ;;
+  *) echo "kullanım: $0 durum | gec <laptop|zima> [--zorla] | reddet" >&2; exit 2 ;;
 esac

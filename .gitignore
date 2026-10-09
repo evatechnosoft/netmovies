@@ -78,3 +78,6 @@ lists/ozel.m3u
 infra/yz/.env
 .sunucu
 /kayitlar/
+
+# local run logs
+*.log
