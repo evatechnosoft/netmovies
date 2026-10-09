@@ -160,6 +160,9 @@ private fun MiniEkran() {
     var aramaAcik by remember { mutableStateOf(false) }
     // Mousepad kipi: posterden bağımsız, tüm kadran TV imlecini sürer (Dean).
     var yuzeyAcik by remember { mutableStateOf(false) }
+    var yuzeyKipi by remember {
+        mutableStateOf(baglam.getSharedPreferences("fare", Context.MODE_PRIVATE).getString("kip", "pad") ?: "pad")
+    }
     val halkaOdak = remember { FocusRequester() }
     // Kendi kendini guncelleme: evaitecOTA bileklikte APK kuramiyordu.
     var guncelleme by remember { mutableStateOf<Guncelleme.Bilgi?>(null) }
@@ -306,7 +309,15 @@ private fun MiniEkran() {
     }
 
     if (yuzeyAcik) {
-        YuzeyEkrani(komut = ::komut, onKapat = { yuzeyAcik = false })
+        // ✥ opens the last used of pad / air mouse; the side switch flips between them.
+        Box(Modifier.fillMaxSize()) {
+            if (yuzeyKipi == "fare") FareEkrani(onKapat = { yuzeyAcik = false })
+            else YuzeyEkrani(komut = ::komut, onKapat = { yuzeyAcik = false })
+            YanAnahtar(yuzeyKipi) {
+                yuzeyKipi = it
+                baglam.getSharedPreferences("fare", Context.MODE_PRIVATE).edit().putString("kip", it).apply()
+            }
+        }
         return
     }
 
@@ -1044,5 +1055,175 @@ object WifiKoprusu {
         }
         runCatching { cm.requestNetwork(istek, geriCagri, zamanAsimiMs) }
             .onFailure { if (!cevapVerildi) { cevapVerildi = true; sonra() } }
+    }
+}
+
+/** Side switch on the left edge: flips the ✥ screen between the touch pad and the air mouse. */
+@Composable
+private fun YanAnahtar(kip: String, onDegis: (String) -> Unit) {
+    Box(Modifier.fillMaxSize().padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(Kart)
+                .padding(vertical = 4.dp, horizontal = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            listOf("pad" to "✥", "fare" to "🖱").forEach { (k, simge) ->
+                Box(
+                    Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(if (kip == k) Vurgu else Kart)
+                        .clickable { onDegis(k) },
+                    contentAlignment = Alignment.Center,
+                ) { Text(simge, color = Metin, fontSize = 11.sp) }
+            }
+        }
+    }
+}
+
+/**
+ * Air mouse: the watch is a Bluetooth mouse for the Mi Box (see Fare.kt). Wrist turn
+ * moves the cursor; tap = click, long press = right click (Android: GERİ), bezel = wheel.
+ * The finger on the glass freezes motion, so tapping does not drag the cursor.
+ */
+@Composable
+private fun FareEkrani(onKapat: () -> Unit) {
+    val baglam = LocalContext.current
+    val tercih = remember { baglam.getSharedPreferences("fare", Context.MODE_PRIVATE) }
+    var durum by remember { mutableStateOf("") }
+    var izin by remember {
+        mutableStateOf(baglam.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED)
+    }
+    val izinIste = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { izin = it }
+    // No saved target: take the only paired "...box" (Mi Box = "MyBoX") so the first open
+    // does not end up on the phone, which also auto-connects to any new HID app.
+    var hedef by remember {
+        mutableStateOf(tercih.getString("hedef", null) ?: runCatching {
+            @Suppress("MissingPermission")
+            HavaFaresi.kutuAdresi(baglam)
+        }.getOrNull())
+    }
+    var ayar by remember { mutableStateOf(FareAyari.oku(baglam)) }
+    var ayarAcik by remember { mutableStateOf(false) }
+    val fare = remember { HavaFaresi(baglam) { durum = it } }
+    val odak = remember { FocusRequester() }
+
+    LaunchedEffect(izin) { if (!izin) izinIste.launch(android.Manifest.permission.BLUETOOTH_CONNECT) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { fare.kapat() } }
+    LaunchedEffect(izin, hedef) {
+        val adres = hedef ?: return@LaunchedEffect
+        if (!izin) return@LaunchedEffect
+        @Suppress("MissingPermission")
+        fare.eslesmisler().firstOrNull { it.address == adres }?.let { fare.baslat(it) }
+            ?: run { durum = "eşleşmiş cihaz bulunamadı"; hedef = null }
+    }
+    LaunchedEffect(ayar) { fare.ayar = ayar; ayar.yaz(baglam) }
+    LaunchedEffect(ayarAcik, hedef) { runCatching { odak.requestFocus() } }
+
+    if (!izin) {
+        Box(Modifier.fillMaxSize().background(Zemin), contentAlignment = Alignment.Center) {
+            Text("Bluetooth izni gerekli", color = Soluk, fontSize = 12.sp)
+        }
+        return
+    }
+
+    // First use: pick the TV from paired devices (the Mi Box is "MyBoX").
+    if (hedef == null) {
+        @Suppress("MissingPermission")
+        val cihazlar = remember { fare.eslesmisler() }
+        val liste = rememberScalingLazyListState()
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize().background(Zemin)
+                .onRotaryScrollEvent { liste.dispatchRawDelta(it.verticalScrollPixels); true }
+                .focusRequester(odak).focusable(),
+            state = liste,
+        ) {
+            item { Text("Fare: hangi cihaz?", color = Metin, fontSize = 12.sp) }
+            cihazlar.forEach { c ->
+                @Suppress("MissingPermission")
+                val ad = c.name ?: c.address
+                item {
+                    ListeSatiri(ad, if (ad.contains("box", ignoreCase = true)) "TV" else null) {
+                        tercih.edit().putString("hedef", c.address).apply()
+                        hedef = c.address
+                    }
+                }
+            }
+            item { ListeSatiri("✕ kapat") { onKapat() } }
+        }
+        return
+    }
+
+    if (ayarAcik) {
+        Column(
+            Modifier.fillMaxSize().background(Zemin).padding(horizontal = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            @Composable
+            fun Satir(etiket: String, deger: Int, degis: (Int) -> Unit) = Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(etiket, color = Soluk, fontSize = 11.sp, modifier = Modifier.size(34.dp, 16.dp))
+                YuvarlakDugme("−", 28.dp) { degis((deger - 1).coerceIn(FareAyari.EN_AZ, FareAyari.EN_COK)) }
+                Text("$deger", color = Metin, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.size(26.dp, 18.dp))
+                YuvarlakDugme("+", 28.dp) { degis((deger + 1).coerceIn(FareAyari.EN_AZ, FareAyari.EN_COK)) }
+            }
+            Satir("X", ayar.x) { ayar = ayar.copy(x = it) }
+            Satir("Y", ayar.y) { ayar = ayar.copy(y = it) }
+            Satir("Hız", ayar.hiz) { ayar = ayar.copy(hiz = it.coerceAtLeast(1)) }
+            Text("eksi = ters yön", color = Soluk, fontSize = 9.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                YuvarlakDugme("↺", 30.dp) { ayar = FareAyari() }
+                YuvarlakDugme("✓", 30.dp, renk = Vurgu2) { ayarAcik = false }
+            }
+        }
+        return
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Zemin)
+            .onRotaryScrollEvent { fare.tekerlek(if (it.verticalScrollPixels > 0) -1 else 1); true }
+            .focusRequester(odak)
+            .focusable()
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown()
+                    fare.dondur = true
+                    val kalkti = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        while (true) {
+                            if (!awaitPointerEvent().changes.first().pressed) return@withTimeoutOrNull true
+                        }
+                        @Suppress("UNREACHABLE_CODE") false
+                    }
+                    if (kalkti == true) fare.tikla(1) else {
+                        fare.tikla(2)
+                        while (awaitPointerEvent().changes.first().pressed) Unit
+                    }
+                    fare.dondur = false
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "${durum.ifBlank { "fare" }}\nbilek: imleç · dokun: tıkla\nbasılı tut: geri · halka: kaydır",
+            color = Soluk,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center,
+        )
+        Box(Modifier.fillMaxSize().padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                YuvarlakDugme("⚙", 32.dp) { ayarAcik = true }
+                YuvarlakDugme("✕", 32.dp, onUzun = {
+                    tercih.edit().remove("hedef").apply(); hedef = null
+                }) { onKapat() }
+            }
+        }
     }
 }

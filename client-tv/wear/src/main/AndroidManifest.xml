@@ -15,6 +15,9 @@
          kurulu uygulama PackageInstaller ile araciya gerek duymadan kurar. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Hava faresi: saat Mi Box'a Bluetooth HID fare olarak bağlanır (Fare.kt). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <uses-feature android:name="android.hardware.type.watch" />
 
     <!-- Sesli arama saatin kendi tanıyıcısıyla yapılır. Android 11+ paket
