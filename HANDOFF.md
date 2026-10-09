@@ -17,11 +17,8 @@ Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince
 - ZimaOS Plus başvurusu Gmail TASLAĞI (support@icewhale.org, kanıt eki var) — gönderilmedi; panel şifresi yok, ekran görüntüsü eklenemedi.
 
 ## Next
-1. Kapatma: Dean cevaplamadı (TV ikinci basışta mı, kendiliğinden mi kapanıyor). Önce LG'de SIMPLINK + Otomatik Güç Senkronizasyonu açık mı; sonra Dean kutuyu kapatınca 1 dk içinde `adb -s 192.168.1.105:5555 shell dumpsys hdmi_control | grep -E "\] time" | tail -20` → `<Standby>` gidiyor mu.
-2. Fold'da Samsung otomatik yeniden başlatma: ekran açıldı, Dean elle kuracak (04:00, her gün). Arka plan işlem sınırı İSTENMEDİ.
-3. Dean'in 0.9.63 klavye geri bildirimi (odak geçişleri, sonuç sütun sayısı).
-4. Air mouse: USB alıcı Mi Box'a (hub ile) takılmalı, LG'ye takılırsa yalnız LG'yi sürer.
-5. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
+1. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
+(9 Ekim: Dean "kapatma işleri tamam, klavye de aynı" dedi — LG kapatma/SIMPLINK, Fold yeniden başlatma, air mouse, 0.9.63 klavye geri bildirimi KAPANDI; tekrar açma. Açık iş YOK, yeni iş Dean'den gelir.)
 
 ## Don't repeat
 - Custom ROM/slimBOXtv: Mi Box S secure boot eFuse'ta, kurulamaz.
