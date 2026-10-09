@@ -29,4 +29,10 @@ class FareHareketiTest {
         assertEquals(lx, rx, 0f)
         assertEquals(-ly, ry, 0.01f)
     }
+
+    @Test fun `focus mode steps one arrow past the threshold`() {
+        assertEquals(null, odakYonu(100f, -100f))
+        assertEquals(TUS_SAG, odakYonu(500f, 100f))
+        assertEquals(TUS_YUKARI, odakYonu(100f, -500f))
+    }
 }

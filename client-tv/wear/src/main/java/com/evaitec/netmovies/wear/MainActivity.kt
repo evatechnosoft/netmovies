@@ -1112,6 +1112,7 @@ private fun FareEkrani(onKapat: () -> Unit) {
     }
     var ayar by remember { mutableStateOf(FareAyari.oku(baglam)) }
     var ayarAcik by remember { mutableStateOf(false) }
+    var odakKipi by remember { mutableStateOf(tercih.getBoolean("odak", false)) }
     val fare = remember { HavaFaresi(baglam) { durum = it } }
     val odak = remember { FocusRequester() }
 
@@ -1125,6 +1126,7 @@ private fun FareEkrani(onKapat: () -> Unit) {
             ?: run { durum = "eşleşmiş cihaz bulunamadı"; hedef = null }
     }
     LaunchedEffect(ayar) { fare.ayar = ayar; ayar.yaz(baglam) }
+    LaunchedEffect(odakKipi) { fare.odak = odakKipi }
     LaunchedEffect(ayarAcik, hedef) { runCatching { odak.requestFocus() } }
 
     if (!izin) {
@@ -1237,7 +1239,15 @@ private fun FareEkrani(onKapat: () -> Unit) {
                         }
                         @Suppress("UNREACHABLE_CODE") false
                     }
-                    if (kalkti == true) fare.tikla(1) else {
+                    if (kalkti == true) {
+                        if (fare.odak) fare.tusBas(TUS_ENTER) else fare.tikla(1)
+                    } else if (kalkti == null && fare.odak) {
+                        // Focus mode, held still: hold OK — the TV's long-press actions fire.
+                        titret(baglam)
+                        fare.tus(TUS_ENTER, true)
+                        while (awaitPointerEvent().changes.first().pressed) Unit
+                        fare.tus(TUS_ENTER, false)
+                    } else {
                         titret(baglam)
                         while (true) {
                             val c = awaitPointerEvent().changes.first()
@@ -1253,7 +1263,7 @@ private fun FareEkrani(onKapat: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "${durum.ifBlank { "fare" }}\nbilek: imleç · dokun: tık (2× çift)\nbasılı tut/kaydır: pad · halka: kaydır",
+            text = "${durum.ifBlank { "fare" }}\n" + if (odakKipi) "ODAK · bilek/kaydır: yön\ndokun: OK · basılı: uzun OK" else "bilek: imleç · dokun: tık (2× çift)\nbasılı tut/kaydır: pad · halka: kaydır",
             color = Soluk,
             fontSize = 11.sp,
             textAlign = TextAlign.Center,
@@ -1262,6 +1272,11 @@ private fun FareEkrani(onKapat: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 YuvarlakDugme("⚙", 32.dp) { ayarAcik = true }
                 YuvarlakDugme("↩", 32.dp) { fare.tikla(2) }
+                // Cursor ↔ focus: focus mode moves between posters/buttons like the remote.
+                YuvarlakDugme(if (odakKipi) "🎯" else "🖱", 32.dp, renk = if (odakKipi) Vurgu2 else Metin) {
+                    odakKipi = !odakKipi
+                    tercih.edit().putBoolean("odak", odakKipi).apply()
+                }
                 YuvarlakDugme("✕", 32.dp, onUzun = {
                     tercih.edit().remove("hedef").apply(); hedef = null
                 }) { onKapat() }

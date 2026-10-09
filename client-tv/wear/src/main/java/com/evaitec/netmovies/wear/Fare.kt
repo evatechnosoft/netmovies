@@ -54,12 +54,33 @@ internal fun fareHareketi(gy: Float, gz: Float, dt: Float, ayar: FareAyari): Pai
     return Pair(temiz(gz) * olcek * (ayar.x / 5f), -temiz(gy) * olcek * (ayar.y / 5f) * el)
 }
 
+/** Focus mode: accumulated motion → one arrow (HID usage), or null below the step. */
+internal fun odakYonu(x: Float, y: Float, esik: Float = ODAK_ADIMI): Int? = when {
+    abs(x) >= esik && abs(x) >= abs(y) -> if (x > 0) TUS_SAG else TUS_SOL
+    abs(y) >= esik -> if (y > 0) TUS_ASAGI else TUS_YUKARI
+    else -> null
+}
+
+internal const val TUS_ENTER = 0x28
+internal const val TUS_SAG = 0x4F
+internal const val TUS_SOL = 0x50
+internal const val TUS_ASAGI = 0x51
+internal const val TUS_YUKARI = 0x52
+/** Cursor-pixels per focus step: one poster per ~10° wrist turn at defaults. */
+private const val ODAK_ADIMI = 450f
+
 private const val PIKSEL_PER_RADYAN = (2048.0 / (Math.PI / 4)).toFloat()
 private const val OLU_BOLGE = 0.03f
 
-/** HID mouse report: 3 buttons + relative X/Y/wheel, int8 each. Report ID 2. */
+/** HID: keyboard (ID 1, for focus mode: arrows/Enter) + mouse (ID 2: 3 buttons, X/Y/wheel int8). */
+private const val ID_KLAVYE: Byte = 1
 private const val ID_FARE: Byte = 2
 private val TANIMLAYICI = byteArrayOf(
+    0x05, 0x01, 0x09, 0x06, 0xA1.toByte(), 0x01, 0x85.toByte(), ID_KLAVYE,
+    0x05, 0x07, 0x19, 0xE0.toByte(), 0x29, 0xE7.toByte(), 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95.toByte(), 0x08,
+    0x81.toByte(), 0x02, 0x75, 0x08, 0x95.toByte(), 0x01, 0x81.toByte(), 0x01,
+    0x75, 0x08, 0x95.toByte(), 0x06, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00, 0x29, 0x65,
+    0x81.toByte(), 0x00, 0xC0.toByte(),
     0x05, 0x01, 0x09, 0x02, 0xA1.toByte(), 0x01, 0x85.toByte(), ID_FARE,
     0x09, 0x01, 0xA1.toByte(), 0x00,
     0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95.toByte(), 0x03,
@@ -86,6 +107,8 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
     @Volatile var ayar: FareAyari = FareAyari.oku(context)
     /** Finger on screen: freeze motion so a tap does not drag the cursor. */
     @Volatile var dondur = false
+    /** Focus mode: motion moves D-pad focus (arrow keys) instead of the cursor. */
+    @Volatile var odak = false
     @Volatile private var dugmeler = 0
     private var birikX = 0f
     private var birikY = 0f
@@ -131,7 +154,7 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
             if (dondur || dt == 0f) return
             val (dx, dy) = fareHareketi(e.values[1], e.values[2], dt, ayar)
             birikX += dx; birikY += dy
-            gonder(0)
+            if (odak) odakla() else gonder(0)
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -147,7 +170,7 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
                 hid = h
                 val sdp = BluetoothHidDeviceAppSdpSettings(
                     "NetMovies Fare", "Saat hava faresi", "evaitec",
-                    BluetoothHidDevice.SUBCLASS1_MOUSE, TANIMLAYICI,
+                    BluetoothHidDevice.SUBCLASS1_COMBO, TANIMLAYICI,
                 )
                 val qos = BluetoothHidDeviceAppQosSettings(
                     BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT, 800, 9, 0, 11250,
@@ -179,8 +202,27 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
     fun surukle(dx: Float, dy: Float) {
         if (yurutucu.isShutdown) return
         val k = 2.5f * (ayar.hiz / 5f)
-        yurutucu.execute { birikX += dx * k; birikY += dy * k; gonder(0) }
+        yurutucu.execute { birikX += dx * k; birikY += dy * k; if (odak) odakla() else gonder(0) }
     }
+
+    /** Focus mode key: HID usage (Enter 0x28, arrows 0x4F-0x52) down or up. */
+    fun tus(kullanim: Int, basili: Boolean) {
+        if (yurutucu.isShutdown) return
+        yurutucu.execute {
+            val h = hid ?: return@execute
+            val d = bagli ?: return@execute
+            h.sendReport(d, ID_KLAVYE.toInt(), byteArrayOf(0, 0, (if (basili) kullanim else 0).toByte(), 0, 0, 0, 0, 0))
+        }
+    }
+
+    @Synchronized
+    private fun odakla() {
+        val yon = odakYonu(birikX, birikY) ?: return
+        birikX = 0f; birikY = 0f
+        tusBas(yon)
+    }
+
+    fun tusBas(kullanim: Int) { tus(kullanim, true); tus(kullanim, false) }
 
     fun tekerlek(adim: Int) { if (!yurutucu.isShutdown) yurutucu.execute { gonder(adim) } }
 

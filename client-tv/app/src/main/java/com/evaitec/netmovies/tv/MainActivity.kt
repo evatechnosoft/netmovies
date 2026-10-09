@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.evaitec.netmovies.tv.ui.theme.NetMoviesTheme
@@ -211,6 +212,8 @@ class MainActivity : ComponentActivity() {
                 run {
                     androidx.compose.foundation.layout.Box(
                         Modifier.fillMaxSize().background(NmColor.Background)
+                            // Watch air mouse: a ring visible from the couch instead of the tiny arrow.
+                            .pointerHoverIcon(remember { com.evaitec.netmovies.tv.ui.buyukImlec() }, overrideDescendants = true)
                     ) {
 
                         // POC: harici nav kütüphanesi yok — state ile Home / Player / Buton Eşleme.
