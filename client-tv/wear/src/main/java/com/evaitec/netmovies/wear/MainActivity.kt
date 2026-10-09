@@ -1207,6 +1207,12 @@ private fun FareEkrani(onKapat: () -> Unit) {
             Text("eksi = ters yön", color = Soluk, fontSize = 9.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 YuvarlakDugme("↺", 30.dp) { ayar = FareAyari(el = ayar.el) }
+                // Target device: Mi Box, PC, another TV — any paired Bluetooth host.
+                YuvarlakDugme("📺", 30.dp) {
+                    tercih.edit().remove("hedef").apply()
+                    ayarAcik = false
+                    hedef = null
+                }
                 YuvarlakDugme("✓", 30.dp, renk = Vurgu2) { ayarAcik = false }
             }
         }

@@ -161,6 +161,14 @@ class HavaFaresi(private val context: Context, private val durum: (String) -> Un
     }
 
     fun baslat(cihaz: BluetoothDevice) {
+        // Already registered (device switched from ⚙): just move the connection.
+        hid?.let { h ->
+            bagli?.let { h.disconnect(it) }
+            hedef = cihaz
+            durum("bağlanıyor: ${cihaz.name}")
+            h.connect(cihaz)
+            return
+        }
         hedef = cihaz
         val adaptor = bt ?: run { durum("Bluetooth yok"); return }
         durum("fare hazırlanıyor…")
