@@ -5,7 +5,7 @@
 Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince sormadan üç yere yayınla (yerel OTA, GitHub release `--target`, evaglass `apps.json`). Mi Box durumu ve geri alma komutları: hafıza `mibox-adb-ve-sadelestirme.md`.
 
 ## State
-- 0.9.64 üç yerde (`0fea3ca`, sha `208418f0…`, GitHub + yerel OTA indirme sha eşleşti; ota-ayna 10 dk'da kendi çeker): aramada "Klavye:" hapları ABC (7x6) / QWERTY (Türkçe Q 12x4, 38 dp tuş, ' - .) / Sistem (ızgara gizli, alan odaklı, LeanKey; sonuçlar tam genişlik). Seçim prefs `netmovies_search/klavye`. Emülatörde (evabench_shot) üç mod + canlı arama "lioness" + D-pad odağı + kalıcılık görüldü; Mi Box'ta DOĞRULANMADI.
+- 0.9.64 üç yerde (`0fea3ca`, sha `208418f0…`, GitHub + yerel OTA indirme sha eşleşti; ota-ayna 10 dk'da kendi çeker): aramada "Klavye:" hapları ABC (7x6) / QWERTY (Türkçe Q 12x4, 38 dp tuş, ' - .) / Sistem (ızgara gizli, alan odaklı, LeanKey; sonuçlar tam genişlik). Seçim prefs `netmovies_search/klavye`. Emülatörde (evabench_shot) üç mod + canlı arama "lioness" + D-pad odağı + kalıcılık görüldü; Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI.
 - `sunucu.sh`: laptop yedeğe geçince `yedek_reddet.py` gizli başlar (:3310 RST, TV anında yeniden keşfeder), laptop aktife geçerken durur; elle `sunucu.sh reddet`, `durum` sayıyı gösterir (penv'de 2 süreç = 1 örnek). Şu an laptopta çalışıyor (yeniden başlatmada kalkmaz — autostart'a eklenmedi).
 - 0.9.63 üç yerde (`157f4db`, sha `517eeeb9…`, indirme sha eşleşti): aramada Türkçe ızgara klavye (`SearchKeys.kt`/`SearchKeyboard.kt`, 4 test), canlı arama 2+ karakter 600 ms. Cihazda/emülatörde DOĞRULANMADI (TV oynatıyordu; evabench_shot emülatörü açılışta kaldı). Sonuç ızgarası klavye yanında ~3 sütuna daralabilir — Dean'den bak.
 - Nextcloud: compose'a /mnt/shared + /mnt/recs(ro), files_external ile dean'e bağlı, cron modu + `nextcloud-cron.timer` 5 dk. Web arayüzünde görülmedi.
@@ -19,7 +19,8 @@ Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince
 - ZimaOS Plus başvurusu Gmail TASLAĞI (support@icewhale.org, kanıt eki var) — gönderilmedi; panel şifresi yok, ekran görüntüsü eklenemedi.
 
 ## Next
-1. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
+1. Dean'in 0.9.64 klavye seçimi geri bildirimi (Sistem modunda LeanKey kendiliğinden açılıyor mu, QWERTY okunuyor mu) + Yeraltı Devam Et 1:34:31 korundu mu (`client_log`).
+2. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
 (9 Ekim: Dean "kapatma işleri tamam, klavye de aynı" dedi — LG kapatma/SIMPLINK, Fold yeniden başlatma, air mouse, 0.9.63 klavye geri bildirimi KAPANDI; tekrar açma. Açık iş YOK, yeni iş Dean'den gelir.)
 
 ## Don't repeat

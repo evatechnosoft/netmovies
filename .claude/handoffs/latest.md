@@ -1,4 +1,11 @@
-## DEVİR — 2026-10-08 öğlen (EN GÜNCEL; altı eski günlük, kök HANDOFF.md 0.9.62 durumu)
+## DEVİR — 2026-10-09 10:30 (EN GÜNCEL; kök HANDOFF.md ile aynı)
+Hedef: reklamsız TV istemcisi + ZimaOS sunucu; bitince sormadan üç yere yayınla.
+Durum (kanıtlı): `f80d40d` push'lu, çalışma alanı temiz, smoke YEŞİL. 0.9.64 üç yerde (yerel OTA + GitHub `v0.9.64-poc` indirme sha `208418f0…` eşleşti; evaglass `apps.json` vc 964 `355bb2b`; ota-ayna 10 dk'da kendi çeker). Aramada "Klavye:" ABC / QWERTY (Türkçe Q 12x4) / Sistem (ızgara gizli, LeanKey) — emülatörde görüldü, Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI. `sunucu.sh` laptop yedeğe geçince `yedek_reddet.py` başlatır (:3310 RST, TV anında yeniden keşfeder), aktife geçerken durdurur; şu an laptopta açık, yeniden başlatmada kalkmaz (autostart'a eklenmedi).
+Karar: QWERTY 12 sütun → tuş 38 dp (sonuçlara ~3 poster kalsın); Sistem modu izgara yanında daralan sonuç sorununu çözer.
+Tekrarlama: Start-Process'e MSYS yolu (/c/...) verme → python açılmaz, `cygpath -m` şart. apps.json CRLF.
+Tek sonraki iş: Dean'in 0.9.64 klavye geri bildirimi + Yeraltı Devam Et konumu korundu mu (Sistem modunda LeanKey kendiliğinden açılıyor mu).
+
+## DEVİR — 2026-10-08 öğlen (eski)
 Repo kodu değişmedi (`1ead029`). Bu oturum ev ağı/cihaz işi:
 - **LG SIMPLINK çözülmedi (kanıt):** 10:46'da LG hâlâ 14 sn'de bir `Give Device Vendor Id`, kutu `00 00 00`. Kutu tarafı salt-okunur sistem ayarı, root yok. Dean'e önerildi: LG'de SIMPLINK kapat-aç + TV fişten 30 sn; Otomatik Güç Senkronizasyonu aç.
 - **Kapatma sorunu açık:** kutuda `hdmi_control_auto_device_off_enabled=1`; kutu uyuyunca TV "sinyal yok"ta kalıyor. Standby'ın gidip gitmediği görülmedi. Dean'e sorulan, cevapsız: TV ikinci basışta mı kapanıyor, kendiliğinden mi? Test: Dean kapatır, 1 dk içinde `dumpsys hdmi_control` (halka 20 satır, vendor döngüsü siler).
