@@ -44,7 +44,7 @@ data class FareAyari(val x: Int = 5, val y: Int = 5, val hiz: Int = 5, val el: S
  * screen normal (Z), tilting up/down around Y. Signs come from Dean's first try on the
  * Watch6 (left wrist): the theory-derived ones moved the cursor the wrong way. The right
  * wrist is the same watch turned 180° around Z, which flips Y only.
- * 45° of wrist turn ≈ 2048 px at gain 5 / speed 5 (1024 felt slow on the Mi Box).
+ * 45° of wrist turn ≈ 1400 px at gain 5 / speed 5 (1024 felt slow, 2048 too fast).
  */
 internal fun fareHareketi(gy: Float, gz: Float, dt: Float, ayar: FareAyari): Pair<Float, Float> {
     // Gyro noise floor: below this the hand is "still", without it the cursor creeps.
@@ -69,7 +69,7 @@ internal const val TUS_YUKARI = 0x52
 /** Cursor-pixels per focus step: one poster per ~10° wrist turn at defaults. */
 private const val ODAK_ADIMI = 450f
 
-private const val PIKSEL_PER_RADYAN = (2048.0 / (Math.PI / 4)).toFloat()
+private const val PIKSEL_PER_RADYAN = (1400.0 / (Math.PI / 4)).toFloat()
 private const val OLU_BOLGE = 0.03f
 
 /** HID: keyboard (ID 1, for focus mode: arrows/Enter) + mouse (ID 2: 3 buttons, X/Y/wheel int8). */

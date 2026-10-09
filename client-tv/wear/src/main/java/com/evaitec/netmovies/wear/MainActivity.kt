@@ -1112,6 +1112,7 @@ private fun FareEkrani(onKapat: () -> Unit) {
     }
     var ayar by remember { mutableStateOf(FareAyari.oku(baglam)) }
     var ayarAcik by remember { mutableStateOf(false) }
+    var menuAcik by remember { mutableStateOf(false) }
     var odakKipi by remember { mutableStateOf(tercih.getBoolean("odak", false)) }
     val fare = remember { HavaFaresi(baglam) { durum = it } }
     val odak = remember { FocusRequester() }
@@ -1197,6 +1198,11 @@ private fun FareEkrani(onKapat: () -> Unit) {
             }
             Satir("X", ayar.x) { ayar = ayar.copy(x = it) }
             Satir("Y", ayar.y) { ayar = ayar.copy(y = it) }
+            // One tap flips an axis: stepping through 0 with −/+ was too fiddly (Dean, 9 Oct).
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                YuvarlakDugme("⇄", 30.dp) { ayar = ayar.copy(x = -ayar.x) }
+                YuvarlakDugme("⇅", 30.dp) { ayar = ayar.copy(y = -ayar.y) }
+            }
             Satir("Hız", ayar.hiz) { ayar = ayar.copy(hiz = it.coerceAtLeast(1)) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("El", color = Soluk, fontSize = 11.sp)
@@ -1274,19 +1280,26 @@ private fun FareEkrani(onKapat: () -> Unit) {
             fontSize = 11.sp,
             textAlign = TextAlign.Center,
         )
-        Box(Modifier.fillMaxSize().padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                YuvarlakDugme("⚙", 32.dp) { ayarAcik = true }
-                YuvarlakDugme("↩", 32.dp) { fare.tikla(2) }
-                // Cursor ↔ focus: focus mode moves between posters/buttons like the remote.
-                YuvarlakDugme(if (odakKipi) "🎯" else "🖱", 32.dp, renk = if (odakKipi) Vurgu2 else Metin) {
-                    odakKipi = !odakKipi
-                    tercih.edit().putBoolean("odak", odakKipi).apply()
-                }
-                YuvarlakDugme("✕", 32.dp, onUzun = {
-                    tercih.edit().remove("hedef").apply(); hedef = null
-                }) { onKapat() }
+        // Buttons hide so the whole glass is the pad; the ⌃ handle opens them on an arc
+        // that follows the round bezel (a straight row was clipped at the edges).
+        if (!menuAcik) {
+            Box(Modifier.fillMaxSize().padding(bottom = 4.dp), contentAlignment = Alignment.BottomCenter) {
+                YuvarlakDugme("⌃", 30.dp) { menuAcik = true }
             }
+        } else {
+            AltYay(
+                listOf<Pair<String, () -> Unit>>(
+                    "⚙" to { ayarAcik = true; menuAcik = false },
+                    "↩" to { fare.tikla(2) },
+                    // Cursor ↔ focus: focus mode moves between posters/buttons like the remote.
+                    (if (odakKipi) "🎯" else "🖱") to {
+                        odakKipi = !odakKipi
+                        tercih.edit().putBoolean("odak", odakKipi).apply()
+                    },
+                    "⌄" to { menuAcik = false },
+                    "✕" to { onKapat() },
+                ),
+            )
         }
     }
 }
@@ -1295,5 +1308,21 @@ private fun titret(baglam: Context) {
     runCatching {
         baglam.getSystemService(Vibrator::class.java)
             ?.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+}
+
+/** Buttons spread on the bottom of the round face, each on the bezel circle. */
+@Composable
+private fun AltYay(dugmeler: List<Pair<String, () -> Unit>>) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val cap = 30.dp
+        val r = maxWidth / 2 - cap / 2 - 6.dp
+        val aralik = 26.0  // degrees between buttons
+        dugmeler.forEachIndexed { i, (simge, eylem) ->
+            val aci = Math.toRadians(90.0 + (i - (dugmeler.size - 1) / 2.0) * aralik)
+            val x = maxWidth / 2 + r * kotlin.math.cos(aci).toFloat() - cap / 2
+            val y = maxHeight / 2 + r * kotlin.math.sin(aci).toFloat() - cap / 2
+            Box(Modifier.offset(x, y)) { YuvarlakDugme(simge, cap, onClick = eylem) }
+        }
     }
 }

@@ -10,9 +10,9 @@ class FareHareketiTest {
         assertEquals(0f, dy, 0f)
     }
 
-    @Test fun `quarter-pi turn is 2048 px at defaults`() {
+    @Test fun `quarter-pi turn is 1400 px at defaults`() {
         val (dx, dy) = fareHareketi(0f, (Math.PI / 4).toFloat(), 1f, FareAyari())
-        assertEquals(2048f, dx, 1f)
+        assertEquals(1400f, dx, 1f)
         assertEquals(0f, dy, 0f)
     }
 
