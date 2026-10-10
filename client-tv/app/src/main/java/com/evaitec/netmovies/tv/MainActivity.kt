@@ -223,6 +223,8 @@ class MainActivity : ComponentActivity() {
                         var showBrowse by remember { mutableStateOf(false) }
                         var showAdmin by remember { mutableStateOf(false) }
                         var webAdresi by remember { mutableStateOf<String?>(null) }
+                        // Sayfa açıkken telefondan yazılan metin: sayfadaki kutuya gider, aramaya değil.
+                        var webMetni by remember { mutableStateOf<com.evaitec.netmovies.tv.ui.WebMetni?>(null) }
                         var showFollowing by remember { mutableStateOf(false) }
                         var showAgenda by remember { mutableStateOf(false) }
                         // Gözat'a ajandadan mı girildi: GERİ oraya dönsün, arama
@@ -384,7 +386,9 @@ class MainActivity : ComponentActivity() {
                                             com.evaitec.netmovies.tv.data.RemoteBus.yayinla(cmd)
                                         }
 
-                                        "text" -> {
+                                        "text" -> if (webAdresi != null) {
+                                            if (cmd.text.isNotBlank()) webMetni = com.evaitec.netmovies.tv.ui.WebMetni(cmd.text, cmd.submit)
+                                        } else {
                                             if (!showBrowse) { browseVaultMode = false; showBrowse = true }
                                             kumandaMetni = cmd.text.ifBlank { null }
                                         }
@@ -472,7 +476,12 @@ class MainActivity : ComponentActivity() {
                             webAdresi != null ->
                                 // key: a second share replaces the page instead of reusing the old WebView.
                                 androidx.compose.runtime.key(webAdresi) {
-                                    com.evaitec.netmovies.tv.ui.WebEkrani(url = webAdresi!!, onBack = { webAdresi = null })
+                                    com.evaitec.netmovies.tv.ui.WebEkrani(
+                                        url = webAdresi!!,
+                                        metin = webMetni,
+                                        onMetinYazildi = { webMetni = null },
+                                        onBack = { webAdresi = null; webMetni = null },
+                                    )
                                 }
                             showChannels ->
                                 com.evaitec.netmovies.tv.ui.ChannelsScreen(

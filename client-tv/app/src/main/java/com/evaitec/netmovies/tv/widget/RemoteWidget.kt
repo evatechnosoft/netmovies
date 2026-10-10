@@ -562,7 +562,10 @@ class RemoteWidget : AppWidgetProvider() {
           }.getOrDefault(false)
         }
 
-        internal fun komutYolla(context: Context, govde: String): Boolean = tabanla(context, false) { taban ->
+        internal fun komutYolla(context: Context, govde: String): Boolean = komutYaniti(context, govde) != null
+
+        /** Like [komutYolla], but returns the server's reply body (null on failure). */
+        internal fun komutYaniti(context: Context, govde: String): String? = tabanla<String?>(context, null) { taban ->
           runCatching {
             val conn = (URL(taban + "/api/v1/remote/command")
                 .openConnection() as HttpURLConnection).apply {
@@ -576,11 +579,11 @@ class RemoteWidget : AppWidgetProvider() {
             try {
                 OutputStreamWriter(conn.outputStream).use { it.write(govde) }
                 anahtarDurumu(context, conn.responseCode)
-                conn.responseCode in 200..299
+                if (conn.responseCode in 200..299) conn.inputStream.bufferedReader().use { it.readText() } else null
             } finally {
                 conn.disconnect()
             }
-          }.getOrDefault(false)
+          }.getOrNull()
         }
     }
 }

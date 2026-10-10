@@ -178,9 +178,23 @@ async def remote_command(request: Request):
     cmd  = build_command(veri)
     if isinstance(cmd, str):
         return _err(cmd)
+    if cmd["type"] == "web":
+        cmd = await _sayfa_ya_da_oynat(cmd)
 
     enqueue(cmd)
-    return {**api_v1_global_message, "result": {"ok": True}}
+    return {**api_v1_global_message, "result": {"ok": True, "as": cmd["type"]}}
+
+
+async def _sayfa_ya_da_oynat(cmd: dict) -> dict:
+    """Paylaşılan bağlantı sağlayıcı sayfasıysa oynatıcıda açılır (paylas_hedefi.py)."""
+    from ..Libs import fuck_dmca
+    from ..Libs.paylas_hedefi import oynatma_komutu
+
+    try:
+        eklentiler = await fuck_dmca("/get_all_plugins") or []
+    except Exception:
+        return cmd   # motor yoksa sayfa yine açılır
+    return oynatma_komutu(cmd["url"], eklentiler if isinstance(eklentiler, list) else []) or cmd
 
 
 @api_v1_router.get("/remote/token")

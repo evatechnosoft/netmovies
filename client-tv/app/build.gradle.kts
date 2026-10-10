@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.9.66"
+val appVersion = "0.9.67"
 
 plugins {
     id("com.android.application")
@@ -114,6 +114,8 @@ dependencies {
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
 
     testImplementation("junit:junit:4.13.2")
+    // org.json is an Android stub on the JVM; the real one for share/web tests.
+    testImplementation("org.json:json:20240303")
     // Gövdesiz POST + query sözleşmesi ancak gerçek bir istek üretilerek doğrulanır.
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
