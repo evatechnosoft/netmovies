@@ -1,6 +1,6 @@
 import unittest
 
-from Public.API.v1.Libs.kisa_klip import AV_KAYMA_ESIK, av_kayma_orani, hls_suresi, kisa_klip_mi
+from Public.API.v1.Libs.kisa_klip import av_orani, hls_suresi, kisa_klip_mi
 
 
 class KisaKlipTest(unittest.TestCase):
@@ -27,12 +27,12 @@ class KisaKlipTest(unittest.TestCase):
         # DiziPal Daha 17: ses 8640,07 sn, görüntü 8628,17 sn → ses giderek geride.
         ses = _pl(3.008, 2872) + _pl(1.0, 1)
         goruntu = _pl(10.416667, 828) + _pl(3.0, 1)
-        self.assertGreater(av_kayma_orani(ses, goruntu), AV_KAYMA_ESIK)
+        self.assertAlmostEqual(av_orani(ses, goruntu), (3.008 * 2872 + 1) / (10.416667 * 828 + 3), places=5)
 
     def test_av_senkron_ve_olculemeyen(self):
         goruntu = _pl(10.0, 299) + _pl(9.5, 1)
-        self.assertLess(av_kayma_orani(_pl(3.0, 1000), goruntu), AV_KAYMA_ESIK)
-        self.assertEqual(av_kayma_orani("", goruntu), 0.0)
+        self.assertIsNone(av_orani(_pl(3.0, 1000), goruntu))
+        self.assertIsNone(av_orani("", goruntu))
 
 
 def _pl(sure: float, adet: int) -> str:

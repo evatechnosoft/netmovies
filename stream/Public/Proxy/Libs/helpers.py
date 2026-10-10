@@ -9,6 +9,7 @@ import httpx, traceback, re, json
 
 _proxy_url = PROXIES.get("https") or PROXIES.get("http") if PROXIES else None
 
+from .av_esitle    import extinf_olcekle
 from .player_proof import apply_player_proof
 from .proxy_token import issue_proxy_token
 
@@ -317,7 +318,7 @@ def is_hls_segment(url: str) -> bool:
     segment_indicators = (".ts", ".m4s", ".aac", "seg-", "chunk-", "fragment", ".png", ".jpg", ".jpeg")
     return any(indicator in url_lower for indicator in segment_indicators)
 
-def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, user_agent: str = None, force_proxy: bool = False, extra_headers: dict[str, str] | None = None, proxy_token: str | None = None) -> bytes:
+def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, user_agent: str = None, force_proxy: bool = False, extra_headers: dict[str, str] | None = None, proxy_token: str | None = None, av_oran: float | None = None) -> bytes:
     """
     HLS manifest içindeki göreceli URL'leri işler.
 
@@ -337,6 +338,8 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
     lines           = text.split('\n')
     new_lines       = []
     extra_headers_q = f'&extra_headers={quote(json.dumps(extra_headers), safe="")}' if extra_headers else ''
+    # Görüntü varyantı ve segmentleri oranı taşır; URI="…" (ses rendition'ı) taşımaz.
+    av_oran_q       = f'&av_oran={av_oran}' if av_oran else ''
 
     def token_for(absolute_url: str) -> str:
         """Manifest'ten türeyen URL için token.
@@ -396,8 +399,12 @@ def rewrite_hls_manifest(content: bytes, base_url: str, referer: str = None, use
                 if force_proxy:
                     proxy_url += '&force_proxy=1'
                 proxy_url += extra_headers_q
+                proxy_url += av_oran_q
                 proxy_url += token_for(absolute_url)
                 new_lines.append(proxy_url)
+
+        elif av_oran and stripped.startswith('#EXTINF:'):
+            new_lines.append(extinf_olcekle(line, av_oran))
 
         else:
             new_lines.append(line)

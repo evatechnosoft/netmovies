@@ -22,7 +22,7 @@ from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 from ..Libs.arama_varyant import baslik_uyusuyor, query_variants
 from ..Libs.bolum_esle import basliktan_bolum, bolum_sirasi, int_or_none
-from ..Libs.kisa_klip import hls_av_kayik_mi, hls_kisa_klip_mi, kisa_klip_mi
+from ..Libs.kisa_klip import hls_av_orani, hls_kisa_klip_mi, kisa_klip_mi
 from .plugin_health import run_plugin_health
 
 from urllib.parse import quote_plus
@@ -136,11 +136,11 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
         return [], episodes
 
     diag.add("info", "link", f"{plugin_name} · {len(links)} kaynak")
-    # Sesi görüntüden kayan kaynak elenmez (tek kaynak olabilir), işaretlenir;
-    # ağ geçidi sıranın sonuna koyar.
-    kayik = await asyncio.gather(*(hls_av_kayik_mi(l.url, l.referer) for l in links))
-    if any(kayik):
-        diag.add("warn", "link", f"{plugin_name} · {sum(kayik)} kaynakta ses/görüntü süresi uyuşmuyor — sona alındı")
+    # Sesi görüntüden kayan kaynak elenmez (tek kaynak olabilir): oranı taşır,
+    # ağ geçidi proxy'de görüntüyü esnetir ve kaynağı sıranın sonuna koyar.
+    oranlar = await asyncio.gather(*(hls_av_orani(l.url, l.referer) for l in links))
+    for oran in filter(None, oranlar):
+        diag.add("warn", "link", f"{plugin_name} · ses/görüntü süresi uyuşmuyor (oran {oran}) — proxy'de eşitlenecek, sona alındı")
     return [
         {
             "plugin"     : plugin_name,
@@ -150,9 +150,10 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             "user_agent" : link.user_agent or "",
             "extra_headers": getattr(link, "extra_headers", None) or {},
             "subtitles"  : [sub.model_dump() for sub in (link.subtitles or [])],
-            "av_kayik"   : k,
+            "av_kayik"   : bool(oran),
+            "av_oran"    : oran,
         }
-        for link, k in zip(links, kayik)
+        for link, oran in zip(links, oranlar)
     ], episodes
 
 

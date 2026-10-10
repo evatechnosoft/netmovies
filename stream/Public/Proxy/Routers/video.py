@@ -7,6 +7,7 @@ from fastapi.responses    import StreamingResponse
 from .                    import proxy_router
 from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, parse_extra_headers, url_is_public
 from ..Libs import manifest_cache
+from ..Libs.av_esitle     import oran_oku, ts_olcekle
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import token_tanisi, validate_proxy_token
 from Public.API.v1.Libs  import kayit
@@ -118,7 +119,7 @@ def prefetch_segments(manifest: bytes, manifest_url: str, request_headers: dict)
 
 @proxy_router.get("/video")
 @proxy_router.head("/video")
-async def video_proxy(request: Request, url: str, proxy_token: str = None, referer: str = None, user_agent: str = None, force_proxy: str = None, title: str = None, subtitle_url: str = None, extra_headers: str = None):
+async def video_proxy(request: Request, url: str, proxy_token: str = None, referer: str = None, user_agent: str = None, force_proxy: str = None, title: str = None, subtitle_url: str = None, extra_headers: str = None, av_oran: str = None):
     """Video proxy endpoint'i"""
     target_url           = url
     if not proxy_token or not validate_proxy_token(proxy_token, target_url):
@@ -129,7 +130,9 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
         return Response(status_code=403, content="Hedef adres proxy'lenemez")
     parsed_extra_headers = parse_extra_headers(extra_headers)
     request_headers      = prepare_request_headers(request, target_url, referer, user_agent, parsed_extra_headers)
-    is_force_proxy       = force_proxy == "1"
+    # Ses/görüntü kayması düzeltilecekse segmentler proxy'den geçmek zorunda.
+    oran                 = oran_oku(av_oran)
+    is_force_proxy       = force_proxy == "1" or oran is not None
     # Kaydedici kendi isteğini izleme saymaz ve oynatıcının cache'ini doldurmaz.
     kaydedici            = request.headers.get("x-nm-kayit") == "1"
     if not kaydedici:
@@ -142,7 +145,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             # konsol.print(f"[green]✓ Cache HIT:[/green] {target_url[-50:]}")
             zinciri_ilerlet(target_url, request_headers)
             return Response(
-                content     = cached_content,
+                content     = ts_olcekle(cached_content, oran) if oran else cached_content,
                 status_code = 200,
                 headers     = {
                     "Content-Type"                : "video/MP2T" if target_url.endswith('.ts') else "video/iso.segment",
@@ -225,7 +228,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             await response.aclose()
 
             # Manifest URL'lerini yeniden yaz
-            rewritten_content = rewrite_hls_manifest(content, target_url, referer, user_agent, is_force_proxy, parsed_extra_headers, proxy_token)
+            rewritten_content = rewrite_hls_manifest(content, target_url, referer, user_agent, is_force_proxy, parsed_extra_headers, proxy_token, oran)
 
             # Oynatma başlarken ilk segmentler daha istenmeden çekilsin: oynatıcı
             # varyant manifestini aldığı anda ilk N segmenti arka planda cache'e
@@ -273,16 +276,23 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
                 content = await response.aread()
                 await response.aclose()
 
-                # Cache'e ekle
+                # Cache'e ekle (ham hâliyle: ölçek istek başına uygulanır)
                 await segment_cache.set(target_url, content)
                 zinciri_ilerlet(target_url, request_headers)
 
                 return Response(
-                    content     = content,
+                    content     = ts_olcekle(content, oran) if oran else content,
                     status_code = response.status_code,
                     headers     = final_headers,
                     media_type  = final_headers.get("Content-Type")
                 )
+
+        # Ölçeklenecek segment akıtılamaz: PTS'ler gövdenin içinde.
+        if oran and segment_mi(target_url):
+            content = ts_olcekle(await response.aread(), oran)
+            await response.aclose()
+            final_headers["Content-Length"] = str(len(content))
+            return Response(content=content, status_code=response.status_code, headers=final_headers, media_type=final_headers.get("Content-Type"))
 
         # Normal video veya büyük/chunked segment - StreamingResponse döndür
         return StreamingResponse(

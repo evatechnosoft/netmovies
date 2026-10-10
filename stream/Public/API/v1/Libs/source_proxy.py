@@ -64,7 +64,9 @@ def route_through_proxy(sources: list, base_url: str, hepsi: bool = False) -> li
         source = _altyazi_proxy(source)
         extra = source.get("extra_headers") or {}
         url   = str(source.get("url") or "")
-        zorla = source.get("plugin") in _ALWAYS_PROXY_PLUGINS
+        # Ses/görüntü kayması proxy'de düzeltilir (Proxy/Libs/av_esitle.py).
+        av_oran = source.get("av_oran")
+        zorla = source.get("plugin") in _ALWAYS_PROXY_PLUGINS or bool(av_oran)
         if not url or (not extra and not zorla and not hepsi):
             proxied.append(source)
             continue
@@ -81,6 +83,8 @@ def route_through_proxy(sources: list, base_url: str, hepsi: bool = False) -> li
             f"extra_headers={quote(dumps(extra, separators=(',', ':')), safe='')}",
             f"proxy_token={quote(token, safe='')}",
         ]
+        if av_oran:
+            params.append(f"av_oran={av_oran}")
         source = {**source, "url": f"{base_url}/proxy/video?{'&'.join(params)}", "proxied": True}
         # İmza malzemesi istemciye gitmesin: artık sunucunun işi.
         source.pop("extra_headers", None)

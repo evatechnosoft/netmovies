@@ -63,17 +63,20 @@ async def hls_kisa_klip_mi(url: str | None) -> bool:
 AV_KAYMA_ESIK = 0.0005
 
 
-def av_kayma_orani(ses_metni: str, goruntu_metni: str) -> float:
-    """İki medya playlist'inin göreli süre farkı; ölçülemezse 0."""
+def av_orani(ses_metni: str, goruntu_metni: str) -> float | None:
+    """Ses süresi / görüntü süresi — fark eşiği aşıyorsa; senkron ya da ölçülemezse None.
+    Proxy görüntüyü bu oranla esnetir (stream `Proxy/Libs/av_esitle.py`)."""
     ses, goruntu = hls_suresi(ses_metni, None), hls_suresi(goruntu_metni, None)
-    return abs(ses - goruntu) / max(ses, goruntu) if ses > 0 and goruntu > 0 else 0.0
+    if ses <= 0 or goruntu <= 0 or abs(ses - goruntu) / max(ses, goruntu) <= AV_KAYMA_ESIK:
+        return None
+    return round(ses / goruntu, 6)
 
 
-async def hls_av_kayik_mi(url: str | None, referer: str | None = None) -> bool:
-    """Ayrı sesli HLS master'da ses/görüntü süresi eşiği aşacak kadar farklıysa True; ölçülemezse False."""
+async def hls_av_orani(url: str | None, referer: str | None = None) -> float | None:
+    """Ayrı sesli HLS master'da ses/görüntü süre oranı (bkz. `av_orani`); ölçülemezse None."""
     global _client
     if ".m3u8" not in urlparse(url or "").path:
-        return False
+        return None
     try:
         if _client is None:
             _client = httpx.AsyncClient(timeout=6.0, headers={"User-Agent": _UA}, follow_redirects=True)
@@ -82,9 +85,9 @@ async def hls_av_kayik_mi(url: str | None, referer: str | None = None) -> bool:
         ses = re.search(r'#EXT-X-MEDIA:[^\n]*TYPE=AUDIO[^\n]*URI="([^"]+)"', master)
         varyant_url = _ilk_varyant(master, url)
         if not ses or not varyant_url:
-            return False
+            return None
         ses_metni = (await _client.get(urljoin(url, ses.group(1)), headers=basliklar)).text
         goruntu_metni = (await _client.get(varyant_url, headers=basliklar)).text
-        return av_kayma_orani(ses_metni, goruntu_metni) > AV_KAYMA_ESIK
+        return av_orani(ses_metni, goruntu_metni)
     except Exception:
-        return False
+        return None
