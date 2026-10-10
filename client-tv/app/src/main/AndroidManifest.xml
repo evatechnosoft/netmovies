@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Gemini Nano indirmesi yalnız Wi-Fi'de başlasın (data/yz/NanoNiyet) -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- UyanikTut: kutu derin uykuya girmesin, ağda kalsın -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- TV + telefon: dokunmatik ve leanback zorunlu değil -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -96,6 +100,15 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_remote_info" />
         </receiver>
+
+        <service
+            android:name=".UyanikTut"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="TV kutusunu ağda tutar, kumanda ve uzaktan açma için" />
+        </service>
 
         <!-- PackageInstaller oturum sonucu: onay ekranını açan alıcı -->
         <receiver
