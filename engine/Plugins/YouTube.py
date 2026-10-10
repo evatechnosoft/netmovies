@@ -9,7 +9,6 @@
 # yayıncı. Hayran yüklemeleri (yeniden kesilmiş, eksik) ve fragman listeleri elenir.
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import time
@@ -19,7 +18,7 @@ from pathlib      import Path
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 from KekikStream.Core import Episode, ExtractResult, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo
-from Plugins.__warp_client import WARP_PROXY, ytdlp_info
+from Plugins.__warp_client import ytdlp_info, ytdlp_json
 
 # Playlist filtresi (sp=EgIQAw==): arama yalnız oynatma listesi döndürür.
 _ARAMA    = "https://www.youtube.com/results?search_query={}&sp=EgIQAw%253D%253D"
@@ -107,19 +106,7 @@ async def _ytdlp_json(url: str, *ek: str, timeout: float = 60.0) -> dict | None:
 
 
 async def _ytdlp_json_cek(url: str, *ek: str, timeout: float = 60.0) -> dict | None:
-    proc = await asyncio.create_subprocess_exec(
-        "yt-dlp", "--no-warnings", "--flat-playlist", "-J", "--proxy", WARP_PROXY, *ek, url,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
-        proc.kill()
-        return None
-    try:
-        return json.loads(stdout) if proc.returncode == 0 and stdout else None
-    except ValueError:
-        return None
+    return await ytdlp_json(["--no-warnings", "--flat-playlist", "-J", *ek], url, timeout, dogrudan_once=True)
 
 
 class YouTube(PluginBase):
@@ -191,7 +178,7 @@ class YouTube(PluginBase):
         # motorun 30 sn'si burada bitiyordu. Yalnız video adresi çözülür.
         if not video_mu(url):
             return []
-        info = await ytdlp_info(url, timeout=90.0)
+        info = await ytdlp_info(url, timeout=90.0, dogrudan_once=True)
         master = next((f["manifest_url"] for f in (info or {}).get("formats") or [] if f.get("manifest_url")), None)
         if not master:
             return []

@@ -183,7 +183,7 @@ class DDizi(PluginBase):
         if not video:
             return await self._oynat_links(url, response.text)
 
-        info = await ytdlp_info(f"https://www.youtube.com/watch?v={video.group(1)}", timeout=90.0)
+        info = await ytdlp_info(f"https://www.youtube.com/watch?v={video.group(1)}", timeout=90.0, dogrudan_once=True)
         if not info:
             return []
 
