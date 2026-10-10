@@ -179,36 +179,48 @@ async def remote_command(request: Request):
     if isinstance(cmd, str):
         return _err(cmd)
     if cmd["type"] == "web":
-        cmd = await _sayfa_ya_da_oynat(cmd)
+        oynat = await _oynatma_hedefi(cmd["url"])
+        if oynat:
+            # Telefon 6 sn'de okuma süresini doldurur; başlık (load_item, soğuk motorda
+            # yt-dlp 5+ sn) arka planda gelir, komut sonra kuyruğa girer.
+            _arka_plan.add(task := asyncio.create_task(_baslikla_kuyruga(oynat)))
+            task.add_done_callback(_arka_plan.discard)
+            return {**api_v1_global_message, "result": {"ok": True, "as": "play"}}
 
     enqueue(cmd)
     return {**api_v1_global_message, "result": {"ok": True, "as": cmd["type"]}}
 
 
-async def _sayfa_ya_da_oynat(cmd: dict) -> dict:
-    """Paylaşılan bağlantı sağlayıcı sayfasıysa oynatıcıda açılır (paylas_hedefi.py)."""
+# create_task sonucu tutulmazsa görev çöp toplayıcıya gidebilir.
+_arka_plan: set = set()
+
+
+async def _oynatma_hedefi(url: str) -> dict | None:
+    """Paylaşılan bağlantı sağlayıcı sayfasıysa `play` komutu (paylas_hedefi.py)."""
     from ..Libs import fuck_dmca
     from ..Libs.paylas_hedefi import oynatma_komutu
 
     try:
         eklentiler = await fuck_dmca("/get_all_plugins") or []
     except Exception:
-        return cmd   # motor yoksa sayfa yine açılır
-    oynat = oynatma_komutu(cmd["url"], eklentiler if isinstance(eklentiler, list) else [])
-    if not oynat:
-        return cmd
-    # Başlık boşsa Devam Et'te isimsiz kalır ve alternatif sağlayıcı aranamaz.
-    # Telefonun 6 sn okuma süresine sığsın: gelmezse başlıksız oynar.
+        return None   # motor yoksa sayfa yine açılır
+    return oynatma_komutu(url, eklentiler if isinstance(eklentiler, list) else [])
+
+
+async def _baslikla_kuyruga(oynat: dict) -> None:
+    """Başlık boşsa Devam Et'te isimsiz kalır ve TV alternatif sağlayıcıda arayamaz."""
+    from ..Libs import fuck_dmca
+
     try:
         detay = await asyncio.wait_for(
-            fuck_dmca("/load_item", params={"plugin": oynat["plugin"], "encoded_url": oynat["url"]}), timeout=4.0,
+            fuck_dmca("/load_item", params={"plugin": oynat["plugin"], "encoded_url": oynat["url"]}), timeout=15.0,
         )
         if isinstance(detay, dict):
             oynat["title"]  = str(detay.get("title") or "")
             oynat["poster"] = str(detay.get("poster") or "")
     except Exception:
-        pass
-    return oynat
+        pass   # başlıksız da oynar
+    enqueue(oynat)
 
 
 @api_v1_router.get("/remote/token")
