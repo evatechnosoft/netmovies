@@ -1,6 +1,6 @@
 import unittest
 
-from Public.API.v1.Libs.kisa_klip import hls_suresi, kisa_klip_mi
+from Public.API.v1.Libs.kisa_klip import AV_KAYMA_ESIK, av_kayma_orani, hls_suresi, kisa_klip_mi
 
 
 class KisaKlipTest(unittest.TestCase):
@@ -22,6 +22,21 @@ class KisaKlipTest(unittest.TestCase):
         self.assertFalse(kisa_klip_mi("https://x.com/master.m3u8"))
         self.assertFalse(kisa_klip_mi("https://x.com/v?dur=abc"))
         self.assertFalse(kisa_klip_mi(None))
+
+    def test_av_kayma_daha17(self):
+        # DiziPal Daha 17: ses 8640,07 sn, görüntü 8628,17 sn → ses giderek geride.
+        ses = _pl(3.008, 2872) + _pl(1.0, 1)
+        goruntu = _pl(10.416667, 828) + _pl(3.0, 1)
+        self.assertGreater(av_kayma_orani(ses, goruntu), AV_KAYMA_ESIK)
+
+    def test_av_senkron_ve_olculemeyen(self):
+        goruntu = _pl(10.0, 299) + _pl(9.5, 1)
+        self.assertLess(av_kayma_orani(_pl(3.0, 1000), goruntu), AV_KAYMA_ESIK)
+        self.assertEqual(av_kayma_orani("", goruntu), 0.0)
+
+
+def _pl(sure: float, adet: int) -> str:
+    return f"#EXTINF:{sure},\ns.ts\n" * adet
 
 
 if __name__ == "__main__":

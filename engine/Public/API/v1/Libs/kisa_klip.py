@@ -54,3 +54,37 @@ async def hls_kisa_klip_mi(url: str | None) -> bool:
         return 0 < sure < KISA_KLIP_SN
     except Exception:
         return False
+
+
+# Ses ayrı rendition'da gelince (EXT-X-MEDIA TYPE=AUDIO) iki zaman çizelgesi ayrı
+# kodlanmış olabilir. Daha 17 (DiziPal, 10 Eki): ses 8640,07 sn, görüntü 8628,17 sn
+# — %0,14 kısa görüntü, ses ilerledikçe geride kaldı (1:49'da ~9 sn). Senkron
+# kaynaklarda fark segment yuvarlamasıdır (<%0,05).
+AV_KAYMA_ESIK = 0.0005
+
+
+def av_kayma_orani(ses_metni: str, goruntu_metni: str) -> float:
+    """İki medya playlist'inin göreli süre farkı; ölçülemezse 0."""
+    ses, goruntu = hls_suresi(ses_metni, None), hls_suresi(goruntu_metni, None)
+    return abs(ses - goruntu) / max(ses, goruntu) if ses > 0 and goruntu > 0 else 0.0
+
+
+async def hls_av_kayik_mi(url: str | None, referer: str | None = None) -> bool:
+    """Ayrı sesli HLS master'da ses/görüntü süresi eşiği aşacak kadar farklıysa True; ölçülemezse False."""
+    global _client
+    if ".m3u8" not in urlparse(url or "").path:
+        return False
+    try:
+        if _client is None:
+            _client = httpx.AsyncClient(timeout=6.0, headers={"User-Agent": _UA}, follow_redirects=True)
+        basliklar = {"Referer": referer} if referer else {}
+        master = (await _client.get(url, headers=basliklar)).text
+        ses = re.search(r'#EXT-X-MEDIA:[^\n]*TYPE=AUDIO[^\n]*URI="([^"]+)"', master)
+        varyant_url = _ilk_varyant(master, url)
+        if not ses or not varyant_url:
+            return False
+        ses_metni = (await _client.get(urljoin(url, ses.group(1)), headers=basliklar)).text
+        goruntu_metni = (await _client.get(varyant_url, headers=basliklar)).text
+        return av_kayma_orani(ses_metni, goruntu_metni) > AV_KAYMA_ESIK
+    except Exception:
+        return False

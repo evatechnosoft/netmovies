@@ -48,6 +48,15 @@ class LanguagePriorityTest(unittest.TestCase):
             [link["name"] for link in order_by_language(queue)],
         )
 
+    def test_av_drift_goes_last(self) -> None:
+        # Daha 17 (DiziPal): sesi görüntüden kayan kaynak dublaj olsa da sona.
+        queue = [{"name": "A · Dublaj", "av_kayik": True}, {"name": "B · Oynatıcı"}]
+
+        self.assertEqual(
+            ["B · Oynatıcı", "A · Dublaj"],
+            [link["name"] for link in order_by_language(queue)],
+        )
+
     def test_same_rank_keeps_provider_order(self) -> None:
         queue = [{"name": "İlk · Dublaj"}, {"name": "İkinci · Dublaj"}]
 

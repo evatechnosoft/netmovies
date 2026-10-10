@@ -72,5 +72,6 @@ def language_name(rank: int) -> str:
 
 
 def order_by_language(links: list) -> list:
-    """Kaynakları dil tercihine göre sıralar; grup içi sıra korunur."""
-    return sorted(links, key=language_rank)
+    """Kaynakları dil tercihine göre sıralar; grup içi sıra korunur.
+    Sesi görüntüden kayan kaynak (engine `av_kayik`) dilden bağımsız en sona."""
+    return sorted(links, key=lambda l: (isinstance(l, dict) and bool(l.get("av_kayik")), language_rank(l)))
