@@ -12,7 +12,11 @@ while true; do
   adb -s "$HOST" get-state 2>/dev/null | grep -q device || adb disconnect "$HOST" >/dev/null 2>&1
   adb connect "$HOST" >/dev/null 2>&1
   if adb -s "$HOST" get-state 2>/dev/null | grep -q device; then
-    adb -s "$HOST" logcat -v time -T 1 NetMoviesPlayback:V AndroidRuntime:E '*:S' >> "$LOG" 2>&1
+    # Uyanış anı yeniden bağlanmadan önce olur: son yazılan satırdan devam et (-T 1 kaçırıyordu).
+    SON=$(tail -n 1 "$LOG" 2>/dev/null | grep -oE '^[0-9]{2}-[0-9]{2} [0-9:.]{12}')
+    # Güç/CEC/BT kumanda satırları "kumandadan açılmıyor" şikâyetinin kanıtı (10 Eki).
+    adb -s "$HOST" logcat -v time -T "${SON:-1}" NetMoviesPlayback:V AndroidRuntime:E \
+      PowerManagerService:I HdmiControlService:I HdmiCecLocalDevicePlayback:I bt_btif_hh:I '*:S' >> "$LOG" 2>&1
   fi
   sleep 30
 done
