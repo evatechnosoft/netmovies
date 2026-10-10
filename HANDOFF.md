@@ -1,54 +1,37 @@
-# Handoff: saat hava faresi + TV imleç + Paylaş → TV'de aç
-> 2026-10-09 23:25 · `fix/general-stability` @ `7cd36f6` (+ bu handoff commit'i)
+# Handoff: ses/görüntü kayması düzeltildi
+> 2026-10-10 10:15 · `fix/general-stability` @ `7279fc1` (+ bu handoff commit'i) · origin ile eşit
 
 ## Goal
-Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`; bitince sormadan üç yere yayınla (yerel OTA, GitHub release `--target`, evaglass `apps.json`). Mi Box durumu ve geri alma komutları: hafıza `mibox-adb-ve-sadelestirme.md`.
+Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`. Bu oturum: Dean "Daha 17'de ses geriden geliyor, bir daha karşılaşmayalım". Gerekçe ve ölçüm yöntemi: hafıza `ayri-ses-kaymasi.md`.
 
 ## State
-- 9 Eki akşam (kanıtlı yayın, cihaz kullanımı DOĞRULANMADI): saat 0.1.23 (saatte kurulu, ADB 192.168.1.188:5555) — ✥ ekranında sol yan anahtar pad/🖱 fare. Fare = Bluetooth HID (Fare.kt, wearmouse yaklaşımı): bilek imleç, dokun tık (2× çift), basılı/kaydır pad, ↩ sağ tık=GERİ, halka tekerlek, 🖱/🎯 odak kipi (HID klavye ok tuşları, dokun Enter, hareketsiz basılı = Enter basılı). İlk açılış el seçimi; ⚙ X/Y/Hız (eksi=ters), 📺 hedef cihaz. Dean Mi Box'ta kullandı: ilk sürüm yavaş+ters → 0.1.21'de yön çevrildi, hız 2x; yeni yön doğrulanmadı.
-- TV 0.9.66 üç yerde (sha `e1d8fa24…`) ve Mi Box'a ADB ile kuruldu (versionName=0.9.66, Daha 17 duraklatılmışken): büyük halka imleç (`ui/BuyukImlec.kt`), telefonda Paylaş → "TV'de aç" (`widget/PaylasActivity.kt` → `/remote/command {"type":"web"}` → `ui/WebEkrani.kt`). Sunucu `web` tipi (yalnız http/https, test) ZimaOS'ta `izleme-bitince-kur.sh` ile bekliyor (`kur.log`; 23:20 pause) — rebuild olduysa `docker inspect -f '{{.Created}}' netmovies-stream` 9 Eki göstermeli. Fold'daki NetMovies 0.9.66'ya güncellenmeli (paylaş menüsü).
-- Saat temizliği: geminiman×3, samsung.sree×4, tileapplauncher kaldırıldı; WowMouse + Forigon (armeabi-v7a) kuruldu. Hafıza `saat-adb-kablosuz`. Chrome: Mi Box Android 9/32-bit → Dean "kurma, paylaşım" dedi.
-- Ders: test sırasında saatten pad'e düşen dokunuş TV'ye OK yolladı (Dean izlerken başka şey açtı) — TV oynarken saatte uzaktan dokunma testi yapma.
-- 0.9.64 üç yerde (`0fea3ca`, sha `208418f0…`, GitHub + yerel OTA indirme sha eşleşti; ota-ayna 10 dk'da kendi çeker): aramada "Klavye:" hapları ABC (7x6) / QWERTY (Türkçe Q 12x4, 38 dp tuş, ' - .) / Sistem (ızgara gizli, alan odaklı, LeanKey; sonuçlar tam genişlik). Seçim prefs `netmovies_search/klavye`. Emülatörde (evabench_shot) üç mod + canlı arama "lioness" + D-pad odağı + kalıcılık görüldü; Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI.
-- `sunucu.sh`: laptop yedeğe geçince `yedek_reddet.py` gizli başlar (:3310 RST, TV anında yeniden keşfeder), laptop aktife geçerken durur; elle `sunucu.sh reddet`, `durum` sayıyı gösterir (penv'de 2 süreç = 1 örnek). Şu an laptopta çalışıyor (yeniden başlatmada kalkmaz — autostart'a eklenmedi).
-- 0.9.63 üç yerde (`157f4db`, sha `517eeeb9…`, indirme sha eşleşti): aramada Türkçe ızgara klavye (`SearchKeys.kt`/`SearchKeyboard.kt`, 4 test), canlı arama 2+ karakter 600 ms. Cihazda/emülatörde DOĞRULANMADI (TV oynatıyordu; evabench_shot emülatörü açılışta kaldı). Sonuç ızgarası klavye yanında ~3 sütuna daralabilir — Dean'den bak.
-- Nextcloud: compose'a /mnt/shared + /mnt/recs(ro), files_external ile dean'e bağlı, cron modu + `nextcloud-cron.timer` 5 dk. Web arayüzünde görülmedi.
-- 0.9.59–0.9.62 üç yerde yayında (0.9.62 sha `03d91bf3…`, ses 0 kayıttan 9 başlar): gece "Tekrar dene" WOL saat engelini aşar; kart rozetleri sağ altta A/D; aramada OK klavyeyi açar; Lioness S3B8'de "LioNess" yemek kanalı açılmaz (engine `e2fc1cb`, canlı). Hepsi cihazda doğrulanmadı.
-- TV Quick Actions erişilebilirlik servisi 10:34te NPE ile çöküp D-pad donmasına yol açtı → KAPATILDI (hiç erişilebilirlik servisi açık değil). Chromecast kaldırıldı.
-- Mi Box S (192.168.1.105, MAC rezerve): ağdan ADB 5555 (laptop + Zima atv konteyneri yetkili). TV logcat → `zima:/DATA/AppData/netmovies/data/atv/tv.log` (`scripts/tv_log.sh`). Animasyon 0, ekran koruyucu kapalı, launcher Projectivy, klavye LeanKey, bloat + Chromecast kaldırıldı.
-- Kayıtlar boş (9 kayıt silindi). Zima: eski OTA betaları + çift yedek silindi (`/DATA` 121 GB).
-- Zima Samba (Dean onaylı, canlı): `/etc/samba/casa.conf` (yedek `.bak-20261008`) → `[recs]` kayıtlar anonim salt-okunur, `[shared]` /DATA/shared dean'e yazılır (apps/pictures/documents), `[apps]` /DATA/shared/apps anonim yazılır (TV 0.9.62 + Wear 0.1.19 APK içinde). Dean CX ile telefondan ve Mi Box'tan bağlandı. Hafıza `zima-samba-casa-conf`.
-- LG SIMPLINK döngüsü 10:46'da hâlâ sürüyordu (kutu Vendor Id 00 00 00, rootsuz değişmez). Kutu `hdmi_control_auto_device_off_enabled=1`; kutu uyuyunca TV "sinyal yok"ta kalıyor — Standby gidiyor mu görülmedi.
-- Dean'in telefonları (NetMovies dışı): S24 42 uygulama kaldırıldı, Fold 8 13 kaldırıldı + 22 devre dışı (sistem uygulaması rootsuz silinmiyor). Liste + geri alma: hafıza `telefon-sadelestirme`. Fold mikrofon çakışması = Hey Google HOTWORD (Dean kalsın dedi), Bixby kapatıldı.
-- ZimaOS Plus başvurusu Gmail TASLAĞI (support@icewhale.org, kanıt eki var) — gönderilmedi; panel şifresi yok, ekran görüntüsü eklenemedi.
+- Kök neden kaynakta: DiziPal (sn.dplayer82) ayrı ses playlist'i 8640,07 sn, görüntü 8628,17 sn (oran 1,00138) → ses doğrusal geride (~9 sn 1:49'da). Cihaz/tunneling suçsuz.
+- `c099fa7` + `7279fc1` push'lu, ZimaOS'ta canlı (engine/stream `.Created` 2026-10-10T07:03Z). Akış: engine `hls_av_orani` (`engine/Public/API/v1/Libs/kisa_klip.py`) ayrı sesli master'da EXTINF toplamlarını kıyaslar → kaynağa `av_oran` → gateway `source_proxy.py` zorla proxy + `&av_oran=` → proxy (`stream/Public/Proxy/Libs/av_esitle.py`) görüntü varyantı EXTINF + TS görüntü PES PTS/DTS × oran; ses dokunulmaz. `language.py` kayık kaynağı sona alır.
+- Canlı kanıt: Daha 17 kaynak sırası YouTube, DiziMom, DDizi, DiziPal; proxy'den ses/görüntü toplamı 8640,07 = 8640,07; YouTube'a göre desync 3000/6500/7800 sn'de −0,53/−0,63/−0,56 sn (önce 3,6→8,8 büyüyordu). Engine test 6/6, stream 236/236, smoke YEŞİL, w.evaitec.com 303.
+- unverified: kalan ~0,5 sn sabit fark kaynakta mı, ölçüm artefaktı mı. Dean'in TV'de gözle teyidi yok (bölümü düzeltmeden önce bitirdi).
+- Önceki oturumdan açık, Dean'den geri bildirim bekleyen: saat 0.1.24 fare yönü/hızı, TV 0.9.66 Paylaş → TV'de aç, 0.9.64 klavye. Ayrıntı git `1801110:HANDOFF.md`.
 
 ## Next
-1. Dean'den: fare yönü/hızı doğru mu, odak kipi, Paylaş → TV'de aç (sunucu rebuild bitti mi önce bak).
-1. Dean'in 0.9.64 klavye seçimi geri bildirimi (Sistem modunda LeanKey kendiliğinden açılıyor mu, QWERTY okunuyor mu) + Yeraltı Devam Et 1:34:31 korundu mu (`client_log`).
-2. Zima konteyner temizliği: Dean "değerlendiririz" dedi — kaldırma yok.
-(9 Ekim: Dean "kapatma işleri tamam, klavye de aynı" dedi — LG kapatma/SIMPLINK, Fold yeniden başlatma, air mouse, 0.9.63 klavye geri bildirimi KAPANDI; tekrar açma. Açık iş YOK, yeni iş Dean'den gelir.)
+1. Dean bir sonraki ayrı-sesli kaynakta ağız-ses uyumunu söylesin; uyumsuzsa `ssh zima "docker logs netmovies-engine 2>&1 | grep 'oran '"` ile oranı gör, sabit ofset gerekiyorsa `av_esitle.ts_olcekle`'ye ekle.
+2. Muxed (tek dosya) veya fMP4 kaynakta kayma şikâyeti gelirse kapsamı genişlet (şu an `ts_olcekle` fMP4'te no-op, muxed ölçülmüyor).
 
 ## Don't repeat
-- Custom ROM/slimBOXtv: Mi Box S secure boot eFuse'ta, kurulamaz.
-- Magic Remote imleci CEC'ten geçmez.
-- Samba'yı `casa.dean.conf`/`smb.conf`'a yazma: ZimaOS açılışta yeniden üretir; yalnız `casa.conf`.
-- Fold'da arka plan işlem sınırı: 5 seçeneği yok, yeniden başlatmada sıfırlanır, saat/bildirim öldürür — Dean vazgeçti.
-- Masaüstü ekran görüntüsü kanıt değil (VS Code önde, kişisel içerik).
-- tvQA 3.5.0 erişilebilirliği NPE ile çöküyor (D-pad donar) — güncellemeden açma. Projectivy erişilebilirliğini de açma; HOME zaten Projectivy (tvlauncher disabled).
+- A/V'yi ffmpeg `-ss` + `-c copy` ile ölçme: akışları bağımsız kaydırır, 10–18 sn sahte sonuç verdi. Ham segmentleri PTS'iyle indir; YouTube sesiyle xcorr, sahne kesmesiyle görüntü (scratchpad `raw.py` mantığı).
+- YouTube ses segmentlerinin PTS'i 0'dan başlar: zamanı playlist EXTINF toplamından al.
+- DDizi'nin bu bölümdeki mp4'ü 60 sn klip — referans olamaz.
+- TV oynarken rebuild yok: `ssh zima "docker logs --since 2m netmovies-stream 2>&1 | grep -c remote/state"` 0 değilse bekle; `/tmp/nm_deploy.sh` (ZimaOS) boşta iki kez görünce pull + build + tünel recreate yapar.
 
 ## Verify
 ```
-git rev-parse --short HEAD            # 0fea3ca (+ handoff commit)
-curl -s 192.168.1.186:3310/api/v1/app_update?target=tv   # tag v0.9.64-poc
-curl -s -m3 192.168.1.185:3310/ ; echo $?   # 56 (reset) = yedek reddet ayakta
-$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe connect 192.168.1.105:5555 && adb -s 192.168.1.105:5555 shell settings get secure enabled_accessibility_services   # boş (tvQA çöktüğü için kapalı)
-ssh zima "tail -3 /DATA/AppData/netmovies/data/atv/tv.log"
+git rev-parse --short HEAD     # 7279fc1 veya handoff commit'i
+bash scripts/smoke.sh | tail -1   # kapı YEŞİL
+ssh zima "docker inspect -f '{{.Created}}' netmovies-stream"   # 2026-10-10T07:03Z veya sonrası
 ```
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies, dal fix/general-stability @ 0fea3ca. 9 Ekim: 0.9.64 aramada klavye seçimi (ABC/QWERTY/Sistem) yayında; yedek laptop :3310 RST reddet sunucu.sh'e bağlı. 8 Ekim oturumu: 0.9.59-0.9.62 (ses 9) yayında (WOL Tekrar dene, A/D rozet, arama klavyesi, Lioness YouTube düzeltmesi); Mi Box S sadeleştirildi (ağdan ADB 192.168.1.105:5555, tv.log Zima'da, Projectivy + LeanKey; tvQA kapalı); ZimaOS Plus başvurusu Gmail taslağında.
-Önce HANDOFF.md oku, Verify bloğunu koş, hafıza mibox-adb-ve-sadelestirme.md'ye bak.
-Sıra: 1) LG SIMPLINK sonucu (hdmi_control dökümü) 2) Dean onay verirse Samba/Nextcloud ya da ızgara klavye.
-Yeni iş açma; onaysız Zima konteyneri silme.
+NetMovies, dal fix/general-stability @ 7279fc1. 10 Ekim: ayrı ses playlist'li HLS kaynaklarda (DiziPal Daha 17) görüntü sesten %0,14 kısaydı, ses giderek geride kalıyordu; engine av_oran ölçüyor, proxy görüntü PTS/EXTINF'i esnetiyor (stream/Public/Proxy/Libs/av_esitle.py), kayık kaynak sona alınıyor — canlı, ölçümle doğrulandı; kalan ~0,5 sn sabit fark doğrulanmadı.
+Önce HANDOFF.md oku, Verify bloğunu koş, hafıza ayri-ses-kaymasi.md'ye bak.
+Sıra: 1) Dean ağız-ses geri bildirimi → gerekirse sabit ofset 2) önceki açıklar: saat fare yönü, Paylaş → TV'de aç, klavye geri bildirimi.
+Yeni iş açma; TV oynarken rebuild yapma.
 ```

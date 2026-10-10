@@ -1,4 +1,11 @@
-## DEVİR — 2026-10-09 23:40 (EN GÜNCEL) → kök HANDOFF.md State; ek: saat 0.1.24 (hız 1400, ⇄/⇅ eksen, ⌃ alt yay menü) yayında, yön geri bildirimi bekleniyor. Laptop Dean isteğiyle kapatıldı.
+## DEVİR — 2026-10-10 10:10 (EN GÜNCEL) — ses/görüntü kayması
+Hedef: Dean "Daha 17'de ses geriden geliyor, bir daha karşılaşmayalım".
+Durum (kanıtlı): kök neden kaynak — DiziPal (sn.dplayer82) ayrı ses playlist'i 8640,07 sn, görüntü 8628,17 sn (oran 1,00138), kayma doğrusal (~9 sn 1:49'da). `c099fa7` (kayık kaynak sona) + `7279fc1` (engine `av_oran` ölçer → gateway zorla proxy + `&av_oran` → proxy görüntü EXTINF + TS PES PTS/DTS'yi esnetir, `stream/Public/Proxy/Libs/av_esitle.py`) push'lu, ZimaOS'ta canlı (07:03Z build). Canlı ölçüm: ses/görüntü playlist toplamları 8640,07=8640,07; YouTube'a göre desync 3000/6500/7800 sn'de −0,53/−0,63/−0,56 (sabit, önceden 3,6→8,8 büyüyordu). Testler engine 6/6, stream 236/236, smoke YEŞİL, w.evaitec.com 303.
+Doğrulanmadı: kalan ~0,5 sn sabit fark kaynakta mı ölçüm artefaktı mı; Dean'in TV'de gözle teyidi yok.
+Tekrarlama: ffmpeg `-ss`+`-c copy` ile A/V ölçme (akışları bağımsız kaydırır) — ham segment PTS + YouTube ses xcorr kullan (scratchpad raw.py mantığı, hafıza `ayri-ses-kaymasi`). TV oynarken rebuild yok; `/tmp/nm_deploy.sh` ZimaOS'ta boşta bekleyip deploy eder.
+Tek sonraki iş: Dean ağız-ses uyumsuzluğu bildirirse sabit ofset ekle; muxed/fMP4 kaynakta şikâyet gelirse kapsamı genişlet.
+
+## DEVİR — 2026-10-09 23:40 → kök HANDOFF.md State; ek: saat 0.1.24 (hız 1400, ⇄/⇅ eksen, ⌃ alt yay menü) yayında, yön geri bildirimi bekleniyor. Laptop Dean isteğiyle kapatıldı.
 
 ## DEVİR — 2026-10-09 10:30 (EN GÜNCEL; kök HANDOFF.md ile aynı)
 Hedef: reklamsız TV istemcisi + ZimaOS sunucu; bitince sormadan üç yere yayınla.
