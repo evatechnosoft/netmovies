@@ -71,3 +71,12 @@ class YouTubeResmiTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VideoBasligiTest(unittest.TestCase):
+    def test_bolum_numarasi_parantezde_kalir(self):
+        from Plugins.YouTube import video_basligi
+        self.assertEqual("Daha 17 (19. Bölüm)", video_basligi("Daha 17 | 19. Bölüm"))
+        self.assertEqual("A.B.İ. (16. Bölüm)", video_basligi("A.B.İ. 16. Bölüm @atvturkiye"))
+        self.assertEqual("Kızılcık (2. Sezon 5. Bölüm)", video_basligi("Kızılcık 2. Sezon 5. Bölüm"))
+        self.assertEqual("Konser kaydı", video_basligi("Konser kaydı"))

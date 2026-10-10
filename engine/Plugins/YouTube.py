@@ -70,6 +70,20 @@ def bolum_numarasi(baslik: str) -> tuple[int, int] | None:
     return (int(next(g for g in z.groups() if g)) if z else 1, no)
 
 
+def video_basligi(baslik: str) -> str:
+    """'Daha 17 | 19. Bölüm' → 'Daha 17 (19. Bölüm)'.
+
+    Çekirdek başlıktan "19. Bölüm" ekini siliyor; paylaşılan tek video "Daha 17"
+    diye açılınca TV yedek kaynakta 1. bölümü seçiyordu. Parantezi silmiyor.
+    """
+    no = bolum_numarasi(baslik)
+    if not no:
+        return baslik
+    kok = re.split(r"\s*[|·•–—-]\s*|\s+\d+\.\s*(?:Sezon|Bölüm)", baslik, maxsplit=1)[0].strip() or baslik
+    sezon, bolum = no
+    return f"{kok} ({sezon}. Sezon {bolum}. Bölüm)" if sezon > 1 else f"{kok} ({bolum}. Bölüm)"
+
+
 def liste_bolumleri(entries: list[dict]) -> list[Episode]:
     """Resmi listede bölüm no başlıktan (fragman elenir); numarasız listede sıra = bölüm."""
     bolumler: dict[tuple[int, int], Episode] = {}
@@ -153,7 +167,7 @@ class YouTube(PluginBase):
         # Aramadan açılan tek video film gibi oynar; açıklama/yorum taşınmaz (Dean: "derli toplu").
         if video_mu(url) and not d.get("entries"):
             kimlik = d.get("id") or ""
-            return MovieInfo(url=url, title=d.get("title") or "", poster=kapak or f"https://i.ytimg.com/vi/{kimlik}/hqdefault.jpg")
+            return MovieInfo(url=url, title=video_basligi(d.get("title") or ""), poster=kapak or f"https://i.ytimg.com/vi/{kimlik}/hqdefault.jpg")
         bolumler = liste_bolumleri(d.get("entries") or [])
         # Çekirdek "1. Bölüm" gibi jenerik adı None yapıyor: None = resmi bölüm adı.
         resmi    = bool(bolumler) and all(not b.title or b.title.endswith(". Bölüm") for b in bolumler)

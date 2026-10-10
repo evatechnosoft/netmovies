@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.material3.Text
+import com.evaitec.netmovies.tv.data.PlaybackLog
 import com.evaitec.netmovies.tv.input.NmBackHandler
 import kotlinx.coroutines.delay
 import org.json.JSONObject
@@ -74,6 +75,7 @@ fun WebEkrani(url: String, metin: WebMetni?, onMetinYazildi: () -> Unit, onBack:
             w.loadUrl(adres)
         } else {
             w.evaluateJavascript(yaziBetigi(m.metin, m.gonder)) { sonuc ->
+                PlaybackLog.info("sayfa", "telefondan yazı → $sonuc")
                 if (sonuc.contains("yok")) uyari = "Sayfada yazı kutusu yok"
             }
         }
@@ -191,7 +193,10 @@ internal fun yaziBetigi(metin: String, gonder: Boolean): String = """
 (function(t,g){
   function yazilir(e){return e&&(e.isContentEditable||/^(INPUT|TEXTAREA)$/.test(e.tagName));}
   var e=document.activeElement;
-  if(!yazilir(e)||e.type==='hidden'){e=document.querySelector('input[type=search],input[type=text],input:not([type]),textarea');}
+  function gorunur(x){var r=x.getBoundingClientRect();return r.width>0&&r.height>0&&!x.disabled&&!x.readOnly;}
+  if(!yazilir(e)||!gorunur(e)){e=null;
+    var l=document.querySelectorAll('input[type=search],input[type=text],input[type=url],input[type=email],input:not([type]),textarea');
+    for(var i=0;i<l.length;i++){if(gorunur(l[i])){e=l[i];break;}}}
   if(!e)return 'yok';
   e.focus();
   if(e.isContentEditable){document.execCommand('insertText',false,t);}
