@@ -194,7 +194,21 @@ async def _sayfa_ya_da_oynat(cmd: dict) -> dict:
         eklentiler = await fuck_dmca("/get_all_plugins") or []
     except Exception:
         return cmd   # motor yoksa sayfa yine açılır
-    return oynatma_komutu(cmd["url"], eklentiler if isinstance(eklentiler, list) else []) or cmd
+    oynat = oynatma_komutu(cmd["url"], eklentiler if isinstance(eklentiler, list) else [])
+    if not oynat:
+        return cmd
+    # Başlık boşsa Devam Et'te isimsiz kalır ve alternatif sağlayıcı aranamaz.
+    # Telefonun 6 sn okuma süresine sığsın: gelmezse başlıksız oynar.
+    try:
+        detay = await asyncio.wait_for(
+            fuck_dmca("/load_item", params={"plugin": oynat["plugin"], "encoded_url": oynat["url"]}), timeout=4.0,
+        )
+        if isinstance(detay, dict):
+            oynat["title"]  = str(detay.get("title") or "")
+            oynat["poster"] = str(detay.get("poster") or "")
+    except Exception:
+        pass
+    return oynat
 
 
 @api_v1_router.get("/remote/token")
