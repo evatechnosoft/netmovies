@@ -240,7 +240,10 @@ def upsert_progress(
                 plugin           = excluded.plugin,
                 title            = excluded.title,
                 poster           = excluded.poster,
-                media_type       = excluded.media_type,
+                -- Dizi hiç filme düşmez: tek YouTube bölümü (bölüm listesi yok)
+                -- "movie" yazıp Daha 17'yi Devam Et → Film rafına taşıyordu (10 Eki).
+                media_type       = CASE WHEN watch_history.media_type = 'serie'
+                                        THEN 'serie' ELSE excluded.media_type END,
                 episode          = excluded.episode,
                 content_url      = excluded.content_url,
                 position_seconds = excluded.position_seconds,
