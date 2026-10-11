@@ -4,7 +4,7 @@
 
 from Core         import Request, HTMLResponse, JSONResponse
 from .            import home_router, home_template, build_context, fuck_dmca, get_client_headers, get_provider_client
-from ..Libs       import admin_config
+from ..Libs       import admin_config, cocuk
 from urllib.parse import unquote_plus
 
 import os
@@ -37,8 +37,10 @@ async def admin_set_config(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
-    # Panel maskeli anahtarı geri gönderirse mevcut anahtar korunur.
-    saved = admin_config.save_config(admin_config.merge_secrets(body))
+    # Panel maskeli anahtarı geri gönderirse mevcut anahtar korunur. Gövde mevcut
+    # kaydın ÜSTÜNE yazılır: panel her alanı göndermiyor (çocuk modu, repolar, kasa
+    # PIN'i) — yoksa "Kaydet" onları varsayılana döndürürdü.
+    saved = admin_config.save_config({**admin_config.load_config(), **admin_config.merge_secrets(body)})
     return JSONResponse({"ok": True, "config": admin_config.masked_config(saved)})
 
 
@@ -249,3 +251,35 @@ async def admin_save_kanallar(request: Request):
         return JSONResponse({"ok": False, "hata": f"yazılamadı: {hata}"}, status_code=500)
 
     return JSONResponse({"ok": True, "kanallar": temiz})
+
+
+# --------------------------------------------------------------------------- Çocuk modu
+@home_router.get("/api/admin/cocuk")
+async def admin_get_cocuk():
+    cfg = admin_config.load_config()
+    return JSONResponse({"ok": True, "kanallar": cfg["cocuk_kanallar"], "icerik": cfg["cocuk_icerik"]})
+
+
+@home_router.post("/api/admin/cocuk")
+async def admin_save_cocuk(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
+    cfg = admin_config.load_config()
+    cfg["cocuk_kanallar"] = cocuk.temiz_kanallar((body or {}).get("kanallar"))
+    cfg["cocuk_icerik"]   = cocuk.temiz_icerik((body or {}).get("icerik"))
+    saved = admin_config.save_config(cfg)
+    return JSONResponse({"ok": True, "kanallar": saved["cocuk_kanallar"], "icerik": saved["cocuk_icerik"]})
+
+
+@home_router.get("/api/admin/cocuk/kanal")
+async def admin_cocuk_kanal(girdi: str = ""):
+    """Kanal adresi/@handle/UC kimliğini {id, ad, avatar}'a çözer; kaydetmez."""
+    try:
+        kanal = await cocuk.kanal_coz(girdi)
+    except Exception as hata:
+        return JSONResponse(status_code=502, content={"ok": False, "error": f"YouTube'a ulaşılamadı: {hata}"})
+    if not kanal:
+        return JSONResponse(status_code=404, content={"ok": False, "error": "Kanal bulunamadı"})
+    return JSONResponse({"ok": True, "kanal": kanal})

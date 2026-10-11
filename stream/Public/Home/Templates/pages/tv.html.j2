@@ -230,6 +230,14 @@
   // oynatıcıda ▲ menüsünden açılır.
   var RENKLI = !!window.PalmSystem;
 
+  // Çocuk modu (/tv?profil=cocuk, Samsung kabuğu): yalnız panelde izin verilen
+  // raflar (/api/v1/cocuk). Arama, üst menü, uzun basış menüsü ve izleme kaydı yok.
+  var COCUK = /[?&]profil=cocuk(&|$)/.test(location.search);
+  if (COCUK) {
+    $("menu").style.display = "none";
+    $("ipucu").textContent = "OK: aç · GERİ: geri";
+  }
+
   // Tizen'in yerel HLS'i birçok kaynağı açamıyor (HATA kod=4, dplayer82); MSE
   // varsa hls.js oynatır. webOS kendi motoruyla oynar, kütüphane hiç yüklenmez.
   var hlsKullan = !RENKLI && !!window.MediaSource;
@@ -295,7 +303,8 @@
 
   // Sunucu kaydı: raflardaki "Devam Et" ve telefon/TV arası süreklilik bunu okur.
   function ilerlemeYaz(bitti) {
-    if (!oynayan || !oynayan.kart) return;
+    // Çocuğun izledikleri Dean'in "Devam Et" rafına yazılmaz.
+    if (COCUK || !oynayan || !oynayan.kart) return;
     var v = $("video");
     if (!v.duration || v.duration < 1) return;
     var k = oynayan.kart;
@@ -367,17 +376,23 @@
     });
   }
 
+  function cocukRaflari(y) {
+    return (((y.result || {}).raflar) || []).map(function (r) {
+      return { ad: r.ad, tur: r.tur, kartlar: (r.kartlar || []).map(function (h) { return kartYap(h, r.tur); }) };
+    });
+  }
+
   function veriYukle() {
     durum("Yükleniyor…");
-    return Promise.all([
+    return (COCUK ? api("/api/v1/cocuk").then(cocukRaflari, function () { return []; }) : Promise.all([
       rafGetir("Devam Et",      "movie", "/api/v1/continue_watching?limit=20",        devamKartlari),
       rafGetir("Favorilerim",   "movie", "/api/v1/favorites",                          favoriKartlari),
       rafGetir("Yeni Filmler",  "movie", "/api/v1/aggregate_new?type=movie&page=1",   katalogKartlari),
       rafGetir("Yeni Diziler",  "serie", "/api/v1/aggregate_new?type=serie&page=1",   katalogKartlari),
       rafGetir("Türk Dizileri", "serie", "/api/v1/aggregate_new?type=serie_local&page=1", katalogKartlari)
-    ]).then(function (sonuc) {
+    ])).then(function (sonuc) {
       raflar = sonuc.filter(function (r) { return r.kartlar.length > 0; });
-      if (!raflar.length) { durum("İçerik yüklenemedi — sunucuya ulaşılamıyor"); return; }
+      if (!raflar.length) { durum(COCUK ? "Henüz içerik yok — yönetim panelinden kanal ekle" : "İçerik yüklenemedi — sunucuya ulaşılamıyor"); return; }
       durum("");
       ciz();
       odakla(0, 0);
@@ -890,7 +905,7 @@
   // client-tv'de AŞAĞI liste menüsü (favori/izlenecek/takip), SAĞ benzerler;
   // burada tek favori ve dil/kaynak.
   function padAc(kart, fareyle) {
-    if (!kart) return;
+    if (!kart || COCUK) return;   // çocukta favori/dil menüsü yok; basılı tutma hiçbir şey yapmaz
     padKart = kart; katman = "pad";
     // Klavyeyle açıldıysa açan basış hâlâ basılı: ilk bırakışa kadar tuş işlenmez.
     padHazir = !!fareyle;
@@ -966,6 +981,7 @@
   // dakika aynı kayıttan okunur. Başlangıçtaki birkaç saniye ve neredeyse biten
   // içerik atlanır — yoksa jenerikten açılır.
   function devamdanBasla(kart, bolumRef) {
+    if (COCUK) return;
     var yol = "/api/v1/progress?title=" + encodeURIComponent(kart.title || "") +
               "&media_type=" + (kart.tur === "serie" ? "serie" : "movie");
     api(yol).then(function (y) {
@@ -1254,6 +1270,7 @@
 
   // Renkli tuşlar oynatıcı dışında her ekrandan: kırmızı ara, yeşil favoriler, sarı devam et.
   function renkliTus(k) {
+    if (COCUK) return false;
     if (k !== TUS.KIRMIZI && k !== TUS.YESIL && k !== TUS.SARI && k !== TUS.MAVI) return false;
     if (ekran === "oynatici") return false;
     if (k === TUS.MAVI) {
@@ -1370,7 +1387,7 @@
       if (k === TUS.YUKARI || k === TUS.OK) { o.preventDefault(); return; }  // OK bırakışta seçer
       menuBirak();
     }
-    if (k === TUS.YUKARI && (!raflar.length || rafIdx === 0)) { menuOdak(0); o.preventDefault(); return; }
+    if (k === TUS.YUKARI && (!raflar.length || rafIdx === 0)) { if (!COCUK) menuOdak(0); o.preventDefault(); return; }
     if (!raflar.length) return;
     if (k === TUS.CH_ASAGI || k === TUS.CH_ASAGI_T)   { odakla(rafIdx, kartIdx + GORUNEN); o.preventDefault(); return; }
     if (k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { odakla(rafIdx, kartIdx - GORUNEN); o.preventDefault(); return; }

@@ -228,6 +228,7 @@ async function init() {
     loadHealth();
     loadRepos();
     loadKanallar();
+    loadCocuk();
 
     $("#admin-min-rating").addEventListener("input", (e) => {
         $("#admin-min-rating-val").textContent = e.target.value;
@@ -365,6 +366,117 @@ async function saveKanallar() {
         if (durum) durum.textContent = `${veri.kanallar.length} kanal kaydedildi.`;
     } catch (e) {
         if (durum) durum.textContent = `Kaydedilemedi: ${e.message}`;
+    }
+}
+
+// ── Çocuk Modu ──────────────────────────────────────────────────────────────
+// Kanal + onaylı içerik listesi; her değişiklik /api/admin/cocuk'a tam liste olarak gider.
+let COCUK = { kanallar: [], icerik: [] };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const cocukDurum = (t) => { const d = $("#cocuk-durum"); if (d) d.textContent = t; };
+
+async function loadCocuk() {
+    if (!$("#cocuk-kanallar")) return;
+    try {
+        const v = await jget("/api/admin/cocuk");
+        COCUK = { kanallar: v.kanallar || [], icerik: v.icerik || [] };
+    } catch {
+        cocukDurum("Çocuk ayarları okunamadı.");
+    }
+    renderCocuk();
+    $("#cocuk-kanal-ekle").addEventListener("click", cocukKanalEkle);
+    $("#cocuk-kanal-girdi").addEventListener("keydown", (e) => { if (e.key === "Enter") cocukKanalEkle(); });
+    $("#cocuk-ara").addEventListener("click", cocukAra);
+    $("#cocuk-ara-girdi").addEventListener("keydown", (e) => { if (e.key === "Enter") cocukAra(); });
+}
+
+async function saveCocuk() {
+    cocukDurum("Kaydediliyor…");
+    try {
+        const r = await fetch("/api/admin/cocuk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(COCUK),
+        });
+        const v = await r.json();
+        if (!v.ok) throw new Error(v.error || "kaydedilemedi");
+        COCUK = { kanallar: v.kanallar, icerik: v.icerik };
+        cocukDurum(`✓ Kaydedildi · ${COCUK.kanallar.length} kanal, ${COCUK.icerik.length} çizgi film`);
+    } catch (e) {
+        cocukDurum(`Kaydedilemedi: ${e.message}`);
+    }
+    renderCocuk();
+}
+
+function renderCocuk() {
+    $("#cocuk-kanallar").innerHTML = COCUK.kanallar.map((k, i) => `<div class="admin-featured-item">
+        <span style="display:flex;align-items:center;gap:.6rem;min-width:0;">
+            ${k.avatar ? `<img src="${esc(k.avatar)}" alt="" width="36" height="36" style="border-radius:50%;">` : ""}
+            <strong>${esc(k.ad)}</strong>
+        </span>
+        <input type="text" data-yasakli="${i}" value="${esc((k.yasakli || []).join(", "))}" placeholder="yasaklı kelimeler: korku, kavga" style="flex:1; min-width:0;">
+        <button type="button" class="button button-secondary" data-kanal-sil="${i}" title="Çıkar"><i class="fas fa-trash"></i></button>
+    </div>`).join("") || "<p class='admin-muted'>Henüz kanal yok.</p>";
+
+    $("#cocuk-icerik").innerHTML = COCUK.icerik.map((c, i) => `<div class="admin-featured-item">
+        <span>${esc(c.title)} <small>${esc(c.plugin)} · ${c.tur === "serie" ? "dizi" : "film"}</small></span>
+        <button type="button" class="button button-secondary" data-icerik-sil="${i}" title="Çıkar"><i class="fas fa-trash"></i></button>
+    </div>`).join("") || "<p class='admin-muted'>Onaylı çizgi film yok — yukarıdan ara ve ekle.</p>";
+
+    document.querySelectorAll("[data-yasakli]").forEach((inp) => inp.addEventListener("change", () => {
+        COCUK.kanallar[Number(inp.dataset.yasakli)].yasakli = inp.value.split(",").map((s) => s.trim()).filter(Boolean);
+        saveCocuk();
+    }));
+    document.querySelectorAll("[data-kanal-sil]").forEach((b) => b.addEventListener("click", () => {
+        COCUK.kanallar.splice(Number(b.dataset.kanalSil), 1);
+        saveCocuk();
+    }));
+    document.querySelectorAll("[data-icerik-sil]").forEach((b) => b.addEventListener("click", () => {
+        COCUK.icerik.splice(Number(b.dataset.icerikSil), 1);
+        saveCocuk();
+    }));
+}
+
+async function cocukKanalEkle() {
+    const girdi = $("#cocuk-kanal-girdi").value.trim();
+    if (!girdi) return;
+    cocukDurum("Kanal aranıyor…");
+    try {
+        const v = await jget("/api/admin/cocuk/kanal?girdi=" + encodeURIComponent(girdi));
+        if (!v.ok) throw new Error(v.error || "bulunamadı");
+        if (COCUK.kanallar.some((k) => k.id === v.kanal.id)) { cocukDurum("Bu kanal zaten ekli."); return; }
+        COCUK.kanallar.push({ ...v.kanal, yasakli: [] });
+        $("#cocuk-kanal-girdi").value = "";
+        await saveCocuk();
+    } catch (e) {
+        cocukDurum(`Kanal eklenemedi: ${e.message}`);
+    }
+}
+
+async function cocukAra() {
+    const q = $("#cocuk-ara-girdi").value.trim();
+    const kutu = $("#cocuk-sonuclar");
+    if (!q) { kutu.innerHTML = ""; return; }
+    kutu.innerHTML = "<p class='admin-muted'>Aranıyor…</p>";
+    try {
+        const v = await jget("/api/v1/search_all?query=" + encodeURIComponent(q));
+        const sonuc = v.result || [];
+        kutu.innerHTML = sonuc.map((h, i) => `<div class="admin-featured-item">
+            <span>${esc(h.title)} <small>${esc(h.plugin)}${h.year ? " · " + esc(h.year) : ""}${h.episode_count ? " · " + esc(h.episode_count) + " bölüm" : ""}</small></span>
+            <button type="button" class="button button-secondary" data-ekle="${i}"><i class="fas fa-plus"></i> Ekle</button>
+        </div>`).join("") || "<p class='admin-muted'>Sonuç yok.</p>";
+        kutu.querySelectorAll("[data-ekle]").forEach((b) => b.addEventListener("click", () => {
+            const h = sonuc[Number(b.dataset.ekle)];
+            if (COCUK.icerik.some((c) => c.plugin === h.plugin && c.url === h.url)) { cocukDurum("Zaten ekli."); return; }
+            COCUK.icerik.push({
+                plugin: h.plugin, title: h.title, url: h.url, poster: h.poster || "",
+                tur: (h.episode_count || h.season_count) ? "serie" : "movie",
+            });
+            b.disabled = true;
+            saveCocuk();
+        }));
+    } catch {
+        kutu.innerHTML = "<p class='admin-muted'>Arama başarısız.</p>";
     }
 }
 

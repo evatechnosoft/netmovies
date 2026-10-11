@@ -5,7 +5,8 @@ try {
     "MediaFastForward", "MediaRewind", "MediaStop", "ChannelUp", "ChannelDown",
     "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue"]);
 } catch (e) { /* tuşsuz da açılsın */ }
-// Monitör hep ev ağında: yoklama yok, doğrudan sunucu.
+// Monitör hep ev ağında: yoklama yok, doğrudan sunucu. Kızın ekranı → çocuk modu
+// (yalnız panelde izin verilen kanallar/çizgi filmler, bkz. Libs/cocuk.py).
 window.addEventListener("load", function () {
-  setTimeout(function () { location.replace("http://192.168.1.186:3310/tv?v=" + Date.now()); }, 0);
+  setTimeout(function () { location.replace("http://192.168.1.186:3310/tv?profil=cocuk&v=" + Date.now()); }, 0);
 });

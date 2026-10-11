@@ -63,6 +63,10 @@ DEFAULT_CONFIG: dict = {
     "site_pin": "",
     "gemini_api_key": "",
     "gemini_model": "gemini-3.5-flash-lite",
+    # Çocuk modu (/tv?profil=cocuk): yalnız bu kanallar ve onaylı başlıklar görünür.
+    # Kayıt /api/admin/cocuk'tan, doğrulama Libs/cocuk.py'de.
+    "cocuk_kanallar": [],   # [{id: "UC…", ad, avatar, yasakli: [kelime]}]
+    "cocuk_icerik"  : [],   # [{plugin, title, url (quote_plus'lı), poster, tur}]
     # CloudStream benzeri özel GitHub / harici eklenti repoları
     "custom_repos": [
         {
@@ -86,6 +90,8 @@ def _normalize(cfg: dict) -> dict:
     out["hidden_categories"] = list(dict.fromkeys(out.get("hidden_categories") or []))
     out["featured"]          = out.get("featured") or []
     out["custom_repos"]      = out.get("custom_repos") or list(DEFAULT_CONFIG["custom_repos"])
+    out["cocuk_kanallar"]    = list(out.get("cocuk_kanallar") or [])
+    out["cocuk_icerik"]      = list(out.get("cocuk_icerik") or [])
     try:
         out["min_rating"] = float(out.get("min_rating") or 0.0)
     except (TypeError, ValueError):

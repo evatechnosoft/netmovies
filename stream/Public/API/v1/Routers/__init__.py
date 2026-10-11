@@ -49,4 +49,5 @@ from . import (
     youtube_search,
     yz,
     kayitlar,
+    cocuk,
 )

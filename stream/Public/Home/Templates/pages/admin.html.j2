@@ -56,6 +56,24 @@
         </div>
     </section>
 
+    <!-- Çocuk modu -->
+    <section class="admin-card" hidden>
+        <h2 class="admin-card-title"><i class="fas fa-child"></i> Çocuk Modu</h2>
+        <p class="admin-card-sub">Çocuk ekranı (<a href="/tv?profil=cocuk">/tv?profil=cocuk</a> — Samsung monitör) <strong>yalnız</strong> buradakileri gösterir: her kanalın son videoları ayrı raf, onayladığın çizgi filmler tek raf. Arama ve diğer raflar yoktur. <strong>Yasaklı kelime</strong> başlığında geçen videoyu gizler (virgülle ayır). Her değişiklik anında kaydedilir.</p>
+        <div class="admin-rating-row">
+            <input type="text" id="cocuk-kanal-girdi" placeholder="@kanal, kanal adresi ya da UC… kimliği" autocomplete="off" style="flex:1; min-width:0;">
+            <button type="button" class="button button-secondary" id="cocuk-kanal-ekle"><i class="fas fa-plus"></i> Kanal ekle</button>
+        </div>
+        <div id="cocuk-kanallar" style="margin-top:.8rem;"></div>
+        <div class="admin-rating-row" style="margin-top:1.2rem;">
+            <input type="search" id="cocuk-ara-girdi" placeholder="Çizgi film / animasyon ara…" autocomplete="off" style="flex:1; min-width:0;">
+            <button type="button" class="button button-secondary" id="cocuk-ara"><i class="fas fa-search"></i> Ara</button>
+        </div>
+        <div id="cocuk-sonuclar" style="margin-top:.8rem;"></div>
+        <div id="cocuk-icerik" style="margin-top:.8rem;"></div>
+        <span id="cocuk-durum" class="admin-muted"></span>
+    </section>
+
     <!-- Siteye giriş PIN'i -->
     <section class="admin-card" hidden>
         <h2 class="admin-card-title"><i class="fas fa-lock"></i> Siteye Giriş PIN'i</h2>
