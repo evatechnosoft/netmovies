@@ -124,26 +124,27 @@
 
   /* Uzun basış pad'i ve yan panel (bilgi / dil / altyazı listesi) */
   #pad, #panel { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 8; background: rgba(0,0,0,.55); }
-  #pad-ad { position: absolute; top: 250px; left: 0; right: 0; text-align: center; font-size: 30px; font-weight: 700; }
+  /* Dean: "listeyi ve butonu daralt" — 43" monitörde ~%35 küçültüldü; en küçük yazı 22px (3 m). */
+  #pad-ad { position: absolute; top: 320px; left: 0; right: 0; text-align: center; font-size: 26px; font-weight: 700; }
   .pd {
-    position: absolute; width: 260px; margin-left: -130px; padding: 18px 0; text-align: center;
-    border-radius: 14px; background: #262b36; border: 3px solid #fff; font-size: 26px; cursor: pointer;
+    position: absolute; width: 180px; margin-left: -90px; padding: 10px 0; text-align: center;
+    border-radius: 10px; background: #262b36; border: 3px solid #fff; font-size: 22px; cursor: pointer;
   }
   .pd.bos { opacity: .35; border-color: transparent; }
-  #pd-yukari { left: 50%; top: 330px; }
+  #pd-yukari { left: 50%; top: 380px; }
   #pd-orta   { left: 50%; top: 470px; background: var(--vurgu); }
-  #pd-asagi  { left: 50%; top: 610px; }
-  #pd-sol    { left: 50%; top: 470px; margin-left: -430px; }
-  #pd-sag    { left: 50%; top: 470px; margin-left: 170px; }
+  #pd-asagi  { left: 50%; top: 560px; }
+  #pd-sol    { left: 50%; top: 470px; margin-left: -300px; }
+  #pd-sag    { left: 50%; top: 470px; margin-left: 120px; }
   #panel-ic {
-    position: absolute; top: 0; right: 0; bottom: 0; width: 760px; padding: 48px;
+    position: absolute; top: 0; right: 0; bottom: 0; width: 500px; padding: 32px;
     background: #14171d; box-shadow: -10px 0 40px rgba(0,0,0,.6); overflow: hidden;
   }
-  #panel-baslik { font-size: 34px; font-weight: 700; margin-bottom: 18px; }
-  #panel-metin { font-size: 24px; line-height: 1.45; color: var(--yazi); white-space: pre-line; margin-bottom: 18px; }
+  #panel-baslik { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+  #panel-metin { font-size: 22px; line-height: 1.4; color: var(--yazi); white-space: pre-line; margin-bottom: 12px; }
   .satir {
-    padding: 14px 20px; margin-bottom: 10px; border-radius: 10px; background: var(--kart);
-    font-size: 25px; border: 4px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 8px 14px; margin-bottom: 6px; border-radius: 8px; background: var(--kart);
+    font-size: 22px; border: 3px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .satir.odak { border-color: #fff; background: #2e2a4a; }
   #bolum-bilgi { font-size: 22px; color: var(--sonuk); margin: -12px 0 20px; max-height: 96px; overflow: hidden; }
@@ -800,8 +801,10 @@
     var eski = document.querySelector(".satir.odak");
     if (eski) eski.className = "satir";
     panelIdx = Math.max(0, Math.min(i, panelAdet - 1));
-    $("po" + panelIdx).className = "satir odak";
-    $("panel-liste").style.transform = "translateY(-" + (Math.max(0, panelIdx - 8) * 70) + "px)";
+    var d = $("po" + panelIdx);
+    d.className = "satir odak";
+    // Satır yüksekliği ÖLÇÜLÜR: sabit değer yazı boyutu değişince kayıyordu.
+    $("panel-liste").style.transform = "translateY(-" + (Math.max(0, panelIdx - 10) * (d.offsetHeight + 6)) + "px)";
   }
 
   function panelKapat() { katman = null; $("panel").className = "gizli"; }
