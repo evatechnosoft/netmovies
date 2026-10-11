@@ -100,6 +100,20 @@ class LoadItemRescueTest(unittest.TestCase):
         router.fuck_dmca = sahte
         self.assertIsNone(asyncio.run(router._kurtar("Lioness", "DiziPal", "serie", {})))
 
+    def test_detay_adi_tutmazsa_kurtarma_sayilmaz(self) -> None:
+        # Aynı kanalın listesi: arama adı "LioNess", açılan detay "Yemek" (179 video).
+        async def sahte(endpoint, params=None, timeout=None, client_headers=None):
+            if endpoint == "/get_plugin_names":
+                return ["YouTube"]
+            if endpoint == "/search":
+                return [{"title": "LioNess", "url": quote_plus("https://www.youtube.com/playlist?list=x")}]
+            if endpoint == "/load_item":
+                return {"title": "Yemek", "episodes": [{"season": 1, "episode": i} for i in range(1, 180)]}
+            return None
+
+        router.fuck_dmca = sahte
+        self.assertIsNone(asyncio.run(router._kurtar("Lioness", "DiziPal", "serie", {})))
+
 
 if __name__ == "__main__":
     unittest.main()
