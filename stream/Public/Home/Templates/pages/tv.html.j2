@@ -181,7 +181,7 @@
     <div id="oynatilan"></div>
     <div id="cubuk"><div id="dolu"></div></div>
     <div id="sure"></div>
-    <div id="ipucu2">OK duraklat · ◀▶ 10 sn · CH ±1 dk</div>
+    <div id="ipucu2">OK duraklat · ▲ menü: altyazı · dil/kaynak · bilgi · ◀▶ 10 sn · CH ±1 dk</div>
   </div>
   <div id="atla" class="gizli">Açılışı geç ▶▶ OK</div>
 </div>
@@ -225,9 +225,26 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  // Renkli tuş yalnız webOS kumandasında var; Tizen ince kumandada eylemler
+  // oynatıcıda ▲ menüsünden açılır.
+  var RENKLI = !!window.PalmSystem;
+
+  // Tizen'in yerel HLS'i birçok kaynağı açamıyor (HATA kod=4, dplayer82); MSE
+  // varsa hls.js oynatır. webOS kendi motoruyla oynar, kütüphane hiç yüklenmez.
+  var hlsKullan = !RENKLI && !!window.MediaSource;
+  if (hlsKullan) {
+    var hlsBetik = function (src, yedek) {
+      var sc = document.createElement("script");
+      sc.src = src;
+      if (yedek) sc.onerror = function () { hlsBetik(yedek); };
+      document.head.appendChild(sc);
+    };
+    hlsBetik("/static/home/JS/vendor/hls.min.js", "https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js");
+  }
+
   // Renkli tuş ipuçları yalnız webOS'ta: Tizen ince kumandada renkli/rakam tuşu yok,
   // orada ipucu var olmayan tuşu göstermesin. Tuşların kendisi her yerde çalışır.
-  if (window.PalmSystem) {
+  if (RENKLI) {
     $("ipucu").innerHTML = 'OK: aç · basılı tut: menü · ▲ üst menü · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et · <b style="color:#3b82f6">●</b> bilgi';
     $("ipucu2").innerHTML = '<b style="color:#e5484d">●</b> altyazı · <b style="color:#30a46c">●</b> dil/kaynak · <b style="color:#f5d90a">●</b> bilgi · <b style="color:#3b82f6">●</b> sonraki kaynak · 0-9 atla · CH ±1 dk';
   }
@@ -608,10 +625,9 @@
     sira = sira || 0;
     oynayan = { kart: kart, bolumRef: bolumRef || "0", kaynaklar: kaynaklar, sira: sira, tekrar: 0, tekrarKonum: 0 };
     var v = $("video");
-    // webOS'un kendi medya motoru HLS'i doğrudan açar; hls.js gerekmiyor.
-    v.src = kaynaklar[sira].url;
+    kaynakAc(kaynaklar[sira].url);
     altyaziKur();
-    gunlukYaz("BAŞLA " + kart.plugin + " · " + kart.title + " · " + kaynakHost(v.src) + " · " + kaynaklar.length + " kaynak");
+    gunlukYaz("BAŞLA " + kart.plugin + " · " + kart.title + " · " + kaynakHost(oynayanUrl) + " · " + kaynaklar.length + " kaynak" + (hls ? " · hls.js" : ""));
     $("oynatilan").textContent = kart.title + (bolumRef && bolumRef !== "0" ? " · " + bolumRef : "");
     ekran = "oynatici";
     $("raflar").className = "gizli";
@@ -623,11 +639,38 @@
     devamdanBasla(kart, bolumRef);
   }
 
+  // Adresi videoya bağlar. webOS (ve MSE'siz tarayıcı) yerel <video>; diğerleri
+  // hls.js. Her çağrı eski hls örneğini söker: yeniden deneme/kaynak geçişi aynı yol.
+  var hls = null, oynayanUrl = "";
+  function hlsSok() { if (hls) { hls.destroy(); hls = null; } }
+
+  function kaynakAc(url) {
+    var v = $("video");
+    hlsSok();
+    oynayanUrl = url;
+    var dosya = /\.(mp4|mkv|webm)(\?|&|$)/i.test(decodeURIComponent(url));
+    if (!hlsKullan || dosya || !window.Hls || !Hls.isSupported()) { v.src = url; return; }
+    var h = hls = new Hls();
+    h.on(Hls.Events.ERROR, function (e, d) {
+      if (!d.fatal || h !== hls) return;
+      hlsSok();
+      // HLS değilse (düz dosya) yerel oynatıcı dener; değilse ortak hata yolu.
+      if (d.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR) {
+        gunlukYaz("HLS değil → yerel oynatıcı");
+        v.src = url; v.play();
+        return;
+      }
+      hataIsle("hls " + d.details);
+    });
+    h.loadSource(url);
+    h.attachMedia(v);
+  }
+
   // Aynı ya da başka kaynağı KALDIĞI YERDEN yeniden kurar: hata ya da mavi tuş.
   function kaynakKur(sira, konum) {
     var v = $("video");
     oynayan.sira = sira;
-    v.src = oynayan.kaynaklar[sira].url;
+    kaynakAc(oynayan.kaynaklar[sira].url);
     altyaziKur();
     var git = function () {
       v.removeEventListener("loadedmetadata", git);
@@ -802,7 +845,7 @@
 
   function altyaziPaneli() {
     var liste = altyazilar();
-    if (!liste.length) { bildir("Bu kaynakta ayrı altyazı yok — yeşil: başka dil/kaynak"); return; }
+    if (!liste.length) { bildir("Bu kaynakta ayrı altyazı yok — " + (RENKLI ? "yeşil" : "▲ menü") + ": başka dil/kaynak"); return; }
     var ogeler = ["Kapalı"].concat(liste.map(function (a) { return a.name || "Altyazı"; }));
     panelAc("Altyazı", "", ogeler, (oynayan.altyazi === undefined ? -1 : oynayan.altyazi) + 1, function (i) {
       altyaziSec(i - 1);
@@ -810,10 +853,18 @@
     });
   }
 
+  // Renkli tuşsuz kumanda (Tizen): renkli tuşların işi oynatıcıda ▲ ile açılan listede.
+  function eylemPaneli() {
+    if (!oynayan) return;
+    var e = [["Altyazı", altyaziPaneli], ["Dil / kaynak", dilPaneli],
+             ["Bilgi", function () { bilgiGoster(oynayan.kart); }], ["Sonraki kaynak", kaynakDegistir]];
+    panelAc(oynayan.kart.title, "", e.map(function (x) { return x[0]; }), 0, function (i) { e[i][1](); });
+  }
+
   // Oynatmadan önce kaynak seç (pad → sağ): film için. Dizide bölüm seçilince
   // oynatıcıdaki yeşil tuş aynı listeyi açar.
   function dilSecOnce(kart) {
-    if (kart.tur === "serie") { bildir("Dizide dil: bölümü aç, oynatırken yeşil tuş"); return; }
+    if (kart.tur === "serie") { bildir("Dizide dil: bölümü aç, oynatırken " + (RENKLI ? "yeşil tuş" : "▲ menü")); return; }
     durum("Kaynaklar alınıyor…");
     zincir(kart, 0).then(function (y) {
       var kaynaklar = ((y.result || {}).sources) || [];
@@ -861,6 +912,7 @@
     if (oynayan) { gunlukYaz("KAPAT"); gunlukGonder(); }
     if (bekleBas) { bekleBas = 0; durum(""); }
     v.pause();
+    hlsSok();
     v.removeAttribute("src");
     v.load();
     oynayan = null;
@@ -1266,6 +1318,7 @@
         sar(v.duration * rakam(k) / 10 - (sarHedef === null ? v.currentTime : sarHedef));
         o.preventDefault(); return;
       }
+      if (k === TUS.YUKARI && !RENKLI) { eylemPaneli(); o.preventDefault(); return; }
       if (k === TUS.YUKARI || k === TUS.ASAGI) { kaplamaGoster(); o.preventDefault(); return; }
       return;
     }
@@ -1297,10 +1350,7 @@
         if (sonucIdx < SUTUN) { $("q").focus(); } else { sonucOdak(sonucIdx - SUTUN); }
         o.preventDefault(); return;
       }
-      if (k === TUS.OK) {
-        if (o.repeat) { if (!okBasildi) { okBasildi = true; padAc(sonuclar[sonucIdx]); } }
-        o.preventDefault(); return;
-      }
+      if (k === TUS.OK) { okInisi(o, function () { return sonuclar[sonucIdx]; }); o.preventDefault(); return; }
       return;
     }
 
@@ -1320,15 +1370,25 @@
     if (k === TUS.SOL)    { odakla(rafIdx, kartIdx - 1); o.preventDefault(); return; }
     if (k === TUS.ASAGI)  { odakla(rafIdx + 1, 0);       o.preventDefault(); return; }
     if (k === TUS.YUKARI) { odakla(rafIdx - 1, 0); o.preventDefault(); return; }
-    if (k === TUS.OK) {
-      // Tekrar eden keydown = basılı tutma. Bırakışta (keyup) "aç" çalışmasın
-      // diye bayrak bırakılır.
-      if (o.repeat) {
-        if (!okBasildi) { okBasildi = true; padAc(raflar[rafIdx].kartlar[kartIdx]); }
-      }
-      o.preventDefault(); return;
-    }
+    if (k === TUS.OK) { okInisi(o, function () { return raflar[rafIdx].kartlar[kartIdx]; }); o.preventDefault(); return; }
   });
+
+  // Basılı tutma = pad. webOS basılı OK'u tekrar eden keydown (repeat) yollar;
+  // Tizen'de pad hiç açılmıyordu. Süre ilk keydown'dan ölçülür: 600 ms içinde
+  // keyup gelmezse basılı sayılır. okBasildi bırakıştaki "aç"ı yutar.
+  var okZaman = 0, okBas = 0, okSay = 0;
+  function okInisi(o, kartAl) {
+    if (!okBas) { okBas = Date.now(); okSay = 0; }
+    okSay++;
+    if (okBasildi) return;
+    var uzun = function () {
+      if (okZaman) { clearTimeout(okZaman); okZaman = 0; }
+      if (okBasildi || katman) return;
+      okBasildi = true; padAc(kartAl());
+    };
+    if (o.repeat) uzun();
+    else if (!okZaman) okZaman = setTimeout(uzun, 600);
+  }
 
   // Magic Remote açıkken kumandanın OK'u sayfaya `keydown` olarak DEĞİL, imlecin
   // bulunduğu yere `click` olarak geliyor — oynatıcıda duraklatma bu yüzden
@@ -1344,6 +1404,12 @@
   // Açma işi BIRAKMADA: basılı tutma favoriye gittiği için kısa basış ancak
   // tuş bırakıldığında ayırt edilebiliyor.
   document.addEventListener("keyup", function (o) {
+    if (o.keyCode === TUS.OK) {
+      if (okZaman) { clearTimeout(okZaman); okZaman = 0; }
+      // Teşhis: basılı tutmada cihazın ne yolladığı (keydown sayısı, süre).
+      if (okBas && (okSay > 1 || Date.now() - okBas > 300)) gunlukYaz("OK basılı " + (Date.now() - okBas) + "ms keydown=" + okSay);
+      okBas = 0;
+    }
     // Pad'i açan basış bırakıldı: bundan sonra pad tuş dinler.
     if (katman === "pad" && !padHazir) { padHazir = true; okBasildi = false; o.preventDefault(); return; }
     if (o.keyCode !== TUS.OK) return;
@@ -1478,9 +1544,16 @@
   // tekrar tekrar düşmesin diye sayaç ancak 30 sn ilerleyince sıfırlanır.
   $("video").addEventListener("error", function () {
     var v = $("video");
+    // Kapanışta src boşaltılırken gelen hata oynatma hatası değil.
+    if (!v.getAttribute("src")) return;
+    hataIsle("kod=" + (v.error ? v.error.code : "?"));
+  });
+
+  function hataIsle(neden) {
+    var v = $("video");
     if (ekran !== "oynatici" || !oynayan) return;
     var konum = v.currentTime || 0;
-    gunlukYaz("HATA kod=" + (v.error ? v.error.code : "?") + " " + kaynakHost(v.src));
+    gunlukYaz("HATA " + neden + " " + kaynakHost(oynayanUrl));
     bekleBas = 0;
     if (konum > oynayan.tekrarKonum + 30) oynayan.tekrar = 0;
     oynayan.tekrarKonum = konum;
@@ -1500,7 +1573,7 @@
     }
     durum("Bu kaynak açılamadı");
     setTimeout(function () { durum(""); oynatmaKapat(); }, 3000);
-  });
+  }
 
   veriYukle();
 })();
