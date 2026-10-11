@@ -199,6 +199,14 @@
 (function () {
   "use strict";
 
+  // Tizen medya tuşları kaydedilmezse sayfaya hiç gelmez. Kayıt uygulamaya aittir;
+  // uzak sayfada tizen nesnesi yoksa kabuk yapmış olur (client-tizen/index.html).
+  try {
+    if (window.tizen) tizen.tvinputdevice.registerKeyBatch(["MediaPlay", "MediaPause", "MediaPlayPause",
+      "MediaFastForward", "MediaRewind", "MediaStop", "ChannelUp", "ChannelDown",
+      "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue"]);
+  } catch (e) { /* tarayıcıda tizen yok */ }
+
   // Kumanda tuşları. webOS GERİ = 461; klavye/emülatör için Backspace ve Esc de
   // aynı işi görsün diye listede.
   var TUS = { SOL: 37, YUKARI: 38, SAG: 39, ASAGI: 40, OK: 13, GERI: 461, BACKSPACE: 8, ESC: 27,
@@ -1150,7 +1158,8 @@
   }
 
   document.addEventListener("keydown", function (o) {
-    var k = o.keyCode;
+    // Tizen GERİ = 10009; webOS kodu üzerinden tek yoldan işlenir.
+    var k = o.keyCode === 10009 ? TUS.GERI : o.keyCode;
     sonKlavye = Date.now();
     // Ok/OK dışındaki her tuş günlüğe: kumandanın gerçekte ne gönderdiği tahmin
     // edilmez, okunur. 1536/1537 Magic Remote imlecinin görünüp gizlenmesi, tuş değil.
