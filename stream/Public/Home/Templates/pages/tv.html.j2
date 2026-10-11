@@ -642,6 +642,7 @@
   // Adresi videoya bağlar. webOS (ve MSE'siz tarayıcı) yerel <video>; diğerleri
   // hls.js. Her çağrı eski hls örneğini söker: yeniden deneme/kaynak geçişi aynı yol.
   var hls = null, oynayanUrl = "";
+  var yerelAdres = {};        // hls.js'in açamadığı adresler: yeniden denemede doğrudan yerel <video>
   function hlsSok() { if (hls) { hls.destroy(); hls = null; } }
 
   function kaynakAc(url) {
@@ -649,14 +650,19 @@
     hlsSok();
     oynayanUrl = url;
     var dosya = /\.(mp4|mkv|webm)(\?|&|$)/i.test(decodeURIComponent(url));
-    if (!hlsKullan || dosya || !window.Hls || !Hls.isSupported()) { v.src = url; return; }
+    if (!hlsKullan || dosya || yerelAdres[url] || !window.Hls || !Hls.isSupported()) { v.src = url; return; }
     var h = hls = new Hls();
     h.on(Hls.Events.ERROR, function (e, d) {
       if (!d.fatal || h !== hls) return;
       hlsSok();
-      // HLS değilse (düz dosya) yerel oynatıcı dener; değilse ortak hata yolu.
-      if (d.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR) {
-        gunlukYaz("HLS değil → yerel oynatıcı");
+      // HLS değilse (düz dosya) ya da manifest XHR ile yüklenemiyorsa (googlevideo:
+      // CORS) yerel oynatıcı dener — aynı adres yerel <video> ile Samsung'da oynuyordu.
+      // Yeniden deneme sayacı harcanmaz; yerel de düşerse ortak hata yolu işler.
+      var D = Hls.ErrorDetails;
+      if (d.details === D.MANIFEST_PARSING_ERROR || d.details === D.MANIFEST_LOAD_ERROR ||
+          d.details === D.MANIFEST_LOAD_TIMEOUT) {
+        gunlukYaz("hls " + d.details + " → yerel oynatıcı");
+        yerelAdres[url] = 1;
         v.src = url; v.play();
         return;
       }
