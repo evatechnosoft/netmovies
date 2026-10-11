@@ -42,14 +42,28 @@ class Diagnostics:
         konsol.log(f"{mark} resolve: {stage} — {message}")
 
 
-async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None, season_no: int | None = None, liste_once: bool = True) -> tuple[list[dict], list[dict]]:
+async def _links_for(plugin_name: str, content_url: str, episode_index: int, diag: Diagnostics, episode_no: int | None = None, season_no: int | None = None, liste_once: bool = True, baslik: str | None = None) -> tuple[list[dict], list[dict]]:
     """Bir sağlayıcıdan link listesi (ve varsa bölüm listesi) çıkarır.
 
     `content_url` DÜZ url'dir (kodlanmış değil): eklentiler httpx'e doğrudan verir.
+    `baslik` verilirse açılan detayın adı da tutmalı (alternatif sağlayıcılar).
     """
     plugin   = plugin_manager.select_plugin(plugin_name)
     episodes : list[dict] = []
     target   = content_url
+
+    # Arama sonucunun adı tutup açılan detayınki tutmayabilir: YouTube'da "LioNess"
+    # adlı sonuç bir yemek kanalının 179 videoluk listesini açıyordu; Lioness S3B8
+    # yerine o listenin S1B8'i oynuyordu (11 Eki). load_item'daki korumanın eşi.
+    # ponytail: alternatif sağlayıcı başına bir load_item fazladan; yavaşlarsa önbellekle.
+    if baslik:
+        try:
+            ad = getattr(await plugin.load_item(target), "title", "") or ""
+        except Exception:
+            ad = ""
+        if ad and not baslik_uyusuyor(baslik, ad):
+            diag.add("warn", "arama", f"{plugin_name} · detay adı tutmadı: {ad}")
+            return [], []
 
     async def _load(url: str) -> list:
         try:
@@ -288,7 +302,7 @@ async def resolve_sources(request: Request):
             # "kaynak bulunamadı" dönüyordu.
             bulunanlar = [(n, m) for n, m in zip(candidates, matches) if m and not isinstance(m, Exception)]
             toplanan   = await asyncio.gather(
-                *(_with_budget(_links_for(n, m, episode, diag, secili_no, secili_sez), n, "link", diag) for n, m in bulunanlar),
+                *(_with_budget(_links_for(n, m, episode, diag, secili_no, secili_sez, baslik=title), n, "link", diag) for n, m in bulunanlar),
                 return_exceptions=True,
             )
             for (ad, _), sonuc in zip(bulunanlar, toplanan):
