@@ -1,42 +1,57 @@
-# Handoff: Paylaş → TV 0.9.67 + ses kayması
-> 2026-10-10 14:20 · `fix/general-stability` @ `b0c2e5d`-sonrası (bu handoff commit'i) · origin ile eşit
+# Handoff: Mi Box uyanık + Lioness + tvQA
+> 2026-10-11 · `fix/general-stability` @ `93d800a` (+ bu handoff commit'i) · 0 dirty · origin ile eşit
 
 ## Goal
-Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu. Kurallar `CLAUDE.md`. Bu oturum: Dean "Daha 17'de ses geriden geliyor, bir daha karşılaşmayalım". Gerekçe ve ölçüm yöntemi: hafıza `ayri-ses-kaymasi.md`.
+Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu; kurallar `CLAUDE.md`. Bu oturum: Mi Box uykuda ağdan
+düşüyordu, Lioness yanlış videoyu açıyordu, kumanda eşleyicisi (tvQuickActions, tvQA) toparlandı.
 
 ## State
-- 0.9.67 üç yerde (sha `7d210e58…`, yerel OTA + GitHub `v0.9.67-poc` (target fix/general-stability) + evaglass `netmovies-tv-v0.9.67` & `apps.json` vc 967 `3bf61de`; üç indirme sha eşleşti, Pages 0.9.67 gösteriyor). Mi Box'a KURULMADI (kendisi OTA'dan görür).
-- Paylaş → TV (hafıza `paylas-tv-akisi.md`): sunucu web→play eşler (`stream/Public/API/v1/Libs/paylas_hedefi.py`, başlık arka planda `remote.py::_baslikla_kuyruga`), bağlantısız yazı TV araması, sayfa açıkken yazı sayfadaki kutuya / adres ise açılır, sayfada tam ekran video + %130 yazı + reklam konağı engeli + yükleniyor şeridi. Emülatör (evabench_shot) kanıtı: youtu.be paylaşımı → oynatıcı "Daha 17 (19. Bölüm)" posterli; duckduckgo sayfası açıldı; Vikipedi'de "Daha 17" kutuya yazılıp arandı; "tr.wikipedia.org" yazısı sayfayı açtı; "Reacher" paylaşımı → Gözat araması. Testler: stream 241, engine 77, TV unit (Paylas 3, WebEkrani 3) yeşil.
-- unverified: DuckDuckGo'da yazma "ok" dönüyor ama kutuda görünmüyor (ağır JS); HTML5 tam ekran ve reklam engeli cihazda denenmedi; Fold'da paylaş menüsü Dean'de denenmedi.
-- WARP 10 Eki sağlıksızdı (DNS %91 zaman aşımı) → `docker restart netmovies-warp` ile healthy; YouTube yt-dlp artık önce ev bağlantısı (`a76286c`).
-- Kök neden kaynakta: DiziPal (sn.dplayer82) ayrı ses playlist'i 8640,07 sn, görüntü 8628,17 sn (oran 1,00138) → ses doğrusal geride (~9 sn 1:49'da). Cihaz/tunneling suçsuz.
-- `c099fa7` + `7279fc1` push'lu, ZimaOS'ta canlı (engine/stream `.Created` 2026-10-10T07:03Z). Akış: engine `hls_av_orani` (`engine/Public/API/v1/Libs/kisa_klip.py`) ayrı sesli master'da EXTINF toplamlarını kıyaslar → kaynağa `av_oran` → gateway `source_proxy.py` zorla proxy + `&av_oran=` → proxy (`stream/Public/Proxy/Libs/av_esitle.py`) görüntü varyantı EXTINF + TS görüntü PES PTS/DTS × oran; ses dokunulmaz. `language.py` kayık kaynağı sona alır.
-- Canlı kanıt: Daha 17 kaynak sırası YouTube, DiziMom, DDizi, DiziPal; proxy'den ses/görüntü toplamı 8640,07 = 8640,07; YouTube'a göre desync 3000/6500/7800 sn'de −0,53/−0,63/−0,56 sn (önce 3,6→8,8 büyüyordu). Engine test 6/6, stream 236/236, smoke YEŞİL, w.evaitec.com 303.
-- unverified: kalan ~0,5 sn sabit fark kaynakta mı, ölçüm artefaktı mı. Dean'in TV'de gözle teyidi yok (bölümü düzeltmeden önce bitirdi).
-- Önceki oturumdan açık, Dean'den geri bildirim bekleyen: saat 0.1.24 fare yönü/hızı, TV 0.9.66 Paylaş → TV'de aç, 0.9.64 klavye. Ayrıntı git `1801110:HANDOFF.md`.
+- TV 0.9.68 (`UyanikTut` PARTIAL_WAKE_LOCK) üç yerde yayında (sha `351e41f1…`, GitHub `v0.9.68-poc`,
+  evaglass `netmovies-tv-v0.9.68` + apps.json vc 968 `7673d6b`) ve Mi Box'a ADB ile kuruldu (`versionName=0.9.68`).
+  Kök neden: 0.9.68 10 Eki commit edilmiş ama yayınlanmamıştı; kutu 0.9.67'de kaldı, uykuda Wi-Fi'den düştü
+  (TP-Link istemci listesinde yoktu, WOL tutmaz). unverified: kapama tuşundan sonra kutunun ağda kaldığı — Dean denemedi.
+- Lioness: `load_item` kurtarması DiziPal ölü adresini YouTube yemek kanalına bağlıyordu. `e591cdd` (dizi
+  kurtarması ≥2 bölüm) + `93d800a` (kurtarılan detayın adı başlığı tutmalı). Canlıda: `load_item` →
+  `DiziMom Special Ops: Lioness 24`. Stream testleri 245 OK. ZimaOS stream `.Created` 2026-10-11 ~13:2xZ.
+- tvQA: erişilebilirlik servisi kutu fişten açılınca kapanmıştı → `settings put secure ...` ile açıldı (BACK çift = son uygulamalar).
+  Ayar yedeği/değişikliği: scratchpad `tvqa/` (orijinal `tvqa.ab`, yeni `tvqa_v2.ab`); ZimaOS atv konteynerinde
+  `/app/data/atv/tvqa.ab` (orijinal) ve `tvqa_v2.ab`. v2 = Settings menüsünden Wi-Fi/BT toggle çıktı (OTA + fare),
+  Apps menüsü kurulu uygulamalar, dock temizlendi (+OTA), boot tetikleyicisi NetMovies'i açar. Netflix tuşu (keycode 1000 satırı) AYNEN.
+  `adb restore tvqa_v2.ab` çıkış 0 (Dean ekranda onayladı) ama restore erişilebilirlik ayarını SİLDİ → yeniden açıldı
+  (`dumpsys accessibility` tvQuickActions 1). unverified: yeni ayarların gerçekten yüklendiği (dock'ta OTA var mı, CloudStream yok mu — Dean bakacak).
+- Prime tuşu tvQA ile Xiaomi'de değişmez (tvdevinfo.com/tvquickactions/troubleshooting). Sistem
+  `com.amazon.amazonvideo.livingroom/com.amazon.ignition.IgnitionActivity` başlatır; tek yol o paket adlı stub APK — yazılmadı, Dean'e soruldu.
+- ZimaOS LiteLLM: `yerel` (gemma4:12b) `reasoning_effort: none` ile dolu cevap; yeni `yerel-hizli` (gemma4:e2b GPU, 18–25 tok/s). Ayrıntı `~/.ai/contracts/zimaos-infrastructure.md`.
 
 ## Next
-0. Dean'in Fold'da Paylaş → TV denemesi (YouTube/dizi linki, düz yazı, sayfada yazı) geri bildirimi; DuckDuckGo tipi sayfada yazı tutmazsa InputConnection/klavye olayıyla yaz.
-1. Dean bir sonraki ayrı-sesli kaynakta ağız-ses uyumunu söylesin; uyumsuzsa `ssh zima "docker logs netmovies-engine 2>&1 | grep 'oran '"` ile oranı gör, sabit ofset gerekiyorsa `av_esitle.ts_olcekle`'ye ekle.
-2. Muxed (tek dosya) veya fMP4 kaynakta kayma şikâyeti gelirse kapsamı genişlet (şu an `ts_olcekle` fMP4'te no-op, muxed ölçülmüyor).
+1. Dean'den 0.9.68 kapama/açma geri bildirimi: kapattıktan 1–2 dk sonra `ssh zima "nc -z -w3 192.168.1.105 5555 && echo agda"`.
+   `agda` değilse UyanikTut Wi-Fi'yi tutmuyor → `WifiManager.WifiLock(WIFI_MODE_FULL_HIGH_PERF)` ekle.
+2. tvQA restore Dean onayıyla bittiyse doğrula: `adb shell settings get secure enabled_accessibility_services` dolu mu,
+   menüler/dock tvQA'da yeni hâlinde mi. Bozuksa `adb restore /app/data/atv/tvqa.ab` (orijinal).
+3. Prime → Ayarlar istenirse: client-tv'de ayrı küçük modül, paket `com.amazon.amazonvideo.livingroom`, aktivite `com.amazon.ignition.IgnitionActivity` → `Settings.ACTION_SETTINGS`.
+4. `/saglik` (atv köprüsü) kutu ağda yokken `acik/uyanik:true` dönüyor — bayat durum; düzeltilmedi.
 
 ## Don't repeat
-- A/V'yi ffmpeg `-ss` + `-c copy` ile ölçme: akışları bağımsız kaydırır, 10–18 sn sahte sonuç verdi. Ham segmentleri PTS'iyle indir; YouTube sesiyle xcorr, sahne kesmesiyle görüntü (scratchpad `raw.py` mantığı).
-- YouTube ses segmentlerinin PTS'i 0'dan başlar: zamanı playlist EXTINF toplamından al.
-- DDizi'nin bu bölümdeki mp4'ü 60 sn klip — referans olamaz.
-- TV oynarken rebuild yok: `ssh zima "docker logs --since 2m netmovies-stream 2>&1 | grep -c remote/state"` 0 değilse bekle; `/tmp/nm_deploy.sh` (ZimaOS) boşta iki kez görünce pull + build + tünel recreate yapar.
+- Commit ≠ yayın: TV değişikliği bitince üç yere yayınla (hafıza `yayinlamak-icin-sorma`), kutuda `versionName` ile doğrula.
+- Kutu Wi-Fi'de yokken WOL göndermek: Mi Box WoWLAN yok, paket boşa gider. Önce TP-Link `tp_dump.py "Network Map>Wireless Clients"`.
+- TV izlerken kurulum/rebuild: `/tmp/tv_kur.sh` ve `scripts/izleme-bitince-kur.sh` boşta bekler; `remote/status` ile bak.
+- tvQA'da Netflix tuşunu adb_command'a bağlamak / tuşları getevent ile denemek: Dean "deneme yapma, Netflix kalsın" dedi; getevent+backup tvQA'yı kilitledi.
+- adb backup/restore TV ekranında onay ister — Dean izlerken başlatma. Restore sonrası erişilebilirlik servisi kapanır: hemen `settings put secure enabled_accessibility_services dev.vodik7.tvquickactions/.KeyAccessibilityService` + `accessibility_enabled 1`.
 
 ## Verify
 ```
-git rev-parse --short HEAD     # 7279fc1 veya handoff commit'i
-bash scripts/smoke.sh | tail -1   # kapı YEŞİL
-ssh zima "docker inspect -f '{{.Created}}' netmovies-stream"   # 2026-10-10T07:03Z veya sonrası
+git rev-parse --short HEAD                                   # 93d800a veya handoff commit'i
+bash scripts/smoke.sh | tail -1                              # YEŞİL
+ssh zima "docker exec netmovies-atv adb -s 192.168.1.105:5555 shell dumpsys package com.evaitec.netmovies.tv | grep -m1 versionName"   # 0.9.68
+curl -s -G 192.168.1.186:3310/api/v1/load_item --data-urlencode plugin=DiziPal --data-urlencode encoded_url=https://dizipal2221.com/dizi/lioness --data-urlencode title=Lioness --data-urlencode type=serie | head -c 200   # DiziMom
 ```
 
 ## <yeniden başlangıç> promptu (yapıştır)
 ```
-NetMovies, dal fix/general-stability. 10 Ekim: TV 0.9.67 üç yerde — Paylaş → TV (video oynatıcıda, yazı aramada/sayfa kutusunda, hafıza paylas-tv-akisi.md). Ayrıca: ayrı ses playlist'li HLS kaynaklarda (DiziPal Daha 17) görüntü sesten %0,14 kısaydı, ses giderek geride kalıyordu; engine av_oran ölçüyor, proxy görüntü PTS/EXTINF'i esnetiyor (stream/Public/Proxy/Libs/av_esitle.py), kayık kaynak sona alınıyor — canlı, ölçümle doğrulandı; kalan ~0,5 sn sabit fark doğrulanmadı.
-Önce HANDOFF.md oku, Verify bloğunu koş, hafıza ayri-ses-kaymasi.md'ye bak.
-Sıra: 1) Dean ağız-ses geri bildirimi → gerekirse sabit ofset 2) önceki açıklar: saat fare yönü, Paylaş → TV'de aç, klavye geri bildirimi.
-Yeni iş açma; TV oynarken rebuild yapma.
+NetMovies, dal fix/general-stability. 11 Ekim: TV 0.9.68 (kutuyu ağda tutan UyanikTut) yayında ve Mi Box'a kurulu;
+kapama sonrası ağda kalma Dean'de doğrulanmadı. Lioness yanlış YouTube videosu sorunu sunucuda düzeldi (DiziMom).
+tvQuickActions ayarları adb restore ile toparlandı (Netflix tuşu aynı; Prime Xiaomi'de değişmez).
+Önce HANDOFF.md oku, Verify bloğunu koş.
+Sıra: 1) kapama sonrası kutu ağda mı (nc .105:5555) 2) tvQA restore doğrula 3) Prime stub yalnız Dean isterse.
+Yeni iş açma; TV oynarken rebuild/kurulum yapma.
 ```
