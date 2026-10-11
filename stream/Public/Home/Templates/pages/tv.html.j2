@@ -36,6 +36,14 @@
   .marka { font-size: 30px; font-weight: 700; letter-spacing: .5px; }
   .marka em { color: var(--vurgu); font-style: normal; }
   #ipucu { float: right; font-size: 21px; color: var(--sonuk); }
+  /* Üst menü şeridi (client-tv TopBar): renkli tuşu olmayan kumandada tek yol. */
+  #menu { margin-left: 48px; }
+  .mn {
+    display: inline-block; vertical-align: middle; line-height: normal;
+    padding: 8px 22px; margin-right: 12px; border-radius: 24px;
+    font-size: 24px; color: var(--sonuk); border: 3px solid transparent;
+  }
+  .mn.odak { border-color: #fff; background: #2e2a4a; color: #fff; font-weight: 600; }
 
   #raflar { position: absolute; top: 84px; left: 0; right: 0; bottom: 0; overflow: hidden; }
   #kaydir { transition: transform .22s ease-out; }
@@ -151,7 +159,7 @@
 </head>
 <body>
 
-<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="ipucu">OK: aç · basılı tut: menü · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et · <b style="color:#3b82f6">●</b> bilgi</span></div>
+<div id="ust"><span class="marka">Net<em>Movies</em></span><span id="menu"><span class="mn" id="mn0">Ara</span><span class="mn" id="mn1">Favoriler</span><span class="mn" id="mn2">Devam Et</span></span><span id="ipucu">OK: aç · basılı tut: menü/bilgi · ▲ üst menü</span></div>
 
 <div id="raflar"><div id="kaydir"></div></div>
 
@@ -173,7 +181,7 @@
     <div id="oynatilan"></div>
     <div id="cubuk"><div id="dolu"></div></div>
     <div id="sure"></div>
-    <div id="ipucu2"><b style="color:#e5484d">●</b> altyazı · <b style="color:#30a46c">●</b> dil/kaynak · <b style="color:#f5d90a">●</b> bilgi · <b style="color:#3b82f6">●</b> sonraki kaynak · 0-9 atla · CH ±1 dk</div>
+    <div id="ipucu2">OK duraklat · ◀▶ 10 sn · CH ±1 dk</div>
   </div>
   <div id="atla" class="gizli">Açılışı geç ▶▶ OK</div>
 </div>
@@ -217,6 +225,13 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  // Renkli tuş ipuçları yalnız webOS'ta: Tizen ince kumandada renkli/rakam tuşu yok,
+  // orada ipucu var olmayan tuşu göstermesin. Tuşların kendisi her yerde çalışır.
+  if (window.PalmSystem) {
+    $("ipucu").innerHTML = 'OK: aç · basılı tut: menü · ▲ üst menü · <b style="color:#e5484d">●</b> ara · <b style="color:#30a46c">●</b> favoriler · <b style="color:#f5d90a">●</b> devam et · <b style="color:#3b82f6">●</b> bilgi';
+    $("ipucu2").innerHTML = '<b style="color:#e5484d">●</b> altyazı · <b style="color:#30a46c">●</b> dil/kaynak · <b style="color:#f5d90a">●</b> bilgi · <b style="color:#3b82f6">●</b> sonraki kaynak · 0-9 atla · CH ±1 dk';
+  }
+
   // --- durum -------------------------------------------------------------
   var raflar   = [];          // [{ad, tur, kartlar:[...]}]
   var rafIdx   = 0;
@@ -238,6 +253,7 @@
   var sonFare   = 0;          // son GERÇEK fare hareketi
   var katman    = null;       // ekranın üstündeki katman: null | "pad" | "panel"
   var padKart   = null;       // pad'in açıldığı kart
+  var menuIdx   = -1;         // üst menüde odaklı öğe; -1 = odak raflarda
   var padHazir  = false;      // pad'i açan basış bırakıldı mı (basili-tus-yeni-odaga-akar)
   var yutKeyup  = false;      // katmanda işlenen OK'un bırakışı arkadaki kartı açmasın
   var panelSec  = null, panelIdx = 0, panelAdet = 0;
@@ -436,6 +452,7 @@
   // kaydırmak kartı imlecin altından çekiyor, bir sonraki karta atlıyor ve
   // liste imleç durmadan akıyordu (Dean: "yağ gibi durmuyor").
   function odakla(ri, ki, kaydirma) {
+    menuOdak(-1);
     var eski = document.querySelector(".kart.odak");
     if (eski) eski.className = "kart";
     rafIdx = Math.max(0, Math.min(ri, raflar.length - 1));
@@ -922,8 +939,7 @@
   }
 
   // --- arama -------------------------------------------------------------
-  // Ana ekranın EN ÜST rafındayken YUKARI: televizyon arayüzlerinin alışılmış
-  // yeri. Ayrı bir tuş yok — kumandada renkli tuşlara güvenilmiyor.
+  // Üst menüdeki "Ara" (ilk raftan YUKARI) ya da webOS'ta kırmızı tuş.
   function aramaAc() {
     ekran = "arama";
     $("raflar").className = "gizli";
@@ -1135,6 +1151,41 @@
     return -1;
   }
 
+  // Üst menü (client-tv TopBar): ilk raftan YUKARI ile girilir, ◀▶ gezer,
+  // OK seçer, AŞAĞI/GERİ rafa döner. -1 menüden çıkar (yalnız işaret).
+  function menuOdak(i) {
+    menuIdx = i < 0 ? -1 : Math.max(0, Math.min(i, 2));
+    for (var j = 0; j < 3; j++) $("mn" + j).className = j === menuIdx ? "mn odak" : "mn";
+    if (menuIdx >= 0) {
+      var kart = document.querySelector(".kart.odak");
+      if (kart) kart.className = "kart";
+    }
+  }
+
+  function rafaGit(ad, bos) {
+    var i = rafAd(ad);
+    if (i >= 0) odakla(i, 0); else bildir(bos);
+  }
+
+  // Menüden çık, kart odağını yerine koy.
+  function menuBirak() {
+    if (menuIdx < 0) return;
+    if (raflar.length) odakla(rafIdx, kartIdx, false); else menuOdak(-1);
+  }
+
+  function menuSec() {
+    var i = menuIdx;
+    menuBirak();
+    if (i === 0) aramaAc();
+    else if (i === 1) rafaGit("Favorilerim", "Favori listesi boş");
+    else rafaGit("Devam Et", "Devam edilecek içerik yok");
+  }
+  [0, 1, 2].forEach(function (i) {
+    $("mn" + i).addEventListener("click", function () {
+      if (ekran === "ana" && !katman) { menuOdak(i); menuSec(); }
+    });
+  });
+
   function rafAd(ad) {
     for (var i = 0; i < raflar.length; i++) if (raflar[i].ad === ad) return i;
     return -1;
@@ -1151,9 +1202,10 @@
       return true;
     }
     if (ekran !== "ana") geriGit();
+    menuBirak();
     if (k === TUS.KIRMIZI) { aramaAc(); return true; }
-    var i = rafAd(k === TUS.YESIL ? "Favorilerim" : "Devam Et");
-    if (i >= 0) odakla(i, 0); else bildir(k === TUS.YESIL ? "Favori listesi boş" : "Devam edilecek içerik yok");
+    if (k === TUS.YESIL) rafaGit("Favorilerim", "Favori listesi boş");
+    else rafaGit("Devam Et", "Devam edilecek içerik yok");
     return true;
   }
 
@@ -1252,6 +1304,14 @@
       return;
     }
 
+    if (menuIdx >= 0) {
+      if (k === TUS.SOL) { menuOdak(menuIdx - 1); o.preventDefault(); return; }
+      if (k === TUS.SAG) { menuOdak(menuIdx + 1); o.preventDefault(); return; }
+      if (k === TUS.ASAGI) { menuBirak(); o.preventDefault(); return; }
+      if (k === TUS.YUKARI || k === TUS.OK) { o.preventDefault(); return; }  // OK bırakışta seçer
+      menuBirak();
+    }
+    if (k === TUS.YUKARI && (!raflar.length || rafIdx === 0)) { menuOdak(0); o.preventDefault(); return; }
     if (!raflar.length) return;
     if (k === TUS.CH_ASAGI || k === TUS.CH_ASAGI_T)   { odakla(rafIdx, kartIdx + GORUNEN); o.preventDefault(); return; }
     if (k === TUS.CH_YUKARI || k === TUS.CH_YUKARI_T) { odakla(rafIdx, kartIdx - GORUNEN); o.preventDefault(); return; }
@@ -1259,10 +1319,7 @@
     if (k === TUS.SAG)    { odakla(rafIdx, kartIdx + 1); o.preventDefault(); return; }
     if (k === TUS.SOL)    { odakla(rafIdx, kartIdx - 1); o.preventDefault(); return; }
     if (k === TUS.ASAGI)  { odakla(rafIdx + 1, 0);       o.preventDefault(); return; }
-    if (k === TUS.YUKARI) {
-      if (rafIdx === 0) { aramaAc(); } else { odakla(rafIdx - 1, 0); }
-      o.preventDefault(); return;
-    }
+    if (k === TUS.YUKARI) { odakla(rafIdx - 1, 0); o.preventDefault(); return; }
     if (k === TUS.OK) {
       // Tekrar eden keydown = basılı tutma. Bırakışta (keyup) "aç" çalışmasın
       // diye bayrak bırakılır.
@@ -1293,6 +1350,7 @@
     if (katman === "pad") { padEylem(TUS.OK); o.preventDefault(); return; }
     if (yutKeyup || katman) { yutKeyup = false; o.preventDefault(); return; }
     if (okBasildi) { okBasildi = false; o.preventDefault(); return; }
+    if (ekran === "ana" && menuIdx >= 0) { menuSec(); o.preventDefault(); return; }
     if (ekran === "ana" && raflar.length) { sec(); o.preventDefault(); return; }
     if (ekran === "arama" && sonuclar.length && document.activeElement !== $("q")) {
       sonucSec(); o.preventDefault(); return;
