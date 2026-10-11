@@ -39,7 +39,7 @@ class LoadItemRescueTest(unittest.TestCase):
                 return [{"title": "Pluribus", "url": quote_plus("https://canli/dizi/pluribus")}]
             if endpoint == "/load_item":
                 if (params or {}).get("plugin") == "CanliKaynak":
-                    return {"title": "Pluribus", "episodes": [{"season": 1, "episode": 1}]}
+                    return {"title": "Pluribus", "episodes": [{"season": 1, "episode": 1}, {"season": 1, "episode": 2}]}
                 if isinstance(load_item_sonuc, Exception):
                     raise load_item_sonuc
                 return load_item_sonuc
@@ -85,6 +85,20 @@ class LoadItemRescueTest(unittest.TestCase):
 
         router.fuck_dmca = sahte
         self.assertIsNone(asyncio.run(router._kurtar("R.J. Decker", "OluKaynak", "serie", {})))
+
+    def test_tek_videolu_dizi_kurtarma_sayilmaz(self) -> None:
+        # Gerçek olay (11 Eki): YouTube "Lioness" → yemek kanalının tek videosu (329 sn).
+        async def sahte(endpoint, params=None, timeout=None, client_headers=None):
+            if endpoint == "/get_plugin_names":
+                return ["YouTube"]
+            if endpoint == "/search":
+                return [{"title": "LioNess", "url": quote_plus("https://www.youtube.com/watch?v=YVlIExa-xek")}]
+            if endpoint == "/load_item":
+                return {"title": "LioNess", "episodes": [{"season": 1, "episode": 1}]}
+            return None
+
+        router.fuck_dmca = sahte
+        self.assertIsNone(asyncio.run(router._kurtar("Lioness", "DiziPal", "serie", {})))
 
 
 if __name__ == "__main__":

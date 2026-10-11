@@ -106,6 +106,11 @@ async def _kurtar(baslik: str, dislanan: str, tip: str, client_headers: dict):
                 )
             except Exception:
                 continue
+            # Tek bölümlük "dizi" kurtarma değildir: YouTube'da "Lioness" araması adı
+            # tutan bir yemek kanalının TEK videosunu döndürüyordu, Lioness S3B8 yerine
+            # o açılıyordu (11 Eki). Gerçek dizi en az iki bölümle gelir.
+            if tip == "serie" and len((detay or {}).get("episodes") or []) < 2:
+                continue
             if _kullanilabilir(detay, tip):
                 konsol.log(f"[green]load_item kurtarıldı:[/] {baslik} · {dislanan} -> {ad}")
                 # Bölüm adresleri BU sağlayıcıya ait: istemci onları istenen adla
