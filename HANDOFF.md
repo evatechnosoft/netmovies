@@ -1,3 +1,17 @@
+# Handoff: Samsung M7 uygulaması + çocuk modu (12 Eki yüklenecek)
+> 2026-10-11 gece · `fix/general-stability` @ 8671d93 · push edildi
+
+## State
+- Samsung M7 (192.168.1.184): `client-tizen` 0.1.5 kurulu, `/tv` açıyor; hls.js ile oynatma, GERİ=461, OK basılı tutma, oynatıcıda YUKARI menüsü. tv.html.j2 docker cp ile CANLI (rebuild'siz).
+- CANLI DEĞİL (rebuild bekliyor): çocuk modu Python (`1712eaa`: /api/v1/cocuk, admin "Çocuk Modu", admin.js) + engine `8671d93` (alternatif sağlayıcı detay adı koruması).
+- Lioness: /tv'de `kurtar()` (load_item) canlı — DiziMom 24 bölüm, S3B8 idx 23. Dean bu sorunu defalarca bildirdi; cihazda doğrulanmadı.
+- HA: Tuya Local + `remote.ir_rf_hub` (S11, 192.168.1.106). HA_TOKEN `~/.ai/vg.env`. Tuş öğretme yapılmadı.
+
+## Next (12 Eki, Mi Box boşta iken)
+1. `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull -q && docker compose --profile tunnel up -d --build stream engine cloudflared"` + konteyner unittest.
+2. Samsung'da Lioness Devam Et → S3B8 açılıyor mu (client_log).
+3. Panelden kanal ekle → çocuk paketi 0.1.6 kur (`scratchpad\tizen_app_016` ya da client-tizen'den paketle; README) → CDP kanıt. Samsung'u çocuk moduna ne zaman çevireceğini Dean'e sor.
+
 # Handoff: Mi Box uyanık + Lioness + tvQA
 > 2026-10-11 · `fix/general-stability` @ `93d800a` (+ bu handoff commit'i) · 0 dirty · origin ile eşit
 
