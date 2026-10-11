@@ -548,9 +548,25 @@
 
   // Bölüm listesi resolve_sources'un YAN ÜRÜNÜ: ayrı uç yok, zincir zaten
   // diziyi çözerken bölümleri de döndürüyor.
+  // Kayıtlı adres ölmüş olabilir: load_item başlıkla doğru diziyi kurtarır
+  // (Lioness: DiziPal ölü → DiziMom). Kurtarmasız zincir full moduna düşüp
+  // adı tutan yanlış bir YouTube listesinin S1B8'ini açıyordu.
+  function kurtar(kart) {
+    return api("/api/v1/load_item?plugin=" + encodeURIComponent(kart.plugin) + "&encoded_url=" + kart.url +
+               "&title=" + encodeURIComponent(kart.title || "") + "&type=serie")
+      .then(function (y) {
+        var r = y.result || {};
+        if (r.plugin && r.url && r.plugin !== kart.plugin && (r.episodes || []).length >= 2) {
+          kart.plugin = r.plugin; kart.url = r.url;
+        }
+        return kart;
+      })
+      .catch(function () { return kart; });
+  }
+
   function bolumAc(kart) {
     durum("Bölümler alınıyor…");
-    zincir(kart, 0).then(function (y) {
+    kurtar(kart).then(function (k) { return zincir(k, 0); }).then(function (y) {
       var r = (y.result || {});
       bolumler = r.episodes || [];
       if (!bolumler.length) {
