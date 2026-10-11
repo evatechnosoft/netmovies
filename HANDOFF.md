@@ -18,7 +18,8 @@ düşüyordu, Lioness yanlış videoyu açıyordu, kumanda eşleyicisi (tvQuickA
   `/app/data/atv/tvqa.ab` (orijinal) ve `tvqa_v2.ab`. v2 = Settings menüsünden Wi-Fi/BT toggle çıktı (OTA + fare),
   Apps menüsü kurulu uygulamalar, dock temizlendi (+OTA), boot tetikleyicisi NetMovies'i açar. Netflix tuşu (keycode 1000 satırı) AYNEN.
   `adb restore tvqa_v2.ab` çıkış 0 (Dean ekranda onayladı) ama restore erişilebilirlik ayarını SİLDİ → yeniden açıldı
-  (`dumpsys accessibility` tvQuickActions 1). unverified: yeni ayarların gerçekten yüklendiği (dock'ta OTA var mı, CloudStream yok mu — Dean bakacak).
+  (`dumpsys accessibility` tvQuickActions 1). Dean'in 16:40 fotoğrafı: dock hâlâ ESKİ (tvQA, mor oynat, Play Store, Projectivy; OTA yok)
+  → restore ayarları UYGULAMADI. Tekrar deneme yok; Dean isterse tvQA arayüzünden elle düzenlenir. Netflix = Dean'in "papatya düğmesi", dokunma.
 - Prime tuşu tvQA ile Xiaomi'de değişmez (tvdevinfo.com/tvquickactions/troubleshooting). Sistem
   `com.amazon.amazonvideo.livingroom/com.amazon.ignition.IgnitionActivity` başlatır; tek yol o paket adlı stub APK — yazılmadı, Dean'e soruldu.
 - ZimaOS LiteLLM: `yerel` (gemma4:12b) `reasoning_effort: none` ile dolu cevap; yeni `yerel-hizli` (gemma4:e2b GPU, 18–25 tok/s). Ayrıntı `~/.ai/contracts/zimaos-infrastructure.md`.
