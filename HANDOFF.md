@@ -29,7 +29,13 @@ listesinde yok) — ağ durumunu cihazda doğrula. .186 değişmez → referans 
 Samsung M7 (1.184) menüsünde "Mobil ile Güç Açma" etkin, IP Kumandası açık (fotoğraf) ama cihaz taramada görünmedi;
 eva (0.27) HA'da yeniden eklendi ve açık. Mi Box ağ ADB hâlâ kapalı.
 
-## ACİL (12 Eki 20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
+## 12 Eki 20:45 — TAŞINMA 0.x'E YAPILDI (başka oturum): ZimaOS 192.168.0.186 (nmcli ek sabit; Netmaster'da "STATIC" = cihazın
+kendi adresi, Netmaster'da REZERVASYON ÖZELLİĞİ YOK — RgDhcp.asp yalnız "Seçileni Değiştir"). vg.env/global-config .186→0.186.
+Mi Box USB-Ethernet (Realtek 00:e0:4c:36:07:b1) → 0.11, kutu Wi-Fi yok; `.env ATV_HOST=192.168.0.11`, atv köprüsü OK.
+Netmaster DHCP: M7 bc:45:5b → 0.22 (HA eşleşme akışı sürüyor), MR200 WAN 0.17, laptop kablolu 0.33, LG2 0.63, eva 0.27.
+Asıl LG (d0:a4:6f:c9:28:80) henüz 0.x'te değil → HA webostv reconfigure gerekecek. ponytail: Mi Box/LG adresleri 7 günlük
+kira ile kayabilir; kalıcı çözüm cihazda statik IP ya da atv köprüsünde 6466 taraması.
+## ESKİ (20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
 (muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
 yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
 Hedef düzen (1.x): Netmaster → MR200 WAN (mavi); switch + tüm cihazlar MR200 LAN; Netmaster Wi-Fi kapalı.
