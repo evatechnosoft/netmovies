@@ -19,6 +19,8 @@ from urllib.parse import urljoin
 from KekikStream.Core import Episode, ExtractResult, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__kekik_domain import discover_main_url
 from Plugins.__warp_client import ytdlp_info
+# ddizi.im ev hattında SNI-engelli (12 Eki, Netmaster): doğrudan → WARP → düz sırası.
+from Plugins.__dizi_common import fetch_html, get_warp_client
 
 _MAIN_URL = discover_main_url("DDizi/src/main/kotlin/com/keyiflerolsun/DDizi.kt", "https://www.ddizi.im", "DDIZI_URL")
 
@@ -104,25 +106,25 @@ class DDizi(PluginBase):
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         if page > 1:
             return []
-        response = await self.httpx.get(url, headers={"User-Agent": _UA})
-        if response.status_code != 200:
-            return []
-        return [MainPageResult(category=category, title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
+        html = await fetch_html(self.httpx, url, headers={"User-Agent": _UA})
+        return [MainPageResult(category=category, title=t, url=u, poster=p) for t, u, p in self._cards(html)]
 
     async def search(self, query: str) -> list[SearchResult]:
-        response = await self.httpx.post(
-            f"{self.main_url}/arama/",
-            data    = {"arama": query},
-            headers = {"User-Agent": _UA, "Referer": f"{self.main_url}/"},
-        )
+        istek = dict(data={"arama": query}, headers={"User-Agent": _UA, "Referer": f"{self.main_url}/"})
+        try:
+            response = await self.httpx.post(f"{self.main_url}/arama/", **istek)
+        except Exception:
+            warp = get_warp_client()
+            if warp is None:
+                raise
+            response = await warp.post(f"{self.main_url}/arama/", **istek)
         # Arama sayfası kenar çubuğunu da taşıyor: sorguyla ilgisiz diziler de
         # geliyor. Süzme çağıranın işi (`baslik_uyusuyor` / `_alakali`), burada
         # ham liste döner — aksi halde Türkçeleştirilmiş adlar elenir.
         return [SearchResult(title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
 
     async def load_item(self, url: str) -> SeriesInfo:
-        response = await self.httpx.get(url, headers={"User-Agent": _UA})
-        html     = response.text
+        html = await fetch_html(self.httpx, url, headers={"User-Agent": _UA})
 
         # Dizi sayfasında h1 yok; ad <title>'da: "Gönül Dağı Son Bölüm izle Full Trt1 | Ddizi"
         etiket = re.search(r"<title[^>]*>([^<]+)", html)
@@ -135,7 +137,7 @@ class DDizi(PluginBase):
         sayfalar = [html]
         for ek in list(dict.fromkeys(_SAYFA.findall(html)))[:_MAX_SAYFA]:
             try:
-                sayfalar.append((await self.httpx.get(ek, headers={"User-Agent": _UA})).text)
+                sayfalar.append(await fetch_html(self.httpx, ek, headers={"User-Agent": _UA}))
             except Exception:
                 continue    # bir sayfa düşerse diğerleri yine listeye girsin
 
@@ -178,10 +180,10 @@ class DDizi(PluginBase):
         )
 
     async def load_links(self, url: str) -> list[ExtractResult]:
-        response = await self.httpx.get(url, headers={"User-Agent": _UA})
-        video    = _YOUTUBE.search(response.text)
+        html  = await fetch_html(self.httpx, url, headers={"User-Agent": _UA})
+        video = _YOUTUBE.search(html)
         if not video:
-            return await self._oynat_links(url, response.text)
+            return await self._oynat_links(url, html)
 
         info = await ytdlp_info(f"https://www.youtube.com/watch?v={video.group(1)}", timeout=90.0, dogrudan_once=True)
         if not info:
@@ -213,8 +215,8 @@ class DDizi(PluginBase):
         if not iframe:
             return []
         oynat = urljoin(url, iframe.group(1))
-        sayfa = await self.httpx.get(oynat, headers={"User-Agent": _UA, "Referer": url})
-        dosya = _HLS.search(sayfa.text)
+        sayfa = await fetch_html(self.httpx, oynat, headers={"User-Agent": _UA, "Referer": url})
+        dosya = _HLS.search(sayfa)
         if not dosya:
             return []
         return [
