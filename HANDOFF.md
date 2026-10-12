@@ -1,3 +1,36 @@
+# Handoff: Mi Box/LG/HA aç-kapa + ev ağı (12 Eki akşam)
+> 2026-10-12 ~19:30 · `fix/general-stability` @ 28d5afd (+bu commit) · ZimaOS 1.186 ayakta
+
+## State
+- TV 0.9.69 üç yerde yayında (`v0.9.69-poc`, evaglass `c68513c`) ve Mi Box'ta açılıyor. ADB kurulumu ANR
+  veriyordu → `cmd package compile -m speed -f` (hafıza `adb-kurulum-dexopt-anr`). UyanikTut kaldırıldı (işe yaramıyordu).
+- Mi Box: `stay_on_while_plugged_in=7`, screen_off max, deviceidle disable → kendiliğinden uyumaz. Güç tuşu yine derin
+  uyku (BT+Wi-Fi kapanır, ağdan açılmaz, kumanda bazen uyandıramaz) → Dean kutunun güç tuşuna basmayacak, LG kapanacak.
+  Kutu yeniden başlayınca **ağ ADB (5555) kapanıyor** — Dean USB hata ayıklamayı kapat/aç yapacak. USB'deki
+  cihaz Realtek 802.11ac (Wi-Fi anteni); Dean "USB-Ethernet çevirici" dedi, eth0 hiç görünmedi, doğrulanmadı.
+- HA (http://192.168.1.186:8123, HA_TOKEN vg.env): webostv `LG webOS TV 65A6500USWF` (1.175) kapatma OK, açma YOK —
+  TV kapanınca 1.175 ağdan düşüyor (Hızlı Başlatma+/Mobil TV Açma Dean'de doğrulanmadı). Otomasyon `lg_tv_ac_wol`
+  (webostv.turn_on → button.wake_on_lan_d0_a4_6f_c9_28_80). 0.63'teki LGwebOSTV BAŞKA bir LG (wrong_device).
+  samsungtv `43" eva` (192.168.0.27, Huntercjx; DHCP kayar, Netmaster rezervasyonu YOK) kapatma OK, açma NAT ötesi
+  çalışmadı. M7 1.184: eşleşme 3 kez auth_missing → Samsung muhtemelen reddi hatırlıyor; Cihaz Bağlantı Yöneticisi'nden izin.
+  `media_player.mybox` (androidtv_remote) var.
+- ZimaOS eth0 "Supervisor eth0": `ipv4.method auto` + ek sabit 192.168.1.186 (nmcli); MR200 rezervasyonu
+  38:14:28:35:9A:AE→.186. Netmaster'a taşınma (tek ağ, 200 Mb) PLANLI, yapılmadı. Netmaster: 200/20, SNR 40 dB,
+  Huntercjx yalnız 2,4 GHz (LG 52 Mb, eva 13 Mb).
+- Yedek donanım: SG108E/SG1008D gigabit switch, EAP115 (2,4 GHz, PoE) + Tenda PoE, WR940N/WR841N/W9960/Everest (çekmece).
+  Kurgu: Netmaster yerinde, odaya tek kablo → SG108E; MR200 AP kipi TV yanında (5 GHz). TV konumu sorulmadı/cevapsız.
+
+## Next
+1. Mi Box ADB açılınca: `adb connect 192.168.1.105:5555`; eth0 var mı bak; yoksa Ethernet fikrinden vazgeç.
+2. LG 1.175: Dean iki ayarı doğrulayınca kapat → `media_player.turn_on` → 1.175:3000 testi. Olmazsa kablo (MR200 AP) planı.
+3. M7 1.184 izin verilince samsungtv flow host=192.168.1.184; eva için Netmaster'da 68:FC:CA:B5:0F:6C rezervasyonu.
+4. Netmaster'a taşınma: ayrı slot; .186 referansları (apps.json ayna, APK adayları, ssh, HA cihaz adresleri).
+
+## Don't repeat
+- Kutuda PARTIAL_WAKE_LOCK ile "ağda tut": uykuda radyo kapanıyor, hiçbir şey tutmuyor.
+- ZimaOS'u sabit IP ile başka modeme takmak: ulaşılamaz olur (artık DHCP+ek adres).
+- Dean'e kurulum linki/ADB eşleme kodu önerme (hafıza `telefona-kurulum-evaitecota`).
+
 # Handoff: Lioness S3B8 = DiziAbi (12 Eki)
 > 2026-10-12 · `fix/general-stability` @ ce84535 · ZimaOS stream+engine yeniden derlendi (06:53Z, engine 09:28Z)
 
