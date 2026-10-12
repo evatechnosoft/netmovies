@@ -44,6 +44,10 @@ onay bekliyor (auth_missing). Asıl LG hâlâ 0.x'te değil.
 MR200'ü AP yap: Advanced>Network>LAN IP 192.168.0.2/24 + DHCP KAPALI, sonra Netmaster kablosu MR200 WAN(mavi)→LAN(sarı).
 Böylece Deancjx 5 GHz istemcileri (LG 1.175, laptop) 0.x alır; LG için HA webostv reconfigure yeni adrese. tp_dump
 "Advanced>Network>LAN" tıklaması 21:28'de zaman aşımı verdi (sayfa açılmadı) — yeniden dene, gerekirse 192.168.1.1 elle.
+21:45: MR200 AP oldu (Dean elle: LAN 1.2 + ikinci IP 0.2, DHCP KAPALI, Netmaster kablosu sarı LAN'da) — 0.2 ve 0.1 Deancjx'ten
+ulaşılıyor, telefon 0.x aldı. KALAN: asıl LG hâlâ 1.175 (eski kira) → Dean Wi-Fi kapat/aç → yeni 0.x adresle HA webostv
+reconfigure (entry 01M4R1J9701NNZHPDQ8QKAG4Z7) + WoL otomasyonu broadcast 192.168.0.255 + kapat/aç testi.
+MR200 rezervasyonları artık işlevsiz (DHCP kapalı); Netmaster'da rezervasyon yok → kayan adresler (eva 0.16, M7 0.22, Mi Box 0.11).
 ## ESKİ (20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
 (muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
 yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
