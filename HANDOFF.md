@@ -39,6 +39,11 @@ kira ile kayabilir; kalıcı çözüm cihazda statik IP ya da atv köprüsünde 
 (`adb connect 192.168.0.11:5555`). eva monitörü: "Mobil ile Güç Açma" açık ama kapalıyken 0.27 ağda yok, HA turn_on ve
 WoL (0.255/255) tutmadı → cihazda "Hızlı Başlatma/Anında Açılış" + kumandayla kapatma denenecek. M7 0.22 HA eşleşmesi
 onay bekliyor (auth_missing). Asıl LG hâlâ 0.x'te değil.
+21:30: HA samsungtv: `43" Smart dean` (M7, 0.22) eşleşti; `43" Smart eva` 0.16'da yeniden eklendi, kapat/AÇ ikisi de
+çalıştı (ilk tam çalışan cihaz; kızı izlerken kapandı — eva ekranında test YAPMA). SIRADAKİ: Dean "200'ü düzelt" dedi →
+MR200'ü AP yap: Advanced>Network>LAN IP 192.168.0.2/24 + DHCP KAPALI, sonra Netmaster kablosu MR200 WAN(mavi)→LAN(sarı).
+Böylece Deancjx 5 GHz istemcileri (LG 1.175, laptop) 0.x alır; LG için HA webostv reconfigure yeni adrese. tp_dump
+"Advanced>Network>LAN" tıklaması 21:28'de zaman aşımı verdi (sayfa açılmadı) — yeniden dene, gerekirse 192.168.1.1 elle.
 ## ESKİ (20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
 (muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
 yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
