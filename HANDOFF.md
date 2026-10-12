@@ -35,6 +35,10 @@ Mi Box USB-Ethernet (Realtek 00:e0:4c:36:07:b1) → 0.11, kutu Wi-Fi yok; `.env 
 Netmaster DHCP: M7 bc:45:5b → 0.22 (HA eşleşme akışı sürüyor), MR200 WAN 0.17, laptop kablolu 0.33, LG2 0.63, eva 0.27.
 Asıl LG (d0:a4:6f:c9:28:80) henüz 0.x'te değil → HA webostv reconfigure gerekecek. ponytail: Mi Box/LG adresleri 7 günlük
 kira ile kayabilir; kalıcı çözüm cihazda statik IP ya da atv köprüsünde 6466 taraması.
+21:00: Mi Box ADB + Ethernet birlikte çalışıyor (adb_enabled=1, eth0 0.11 UP, wlan0 kapalı); laptop ADB yetkili
+(`adb connect 192.168.0.11:5555`). eva monitörü: "Mobil ile Güç Açma" açık ama kapalıyken 0.27 ağda yok, HA turn_on ve
+WoL (0.255/255) tutmadı → cihazda "Hızlı Başlatma/Anında Açılış" + kumandayla kapatma denenecek. M7 0.22 HA eşleşmesi
+onay bekliyor (auth_missing). Asıl LG hâlâ 0.x'te değil.
 ## ESKİ (20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
 (muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
 yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
