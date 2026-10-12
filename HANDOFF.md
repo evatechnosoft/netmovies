@@ -20,7 +20,12 @@
 - Yedek donanım: SG108E/SG1008D gigabit switch, EAP115 (2,4 GHz, PoE) + Tenda PoE, WR940N/WR841N/W9960/Everest (çekmece).
   Kurgu: Netmaster yerinde, odaya tek kablo → SG108E; MR200 AP kipi TV yanında (5 GHz). TV konumu sorulmadı/cevapsız.
 
-## KARAR (Dean, 12 Eki 19:50): TEK AĞ. Öneri 0.x (Netmaster), MR200 AP kipi TV yanında. Tarih ve TV konumu Dean'den bekleniyor.
+## KARAR (Dean, 12 Eki 19:55): TEK AĞ = 1.x (MR200 router kalır, "Deancjx" ana yayın). Netmaster yalnız modem/uplink.
+Adımlar: (1) Netmaster'a takılı kablolar → MR200 LAN / SG108E switch (switch MR200 LAN'a uplink); (2) Netmaster Wi-Fi
+"Huntercjx" KAPAT, oradaki cihazlar (eva M7 0.27, ikinci LG 0.63, Smart_Camera, telefonlar) Deancjx'e; kapsama açığı → EAP115
+(Tenda PoE, switch'e kablo) aynı SSID/şifre 2,4 GHz; (3) MR200 rezervasyonları `tp_res.py` (eva 68:FC:CA:B5:0F:6C, LG2
+D0:A4:6F:C9:57:A4); (4) HA: eva ve LG2 yeni 1.x adresleriyle; (5) M7 1.184 Deancjx'te görünmüyor (8001 kapalı, istemci
+listesinde yok) — ağ durumunu cihazda doğrula. .186 değişmez → referans güncellemesi YOK. Tarih Dean'den bekleniyor.
 Samsung M7 (1.184) menüsünde "Mobil ile Güç Açma" etkin, IP Kumandası açık (fotoğraf) ama cihaz taramada görünmedi;
 eva (0.27) HA'da yeniden eklendi ve açık. Mi Box ağ ADB hâlâ kapalı.
 
