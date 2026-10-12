@@ -29,6 +29,11 @@ listesinde yok) — ağ durumunu cihazda doğrula. .186 değişmez → referans 
 Samsung M7 (1.184) menüsünde "Mobil ile Güç Açma" etkin, IP Kumandası açık (fotoğraf) ama cihaz taramada görünmedi;
 eva (0.27) HA'da yeniden eklendi ve açık. Mi Box ağ ADB hâlâ kapalı.
 
+## ACİL (12 Eki 20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
+(muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
+yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
+Hedef düzen (1.x): Netmaster → MR200 WAN (mavi); switch + tüm cihazlar MR200 LAN; Netmaster Wi-Fi kapalı.
+
 ## Next
 1. Mi Box ADB açılınca: `adb connect 192.168.1.105:5555`; eth0 var mı bak; yoksa Ethernet fikrinden vazgeç.
 2. LG 1.175: Dean iki ayarı doğrulayınca kapat → `media_player.turn_on` → 1.175:3000 testi. Olmazsa kablo (MR200 AP) planı.
