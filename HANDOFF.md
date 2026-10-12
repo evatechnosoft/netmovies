@@ -10,7 +10,7 @@
 ## Next (12 Eki, Mi Box boşta iken)
 1. `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull -q && docker compose --profile tunnel up -d --build stream engine cloudflared"` + konteyner unittest.
 2. Samsung'da Lioness Devam Et → S3B8 açılıyor mu (client_log).
-3. Panelden kanal ekle → çocuk paketi 0.1.6 kur (`scratchpad\tizen_app_016` ya da client-tizen'den paketle; README) → CDP kanıt. Samsung'u çocuk moduna ne zaman çevireceğini Dean'e sor.
+3. Panelden kanal ekle → çocuk paketi 0.1.6 kur (`scratchpad\tizen_app_016` ya da client-tizen'den paketle; README) → CDP kanıt. Çocuk paketi Samsung M7'ye DEĞİL, ayrı bir cihaza kurulacak — Dean IP'sini iletecek (12 Eki).
 
 # Handoff: Mi Box uyanık + Lioness + tvQA
 > 2026-10-11 · `fix/general-stability` @ `93d800a` (+ bu handoff commit'i) · 0 dirty · origin ile eşit
