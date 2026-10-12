@@ -20,6 +20,10 @@
 - Yedek donanım: SG108E/SG1008D gigabit switch, EAP115 (2,4 GHz, PoE) + Tenda PoE, WR940N/WR841N/W9960/Everest (çekmece).
   Kurgu: Netmaster yerinde, odaya tek kablo → SG108E; MR200 AP kipi TV yanında (5 GHz). TV konumu sorulmadı/cevapsız.
 
+## KARAR (Dean, 12 Eki 19:50): TEK AĞ. Öneri 0.x (Netmaster), MR200 AP kipi TV yanında. Tarih ve TV konumu Dean'den bekleniyor.
+Samsung M7 (1.184) menüsünde "Mobil ile Güç Açma" etkin, IP Kumandası açık (fotoğraf) ama cihaz taramada görünmedi;
+eva (0.27) HA'da yeniden eklendi ve açık. Mi Box ağ ADB hâlâ kapalı.
+
 ## Next
 1. Mi Box ADB açılınca: `adb connect 192.168.1.105:5555`; eth0 var mı bak; yoksa Ethernet fikrinden vazgeç.
 2. LG 1.175: Dean iki ayarı doğrulayınca kapat → `media_player.turn_on` → 1.175:3000 testi. Olmazsa kablo (MR200 AP) planı.
