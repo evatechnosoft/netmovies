@@ -1,3 +1,14 @@
+# Handoff: Lioness S3B8 = DiziAbi (12 Eki)
+> 2026-10-12 · `fix/general-stability` @ ce84535 · ZimaOS stream+engine yeniden derlendi (06:53Z, engine 09:28Z)
+
+- Rebuild yapıldı: çocuk modu `/api/v1/cocuk` 200, konteyner testleri 253 OK.
+- DiziMom'un Lioness S3B8 sayfası S1E8 videosunu taşıyor (54:55; gerçek final 70 dk). Yeni eklenti `engine/Plugins/DiziAbi.py`
+  (pilavyer oynatıcı, AES HLS, tr+en ses, tr/en altyazı). S3B8 = 4084 sn. Emülatörde uçtan uca oynadı (position ilerledi).
+- Devam Et kaydı `lioness` → DiziAbi S3B8 0 sn; yinelenen `special ops lioness` kaydı silindi.
+- Mi Box o sırada kapalıydı, gerçek cihazda denenmedi.
+- `scripts/chain_scan.py` bir load_item 504'ünde tüm taramayı düşürüyor (DiziAbi ile ilgisi yok, düzeltilmedi).
+- Çocuk paketi Samsung'a değil ayrı cihaza; Dean IP + cihaz tipini iletecek.
+
 # Handoff: Samsung M7 uygulaması + çocuk modu (12 Eki yüklenecek)
 > 2026-10-11 gece · `fix/general-stability` @ 8671d93 · push edildi
 
