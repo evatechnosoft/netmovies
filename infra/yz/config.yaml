@@ -2,11 +2,19 @@ model_list:
   - model_name: yerel
     litellm_params:
       model: ollama_chat/gemma4:12b
+      reasoning_effort: none  # gemma4 thinks by default; thinking ate the whole token budget -> empty answer
       api_base: http://ollama-ollama-1:11434
+      rpm: 30
+  # GPU (Quadro P620 4 GB): ~20 tok/s, good Turkish; 12b on CPU is ~4 tok/s (2026-10-11).
+  - model_name: yerel-hizli
+    litellm_params:
+      model: ollama_chat/gemma4:e2b
+      reasoning_effort: none
+      api_base: http://192.168.1.186:11500
       rpm: 30
   - model_name: gemini
     litellm_params:
-      model: gemini/gemini-3.5-flash-lite
+      model: gemini/gemini-flash-lite-latest  # 3.5 deprecated (Google, 2026-10-10)
       api_key: os.environ/GEMINI_API_KEY
       rpm: 30
   # Web search (grounding) + vision: flash-lite has no free grounding quota (429), flash does.
@@ -16,9 +24,27 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
       rpm: 10
 
+  # Claude: monthly Max API credit (deancjx Console org). Key: ANTHROPIC_API_KEY in .env.
+  - model_name: claude
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 20
+  - model_name: claude-hizli
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 30
+
+  - model_name: claude-fable
+    litellm_params:
+      model: anthropic/claude-fable-5-1
+      api_key: os.environ/ANTHROPIC_API_KEY
+      rpm: 10
+
 router_settings:
   # Gemini down or out of quota -> answer from the local model instead.
-  fallbacks: [{"gemini": ["yerel"]}, {"gemini-flash": ["gemini", "yerel"]}]
+  fallbacks: [{"gemini": ["yerel-hizli", "yerel"]}, {"gemini-flash": ["gemini", "yerel-hizli", "yerel"]}, {"claude-fable": ["claude", "claude-hizli"]}, {"claude": ["claude-hizli", "gemini"]}, {"claude-hizli": ["gemini", "yerel-hizli", "yerel"]}]
 
 litellm_settings:
   drop_params: true
