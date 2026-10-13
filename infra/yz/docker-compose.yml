@@ -1,5 +1,5 @@
 # Home AI gateway: one OpenAI-compatible endpoint for every app on the LAN.
-#   http://192.168.1.186:4000/v1  model: "yerel" (Gemma on Ollama) | "gemini" (Google, server key)
+#   http://192.168.0.186:4000/v1  model: "yerel" (Gemma on Ollama) | "gemini" (Google, server key)
 # Apps never hold a Gemini key: it is read at start from the NetMovies admin panel file.
 # Every app gets its own virtual key (Authorization: Bearer sk-...), issued with the master
 # key and stored in `db`. Secrets live in ./.env (chmod 600, not in git) — see .env.example.

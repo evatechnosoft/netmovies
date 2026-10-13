@@ -13,7 +13,7 @@ set -uo pipefail
 # Yerel docker yoksa: BASE varsayılanı ZimaOS, docker komutları `ssh $REMOTE docker ...`.
 REMOTE="${REMOTE:-zima}"
 if ! command -v docker >/dev/null 2>&1; then
-  BASE="${BASE:-http://192.168.1.186:3310}"
+  BASE="${BASE:-http://192.168.0.186:3310}"
   # Argümanlar uzak kabukta yeniden ayrıştırılır; printf %q tırnakları korur.
   docker() { ssh -o ConnectTimeout=10 "$REMOTE" "docker $(printf '%q ' "$@")" 2> >(grep -v 'config.json' >&2); }
   echo "(yerel docker yok — docker adımları ssh $REMOTE üzerinden)"

@@ -1,7 +1,7 @@
 // TEK SÜRÜM KAYNAĞI. versionCode/versionName/RELEASE_TAG üçü elle güncelleniyordu ve
 // biri unutuluyordu (v0.1.49 çıkarken versionCode 48'de kaldı → yeni APK "aynı sürüm"
 // sayılır, paket yükleyici güncellemeyi reddedebilir). Yeni sürüm = SADECE burayı değiştir.
-val appVersion = "0.9.70"
+val appVersion = "0.9.71"
 
 plugins {
     id("com.android.application")
@@ -29,13 +29,13 @@ android {
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         // Yerel (ev ağı) sunucu adayları — virgülle ayrık, sırayla değil PARALEL
         // yoklanır; ilk cevap veren kazanır, hiçbiri yoksa BASE_URL'e düşülür.
-        // Ev iki ağ kullanıyor (192.168.1.x ve 192.168.0.x); tek sabit IP diğer
-        // ağda uygulamayı tünele mahkûm ediyordu.
+        // Ev 13 Eki 2026 itibarıyla tek ağ (192.168.0.x, MR200 DHCP rezervasyonu .186). Eski
+        // iki ağ dönemi bitti; adres kayarsa /24 taraması bulur.
         val localUrl = (project.findProperty("NETMOVIES_LOCAL_URL") as String?)
             // Hızlı yol; listede yoksa ServerResolver /24 taramasıyla bulur.
-            ?.takeIf { it.isNotBlank() } ?: "http://192.168.1.186:3310,http://192.168.0.11:3310"
+            ?.takeIf { it.isNotBlank() } ?: "http://192.168.0.186:3310"
         buildConfigField("String", "LOCAL_URL", "\"$localUrl\"")
-        // ZimaOS NIC (TP-Link rezervasyonu .186): sunucu kapalıysa TV uyandırır.
+        // ZimaOS NIC (MR200 DHCP rezervasyonu 192.168.0.186): sunucu kapalıysa TV uyandırır.
         buildConfigField("String", "WOL_MAC", "\"38:14:28:35:9A:AE\"")
         // OTA: bu APK'nın yayınlandığı release tag'i. GitHub'daki en yeni release tag'i
         // bundan yeniyse "güncelleme mevcut" gösterilir. appVersion'dan türer.

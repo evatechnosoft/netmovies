@@ -165,7 +165,7 @@ services:
       # Poster fallback: kaynak posteri boş/kırık gelince TMDB'den çekilir.
       TMDB_API_KEY         : ${TMDB_API_KEY:-}
       # Ev YZ geçidi (LiteLLM, infra/yz/): doluysa Gemini istekleri oraya gider,
-      # ör. http://192.168.1.186:4000/v1. Boşsa Google doğrudan çağrılır.
+      # ör. http://192.168.0.186:4000/v1. Boşsa Google doğrudan çağrılır.
       YZ_GECIT_URL         : ${YZ_GECIT_URL:-}
       YZ_GECIT_KEY         : ${YZ_GECIT_KEY:-}   # geçidin bu uygulamaya verdiği sanal anahtar
       # Kayıtlar: varsayılan hızlar (Mbit/s, TV Ayarlar ezer), boş alan tavanı (GB, altına inince izlenen silinir).
@@ -215,7 +215,7 @@ services:
     command        : sh -c "apt-get update -qq && apt-get install -y -qq adb >/dev/null; sh scripts/tv_log.sh & pip install -q --no-cache-dir androidtvremote2 && python -u scripts/atv_power.py"
     environment:
       # IP TP-Link'te MAC 24:18:C6:B8:05:B8'e rezerve (8 Ekim).
-      ATV_HOST: ${ATV_HOST:-192.168.1.105}
+      ATV_HOST: ${ATV_HOST:-192.168.0.11}
       HOME    : /app/data/atv   # adb anahtarı kalıcı olsun
       ATV_PORT: "3311"
     volumes:

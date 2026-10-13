@@ -8,5 +8,5 @@ try {
 // Monitör hep ev ağında: yoklama yok, doğrudan sunucu. Kızın ekranı → çocuk modu
 // (yalnız panelde izin verilen kanallar/çizgi filmler, bkz. Libs/cocuk.py).
 window.addEventListener("load", function () {
-  setTimeout(function () { location.replace("http://192.168.1.186:3310/tv?profil=cocuk&v=" + Date.now()); }, 0);
+  setTimeout(function () { location.replace("http://192.168.0.186:3310/tv?profil=cocuk&v=" + Date.now()); }, 0);
 });

@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from androidtvremote2 import AndroidTVRemote
 
-KUTU_IP  = os.getenv("ATV_HOST", "192.168.1.189")
+KUTU_IP  = os.getenv("ATV_HOST", "192.168.0.11")
 PORT    = int(os.getenv("ATV_PORT", "3311"))
 DIZIN   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "atv")
 
