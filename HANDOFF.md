@@ -1,3 +1,29 @@
+# Handoff: WOL 0.x düzeltmesi + ZimaOS .186 kalıcı (13 Eki sabah)
+> 2026-10-13 ~08:45 · `fix/general-stability` @ 5720a23 (+bu commit) · ZimaOS 0.186 ayakta (DHCP 0.29 + ek .186)
+
+## State
+- **TV 0.9.70 üç yerde yayında** (`v0.9.70-poc`, evaglass `netmovies-tv-v0.9.70`, apps.json vc 970 `f96ece4`, yerel OTA
+  `data/apk` → `/api/v1/app_update` v0.9.70 döndürüyor). Kök neden: `ZimaUyandir.kt` WOL hedefi sabit `192.168.1.255`
+  idi; ağ 0.x'e taşındıktan sonra Mi Box (0.11) sunucuyu uyandıramıyordu (Dean 13 Eki 08:20: "Mibox açınca göndermesi
+  gerekliydi"). Hedef artık cihazın arayüz yayın adresi + 0.255/1.255/255.255.255.255, hedef başına runCatching.
+  Testler 4/4. **Cihazda doğrulanmadı**: Mi Box 0.11:5555 cevap vermiyor (uyuyor / adres kaydı / ağ ADB kapanmış).
+- **ZimaOS .186 kayboluyordu**: açılıştan ~2 dk sonra ZimaOS supervisor'ı `Supervisor eth0` profilinin `ipv4.addresses`
+  alanını siliyor (journal: `connection-update ... args="connection.timestamp,ipv4.addresses" uid=0`), ek sabit .186
+  düşüyor, sunucu yalnız DHCP 0.29'da kalıyor. Dün nmcli ile eklenen adres bu yüzden bir gün yaşadı. Kalıcı çözüm:
+  `/etc/NetworkManager/dispatcher.d/90-sabit-ip` (eth0 up/dhcp4-change → `ip addr add 192.168.0.186/24`); /etc overlay
+  kalıcı. `nmcli con up` ile yeniden etkinleştirme testi: .186 geri geldi. Gerçek reboot henüz görülmedi.
+- WOL betiği `zima_wol.py` MAC 38:14:28:35:9A:AE → 0.186 pingliyor; sunucu 0.29'a düşmüşse "cevap yok" der ama kutu açıktır
+  (ARP `arp -a | grep 38-14-28` ile bak).
+
+## Next
+1. Bir sonraki ZimaOS açılışında: `ssh zima "ip -4 addr show eth0"` → .186 ikinci adres olarak duruyor mu.
+2. Mi Box: 0.9.70 şeridi çıkıp kuruldu mu (`versionName`), sunucu kapalıyken TV açılınca uyanıyor mu (client_log "uyandırma paketi gönderildi: [192.168.0.255, ...]").
+3. Önceki devirden kalan: asıl LG 1.175 → 0.x + HA webostv reconfigure; Mi Box ağ ADB.
+
+## Don't repeat
+- `nmcli con mod ... ipv4.addresses` ile ZimaOS'a sabit adres: supervisor siler. Dispatcher kullan.
+- ZimaOS'u `ipv4.method manual` yapma: supervisor adresi silerse kutu adressiz kalır.
+
 # Handoff: Mi Box/LG/HA aç-kapa + ev ağı (12 Eki akşam)
 > 2026-10-12 ~19:30 · `fix/general-stability` @ 28d5afd (+bu commit) · ZimaOS 1.186 ayakta
 
