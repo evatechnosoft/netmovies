@@ -27,6 +27,16 @@ class ZimaUyandirTest {
     assertEquals(false, ZimaUyandir.izinli(onPlanda = false, saat = 6, elle = true))
   }
 
+  @Test
+  fun hedefKutununKendiAgiOnde() {
+    // Ağ 0.x'e taşındı: kutunun yayın adresi önce, eski /24 ve sınırlı yayın yedek, tekrar yok.
+    val h = ZimaUyandir.hedefler(listOf("192.168.0.255"))
+    assertEquals("192.168.0.255", h.first())
+    assertEquals(listOf("192.168.0.255", "192.168.1.255", "255.255.255.255"), h)
+    // Arayüz okunamazsa yedekler yine gider.
+    assertEquals(3, ZimaUyandir.hedefler(emptyList()).size)
+  }
+
   @Test(expected = IllegalArgumentException::class)
   fun eksikMacReddedilir() {
     ZimaUyandir.sihirliPaket("38:14:28")

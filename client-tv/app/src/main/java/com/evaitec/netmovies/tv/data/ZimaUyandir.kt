@@ -7,11 +7,14 @@ import java.net.InetAddress
 
 // Sunucu (ZimaOS) gece kapanıyor; TV açılıp sunucuya ulaşamayınca Wake-on-LAN
 // sihirli paketi yollar (Dean, 3 Ekim: "TV açtığımda istek gelirse açsın").
-// Mi Box ile ZimaOS aynı alt ağda (192.168.1.x): yayın paketi doğrudan ulaşır.
+// Mi Box ile ZimaOS aynı alt ağda: yayın paketi doğrudan ulaşır.
 // Ev dışında paket kimseye ulaşmaz, zararsız.
+// Ağ 12 Ekim'de 1.x'ten 0.x'e taşındı; sabit 192.168.1.255 hedefi kutunun kendi
+// ağına yayın yapmıyordu (Dean, 13 Ekim: "Mibox açınca göndermesi gerekliydi").
+// Hedef artık cihazın kendi arayüz yayın adreslerinden türetilir; eski /24'ler yedek.
 object ZimaUyandir {
     private const val ARALIK_MS = 60_000L
-    private val HEDEFLER = listOf("192.168.1.255", "255.255.255.255")
+    private val YEDEK_HEDEFLER = listOf("192.168.0.255", "192.168.1.255", "255.255.255.255")
     private val PORTLAR = listOf(9, 7)
 
     @Volatile private var sonGonderim = 0L
@@ -50,6 +53,17 @@ object ZimaUyandir {
         return ByteArray(6) { 0xFF.toByte() } + List(16) { baytlar }.flatten().toByteArray()
     }
 
+    /** Cihazın IPv4 arayüz yayın adresleri (ör. 192.168.0.255) + yedekler, tekrarsız. */
+    internal fun hedefler(arayuzYayinlari: List<String>): List<String> =
+        (arayuzYayinlari + YEDEK_HEDEFLER).distinct()
+
+    private fun arayuzYayinlari(): List<String> = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.interfaceAddresses }
+            .mapNotNull { it.broadcast?.hostAddress }
+    }.getOrDefault(emptyList())
+
     /** Son [ARALIK_MS] içinde paket gitti mi — ekranda "uyandırılıyor" demek için. */
     fun yakinda(): Boolean = System.currentTimeMillis() - sonGonderim < 4 * ARALIK_MS
 
@@ -65,12 +79,13 @@ object ZimaUyandir {
         runCatching {
             DatagramSocket().use { s ->
                 s.broadcast = true
-                HEDEFLER.forEach { h ->
+                hedefler(arayuzYayinlari()).forEach { h ->
                     val adres = InetAddress.getByName(h)
-                    PORTLAR.forEach { p -> s.send(DatagramPacket(paket, paket.size, adres, p)) }
+                    // Tek hedefin hatası (ör. Ethernet'te 255.255.255.255 ENETUNREACH) diğerlerini kesmesin.
+                    PORTLAR.forEach { p -> runCatching { s.send(DatagramPacket(paket, paket.size, adres, p)) } }
                 }
             }
-        }.onSuccess { PlaybackLog.info("sunucu", "ZimaOS'a uyandırma paketi gönderildi") }
+        }.onSuccess { PlaybackLog.info("sunucu", "ZimaOS'a uyandırma paketi gönderildi: ${hedefler(arayuzYayinlari())}") }
             .onFailure { PlaybackLog.info("sunucu", "uyandırma paketi gönderilemedi: ${it.message}") }
     }
 }
