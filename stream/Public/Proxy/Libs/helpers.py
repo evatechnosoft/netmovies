@@ -290,6 +290,12 @@ def prepare_response_headers(response_headers: dict, url: str, detected_content_
 
 def detect_hls_from_url(url: str) -> bool:
     """URL yapısından HLS olup olmadığını tahmin eder"""
+    # Segment adresi manifest olamaz: YouTube segmentleri
+    # `.../index.m3u8/govp/.../file/seg.ts` yolunda geliyor, `.m3u8` geçiyor
+    # diye binary segment manifest sanılıp yeniden yazılıyordu (502, oynatma
+    # ~3 dk sonra durur).
+    if is_hls_segment(url):
+        return False
     url_lower  = url.lower()
     indicators = (
         ".m3u8",
@@ -310,8 +316,10 @@ def is_hls_segment(url: str) -> bool:
     """URL'nin HLS segment'i olup olmadığını kontrol et"""
     url_lower = url.lower()
 
-    # Manifest'leri hariç tut
-    if ".m3u8" in url_lower:
+    # Manifest'leri hariç tut: yol .m3u8 ile BİTİYORSA (yolun ortasında geçmesi
+    # yetmez, bkz. detect_hls_from_url).
+    yol = url_lower.split("?", 1)[0].split("#", 1)[0]
+    if yol.endswith((".m3u8", ".m3u")):
         return False
 
     # Segment göstergeleri (standalone .mp4 hariç — tam dosya belleğe okunmasın, goProxy parity)

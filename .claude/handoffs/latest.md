@@ -1,3 +1,19 @@
+- 14 Eki 21:00: Anne Yarısı S1B3 (DDizi→YouTube HLS) 502: segment adresi `.../index.m3u8/.../file/seg.ts`, proxy `.m3u8` geçtiği için segmenti manifest sanıyordu (`prefetch_segments` urljoin ValueError). `helpers.is_hls_segment` yol-sonu `.m3u8`, `detect_hls_from_url` segmentse False. Test `test_hls_tespit.py`, 256/0. Stream rebuild + tünel recreate 18:00Z, canlı segmentler 200.
+## DEVİR — 2026-10-13 10:40 (EN GÜNCEL) — tek ağ 0.x: DHCP MR200'e, WOL, .186 kalıcı
+Hedef: Dean "iki modemi en iyi şekilde yapılandır; yeni cihaz nasıl IP alacak düşün; 3. modeme yer ayır". Önce: "Mibox açınca WOL göndermeliydi".
+Durum (kanıtlı):
+- TV 0.9.70 (WOL hedefi arayüz yayın adresi; eskisi sabit 192.168.1.255) ve 0.9.71 (LOCAL_URL 0.186, Tizen çocuk/smoke/compose/atv_power 0.x) üç yerde yayında: `5720a23`, `c3fcd56`, GitHub v0.9.70/71-poc, evaglass apps.json vc 971 `bb62f86`, yerel OTA app_update → v0.9.71-poc. Unit test 102/0. Mi Box'ta hâlâ 0.9.69 (izlerken kurulmadı); cihazda doğrulanmadı.
+- ZimaOS supervisor açılıştan ~2 dk sonra `Supervisor eth0` ipv4.addresses'i siliyor → .186 düşüyordu. `/etc/NetworkManager/dispatcher.d/90-sabit-ip` eklendi; `nmcli con up` testinde .186 geri geldi. Gerçek reboot görülmedi. Hafıza `zimaos-supervisor-adres-siler`.
+- Mi Box fişten sonra Wi-Fi 24:18:C6:B8:05:B8 ile 0.24'te (USB-Eth gelmedi); ADB 0.24:5555 bağlı.
+- YZ geçidi ölü: sunucu `.env` YZ_GECIT_URL=1.186:4000 (konteynerden timeout; 0.186:4000 → 200). Düzeltme geçiş betiğinde.
+- Netmaster DHCP .10–.109, 7 gün, rezervasyon YOK. MR200 (0.2 ikinci IP, ana 1.2) DHCP kapalı; DHCP formunda havuz/ağ geçidi/DNS + rezervasyon var.
+Karar: DHCP MR200'e (LAN 192.168.0.2, ikinci IP kapalı, havuz .100–.179, GW .1, kira 1 gün), Netmaster DHCP kapalı. .3 = 3. modem yedeği, .4 EAP115, .5 switch. Plan: `~/.ai/scripts/home-net/ADRES-PLANI.md`.
+Çalışan iş: arka planda `~/.ai/scripts/home-net/ag_gecis_0x.sh` — TV 2 dk boşta kalınca: `tp_dhcp_0x.py` (ekranlar `$TEMP/claude/hn/gecis`) → nmap broadcast-dhcp-discover (ZimaOS docker, adres değiştirmez) 0.2 teklifi yoksa DUR → `nm_dhcp.py kapat` → yine teklif yoksa `nm_dhcp.py ac` (geri alma) → `.env` YZ_GECIT_URL 0.186 (.env.bak-0x) + recreate stream cloudflared atv. 10:37'de TV hâlâ oynuyordu (bekliyor). tp_dhcp_0x.py UI adımları (rezervasyon silme/Save onay) denenmemiş — ekran görüntülerine bak.
+Tekrarlama: laptopta `ipconfig /renew` ile DHCP test etme (Wi-Fi donanım kapalı, laptop düşerse geri alma yolu kalmaz); izlerken MR200/rebuild yok.
+Tek sonraki iş: geçiş çıktısını oku (BITTI mi, rezervasyon satırları ok mi) → Mi Box'a 0.9.71 kur (`cmd package compile -m speed -f`) → HA'da LG .15 webostv reconfigure.
+
+Ek (11:25): telefon temizliği (ağdan bağımsız, ayrı iş) bitti — Mi Note 3 (annem, 0.26:5555) 53 paket + Nova kaldırıldı, font 1.15, 43 GB boş; Galaxy A02s (Gül, USB R8NR2012WYJ) 27 paket + trim-caches, boş 5,4→8,8 GB. Listeler/geri alma `~/.ai/scripts/mi-note3-temizlik.txt`, `a02s-temizlik.txt`; hafıza `telefon-sadelestirme`. Açık: Mi Note 3'teki Google hesabı/WhatsApp kimin; annenin Mi Note 3'e taşınması; foto yedeği (ZimaOS önerildi). Ağ geçişi 11:21'de hâlâ TV boşalmasını bekliyordu.
+
 ## DEVİR — 2026-10-10 10:10 (EN GÜNCEL) — ses/görüntü kayması
 Hedef: Dean "Daha 17'de ses geriden geliyor, bir daha karşılaşmayalım".
 Durum (kanıtlı): kök neden kaynak — DiziPal (sn.dplayer82) ayrı ses playlist'i 8640,07 sn, görüntü 8628,17 sn (oran 1,00138), kayma doğrusal (~9 sn 1:49'da). `c099fa7` (kayık kaynak sona) + `7279fc1` (engine `av_oran` ölçer → gateway zorla proxy + `&av_oran` → proxy görüntü EXTINF + TS PES PTS/DTS'yi esnetir, `stream/Public/Proxy/Libs/av_esitle.py`) push'lu, ZimaOS'ta canlı (07:03Z build). Canlı ölçüm: ses/görüntü playlist toplamları 8640,07=8640,07; YouTube'a göre desync 3000/6500/7800 sn'de −0,53/−0,63/−0,56 (sabit, önceden 3,6→8,8 büyüyordu). Testler engine 6/6, stream 236/236, smoke YEŞİL, w.evaitec.com 303.
