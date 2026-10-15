@@ -42,6 +42,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Tek uygulamalık cihaz (projektör): ana ekran olarak açılabilsin. Varsayılan KAPALI;
+             o cihazda `pm enable <pkg>/.HomeAlias` + `cmd package set-home-activity` ile açılır,
+             diğer TV'lerde launcher seçimi sorulmaz. -->
+        <activity-alias
+            android:name=".HomeAlias"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- OTA: indirilen APK'yı FileProvider ile kurulum intent'ine ver -->
         <provider
             android:name="androidx.core.content.FileProvider"
