@@ -4,7 +4,7 @@
 //
 // Sürüm TV'den bağımsız: saat arayüzü ayrı gelişiyor, her TV sürümünde saat APK'sı
 // yeniden yayınlanmasın. OTA `?target=wear` ile bu APK'yı ayırır.
-val wearVersion = "0.1.24"
+val wearVersion = "0.1.25"
 
 plugins {
     id("com.android.application")
@@ -85,6 +85,11 @@ dependencies {
     // Wear'a özgü: yuvarlak ekran düzeni, döner çerçeve, kadran kenarı.
     implementation("androidx.wear.compose:compose-material:1.4.0")
     implementation("androidx.wear.compose:compose-foundation:1.4.0")
+
+    // Saat karosu (Tile): uygulamayı karo şeridinden tek dokunuşla açar.
+    implementation("androidx.wear.tiles:tiles:1.4.1")
+    implementation("androidx.wear.protolayout:protolayout:1.2.1")
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
