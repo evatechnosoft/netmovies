@@ -1,175 +1,57 @@
-# Handoff: WOL 0.x düzeltmesi + ZimaOS .186 kalıcı (13 Eki sabah)
-> 2026-10-13 ~08:45 · `fix/general-stability` @ 5720a23 (+bu commit) · ZimaOS 0.186 ayakta (DHCP 0.29 + ek .186)
-
-## State
-- **TV 0.9.70 üç yerde yayında** (`v0.9.70-poc`, evaglass `netmovies-tv-v0.9.70`, apps.json vc 970 `f96ece4`, yerel OTA
-  `data/apk` → `/api/v1/app_update` v0.9.70 döndürüyor). Kök neden: `ZimaUyandir.kt` WOL hedefi sabit `192.168.1.255`
-  idi; ağ 0.x'e taşındıktan sonra Mi Box (0.11) sunucuyu uyandıramıyordu (Dean 13 Eki 08:20: "Mibox açınca göndermesi
-  gerekliydi"). Hedef artık cihazın arayüz yayın adresi + 0.255/1.255/255.255.255.255, hedef başına runCatching.
-  Testler 4/4. **Cihazda doğrulanmadı**: Mi Box 0.11:5555 cevap vermiyor (uyuyor / adres kaydı / ağ ADB kapanmış).
-- **ZimaOS .186 kayboluyordu**: açılıştan ~2 dk sonra ZimaOS supervisor'ı `Supervisor eth0` profilinin `ipv4.addresses`
-  alanını siliyor (journal: `connection-update ... args="connection.timestamp,ipv4.addresses" uid=0`), ek sabit .186
-  düşüyor, sunucu yalnız DHCP 0.29'da kalıyor. Dün nmcli ile eklenen adres bu yüzden bir gün yaşadı. Kalıcı çözüm:
-  `/etc/NetworkManager/dispatcher.d/90-sabit-ip` (eth0 up/dhcp4-change → `ip addr add 192.168.0.186/24`); /etc overlay
-  kalıcı. `nmcli con up` ile yeniden etkinleştirme testi: .186 geri geldi. Gerçek reboot henüz görülmedi.
-- WOL betiği `zima_wol.py` MAC 38:14:28:35:9A:AE → 0.186 pingliyor; sunucu 0.29'a düşmüşse "cevap yok" der ama kutu açıktır
-  (ARP `arp -a | grep 38-14-28` ile bak).
-
-## Next
-1. Bir sonraki ZimaOS açılışında: `ssh zima "ip -4 addr show eth0"` → .186 ikinci adres olarak duruyor mu.
-2. Mi Box: 0.9.70 şeridi çıkıp kuruldu mu (`versionName`), sunucu kapalıyken TV açılınca uyanıyor mu (client_log "uyandırma paketi gönderildi: [192.168.0.255, ...]").
-3. Önceki devirden kalan: asıl LG 1.175 → 0.x + HA webostv reconfigure; Mi Box ağ ADB.
-
-## Don't repeat
-- `nmcli con mod ... ipv4.addresses` ile ZimaOS'a sabit adres: supervisor siler. Dispatcher kullan.
-- ZimaOS'u `ipv4.method manual` yapma: supervisor adresi silerse kutu adressiz kalır.
-
-# Handoff: Mi Box/LG/HA aç-kapa + ev ağı (12 Eki akşam)
-> 2026-10-12 ~19:30 · `fix/general-stability` @ 28d5afd (+bu commit) · ZimaOS 1.186 ayakta
-
-## State
-- TV 0.9.69 üç yerde yayında (`v0.9.69-poc`, evaglass `c68513c`) ve Mi Box'ta açılıyor. ADB kurulumu ANR
-  veriyordu → `cmd package compile -m speed -f` (hafıza `adb-kurulum-dexopt-anr`). UyanikTut kaldırıldı (işe yaramıyordu).
-- Mi Box: `stay_on_while_plugged_in=7`, screen_off max, deviceidle disable → kendiliğinden uyumaz. Güç tuşu yine derin
-  uyku (BT+Wi-Fi kapanır, ağdan açılmaz, kumanda bazen uyandıramaz) → Dean kutunun güç tuşuna basmayacak, LG kapanacak.
-  Kutu yeniden başlayınca **ağ ADB (5555) kapanıyor** — Dean USB hata ayıklamayı kapat/aç yapacak. USB'deki
-  cihaz Realtek 802.11ac (Wi-Fi anteni); Dean "USB-Ethernet çevirici" dedi, eth0 hiç görünmedi, doğrulanmadı.
-- HA (http://192.168.1.186:8123, HA_TOKEN vg.env): webostv `LG webOS TV 65A6500USWF` (1.175) kapatma OK, açma YOK —
-  TV kapanınca 1.175 ağdan düşüyor (Hızlı Başlatma+/Mobil TV Açma Dean'de doğrulanmadı). Otomasyon `lg_tv_ac_wol`
-  (webostv.turn_on → button.wake_on_lan_d0_a4_6f_c9_28_80). 0.63'teki LGwebOSTV BAŞKA bir LG (wrong_device).
-  samsungtv `43" eva` (192.168.0.27, Huntercjx; DHCP kayar, Netmaster rezervasyonu YOK) kapatma OK, açma NAT ötesi
-  çalışmadı. M7 1.184: eşleşme 3 kez auth_missing → Samsung muhtemelen reddi hatırlıyor; Cihaz Bağlantı Yöneticisi'nden izin.
-  `media_player.mybox` (androidtv_remote) var.
-- ZimaOS eth0 "Supervisor eth0": `ipv4.method auto` + ek sabit 192.168.1.186 (nmcli); MR200 rezervasyonu
-  38:14:28:35:9A:AE→.186. Netmaster'a taşınma (tek ağ, 200 Mb) PLANLI, yapılmadı. Netmaster: 200/20, SNR 40 dB,
-  Huntercjx yalnız 2,4 GHz (LG 52 Mb, eva 13 Mb).
-- Yedek donanım: SG108E/SG1008D gigabit switch, EAP115 (2,4 GHz, PoE) + Tenda PoE, WR940N/WR841N/W9960/Everest (çekmece).
-  Kurgu: Netmaster yerinde, odaya tek kablo → SG108E; MR200 AP kipi TV yanında (5 GHz). TV konumu sorulmadı/cevapsız.
-
-## KARAR (Dean, 12 Eki 19:55): TEK AĞ = 1.x (MR200 router kalır, "Deancjx" ana yayın). Netmaster yalnız modem/uplink.
-Adımlar: (1) Netmaster'a takılı kablolar → MR200 LAN / SG108E switch (switch MR200 LAN'a uplink); (2) Netmaster Wi-Fi
-"Huntercjx" KAPAT, oradaki cihazlar (eva M7 0.27, ikinci LG 0.63, Smart_Camera, telefonlar) Deancjx'e; kapsama açığı → EAP115
-(Tenda PoE, switch'e kablo) aynı SSID/şifre 2,4 GHz; (3) MR200 rezervasyonları `tp_res.py` (eva 68:FC:CA:B5:0F:6C, LG2
-D0:A4:6F:C9:57:A4); (4) HA: eva ve LG2 yeni 1.x adresleriyle; (5) M7 1.184 Deancjx'te görünmüyor (8001 kapalı, istemci
-listesinde yok) — ağ durumunu cihazda doğrula. .186 değişmez → referans güncellemesi YOK. Tarih Dean'den bekleniyor.
-Samsung M7 (1.184) menüsünde "Mobil ile Güç Açma" etkin, IP Kumandası açık (fotoğraf) ama cihaz taramada görünmedi;
-eva (0.27) HA'da yeniden eklendi ve açık. Mi Box ağ ADB hâlâ kapalı.
-
-## 12 Eki 20:45 — TAŞINMA 0.x'E YAPILDI (başka oturum): ZimaOS 192.168.0.186 (nmcli ek sabit; Netmaster'da "STATIC" = cihazın
-kendi adresi, Netmaster'da REZERVASYON ÖZELLİĞİ YOK — RgDhcp.asp yalnız "Seçileni Değiştir"). vg.env/global-config .186→0.186.
-Mi Box USB-Ethernet (Realtek 00:e0:4c:36:07:b1) → 0.11, kutu Wi-Fi yok; `.env ATV_HOST=192.168.0.11`, atv köprüsü OK.
-Netmaster DHCP: M7 bc:45:5b → 0.22 (HA eşleşme akışı sürüyor), MR200 WAN 0.17, laptop kablolu 0.33, LG2 0.63, eva 0.27.
-Asıl LG (d0:a4:6f:c9:28:80) henüz 0.x'te değil → HA webostv reconfigure gerekecek. ponytail: Mi Box/LG adresleri 7 günlük
-kira ile kayabilir; kalıcı çözüm cihazda statik IP ya da atv köprüsünde 6466 taraması.
-21:00: Mi Box ADB + Ethernet birlikte çalışıyor (adb_enabled=1, eth0 0.11 UP, wlan0 kapalı); laptop ADB yetkili
-(`adb connect 192.168.0.11:5555`). eva monitörü: "Mobil ile Güç Açma" açık ama kapalıyken 0.27 ağda yok, HA turn_on ve
-WoL (0.255/255) tutmadı → cihazda "Hızlı Başlatma/Anında Açılış" + kumandayla kapatma denenecek. M7 0.22 HA eşleşmesi
-onay bekliyor (auth_missing). Asıl LG hâlâ 0.x'te değil.
-21:30: HA samsungtv: `43" Smart dean` (M7, 0.22) eşleşti; `43" Smart eva` 0.16'da yeniden eklendi, kapat/AÇ ikisi de
-çalıştı (ilk tam çalışan cihaz; kızı izlerken kapandı — eva ekranında test YAPMA). SIRADAKİ: Dean "200'ü düzelt" dedi →
-MR200'ü AP yap: Advanced>Network>LAN IP 192.168.0.2/24 + DHCP KAPALI, sonra Netmaster kablosu MR200 WAN(mavi)→LAN(sarı).
-Böylece Deancjx 5 GHz istemcileri (LG 1.175, laptop) 0.x alır; LG için HA webostv reconfigure yeni adrese. tp_dump
-"Advanced>Network>LAN" tıklaması 21:28'de zaman aşımı verdi (sayfa açılmadı) — yeniden dene, gerekirse 192.168.1.1 elle.
-21:45: MR200 AP oldu (Dean elle: LAN 1.2 + ikinci IP 0.2, DHCP KAPALI, Netmaster kablosu sarı LAN'da) — 0.2 ve 0.1 Deancjx'ten
-ulaşılıyor, telefon 0.x aldı. KALAN: asıl LG hâlâ 1.175 (eski kira) → Dean Wi-Fi kapat/aç → yeni 0.x adresle HA webostv
-reconfigure (entry 01M4R1J9701NNZHPDQ8QKAG4Z7) + WoL otomasyonu broadcast 192.168.0.255 + kapat/aç testi.
-MR200 rezervasyonları artık işlevsiz (DHCP kapalı); Netmaster'da rezervasyon yok → kayan adresler (eva 0.16, M7 0.22, Mi Box 0.11).
-## ESKİ (20:05): ZimaOS eth0'da 1.186 + Netmaster DHCP 0.29 birlikte → MR200 LAN ile Netmaster LAN aynı L2'de
-(muhtemelen Netmaster kablosu MR200'ün LAN portunda ya da switch üzerinden köprü). 0.11:3310 kapalı. Mi Box 1.105:6466 kapalı,
-yeri bilinmiyor (6466 taraması yap). Dean'e soruldu: Netmaster kablosu MR200 WAN mı LAN mı; Mi Box kablosu nereye.
-Hedef düzen (1.x): Netmaster → MR200 WAN (mavi); switch + tüm cihazlar MR200 LAN; Netmaster Wi-Fi kapalı.
-
-## Next
-1. Mi Box ADB açılınca: `adb connect 192.168.1.105:5555`; eth0 var mı bak; yoksa Ethernet fikrinden vazgeç.
-2. LG 1.175: Dean iki ayarı doğrulayınca kapat → `media_player.turn_on` → 1.175:3000 testi. Olmazsa kablo (MR200 AP) planı.
-3. M7 1.184 izin verilince samsungtv flow host=192.168.1.184; eva için Netmaster'da 68:FC:CA:B5:0F:6C rezervasyonu.
-4. Netmaster'a taşınma: ayrı slot; .186 referansları (apps.json ayna, APK adayları, ssh, HA cihaz adresleri).
-
-## Don't repeat
-- Kutuda PARTIAL_WAKE_LOCK ile "ağda tut": uykuda radyo kapanıyor, hiçbir şey tutmuyor.
-- ZimaOS'u sabit IP ile başka modeme takmak: ulaşılamaz olur (artık DHCP+ek adres).
-- Dean'e kurulum linki/ADB eşleme kodu önerme (hafıza `telefona-kurulum-evaitecota`).
-
-# Handoff: Lioness S3B8 = DiziAbi (12 Eki)
-> 2026-10-12 · `fix/general-stability` @ ce84535 · ZimaOS stream+engine yeniden derlendi (06:53Z, engine 09:28Z)
-
-- Rebuild yapıldı: çocuk modu `/api/v1/cocuk` 200, konteyner testleri 253 OK.
-- DiziMom'un Lioness S3B8 sayfası S1E8 videosunu taşıyor (54:55; gerçek final 70 dk). Yeni eklenti `engine/Plugins/DiziAbi.py`
-  (pilavyer oynatıcı, AES HLS, tr+en ses, tr/en altyazı). S3B8 = 4084 sn. Emülatörde uçtan uca oynadı (position ilerledi).
-- Devam Et kaydı `lioness` → DiziAbi S3B8 0 sn; yinelenen `special ops lioness` kaydı silindi.
-- Mi Box o sırada kapalıydı, gerçek cihazda denenmedi.
-- `scripts/chain_scan.py` bir load_item 504'ünde tüm taramayı düşürüyor (DiziAbi ile ilgisi yok, düzeltilmedi).
-- Çocuk paketi Samsung'a değil ayrı cihaza; Dean IP + cihaz tipini iletecek.
-
-# Handoff: Samsung M7 uygulaması + çocuk modu (12 Eki yüklenecek)
-> 2026-10-11 gece · `fix/general-stability` @ 8671d93 · push edildi
-
-## State
-- Samsung M7 (192.168.1.184): `client-tizen` 0.1.5 kurulu, `/tv` açıyor; hls.js ile oynatma, GERİ=461, OK basılı tutma, oynatıcıda YUKARI menüsü. tv.html.j2 docker cp ile CANLI (rebuild'siz).
-- CANLI DEĞİL (rebuild bekliyor): çocuk modu Python (`1712eaa`: /api/v1/cocuk, admin "Çocuk Modu", admin.js) + engine `8671d93` (alternatif sağlayıcı detay adı koruması).
-- Lioness: /tv'de `kurtar()` (load_item) canlı — DiziMom 24 bölüm, S3B8 idx 23. Dean bu sorunu defalarca bildirdi; cihazda doğrulanmadı.
-- HA: Tuya Local + `remote.ir_rf_hub` (S11, 192.168.1.106). HA_TOKEN `~/.ai/vg.env`. Tuş öğretme yapılmadı.
-
-## Next (12 Eki, Mi Box boşta iken)
-1. `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull -q && docker compose --profile tunnel up -d --build stream engine cloudflared"` + konteyner unittest.
-2. Samsung'da Lioness Devam Et → S3B8 açılıyor mu (client_log).
-3. Panelden kanal ekle → çocuk paketi 0.1.6 kur (`scratchpad\tizen_app_016` ya da client-tizen'den paketle; README) → CDP kanıt. Çocuk paketi Samsung M7'ye DEĞİL, ayrı bir cihaza kurulacak — Dean IP'sini iletecek (12 Eki).
-
-# Handoff: Mi Box uyanık + Lioness + tvQA
-> 2026-10-11 · `fix/general-stability` @ `93d800a` (+ bu handoff commit'i) · 0 dirty · origin ile eşit
+# Handoff: ev ağı cihazları, kamera, projektör (15 Eki akşam)
+> 2026-10-15 ~18:30 · `fix/general-stability` @ 8484065 · 0 dirty · NetMovies kodu temiz; bu oturumun işi çoğunlukla ev ağı/cihaz
 
 ## Goal
-Reklamsız TV (client-tv, Mi Box) + ZimaOS sunucu; kurallar `CLAUDE.md`. Bu oturum: Mi Box uykuda ağdan
-düşüyordu, Lioness yanlış videoyu açıyordu, kumanda eşleyicisi (tvQuickActions, tvQA) toparlandı.
+Dean'in ev cihazlarını düzenlemek: DHCP ZimaOS'ta (ev-dhcp), kameralar HA'da, projektör tek uygulama (NetMovies),
+eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvision-kup-kamera`, `jest-servisi-c920`,
+`kurulu-uygulamaya-onaysiz-dokunma` (memory dizini `~/.claude-team/projects/C--projects-netmovies/memory/`).
 
 ## State
-- TV 0.9.68 (`UyanikTut` PARTIAL_WAKE_LOCK) üç yerde yayında (sha `351e41f1…`, GitHub `v0.9.68-poc`,
-  evaglass `netmovies-tv-v0.9.68` + apps.json vc 968 `7673d6b`) ve Mi Box'a ADB ile kuruldu (`versionName=0.9.68`).
-  Kök neden: 0.9.68 10 Eki commit edilmiş ama yayınlanmamıştı; kutu 0.9.67'de kaldı, uykuda Wi-Fi'den düştü
-  (TP-Link istemci listesinde yoktu, WOL tutmaz). unverified: kapama tuşundan sonra kutunun ağda kaldığı — Dean denemedi.
-- Lioness: `load_item` kurtarması DiziPal ölü adresini YouTube yemek kanalına bağlıyordu. `e591cdd` (dizi
-  kurtarması ≥2 bölüm) + `93d800a` (kurtarılan detayın adı başlığı tutmalı). Canlıda: `load_item` →
-  `DiziMom Special Ops: Lioness 24`. Stream testleri 245 OK. ZimaOS stream `.Created` 2026-10-11 ~13:2xZ.
-- tvQA: erişilebilirlik servisi kutu fişten açılınca kapanmıştı → `settings put secure ...` ile açıldı (BACK çift = son uygulamalar).
-  Ayar yedeği/değişikliği: scratchpad `tvqa/` (orijinal `tvqa.ab`, yeni `tvqa_v2.ab`); ZimaOS atv konteynerinde
-  `/app/data/atv/tvqa.ab` (orijinal) ve `tvqa_v2.ab`. v2 = Settings menüsünden Wi-Fi/BT toggle çıktı (OTA + fare),
-  Apps menüsü kurulu uygulamalar, dock temizlendi (+OTA), boot tetikleyicisi NetMovies'i açar. Netflix tuşu (keycode 1000 satırı) AYNEN.
-  `adb restore tvqa_v2.ab` çıkış 0 (Dean ekranda onayladı) ama restore erişilebilirlik ayarını SİLDİ → yeniden açıldı
-  (`dumpsys accessibility` tvQuickActions 1). Dean'in 16:40 fotoğrafı: dock hâlâ ESKİ (tvQA, mor oynat, Play Store, Projectivy; OTA yok)
-  → restore ayarları UYGULAMADI. Tekrar deneme yok; Dean isterse tvQA arayüzünden elle düzenlenir. Netflix = Dean'in "papatya düğmesi", dokunma.
-- Prime tuşu tvQA ile Xiaomi'de değişmez (tvdevinfo.com/tvquickactions/troubleshooting). Sistem
-  `com.amazon.amazonvideo.livingroom/com.amazon.ignition.IgnitionActivity` başlatır; tek yol o paket adlı stub APK — yazılmadı, Dean'e soruldu.
-- ZimaOS LiteLLM: `yerel` (gemma4:12b) `reasoning_effort: none` ile dolu cevap; yeni `yerel-hizli` (gemma4:e2b GPU, 18–25 tok/s). Ayrıntı `~/.ai/contracts/zimaos-infrastructure.md`.
+- **TV 0.9.72 yayında** (8484065): kapalı `HomeAlias` (HOME kategorisi). GitHub `v0.9.72-poc`, evaglass
+  `netmovies-tv-v0.9.72`, apps.json vc 972 (`8e502ff`), yerel OTA `data/apk` → `/api/v1/app_update` size 22768680.
+  Yayınlanan APK **debug imzalı** (`assembleDebug`); `assembleRelease` İMZASIZ çıkıyor, onu yayınlama.
+- **Projektör** (192.168.0.205:5555, HY300 Pro RK3326): 0.9.72 kurulu, `HomeAlias` enable + `set-home-activity` →
+  HOME = NetMovies (adb çıktısıyla doğrulandı). Projectivy 4.70 kurulu duruyor. Yeniden başlatma testi yapılmadı.
+- **C920** ZimaOS USB'de, `jest` konteyneri (`/DATA/AppData/jest`, host ağı) MediaPipe → HA event `jest`.
+  İlk gerçek `el_salla` 16:52:37. Hareketler HA'da hiçbir otomasyona bağlı değil (Dean eşleme söylemedi).
+- **Hikvision DS-2CD2423G0-IW**: sıfırlandı, aktive edildi (şifre Bitwarden), Wi-Fi Huntercjx, ev-dhcp .218 (Wi-Fi MAC
+  d0:c5:d3:f5:d0:75) / .219 (kablo). HA `camera.192_168_0_218` 1080p snapshot alındı ~17:01.
+  **18:30'da .218 cevap vermiyor, ARP'ta yok** — muhtemelen Dean gücü/kabloyu çekti; doğrulanmadı.
+  Dean'de bu modelden 4 adet var (kapı + odalar). Hareket algılama ve iki yönlü ses kapalı.
+- **Eski Android kutu** (Amlogic MBX g02ref, Android 4.1.2, MAC 00:1c:89:3e:03:c0, ev-dhcp .206): ADB ağdan kapalı,
+  şu an ağda yok. ZimaOS'ta `python3 -m http.server 8177` (`/DATA/AppData/kutu-indir`, 19:40'ta `timeout` ile kapanır):
+  RetroArch 1.22.2 (F-Droid, minSdk 16), fceumm + gpsp çekirdekleri, 3 açık lisanslı NES oyunu.
+- **Fold**: normal Instagram kaldırıldı; Facebook Lite + Instagram Lite kurulu; Messenger zaten yoktu.
 
 ## Next
-1. Dean'den 0.9.68 kapama/açma geri bildirimi: kapattıktan 1–2 dk sonra `ssh zima "nc -z -w3 192.168.1.105 5555 && echo agda"`.
-   `agda` değilse UyanikTut Wi-Fi'yi tutmuyor → `WifiManager.WifiLock(WIFI_MODE_FULL_HIGH_PERF)` ekle.
-2. tvQA restore Dean onayıyla bittiyse doğrula: `adb shell settings get secure enabled_accessibility_services` dolu mu,
-   menüler/dock tvQA'da yeni hâlinde mi. Bozuksa `adb restore /app/data/atv/tvqa.ab` (orijinal).
-3. Prime → Ayarlar istenirse: client-tv'de ayrı küçük modül, paket `com.amazon.amazonvideo.livingroom`, aktivite `com.amazon.ignition.IgnitionActivity` → `Settings.ACTION_SETTINGS`.
-4. `/saglik` (atv köprüsü) kutu ağda yokken `acik/uyanik:true` dönüyor — bayat durum; düzeltilmedi.
+1. Hikvision geri geldi mi: `ssh zima 'curl -s -m5 -o /dev/null -w "%{http_code}" http://192.168.0.218/'` → 200 değilse
+   Dean'e kamera elektrikte mi diye sor. Gelince Dean'den oda adı al, HA'da yeniden adlandır + Ev Paneli'ne ekle.
+2. Dean'den C920 hareket → eylem eşlemesini al (öneri: el_salla = salon ışığı), HA otomasyonu `event_type: jest`.
+3. Diğer 3 Hikvision: aynı yol (hafıza `hikvision-kup-kamera`).
+4. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
+   Lenovo Instagram Lite; Smart Station ESPHome; Evaitec tünel cloud/my/dash/prod düşük.
 
 ## Don't repeat
-- Commit ≠ yayın: TV değişikliği bitince üç yere yayınla (hafıza `yayinlamak-icin-sorma`), kutuda `versionName` ile doğrula.
-- Kutu Wi-Fi'de yokken WOL göndermek: Mi Box WoWLAN yok, paket boşa gider. Önce TP-Link `tp_dump.py "Network Map>Wireless Clients"`.
-- TV izlerken kurulum/rebuild: `/tmp/tv_kur.sh` ve `scripts/izleme-bitince-kur.sh` boşta bekler; `remote/status` ile bak.
-- tvQA'da Netflix tuşunu adb_command'a bağlamak / tuşları getevent ile denemek: Dean "deneme yapma, Netflix kalsın" dedi; getevent+backup tvQA'yı kilitledi.
-- adb backup/restore TV ekranında onay ister — Dean izlerken başlatma. Restore sonrası erişilebilirlik servisi kapanır: hemen `settings put secure enabled_accessibility_services dev.vodik7.tvquickactions/.KeyAccessibilityService` + `accessibility_enabled 1`.
+- Dean'in cihazındaki uygulamayı (modlu bile olsa) onaysız kaldırma/değiştirme — Projectivy ayarları gitti.
+- Kırık/crack'li APK (Projectivy Premium "C=TryRoom") kurma; korsan ROM sağlama.
+- Wi-Fi ADB'de `svc wifi disable` çalıştırma (Tab A9+ Wi-Fi'sız kaldı).
+- Git Bash'te `adb push ... /data/local/tmp` → `MSYS_NO_PATHCONV=1` şart, yoksa yol bozulur.
+- itch.io indirmesini betikle çekme — `/file/<id>` "invalid key" veriyor; Dean tarayıcıdan indirsin.
+- ZimaOS'ta yeni docker bridge ağı açılamıyor (havuz dolu) → `network_mode: host`.
+- PowerShell'de `$h` ve `$H` aynı değişken; ssh'a şifre geçerken CR'yi sil (`tr -d '\r'`).
 
 ## Verify
-```
-git rev-parse --short HEAD                                   # 93d800a veya handoff commit'i
-bash scripts/smoke.sh | tail -1                              # YEŞİL
-ssh zima "docker exec netmovies-atv adb -s 192.168.1.105:5555 shell dumpsys package com.evaitec.netmovies.tv | grep -m1 versionName"   # 0.9.68
-curl -s -G 192.168.1.186:3310/api/v1/load_item --data-urlencode plugin=DiziPal --data-urlencode encoded_url=https://dizipal2221.com/dizi/lioness --data-urlencode title=Lioness --data-urlencode type=serie | head -c 200   # DiziMom
-```
+git rev-parse --short HEAD                          # 8484065
+curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'   # v0.9.72-poc
+ssh zima 'docker ps --format "{{.Names}}" | grep -E "^(jest|ev-dhcp|ha)$"'          # üçü de
+adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -1   # .HomeAlias
 
-## <yeniden başlangıç> promptu (yapıştır)
+## Yeniden başlangıç promptu (yapıştır)
 ```
-NetMovies, dal fix/general-stability. 11 Ekim: TV 0.9.68 (kutuyu ağda tutan UyanikTut) yayında ve Mi Box'a kurulu;
-kapama sonrası ağda kalma Dean'de doğrulanmadı. Lioness yanlış YouTube videosu sorunu sunucuda düzeldi (DiziMom).
-tvQuickActions ayarları adb restore ile toparlandı (Netflix tuşu aynı; Prime Xiaomi'de değişmez).
-Önce HANDOFF.md oku, Verify bloğunu koş.
-Sıra: 1) kapama sonrası kutu ağda mı (nc .105:5555) 2) tvQA restore doğrula 3) Prime stub yalnız Dean isterse.
-Yeni iş açma; TV oynarken rebuild/kurulum yapma.
+Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), C920 ZimaOS'ta el hareketi
+servisi (jest → HA event), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
+son kontrolde çevrimdışıydı; eski Android kutu retro konsol için RetroArch bekliyor.
+Ortam: C:\projects\netmovies (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
+Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) C920 hareket→eylem
+eşlemesi 3) kalan 3 Hikvision. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
 ```
