@@ -25,10 +25,8 @@ eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvisio
 - **Fold**: normal Instagram kaldırıldı; Facebook Lite + Instagram Lite kurulu; Messenger zaten yoktu.
 
 ## Next
-1. Hikvision geri geldi mi: `ssh zima 'curl -s -m5 -o /dev/null -w "%{http_code}" http://192.168.0.218/'` → 200 değilse
-   Dean'e kamera elektrikte mi diye sor. Gelince Dean'den oda adı al, HA'da yeniden adlandır + Ev Paneli'ne ekle.
-2. Dean'den hareket → eylem eşlemesini al (öneri: el_salla = salon ışığı), HA otomasyonu `event_type: jest`.
-3. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
+1. Hikvision/HA işleri beklemede — Dean açmadıkça sorma (hafıza `ev-cihaz-sorma`).
+2. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
    Lenovo Instagram Lite; Smart Station ESPHome; Evaitec tünel cloud/my/dash/prod düşük.
 
 ## Don't repeat
