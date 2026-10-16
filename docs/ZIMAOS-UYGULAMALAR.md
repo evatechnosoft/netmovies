@@ -12,7 +12,7 @@
 4. **Uptime Kuma kurulu ama susuyor.** 5 monitör var (`my` ×2 aynı URL, `it`, `cloud`, `ha`), bildirim kanalı 0. NetMovies izlenmiyor.
 5. **CasaOS'ta 37 ölü uygulama tanımı var.** `/var/lib/casaos/apps` içindeki 63 klasörden 37'sinin konteyneri yok. Bunların 9'u `_old` kopyası (`evaiteclabs_old…`, `it-inventory_old…`).
 6. **Son oturum 2026-08-24.** Kuma'nın bugünden önceki son heartbeat'i `2026-08-24 18:16`. Çoğu "son dosya" izi 08-24 çıkıyor: o gün makine açıktı, loglar ve DB checkpoint'leri yazıldı. **08-24 izi kullanım kanıtı değildir**, yalnız makinenin açık olduğunu gösterir. Daha eski tarihler gerçek son dokunuşa daha yakındır.
-7. ZimaOS app API'si yerelden kimliksiz cevap veriyor (`127.0.0.1` → 200), LAN'dan vermiyor (`192.168.1.186` → 401). Sorun değil, bilgi notu.
+7. ZimaOS app API'si yerelden kimliksiz cevap veriyor (`127.0.0.1` → 200), LAN'dan vermiyor (`192.168.0.186` → 401). Sorun değil, bilgi notu.
 
 ## 1. Mağazalar (kurulu app store kaynakları)
 
@@ -153,7 +153,7 @@ Kaynak maliyeti **ölçülmedi** (kurulmadı). Parantez içindeki değerler tipi
 
 1. **Uptime Kuma (zaten kurulu), yenisini kurma.**
    - Ne işe yarar: dış ve iç sağlık kontrolü, bildirim.
-   - Yapılacak: `w.evaitec.com`, `http://netmovies-stream:3310/api/v1/health` (ya da `192.168.1.186:3310`), `port`/`admin`/`cloud` monitörlerini ekle. Mükerrer `my` monitörünü sil. Telegram bildirimi bağla: `/DATA/AppData/.vault_telegram_token` ve `nexusbot` var; token koda değil Kuma'nın ayarına girer.
+   - Yapılacak: `w.evaitec.com`, `http://netmovies-stream:3310/api/v1/health` (ya da `192.168.0.186:3310`), `port`/`admin`/`cloud` monitörlerini ekle. Mükerrer `my` monitörünü sil. Telegram bildirimi bağla: `/DATA/AppData/.vault_telegram_token` ve `nexusbot` var; token koda değil Kuma'nın ayarına girer.
    - Yerini aldığı araç: Healthchecks, Gatus (kurma).
    - Maliyet: 0 ek.
 2. **Dozzle (zaten kurulu), yenisini kurma.**

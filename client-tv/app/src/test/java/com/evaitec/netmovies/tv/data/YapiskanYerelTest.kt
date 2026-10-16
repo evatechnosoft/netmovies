@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class YapiskanYerelTest {
-    private val zima = "http://192.168.1.186:3310".toHttpUrl()
+    private val zima = "http://192.168.0.186:3310".toHttpUrl()
     private val simdi = 1_000_000_000L
 
     @Test

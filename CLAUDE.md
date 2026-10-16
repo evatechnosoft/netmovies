@@ -12,8 +12,8 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
 
 ## Çalıştırma
-**Aktif sunucu: ZimaOS `dean@192.168.1.186` → `/DATA/AppData/netmovies`** (ssh takma adı `zima`).
-Laptop (`C:\projects\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
+**Aktif sunucu: ZimaOS `dean@192.168.0.186` → `/DATA/AppData/netmovies`** (ssh takma adı `zima`).
+Laptop (`C:\projects\evaitec\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
 docker PATH'te yok. Hangisi aktif: `bash scripts/sunucu.sh durum`; geçiş: `sunucu.sh gec zima|laptop`.
 `scripts/smoke.sh` yerel docker bulamazsa BASE'i ZimaOS'a çevirir, docker adımlarını ssh ile koşar.
 Sunucu kodu değişince ZimaOS'ta: `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"` (DOCKER_CONFIG olmadan compose eklentisi görünmez).
@@ -27,7 +27,7 @@ docker compose up -d --build
 # 2. Dış erişim tüneli ile çalıştırma (w.evaitec.com)
 docker compose --profile tunnel up -d
 
-# http://192.168.1.186:3310  (dean / 1234)
+# http://192.168.0.186:3310  (dean / 1234)
 ```
 Kolay dış erişim (w.evaitec.com): `docs/DEPLOY.md` — hibrit (motor evde + Cloudflare Tunnel).
 Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
@@ -53,8 +53,8 @@ python scripts/chain_scan.py --n 2        # HER sağlayıcının HER kaynağı m
 docker exec -w /usr/src/Stream netmovies-stream python -m unittest discover -s tests
 cd client-tv && ./gradlew testDebugUnitTest assembleDebug
 docker logs netmovies-engine | grep -E "aggregate:|resolve:"   # kaynak teşhisi
-curl -s 192.168.1.186:3310/api/v1/source_score                     # sağlayıcı puanları
-curl -s 192.168.1.186:3310/api/v1/client_log                       # TV oynatma günlüğü (ses/tampon)
+curl -s 192.168.0.186:3310/api/v1/source_score                     # sağlayıcı puanları
+curl -s 192.168.0.186:3310/api/v1/client_log                       # TV oynatma günlüğü (ses/tampon)
 ```
 `tests/` imaja build ile girer; kod değiştirmeden test denemek için:
 `docker cp stream/tests netmovies-stream:/usr/src/Stream/`

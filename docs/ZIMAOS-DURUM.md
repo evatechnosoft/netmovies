@@ -2,7 +2,7 @@
 
 > Tarama: 2026-09-25 11:16–11:23 (sunucu saati +03). Salt-okunur; hiçbir şey silinmedi, durdurulmadı, değiştirilmedi.
 >
-> **Güncelleme 11:40:** Adım 1 yapıldı. NetMovies ZimaOS'ta `.env` `NM_NET=10.231.0` ile ayakta, `smoke.sh` YEŞİL (commit 3d6d209). IP 192.168.1.186 statik (nmcli); `.185` takası yerine `.186` seçildi. TP-Link rezervasyonu şifre kabul edilmediği için yapılamadı.
+> **Güncelleme 11:40:** Adım 1 yapıldı. NetMovies ZimaOS'ta `.env` `NM_NET=10.231.0` ile ayakta, `smoke.sh` YEŞİL (commit 3d6d209). IP 192.168.0.186 statik (nmcli); `.185` takası yerine `.186` seçildi. TP-Link rezervasyonu şifre kabul edilmediği için yapılamadı.
 > Erişim: `ssh zima` (dean, uid 999, gruplar: samba, wheel, docker). Docker komutları `DOCKER_CONFIG=/DATA/AppData/.docker-dean` ile.
 > Bu dosya commit edilmedi.
 
@@ -27,7 +27,7 @@
 | 2026-08-21 | Claude OTel yığınını ZimaOS'a taşıma planı (yapılmadı) | `C:\Users\Deacjx\.ai\guides\claude-code-otel-observability.md:78-100` |
 | 2026-09-10 | ZimaOS erişilemez (ping/SSH yok) → "kendi işim için lokal Docker" kuralı; 4 Cloudflare tüneli, `evaiteclabs` 0 bağlantı | `...\D--projects\memory\kendi-isim-icin-lokal-docker.md`, `...\D--projects-evaglass\memory\cloudflared-container-per-project.md` |
 | 2026-09-24 | Karar: NetMovies laptop'tan ZimaOS'a taşınır; geçişte ZimaOS'a `.185` verilir | `.claude/handoffs/2026-09-24-2325-zimaos-tasima-ag.md` |
-| 2026-09-25 | ZimaOS DHCP'de `192.168.1.103` görüldü (hafıza notu); bugün `Supervisor eth0` bağlantısına manuel `192.168.1.186/24`, gw `192.168.1.1`, DNS `192.168.1.1,1.1.1.1` | `...\D--projects-netmovies\memory\ev-agi-iki-modem.md`; `nmcli -g ipv4.* con show "Supervisor eth0"` |
+| 2026-09-25 | ZimaOS DHCP'de `192.168.1.103` görüldü (hafıza notu); bugün `Supervisor eth0` bağlantısına manuel `192.168.0.186/24`, gw `192.168.1.1`, DNS `192.168.1.1,1.1.1.1` | `...\D--projects-netmovies\memory\ev-agi-iki-modem.md`; `nmcli -g ipv4.* con show "Supervisor eth0"` |
 | 2026-09-25 ~10:39 | Makine açıldı (uptime 37 dk @ 11:16); 11:14 `/DATA/AppData/netmovies` kopyalandı; ~11:22 `netmovies-engine`/`netmovies-stream` imajları build edildi | `uptime`, `ls -la`, `docker images` |
 
 **Nerede kalındı:** Taşıma yarıda. İmajlar var, NetMovies konteyneri yok (11:23'te `docker ps -a | grep netmovies` boş, `curl localhost:3310/api/v1/health` cevapsız). `.185` takası yapılmadı; bugünkü adres `.186`.
@@ -89,7 +89,7 @@ Cloudflared: konteyner olarak **1 adet** (`cloudflared`). Ayrıca host'ta `/etc`
 
 **Güç / ağ:**
 - `HandleLidSwitch=ignore`, `HandleLidSwitchDocked=ignore` (`systemd-analyze cat-config`); `/etc` üst katmanında logind dosyası yok → ZimaOS varsayılanı. Kapak `open`; `sleep/suspend.target` inactive. BIOS güç ayarı doğrulanmadı.
-- `eth0 192.168.1.186/24` statik, varsayılan rota `192.168.1.1`. `wlan0` DOWN. `hassio` 172.30.32.1/23. ZeroTier `ztxlpqe2fq` 10.246.0.1/16 = **IceWhale-RemoteAccess** (`zerotier-cli listnetworks`). `virbr0`, `thunderboltbr0` down.
+- `eth0 192.168.0.186/24` statik, varsayılan rota `192.168.1.1`. `wlan0` DOWN. `hassio` 172.30.32.1/23. ZeroTier `ztxlpqe2fq` 10.246.0.1/16 = **IceWhale-RemoteAccess** (`zerotier-cli listnetworks`). `virbr0`, `thunderboltbr0` down.
 - RAUC: slot B (kernel.1/rootfs.1) boot, good; **slot A `boot status: bad`**. `/DATA/.ota/online/` içinde 1.7.0, 1.7.0-beta2, 1.8.0-beta1 indirilmiş (her biri 1,5 G), `release.json` 1.6.1 duyuruyor — ama çalışan sürüm 1.6.0.
 
 **NetMovies** (dokunulmadı): `/DATA/AppData/netmovies` (2,5 G, `.env` + `data/netmovies.db` mevcut), imajlar `netmovies-engine` 524 MB, `netmovies-stream` 317 MB; konteyner yok, 3310 cevap vermiyor (11:23). `caomingjun/warp:latest` (3 hafta, 1,03 GB) imajı var ama konteyneri yok — NetMovies yığınının parçası, temizlik dışı.

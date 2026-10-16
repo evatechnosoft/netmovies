@@ -1,6 +1,6 @@
 # NetMovies — Tizen (Samsung Smart Monitor M7) uygulaması
 
-`app/` ince kabuktur: medya tuşlarını kaydeder, `http://192.168.1.186:3310/tv?profil=cocuk`'ye (çocuk modu) geçer.
+`app/` ince kabuktur: medya tuşlarını kaydeder, `http://192.168.0.186:3310/tv?profil=cocuk`'ye (çocuk modu) geçer.
 Arayüz sunucuda; yeni özellik için yeniden kurmak gerekmez.
 
 - Satır içi `<script>`/`<style>` Tizen'in varsayılan CSP'sine takılır → `app.js`, `app.css`.

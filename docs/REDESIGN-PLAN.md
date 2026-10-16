@@ -110,7 +110,7 @@ Tunnel haritası netleşmeden körlemesine müdahale edildi → iki production t
 2. Host'u temizlemek için console cloudflared (PID 18456) `taskkill`'lendi → o **1d2e8f02 evaiteclabs**
    connector'ıymış → **evaiteclabs Windows connector DOWN**.
 3. `.env`'e `3a8d470d` service token'ı konup `docker compose up cloudflared` → container 3. connector
-   olarak **portal/evaisys** tunnel'ına bağlandı, origin'lere (192.168.1.186:85 / localhost:3000)
+   olarak **portal/evaisys** tunnel'ına bağlandı, origin'lere (192.168.0.186:85 / localhost:3000)
    ulaşamadı → **portal/evaisys geçici bozuldu** → container **stop+rm** ile geri alındı, `.env` boşaltıldı.
 
 **KALAN / YAPILACAK (sonraki oturum — ÖNCELİK):**

@@ -67,7 +67,7 @@ etmovies` bayat kopya duruyor. F eski Windows (Neyasis/Zehra), format onayı YOK
 - Not: motor açılışta 18× "Yüklenecek bir Extractor bulunamadı!" basıyor — KekikStream 4.0.4 paket Extractors boş, kendi çözücülerimiz __dizi_common'da; eskiden beri böyle, hata değil.
 
 ## 2026-09-29 öğleden sonra — 0.9.36 + 0.9.37 (EN GÜNCEL)
-- **Sunucu laptop** (IP artık 192.168.1.186 — ZimaOS'un adresi laptopa geçti; Docker Desktop bir kez kapandı, yeniden başlatıldı).
+- **Sunucu laptop** (IP artık 192.168.0.186 — ZimaOS'un adresi laptopa geçti; Docker Desktop bir kez kapandı, yeniden başlatıldı).
 - **0.9.36** (d45a2dc): mp4 kaynak progressive (videoSource), Özel Koleksiyon tüm raflar önden yüklenir (iskelet odak almıyordu), yetişkin izleme Devam Et'e yazılmaz (TV+sunucu).
 - **0.9.37** (b4cfc8f, sha ae06910b…): Ayarlar → "🧹 Devam Et'i temizle" toplu seç/sil; sunucu `POST /api/v1/progress/delete?content_keys=a,b`. Üç yerde yayında, app_update v0.9.37-poc. Emülatörde seçim/onay görüldü, gerçek silme cihazda denenmedi.
 - Test sızıntısı düzeltildi (eeab2ae): RemoveProgressTest canlı DB'ye 'bbb' yazıyordu, silindi.
@@ -79,7 +79,7 @@ etmovies` bayat kopya duruyor. F eski Windows (Neyasis/Zehra), format onayı YOK
 - **Sunucu geçici olarak laptop** (ZimaOS kapalı): yığın + tünel laptopta, 0.9.35 laptop data/apk'da. ZimaOS dönünce: laptop `compose --profile tunnel stop`, ZimaOS'ta pull + `up -d --build engine stream cloudflared` + APK kopyala.
 - **Özel Koleksiyon (8e57a8b):** xHamster 6/6, HQPorner 5/6 oynuyor (proxy uçtan uca). PornHub AÇIK: liste JS doğrulaması (leastFactor) py_mini_racer ile çözülüyor ama sunucu tekrar doğrulama döndürüyor; yt-dlp PhantomJS istiyor.
 - **0.9.35** (950c7ab, 22.603.404 B, sha256 789b3b38…): Devam Et kartı kayıttaki bölümü açar (MediaItem.episodeRef; ref → adres → başlık). GitHub v0.9.35-poc + evaglass netmovies-tv-v0.9.35 + apps.json vc 935 (8b71fca), iki indirme sha eşleşti. Cihazda denenmedi.
-- **EKSİK: ZimaOS yerel OTA.** ZimaOS 10+ dk erişilemez (ARP "Destination host unreachable", 22/3310 kapalı, w.evaitec 530). Açılınca: APK'yı `data/apk/NetMovies-TV-v0.9.35.apk` olarak koy → `curl 192.168.1.186:3310/api/v1/app_update?target=tv` = v0.9.35-poc doğrula. TV o zamana kadar 0.9.35'i görmez.
+- **EKSİK: ZimaOS yerel OTA.** ZimaOS 10+ dk erişilemez (ARP "Destination host unreachable", 22/3310 kapalı, w.evaitec 530). Açılınca: APK'yı `data/apk/NetMovies-TV-v0.9.35.apk` olarak koy → `curl 192.168.0.186:3310/api/v1/app_update?target=tv` = v0.9.35-poc doğrula. TV o zamana kadar 0.9.35'i görmez.
 
 ## 2026-09-29 sabah oturumu — özet (EN GÜNCEL)
 - **0.9.34 YAYINDA** (2799a38, debug imzalı, 23.273.805 B, sha256 551e8302…): ZimaOS yerel OTA (app_update → v0.9.34-poc), GitHub v0.9.34-poc, evaglass netmovies-tv-v0.9.34 + apps.json vc 934 (b7090c0). Üç indirmenin sha'sı eşleşiyor. Cihazda denenmedi. İçerik: ikonlu segmentler, Favori/Takip/İzlenecek tek seçim, satır başına tek chip, GERİ sırası; `testDebugUnitTest assembleDebug` EXIT=0.
@@ -133,13 +133,13 @@ etmovies` bayat kopya duruyor. F eski Windows (Neyasis/Zehra), format onayı YOK
 ## 2026-09-27 akşam oturumu — özet
 - **Tek sunucu ZimaOS.** Laptop NetMovies yığını DURDURULDU (`docker compose --profile tunnel stop`). w.evaitec.com tüneli ZimaOS'ta (`netmovies-tunnel`), ZimaOS `.env` CF_TUNNEL_TOKEN laptopunkiyle aynı (yedek `.env.bak`). Kök: saat/telefon laptopa, TV ZimaOS'a bağlıydı → kumanda komutları TV'ye gitmiyordu. İstemci adayları 7441e75'te yalnız 1.186 / 0.11.
 - **ZimaOS'ta compose:** `sudo DOCKER_CONFIG=/DATA/AppData/.docker docker compose --profile tunnel up -d --build stream cloudflared` (stream'i yenileyince tüneli de birlikte kur).
-- **Sunucuda canlı (51d1ab6 öncesi 485b5e6 ile kuruldu):** canlı raf yalnız favori kanallar (sunucu tarafı, APK'sız), ajanda `kanal` alanı, kısa klip eleme (googlevideo dur<90), DiziMom → dizimom.cam (.env, iki makinede), `/api/v1/yz/cihaz` (Nano kaydı), `YZ_GECIT_URL=http://192.168.1.186:4000/v1`.
+- **Sunucuda canlı (51d1ab6 öncesi 485b5e6 ile kuruldu):** canlı raf yalnız favori kanallar (sunucu tarafı, APK'sız), ajanda `kanal` alanı, kısa klip eleme (googlevideo dur<90), DiziMom → dizimom.cam (.env, iki makinede), `/api/v1/yz/cihaz` (Nano kaydı), `YZ_GECIT_URL=http://192.168.0.186:4000/v1`.
 - **Ev YZ geçidi** (`infra/yz/` → ZimaOS `/DATA/AppData/yz/`): LiteLLM :4000 anahtarsız LAN; `gemini` (panel anahtarı admin.json'dan) + `yerel` (Ollama gemma4:12b). Ollama 0.34.4, GPU (P620) açık, konteyner adı `ollama-ollama-1` korundu. gemma4:12b indirmesi %51'de durduruldu (hattı doldurup TV'yi donduruyordu), kalanı 03:00'te `nohup` ile iniyor → `/DATA/AppData/yz/gece-indirme.log`. İndikten sonra `yerel` hızını ölç.
 - **TV 0.9.31:** tv-ux işi (0dd6fb7) + SAĞ/SOL uzak kartı + ajanda Canlı/Bölüm seçimi + Nano kaydı (ML Kit genai-prompt 1.0.0-beta4) birleşti (51d1ab6). Yayın durumu aşağıdaki NEXT'te.
 - **Bilinen kırmızı:** engine `tests/test_fetch_html_fallback.test_hepsi_dusunce_hata_yukselir` HEAD'de de kırık (6a6ac7a Cloudflare UA değişikliği sonrası) — düzeltilmedi.
 - **Arka planda:** yz-muhendisi ajanı arama işinde (worktree): mükerrer kart eleme, "dublaj/altyazı/2026/son/tüm seri" niyeti, Resident Evil yenisinin neden çıkmadığı. Push etmeyecek; sonucu doğrula → dala al → ZimaOS stream yenile.
 - **0.9.31 YAYINDA** (debug imzalı, 24.681.770 B, sha256 47dbcf59…): ZimaOS yerel OTA (`app_update?target=tv` → v0.9.31-poc), GitHub `v0.9.31-poc`, evaglass-releases `netmovies-tv-v0.9.31` + apps.json (b3ed87a; aynalar 1.186'ya çevrildi 4609ab3). Cihazda denenmedi.
-- **NEXT:** (1) Dean TV + telefona 0.9.31 kursun. (2) Dean telefonda Ayarlar → "🤖 YZ:" satırı; `curl 192.168.1.186:3310/api/v1/yz/cihaz` ile Nano durumunu oku. (3) Arama ajanının sonucu. (4) gemma4:12b indiyse `yerel` ölçümü. (5) Ömür Usta ajandada görünüyor mu (NOW, pazar).
+- **NEXT:** (1) Dean TV + telefona 0.9.31 kursun. (2) Dean telefonda Ayarlar → "🤖 YZ:" satırı; `curl 192.168.0.186:3310/api/v1/yz/cihaz` ile Nano durumunu oku. (3) Arama ajanının sonucu. (4) gemma4:12b indiyse `yerel` ölçümü. (5) Ömür Usta ajandada görünüyor mu (NOW, pazar).
 
 ## 2026-09-27 sabah oturumu — özet (EN GÜNCEL)
 - **ZimaOS:** BIOS Auto-On çalışıyor, iki gündür 11:00'de açılıyor (journalctl --list-boots). Ekrandaki açılış yazıları normal fsck, üç disk de clean. 26 Eylül'de makine 23:11'de kapandı, zamanlayıcı ise 00:00'a kurulu; nedeni doğrulanmadı, Dean'e soruldu.
@@ -166,7 +166,7 @@ NetMovies sunucusunu laptoptan 7/24 ZimaOS'a (DeanOS) taşımak; LG webOS / Sams
 
 ## State — KANITLI
 - **ZimaOS açıldı.** Siyah ekranın sebebi BIOS'ta SATA=RAID On'du, AHCI'ye alınınca açıldı. Makine: Precision 3551, i7-10850H, 30 GB, ZimaOS v1.6.0, /DATA 294 GB boş.
-- ZimaOS IP **192.168.1.186**: nmcli ile statik, bağlantı adı "Supervisor eth0". `ssh zima` alias'ı .186'ya bakıyor, anahtar `~/.ssh/deanos`.
+- ZimaOS IP **192.168.0.186**: nmcli ile statik, bağlantı adı "Supervisor eth0". `ssh zima` alias'ı .186'ya bakıyor, anahtar `~/.ssh/deanos`.
 - **NetMovies ZimaOS'ta ayakta:** `/DATA/AppData/netmovies`, `.env` içinde `NM_NET=10.231.0` (172.31/16 orada dolu), `smoke.sh` YEŞİL. Kod o sırada `4d1cb5c`'deydi; ZimaOS 5289574 çekildi ve yeniden kuruldu. Yeniden başlatma sonrası 82/82 konteyner ayakta, health OK. Dozzle internete şifresiz açıktı: durduruldu (restart=no). mosquitto ve portainer-agent restart=unless-stopped yapıldı. /DATA/.bashrc dosyasına DOCKER_CONFIG eklendi (yedek: /DATA/AppData/.docker-dean/bashrc.bak).
 - **Tünel (w.evaitec.com) hâlâ laptopta** ve 200 dönüyor. ZimaOS'ta cloudflared başlatılmadı; aynı token iki connector olur, başlatma.
 - LG TV 192.168.1.175 (TP-Link ağında), kabuk 0.1.5 kurulu. `/tv` commit'leri: 264f8a7 günlük, 4d1cb5c kapanma/poster/tekerlek/tuş/7 poster, 5289574 pad/bilgi/dil/altyazı/açılışı geç.
@@ -178,7 +178,7 @@ NetMovies sunucusunu laptoptan 7/24 ZimaOS'a (DeanOS) taşımak; LG webOS / Sams
   - Ölü rotalar (api, test, it, dozzle, db) kaldırıldı.
   - `cloudflared` ve `eva-portal` konteynerleri restart=unless-stopped yapıldı.
   - Host `cloudflared.service` (ayrı tünel 9162d6ae, binary yok) disable edildi.
-  - **nexus-memora düzeldi:** compose'da katlanmış `command` bölünüyordu, liste formuna çevrildi. `MEMORA_HOST=0.0.0.0` ve `MEMORA_PORT=8080` eklendi. MCP `http://192.168.1.186:8081/mcp` initialize 200 döndü, `memories.db` oluştu. Graph `:8765/` 404 verdi, doğru yol doğrulanmadı. Henüz bağlı istemci yok.
+  - **nexus-memora düzeldi:** compose'da katlanmış `command` bölünüyordu, liste formuna çevrildi. `MEMORA_HOST=0.0.0.0` ve `MEMORA_PORT=8080` eklendi. MCP `http://192.168.0.186:8081/mcp` initialize 200 döndü, `memories.db` oluştu. Graph `:8765/` 404 verdi, doğru yol doğrulanmadı. Henüz bağlı istemci yok.
   - **Kaldırılanlar:** yedekler `/DATA/backups/{pg,apps}` altında.
     - Postgres: agentops-nexus-db, apiflow-postgres, volley-db-1 + volume'ları, sport-app_postgres_data, shared içindeki `inventory` DB'si.
     - Uygulamalar: modularcrm, WeKnora, LibreChat (CasaOS app dizinleri dahil).
@@ -196,7 +196,7 @@ NetMovies sunucusunu laptoptan 7/24 ZimaOS'a (DeanOS) taşımak; LG webOS / Sams
 - `/` %100 dolu görünmesi ZimaOS'ta normal (squashfs). Temizlik `/DATA` ve Docker üzerinde yapılır.
 
 ## Next
-0. **SIRADAKİ TEK İŞ:** Portal'dan LibreChat kartını çıkar (`/DATA/AppData/portal/assets/config.yml`). Ardından Dean onaylarsa Nexus memora'yı Claude'a MCP olarak bağla (`http://192.168.1.186:8081/mcp`).
+0. **SIRADAKİ TEK İŞ:** Portal'dan LibreChat kartını çıkar (`/DATA/AppData/portal/assets/config.yml`). Ardından Dean onaylarsa Nexus memora'yı Claude'a MCP olarak bağla (`http://192.168.0.186:8081/mcp`).
    - Açık: `deanfit` DB'si boş. Silmeden önce fit.evaitec.com verisinin nerede tutulduğu doğrulanmalı.
    - Açık: Coolify `failed_jobs` tablosunda 2045 kayıt var.
    - Güvenlik: 9162d6ae tünel token'ı chat'e düştü, döndürülmeli. `EVAITEC_CF_API_TOKEN_READ` aslında yazma yetkili, adı ya da yetkisi düzeltilmeli.
@@ -223,12 +223,12 @@ NetMovies sunucusunu laptoptan 7/24 ZimaOS'a (DeanOS) taşımak; LG webOS / Sams
 - Stream restart sonrası laptopta `docker compose --profile tunnel up -d --force-recreate cloudflared` şart, yoksa tünel 530 döner.
 
 ## Verify
-curl -s 192.168.1.186:3310/api/v1/health; curl -s localhost:3310/api/v1/health; curl -s -o /dev/null -w "%{http_code}" https://w.evaitec.com/api/v1/health
+curl -s 192.168.0.186:3310/api/v1/health; curl -s localhost:3310/api/v1/health; curl -s -o /dev/null -w "%{http_code}" https://w.evaitec.com/api/v1/health
 ssh zima 'cd /DATA/AppData/netmovies && git log --oneline -1'
 
 ## <yeniden başlangıç> promptu
 ```
-NetMovies (D:\projects\netmovies, fix/general-stability @ 5289574). ZimaOS 192.168.1.186'da NetMovies ayakta
+NetMovies (D:\projects\netmovies, fix/general-stability @ 5289574). ZimaOS 192.168.0.186'da NetMovies ayakta
 (smoke YEŞİL), tünel hâlâ laptopta. Önce .claude/handoffs/latest.md ve docs/ZIMAOS-DURUM.md oku, Verify çalıştır.
 Sıra: ZimaOS'u 5289574'e çek → tünel geçişi (onayla) → istemci adresleri .186 → DeanOS temizliği (onayla).
 ```

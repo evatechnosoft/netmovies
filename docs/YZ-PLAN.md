@@ -84,7 +84,7 @@ bunun üstüne ölçülerek eklenir.
 ## Ev YZ geçidi (2026-09-27, ZimaOS)
 
 `infra/yz/` → ZimaOS `/DATA/AppData/yz/`. Tek OpenAI uyumlu uç:
-`http://192.168.1.186:4000/v1`, anahtar yok (yalnız ev ağı, tünele açık değil).
+`http://192.168.0.186:4000/v1`, anahtar yok (yalnız ev ağı, tünele açık değil).
 - `model: "gemini"` → gemini-3.5-flash-lite; anahtar NetMovies panelindeki
   `admin.json`'dan açılışta okunur, diske/uygulamalara yazılmaz. Kota/hata → `yerel`.
 - `model: "yerel"` → Ollama `gemma4:12b` (Quadro P620 GPU + CPU). İndirme hattı

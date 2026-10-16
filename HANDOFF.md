@@ -12,12 +12,13 @@ eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvisio
   Yayınlanan APK **debug imzalı** (`assembleDebug`); `assembleRelease` İMZASIZ çıkıyor, onu yayınlama.
 - **Projektör** (192.168.0.205:5555, HY300 Pro RK3326): 0.9.72 kurulu, `HomeAlias` enable + `set-home-activity` →
   HOME = NetMovies (adb çıktısıyla doğrulandı). Projectivy 4.70 kurulu duruyor. Yeniden başlatma testi yapılmadı.
-- **C920** ZimaOS USB'de, `jest` konteyneri (`/DATA/AppData/jest`, host ağı) MediaPipe → HA event `jest`.
-  İlk gerçek `el_salla` 16:52:37. Hareketler HA'da hiçbir otomasyona bağlı değil (Dean eşleme söylemedi).
+- **El hareketi servisi = Hikvision** (`jest-hik`, `/DATA/AppData/jest`, host ağı, RTSP .218:554, UI :8178) → HA event `jest`.
+  C920 emekli (gece görüşü zayıf): `jest` servisi compose'da `profiles: [c920]` arkasında, `up -d` onu başlatmaz.
+  16 Eki: `jest-hik` ayakta ama kamera .218 "No route to host". Hareketler HA otomasyonuna bağlı değil.
 - **Hikvision DS-2CD2423G0-IW**: sıfırlandı, aktive edildi (şifre Bitwarden), Wi-Fi Huntercjx, ev-dhcp .218 (Wi-Fi MAC
   d0:c5:d3:f5:d0:75) / .219 (kablo). HA `camera.192_168_0_218` 1080p snapshot alındı ~17:01.
   **18:30'da .218 cevap vermiyor, ARP'ta yok** — muhtemelen Dean gücü/kabloyu çekti; doğrulanmadı.
-  Dean'de bu modelden 4 adet var (kapı + odalar). Hareket algılama ve iki yönlü ses kapalı.
+  Tek kamera kullanılıyor; başka kamera kurulumu yok (Dean, 16 Eki). Hareket algılama ve iki yönlü ses kapalı.
 - **Eski Android kutu** (Amlogic MBX g02ref, Android 4.1.2, MAC 00:1c:89:3e:03:c0, ev-dhcp .206): ADB ağdan kapalı,
   şu an ağda yok. ZimaOS'ta `python3 -m http.server 8177` (`/DATA/AppData/kutu-indir`, 19:40'ta `timeout` ile kapanır):
   RetroArch 1.22.2 (F-Droid, minSdk 16), fceumm + gpsp çekirdekleri, 3 açık lisanslı NES oyunu.
@@ -26,9 +27,8 @@ eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvisio
 ## Next
 1. Hikvision geri geldi mi: `ssh zima 'curl -s -m5 -o /dev/null -w "%{http_code}" http://192.168.0.218/'` → 200 değilse
    Dean'e kamera elektrikte mi diye sor. Gelince Dean'den oda adı al, HA'da yeniden adlandır + Ev Paneli'ne ekle.
-2. Dean'den C920 hareket → eylem eşlemesini al (öneri: el_salla = salon ışığı), HA otomasyonu `event_type: jest`.
-3. Diğer 3 Hikvision: aynı yol (hafıza `hikvision-kup-kamera`).
-4. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
+2. Dean'den hareket → eylem eşlemesini al (öneri: el_salla = salon ışığı), HA otomasyonu `event_type: jest`.
+3. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
    Lenovo Instagram Lite; Smart Station ESPHome; Evaitec tünel cloud/my/dash/prod düşük.
 
 ## Don't repeat
@@ -43,15 +43,15 @@ eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvisio
 ## Verify
 git rev-parse --short HEAD                          # 8484065
 curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'   # v0.9.72-poc
-ssh zima 'docker ps --format "{{.Names}}" | grep -E "^(jest|ev-dhcp|ha)$"'          # üçü de
+ssh zima 'docker ps --format "{{.Names}}" | grep -E "^(jest-hik|ev-dhcp|ha)$"'      # üçü de
 adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -1   # .HomeAlias
 
 ## Yeniden başlangıç promptu (yapıştır)
 ```
-Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), C920 ZimaOS'ta el hareketi
-servisi (jest → HA event), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
+Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), el hareketi servisi
+Hikvision'dan (jest-hik → HA event; C920 emekli), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
 son kontrolde çevrimdışıydı; eski Android kutu retro konsol için RetroArch bekliyor.
-Ortam: C:\projects\netmovies (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
-Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) C920 hareket→eylem
-eşlemesi 3) kalan 3 Hikvision. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
+Ortam: C:\projects\evaitec\netmovies, PC DEANLOQ (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
+Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) hareket→eylem
+eşlemesi. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
 ```

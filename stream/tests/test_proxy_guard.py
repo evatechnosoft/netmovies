@@ -52,7 +52,7 @@ class HostGuardTest(unittest.TestCase):
 
     def test_home_lan_allowed(self) -> None:
         # Ev ağındaki kaynaklar (NAS/ZimaOS M3U, LAN IPTV) proxy'den geçebilmeli.
-        self.assertTrue(self._is_public("http://192.168.1.186:4602/liste.m3u"))
+        self.assertTrue(self._is_public("http://192.168.0.186:4602/liste.m3u"))
         self.assertTrue(self._is_public("http://192.168.0.10/kanal.ts"))
 
     def test_allowed_nets_is_configurable(self) -> None:
@@ -61,7 +61,7 @@ class HostGuardTest(unittest.TestCase):
         helpers._ALLOWED_NETS = ()
         helpers._host_cache.clear()
         try:
-            self.assertFalse(self._is_public("http://192.168.1.186/liste.m3u"))
+            self.assertFalse(self._is_public("http://192.168.0.186/liste.m3u"))
         finally:
             helpers._ALLOWED_NETS = original
             helpers._host_cache.clear()
