@@ -1,5 +1,6 @@
 # Handoff: ev ağı cihazları, kamera, projektör (15 Eki akşam)
-> 2026-10-15 ~18:30 · `fix/general-stability` @ 8484065 · 0 dirty · NetMovies kodu temiz; bu oturumun işi çoğunlukla ev ağı/cihaz
+> 2026-10-17 · `fix/general-stability` @ 4e0f933 · 0 dirty · NetMovies kodu temiz; iş çoğunlukla ev ağı/cihaz
+> 17 Eki (WORKSTATION, Precision 3551, 192.168.0.119): ZimaOS .186 ssh/3310 zaman aşımı — kapalı/ağsız, WOL denenmedi. Projektör .205 ve Hikvision .218 de cevapsız.
 
 ## Goal
 Dean'in ev cihazlarını düzenlemek: DHCP ZimaOS'ta (ev-dhcp), kameralar HA'da, projektör tek uygulama (NetMovies),
@@ -39,7 +40,7 @@ eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvisio
 - PowerShell'de `$h` ve `$H` aynı değişken; ssh'a şifre geçerken CR'yi sil (`tr -d '\r'`).
 
 ## Verify
-git rev-parse --short HEAD                          # 8484065
+git rev-parse --short HEAD                          # 4e0f933 (veya bu devir commit'i)
 curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'   # v0.9.72-poc
 ssh zima 'docker ps --format "{{.Names}}" | grep -E "^(jest-hik|ev-dhcp|ha)$"'      # üçü de
 adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -1   # .HomeAlias
@@ -49,7 +50,7 @@ adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.
 Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), el hareketi servisi
 Hikvision'dan (jest-hik → HA event; C920 emekli), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
 son kontrolde çevrimdışıydı; eski Android kutu retro konsol için RetroArch bekliyor.
-Ortam: C:\projects\netmovies, PC DEANLOQ (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
-Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) hareket→eylem
+Ortam: C:\projects\netmovies, PC `hostname` ile kontrol et (DEANLOQ / WORKSTATION) (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
+Önce HANDOFF.md oku, Verify bloğunu koş; ZimaOS cevapsızsa `python ~/.ai/scripts/home-net/zima_wol.py` arka planda. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) hareket→eylem
 eşlemesi. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
 ```

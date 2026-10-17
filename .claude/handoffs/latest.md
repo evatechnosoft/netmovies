@@ -1,84 +1,56 @@
-- 14 Eki 23:20 TABLET (Eralp Tab A9+ SM-X210, USB ADB R92XC0WGTYM, kablosuz 192.168.0.28 port değişken): 120→31 üçüncü taraf uygulama (`~/.ai/scripts/taba9-temizlik.txt`), dexopt bitti, ekran kilidi kaldırıldı, Nova 8.9.4+Prime kurulu ve varsayılan, Claude kuruldu. Teams/Outlook/Office/CRD/Samsung Notes/Good Lock silindi, Dean "hepsi gitsin" dedi. AÇIK: Good Lock modülleri (Galaxy Store TR'de "not available"); `~/.ai/scripts/apkmirror_kur.py` yazıldı (paket adıyla APKMirror → aapt doğrulama → adb install), ilk deneme yanlış uygulamayı (eski SystemUI "Good Lock") indirdi, paket-adı sürümü denenmedi. Modül paket adları betik içinde değil; FineLock 1.3.13 kurulu, bağlantı vermiyor. Dean "No items" diyor (Nova çekmecesi/ana ekran boş olabilir, doğrulanmadı). ROM: binary 12, kilit açma engelli, ROM yolu kapalı.
-- 14 Eki 21:00: Anne Yarısı S1B3 (DDizi→YouTube HLS) 502: segment adresi `.../index.m3u8/.../file/seg.ts`, proxy `.m3u8` geçtiği için segmenti manifest sanıyordu (`prefetch_segments` urljoin ValueError). `helpers.is_hls_segment` yol-sonu `.m3u8`, `detect_hls_from_url` segmentse False. Test `test_hls_tespit.py`, 256/0. Stream rebuild + tünel recreate 18:00Z, canlı segmentler 200.
-## DEVİR — 2026-10-13 10:40 (EN GÜNCEL) — tek ağ 0.x: DHCP MR200'e, WOL, .186 kalıcı
-Hedef: Dean "iki modemi en iyi şekilde yapılandır; yeni cihaz nasıl IP alacak düşün; 3. modeme yer ayır". Önce: "Mibox açınca WOL göndermeliydi".
-Durum (kanıtlı):
-- TV 0.9.70 (WOL hedefi arayüz yayın adresi; eskisi sabit 192.168.1.255) ve 0.9.71 (LOCAL_URL 0.186, Tizen çocuk/smoke/compose/atv_power 0.x) üç yerde yayında: `5720a23`, `c3fcd56`, GitHub v0.9.70/71-poc, evaglass apps.json vc 971 `bb62f86`, yerel OTA app_update → v0.9.71-poc. Unit test 102/0. Mi Box'ta hâlâ 0.9.69 (izlerken kurulmadı); cihazda doğrulanmadı.
-- ZimaOS supervisor açılıştan ~2 dk sonra `Supervisor eth0` ipv4.addresses'i siliyor → .186 düşüyordu. `/etc/NetworkManager/dispatcher.d/90-sabit-ip` eklendi; `nmcli con up` testinde .186 geri geldi. Gerçek reboot görülmedi. Hafıza `zimaos-supervisor-adres-siler`.
-- Mi Box fişten sonra Wi-Fi 24:18:C6:B8:05:B8 ile 0.24'te (USB-Eth gelmedi); ADB 0.24:5555 bağlı.
-- YZ geçidi ölü: sunucu `.env` YZ_GECIT_URL=1.186:4000 (konteynerden timeout; 0.186:4000 → 200). Düzeltme geçiş betiğinde.
-- Netmaster DHCP .10–.109, 7 gün, rezervasyon YOK. MR200 (0.2 ikinci IP, ana 1.2) DHCP kapalı; DHCP formunda havuz/ağ geçidi/DNS + rezervasyon var.
-Karar: DHCP MR200'e (LAN 192.168.0.2, ikinci IP kapalı, havuz .100–.179, GW .1, kira 1 gün), Netmaster DHCP kapalı. .3 = 3. modem yedeği, .4 EAP115, .5 switch. Plan: `~/.ai/scripts/home-net/ADRES-PLANI.md`.
-Çalışan iş: arka planda `~/.ai/scripts/home-net/ag_gecis_0x.sh` — TV 2 dk boşta kalınca: `tp_dhcp_0x.py` (ekranlar `$TEMP/claude/hn/gecis`) → nmap broadcast-dhcp-discover (ZimaOS docker, adres değiştirmez) 0.2 teklifi yoksa DUR → `nm_dhcp.py kapat` → yine teklif yoksa `nm_dhcp.py ac` (geri alma) → `.env` YZ_GECIT_URL 0.186 (.env.bak-0x) + recreate stream cloudflared atv. 10:37'de TV hâlâ oynuyordu (bekliyor). tp_dhcp_0x.py UI adımları (rezervasyon silme/Save onay) denenmemiş — ekran görüntülerine bak.
-Tekrarlama: laptopta `ipconfig /renew` ile DHCP test etme (Wi-Fi donanım kapalı, laptop düşerse geri alma yolu kalmaz); izlerken MR200/rebuild yok.
-Tek sonraki iş: geçiş çıktısını oku (BITTI mi, rezervasyon satırları ok mi) → Mi Box'a 0.9.71 kur (`cmd package compile -m speed -f`) → HA'da LG .15 webostv reconfigure.
+# Handoff: ev ağı cihazları, kamera, projektör (15 Eki akşam)
+> 2026-10-17 · `fix/general-stability` @ 4e0f933 · 0 dirty · NetMovies kodu temiz; iş çoğunlukla ev ağı/cihaz
+> 17 Eki (WORKSTATION, Precision 3551, 192.168.0.119): ZimaOS .186 ssh/3310 zaman aşımı — kapalı/ağsız, WOL denenmedi. Projektör .205 ve Hikvision .218 de cevapsız.
 
-Ek (11:25): telefon temizliği (ağdan bağımsız, ayrı iş) bitti — Mi Note 3 (annem, 0.26:5555) 53 paket + Nova kaldırıldı, font 1.15, 43 GB boş; Galaxy A02s (Gül, USB R8NR2012WYJ) 27 paket + trim-caches, boş 5,4→8,8 GB. Listeler/geri alma `~/.ai/scripts/mi-note3-temizlik.txt`, `a02s-temizlik.txt`; hafıza `telefon-sadelestirme`. Açık: Mi Note 3'teki Google hesabı/WhatsApp kimin; annenin Mi Note 3'e taşınması; foto yedeği (ZimaOS önerildi). Ağ geçişi 11:21'de hâlâ TV boşalmasını bekliyordu.
+## Goal
+Dean'in ev cihazlarını düzenlemek: DHCP ZimaOS'ta (ev-dhcp), kameralar HA'da, projektör tek uygulama (NetMovies),
+eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvision-kup-kamera`, `jest-servisi-c920`,
+`kurulu-uygulamaya-onaysiz-dokunma` (memory dizini `~/.claude-team/projects/C--projects-netmovies/memory/`).
 
-## DEVİR — 2026-10-10 10:10 (EN GÜNCEL) — ses/görüntü kayması
-Hedef: Dean "Daha 17'de ses geriden geliyor, bir daha karşılaşmayalım".
-Durum (kanıtlı): kök neden kaynak — DiziPal (sn.dplayer82) ayrı ses playlist'i 8640,07 sn, görüntü 8628,17 sn (oran 1,00138), kayma doğrusal (~9 sn 1:49'da). `c099fa7` (kayık kaynak sona) + `7279fc1` (engine `av_oran` ölçer → gateway zorla proxy + `&av_oran` → proxy görüntü EXTINF + TS PES PTS/DTS'yi esnetir, `stream/Public/Proxy/Libs/av_esitle.py`) push'lu, ZimaOS'ta canlı (07:03Z build). Canlı ölçüm: ses/görüntü playlist toplamları 8640,07=8640,07; YouTube'a göre desync 3000/6500/7800 sn'de −0,53/−0,63/−0,56 (sabit, önceden 3,6→8,8 büyüyordu). Testler engine 6/6, stream 236/236, smoke YEŞİL, w.evaitec.com 303.
-Doğrulanmadı: kalan ~0,5 sn sabit fark kaynakta mı ölçüm artefaktı mı; Dean'in TV'de gözle teyidi yok.
-Tekrarlama: ffmpeg `-ss`+`-c copy` ile A/V ölçme (akışları bağımsız kaydırır) — ham segment PTS + YouTube ses xcorr kullan (scratchpad raw.py mantığı, hafıza `ayri-ses-kaymasi`). TV oynarken rebuild yok; `/tmp/nm_deploy.sh` ZimaOS'ta boşta bekleyip deploy eder.
-Tek sonraki iş: Dean ağız-ses uyumsuzluğu bildirirse sabit ofset ekle; muxed/fMP4 kaynakta şikâyet gelirse kapsamı genişlet.
+## State
+- **TV 0.9.72 yayında** (8484065): kapalı `HomeAlias` (HOME kategorisi). GitHub `v0.9.72-poc`, evaglass
+  `netmovies-tv-v0.9.72`, apps.json vc 972 (`8e502ff`), yerel OTA `data/apk` → `/api/v1/app_update` size 22768680.
+  Yayınlanan APK **debug imzalı** (`assembleDebug`); `assembleRelease` İMZASIZ çıkıyor, onu yayınlama.
+- **Projektör** (192.168.0.205:5555, HY300 Pro RK3326): 0.9.72 kurulu, `HomeAlias` enable + `set-home-activity` →
+  HOME = NetMovies (adb çıktısıyla doğrulandı). Projectivy 4.70 kurulu duruyor. Yeniden başlatma testi yapılmadı.
+- **El hareketi servisi = Hikvision** (`jest-hik`, `/DATA/AppData/jest`, host ağı, RTSP .218:554, UI :8178) → HA event `jest`.
+  C920 emekli (gece görüşü zayıf): `jest` servisi compose'da `profiles: [c920]` arkasında, `up -d` onu başlatmaz.
+  16 Eki: `jest-hik` ayakta ama kamera .218 "No route to host". Hareketler HA otomasyonuna bağlı değil.
+- **Hikvision DS-2CD2423G0-IW**: sıfırlandı, aktive edildi (şifre Bitwarden), Wi-Fi Huntercjx, ev-dhcp .218 (Wi-Fi MAC
+  d0:c5:d3:f5:d0:75) / .219 (kablo). HA `camera.192_168_0_218` 1080p snapshot alındı ~17:01.
+  **18:30'da .218 cevap vermiyor, ARP'ta yok** — muhtemelen Dean gücü/kabloyu çekti; doğrulanmadı.
+  Tek kamera kullanılıyor; başka kamera kurulumu yok (Dean, 16 Eki). Hareket algılama ve iki yönlü ses kapalı.
+- **Eski Android kutu** (Amlogic MBX g02ref, Android 4.1.2, MAC 00:1c:89:3e:03:c0, ev-dhcp .206): ADB ağdan kapalı,
+  şu an ağda yok. ZimaOS'ta `python3 -m http.server 8177` (`/DATA/AppData/kutu-indir`, 19:40'ta `timeout` ile kapanır):
+  RetroArch 1.22.2 (F-Droid, minSdk 16), fceumm + gpsp çekirdekleri, 3 açık lisanslı NES oyunu.
+- **Fold**: normal Instagram kaldırıldı; Facebook Lite + Instagram Lite kurulu; Messenger zaten yoktu.
 
-## DEVİR — 2026-10-09 23:40 → kök HANDOFF.md State; ek: saat 0.1.24 (hız 1400, ⇄/⇅ eksen, ⌃ alt yay menü) yayında, yön geri bildirimi bekleniyor. Laptop Dean isteğiyle kapatıldı.
+## Next
+1. Hikvision/HA işleri beklemede — Dean açmadıkça sorma (hafıza `ev-cihaz-sorma`).
+2. Açık kalanlar (eski): ZimaOS WOL açılış takılması + BIOS kontrolü; Tab A9+ Wi-Fi kapalı (Dean açacak);
+   Lenovo Instagram Lite; Smart Station ESPHome; Evaitec tünel cloud/my/dash/prod düşük.
 
-## DEVİR — 2026-10-09 10:30 (EN GÜNCEL; kök HANDOFF.md ile aynı)
-Hedef: reklamsız TV istemcisi + ZimaOS sunucu; bitince sormadan üç yere yayınla.
-Durum (kanıtlı): `f80d40d` push'lu, çalışma alanı temiz, smoke YEŞİL. 0.9.64 üç yerde (yerel OTA + GitHub `v0.9.64-poc` indirme sha `208418f0…` eşleşti; evaglass `apps.json` vc 964 `355bb2b`; ota-ayna 10 dk'da kendi çeker). Aramada "Klavye:" ABC / QWERTY (Türkçe Q 12x4) / Sistem (ızgara gizli, LeanKey) — emülatörde görüldü, Mi Box'a ADB ile kuruldu (versionName=0.9.64, 9 Eki ~11:00; Yeraltı 17. bölüm 1:34:31'de duraklatılmışken), Dean'in kullanımı DOĞRULANMADI. `sunucu.sh` laptop yedeğe geçince `yedek_reddet.py` başlatır (:3310 RST, TV anında yeniden keşfeder), aktife geçerken durdurur; şu an laptopta açık, yeniden başlatmada kalkmaz (autostart'a eklenmedi).
-Karar: QWERTY 12 sütun → tuş 38 dp (sonuçlara ~3 poster kalsın); Sistem modu izgara yanında daralan sonuç sorununu çözer.
-Tekrarlama: Start-Process'e MSYS yolu (/c/...) verme → python açılmaz, `cygpath -m` şart. apps.json CRLF.
-Tek sonraki iş: Dean'in 0.9.64 klavye geri bildirimi + Yeraltı Devam Et konumu korundu mu (Sistem modunda LeanKey kendiliğinden açılıyor mu).
+## Don't repeat
+- Dean'in cihazındaki uygulamayı (modlu bile olsa) onaysız kaldırma/değiştirme — Projectivy ayarları gitti.
+- Kırık/crack'li APK (Projectivy Premium "C=TryRoom") kurma; korsan ROM sağlama.
+- Wi-Fi ADB'de `svc wifi disable` çalıştırma (Tab A9+ Wi-Fi'sız kaldı).
+- Git Bash'te `adb push ... /data/local/tmp` → `MSYS_NO_PATHCONV=1` şart, yoksa yol bozulur.
+- itch.io indirmesini betikle çekme — `/file/<id>` "invalid key" veriyor; Dean tarayıcıdan indirsin.
+- ZimaOS'ta yeni docker bridge ağı açılamıyor (havuz dolu) → `network_mode: host`.
+- PowerShell'de `$h` ve `$H` aynı değişken; ssh'a şifre geçerken CR'yi sil (`tr -d '\r'`).
 
-AÇIK (9 Eki öğlen): Dean "dün Fold 8'de bir şey kalktı, saat bağlanmıyor; ekranda gösterge yok". Kanıt: Fold 192.168.1.111 ping yok, `adb mdns services` boş → kablosuz ADB kapalı/telefon ağda değil; teşhis YAPILAMADI. Dean'den istendi: Fold'da Kablosuz hata ayıklama aç + IP:port yaz, saat modeli + hangi telefona bağlı. Şüpheliler (doğrulanmadı): S24'ten kaldırılan `com.samsung.android.app.watchmanager`, `com.samsung.wearable.watch6plugin`, `com.samsung.android.shealthmonitor`; Fold'da `app.find`, `beaconmanager` devre dışı. Geri alma: kaldırılan `cmd package install-existing <p>`, devre dışı `pm enable <p>` (hafıza telefon-sadelestirme).
-Tek sonraki iş: Dean ADB IP:port verince saatin eşli olduğu telefonu bul, ilgili paketi geri aç.
+## Verify
+git rev-parse --short HEAD                          # 4e0f933 (veya bu devir commit'i)
+curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'   # v0.9.72-poc
+ssh zima 'docker ps --format "{{.Names}}" | grep -E "^(jest-hik|ev-dhcp|ha)$"'      # üçü de
+adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -1   # .HomeAlias
 
-## DEVİR — 2026-10-08 öğlen (eski)
-Repo kodu değişmedi (`1ead029`). Bu oturum ev ağı/cihaz işi:
-- **LG SIMPLINK çözülmedi (kanıt):** 10:46'da LG hâlâ 14 sn'de bir `Give Device Vendor Id`, kutu `00 00 00`. Kutu tarafı salt-okunur sistem ayarı, root yok. Dean'e önerildi: LG'de SIMPLINK kapat-aç + TV fişten 30 sn; Otomatik Güç Senkronizasyonu aç.
-- **Kapatma sorunu açık:** kutuda `hdmi_control_auto_device_off_enabled=1`; kutu uyuyunca TV "sinyal yok"ta kalıyor. Standby'ın gidip gitmediği görülmedi. Dean'e sorulan, cevapsız: TV ikinci basışta mı kapanıyor, kendiliğinden mi? Test: Dean kapatır, 1 dk içinde `dumpsys hdmi_control` (halka 20 satır, vendor döngüsü siler).
-- **Zima Samba (Dean onaylı, canlı):** `/etc/samba/casa.conf`'a eklendi (yedek `casa.conf.bak-20261008`), `systemctl restart icewhale-files` + `smbcontrol smbd reload-config`. `[recs]` kayıt klasörü anonim salt-okunur (anonim mkdir ACCESS_DENIED), `[shared]` /DATA/shared dean'e yazılır (apps/pictures/documents), `[apps]` /DATA/shared/apps anonim yazılır (put/ls/del denendi), içinde TV 0.9.62 + Wear 0.1.19 APK. Dean CX'ten (telefon + Mi Box) bağlandı. Hafıza `zima-samba-casa-conf`.
-- **Dean'in telefonu (S928B) temizliği:** kablosuz ADB, port değişiyor → `adb mdns services` ile bul. 33 uygulama `pm uninstall --user 0` (liste oturum scratchpad'inde `telefon_kaldirilan_20261008.txt`; geri: `cmd package install-existing <paket>`). Kuruldu: Trendyol, Instagram, Hepsiburada, n11 (`com.dmall.mfandroid`). Sonra 8 tane daha (LADB, Termux, ATV Tools, RustDesk, ZeroTier, 2 WOL, ota.tv) → toplam 41. Kalan karar Dean'de: Pokus, 5 webapk, APK Extractor. Tasker: 26 Ağu kurulmuş (gözlük/CyanBridge denemesi olası), tek açık erişilebilirlik servisi + sürekli ön plan servisi, `/sdcard/Tasker` yok → kaldırma önerildi, Dean "kaldır" demedi, bekliyor.
-- **S24: Tasker da kaldırıldı** (42). EvaGlass mikrofon şikâyeti S24 değil, Fold'daydı.
-- **Fold 8 (SM-F971B, 192.168.1.111, kablosuz ADB eşleşti, port değişir → `adb mdns services`):** mikrofon çakışması = Google "Hey Google" HOTWORD (1 saatte 20 kez 1-2 sn); EvaGlass mikrofonu `ignore`. Öneri: Hey Google + Bixby sesle uyandırma kapat (Dean'e söylendi). Depo %32 (sorun yok), RAM 2,7/11 GB boş + 8 GB swap. 13 kaldırıldı + 22 devre dışı (Bixby dahil; Hey Google kaldı), RAM 3,4 GB boşa çıktı. Liste: hafıza `telefon-sadelestirme`. Kalan liste (sosyal/araç/bankalar/Office) Dean'de, istenmedi.
-- **Air mouse:** USB alıcı TV'ye takılırsa yalnız LG'yi sürer; Mi Box USB'sine (hub) takılmalı.
-**Tek sonraki iş:** kapatma cevabı (Fold temizliği bitti, hafıza telefon-sadelestirme) → CEC dökümü; yoksa onay bekleyen ızgara klavye / Nextcloud indeksi.
-
-## DEVİR — 2026-10-04 öğleden sonra (eski)
-GÜNCELLEME 11 (6 Ekim 16:00): dal `248c967` push'lu. (1) Sunucu `a1ac0b1` Zima'da canlı (stream Created 12:48Z, tünel 303): `continue_watching` tek YouTube videolarını sona atar (`_youtube_tek_video`, media_type≠serie), Kaos Show (serie) yerinde; 229 test OK. (2) TV 0.9.57 üç yerde (yerel OTA `v0.9.57-poc`, GitHub `v0.9.57-poc`, evaglass `netmovies-tv-v0.9.57` apps.json tv/phone vc 957, sha `575a6a53…`, indirme sha eşleşti): Devam Et → "Devam · Dizi"/"Devam · Film" sekmeleri; Rafları düzenle'de "Kişisel listeler — sekmeler" (OK gizle/göster, basılı tut ▲▼), prefs `home_segment_hidden`; eski "Devam edenler" kayıtlı sırada ikisine bölünür (`eskiDevamiBol`). 88 test OK; cihazda/emülatörde DOĞRULANMADI. (3) Dizilla/DiziYou zincir taraması: ikisi de çalışıyor (yalnız DiziYou Netu 502, dış), düşük puan eski hatalardan. (4) Gece: 5 Ekim 22:40 elle `poweroff` (192.168.1.185), 07:50 açılış (WOL izinli saatte) → gece uyanma yok; 00:00 timer hiç tetiklenmedi, 7 Ekim 00:00 ilk gerçek test. Dean: sabah RTC + WOL ikisi kalsın, 10'dan önce açılış hata değil. TEK SONRAKİ İŞ: Dean'in 0.9.57 geri bildirimi; 7 Ekim sabah `journalctl --list-boots`.
-GÜNCELLEME 10 (5 Ekim 10:25): 0.9.53 üç yerde (sha `d82c98e5…`). Gece kapanma kök nedeni: telefon widget'ı dahil her NetMovies süreci sunucu yokken WOL yolluyordu (boots 00:00→00:01:28→…); artık yalnız ekrandayken ve 07-24. Telefon da güncellenmeli. TV 10:16'da yeniden konuştu (Dean uygulamayı yeniden açtı); 10:16:50 Lioness load_item OK (S3B7 listede) ama resolve_sources HİÇ çağrılmadı — Dean'in gördüğü "kaynak bulunamadı" ekranı doğrulanmadı. TV güncellemeyi kendi denetlemedi (app_update isteği yok); menüden "Güncellemeyi kontrol et".
-GÜNCELLEME 9 (5 Ekim 10:20): Dean "film izlerken döndü, çıkıp girince uygulama donuk". Kanıt: Lioness S3B7 (kayıt) 27:49'da (09:54:08) TV'den sunucuya istekler TAMAMEN kesildi (yerel ve tünel), çökme izi yok, kutu ağda (ARP REACHABLE, 8008/8009 açık, atv köprüsü uyanık) → süreç ölmeden kilitlenmiş. Kök neden BİLİNMİYOR. 0.9.52 üç yerde (sha `8400e8a8…`): `CrashLog.donmaBekcisi` ana iş parçacığı 8 sn kilitlenirse yığını `son_crash.txt`'ye yazar, sonraki açılışta şerit + client_log. Sonraki iş: tekrar donarsa Dean uygulamayı durdurup açsın, `client_log`'da `DONMA` satırını oku. Not: Dean izlerken 3 stream rebuild yaptım (client_log boşluğuna güvenerek) — kural düzeltildi, boşta kanıtı `remote/state` sayısı.
-GÜNCELLEME 8 (5 Ekim 09:35): 0.9.51 üç yerde (yerel OTA 22 686 484 B · `v0.9.51-poc` · evaglass vc 951, sha `0d083150…`), cihazda doğrulanmadı. Dean: "ne yazarsam bulsun, öne al; oynatma listesi switch; Gözat'ta DDizi'nin önüne". Sunucu `35ca00c`+`a59ce87`+`c3e34c2` canlı (stream 06:34Z, engine 06:25Z): `search_all?yt=video|liste|0`, sıra resmi YouTube dizi kartı → YouTube araması (12, shorts elenir) → sağlayıcılar. YouTube tek video film gibi açılır (açıklamasız), sıradan liste listedeki sırayla bölüm. TV: arama ekranında "YouTube: ▶ Video / ☰ Oynatma listesi" hapları, Gözat'ta YouTube hapı Seriler'den hemen sonra. Kanıt: "kaos show" 6 sn, "abi" ilk kart A.B.İ. resmi + bölüm videoları, "kızılcık şerbeti" liste modunda "Bölümler | Kızılcık Şerbeti", Barış Manço konser listesi 10 bölüm. YAPILMADI: YouTube benzeri "ilgili videolar" rafı.
-GÜNCELLEME 7 (5 Ekim 09:00) — GÜNCELLEME 6 KAPANDI. Kök neden WARP değil: hızlı yol `encoded_url` olarak arama adresi (`/results?search_query=`) gönderiyor, motor `_links_for` önce `load_links(arama)` çağırıyor, yt-dlp arama sayfasında `-j` ile 60 sn'de bile bitmiyor → motor 30 sn 504. Ölçüm (engine içi): tek video yt-dlp 2,6–3,6 sn (WARP'lı/proxysiz fark yok), search 0 sn (önbellek), load_item 0,9 sn, load_links 3,4 sn. `5cca2dd` `YouTube.load_links` yalnız `watch?v=`/youtu.be çözer (`video_mu`), 3 test OK (konteynerde). Engine Zima'da 05:57Z kuruldu. Kanıt: stream `resolve_sources plugin=DiziMom title=A.B.İ. mode=fast episode_no=6` → `['YouTube · YouTube | Resmi', 'DiziMom · DiziMom | Kaynak']` soğuk 5,6 sn, sıcak 0,0 sn. ZimaOS sabah kapalıydı; Dean açtı, açılışta yığın kalkmadı → `docker compose --profile tunnel up -d` ile kaldırıldı (restart politikası sonradan kendi kaldırdı, Created 05:51Z). Sonraki iş: Dean TV'de A.B.İ. kayıtsız bir bölüm (1-15) açıp 1080p YouTube geldiğini görsün; Dean'den Kaos Show gibi yeni yayın adları → `youtube_listem.json`.
-GÜNCELLEME 6 (4 Ekim 19:15) — TEK SONRAKİ İŞ: `9447f86` canlı (engine/stream 16:08Z, tünel 303) ama YouTube hızlı yolda HÂLÂ ilk değil: A.B.İ. B6 iki çağrı da ~20 sn, yalnız DiziMom. Isınmış doğrudan `plugin=YouTube` çözümü de 25,7 sn → darboğaz liste değil. Şüpheliler (ölçülmedi): `ytdlp_info` WARP üzerinden yavaş (`--proxy WARP_PROXY`, YouTube için WARP gereksiz olabilir), ya da motorun hızlı mod iç zaman aşımı 25 sn. Ölç: engine'de `time yt-dlp -j --proxy http://netmovies-warp:8080 https://www.youtube.com/watch?v=c3IYFTVjXxc` vs proxysiz. Çözüm adayları: YouTube'da proxysiz yt-dlp; `load_links` sonucunu (manifest ~6 sa geçerli) önbelleğe al; dizi açılınca ilk 3 bölümü ısıt. Kaos Show rafı ve DDizi düzeltmesi canlı ve çalışıyor.
-GÜNCELLEME 5 (4 Ekim 19:10): engine+stream 16:01Z kuruldu (`800d359`: Kaos Show rafı canlı, `get_main_page plugin=YouTube` → Kaos Show). AMA hızlı yolda YouTube ilk olmuyordu: soğuk YouTube çözümü 25 sn, bütçe 15 sn. `9447f86` düzeltir (eklentide 1 saat önbellek, bütçe 20 sn, yavaş boş yanıt negatif önbelleğe girmez) — bekçi `bucvqajyu` TV boşa düşünce kurup A.B.İ. B6'yı iki kez çözerek doğrular. Kurulmadıysa elle kur ve `resolve_sources plugin=DiziMom title=A.B.İ. mode=fast episode_no=6` ilk kaynağın "YouTube | Resmi" olduğuna bak. Not: A.B.İ. başlığı stream `_YT_YOK` negatif önbelleğine düşmüş olabilir; stream rebuild onu sıfırlar.
-GÜNCELLEME 4 (4 Ekim 19:00): Resmi YouTube sağlayıcı + DDizi oynatıcı düzeltmesi CANLI (engine Created 15:58Z; `get_plugin_names` YouTube içeriyor; `resolve_sources plugin=YouTube A.B.İ. B5` → "YouTube | Resmi", 5/22). Canlı engine'deki YouTube.py ESKİ sürüm (`_LISTEM` yok): `800d359` (Kaos Show `youtube_listem.json`, "YouTube Listem" rafı) ve stream `cc829f9` (hızlı modda paralel YouTube) henüz KURULMADI — arka plan bekçisi `engine stream` + cloudflared'ı TV boşa düşünce kuracak; kurulmadıysa: TV boşken `docker compose --profile tunnel up -d --build engine stream` + `--force-recreate cloudflared`. Doğrula: `docker exec netmovies-engine grep -c _LISTEM Plugins/YouTube.py` ≥1. Dean başka yayın adları verecek → `youtube_listem.json`'a satır + engine rebuild. Ayrıntı HANDOFF.md "4 Ekim gece".
-GÜNCELLEME 3 (4 Ekim akşam): Kayıt YALNIZ ELLE (hafıza `kayit-yalniz-elle`); `kayit_otomatik=0`, `kayit_takip` boş. Kalan kayıtlar: Lioness S3B7 (1080p, Türkçe ses grubu) + A.B.İ. S1B16-22; disk 11G/220G. Silinenler: Lioness S3B4/S3B5, Yeraltı S1B16 (S1 finali; KultFilmler "dublaj" 1 sa 46 dk = büyük olasılıkla aynı adlı film), Anne Yarısı 2, Neagley 8, Haysiyet 4, Altı Üstü 15.
-A.B.İ. doğrulandı (zima host `ffprobe`/`ffmpeg`, stream konteynerinde ffmpeg YOK): 7 bölüm baş/orta/son çözülüyor, 0 hata. 16-18, 21, 22 = 640x360 mp4 (DiziMom tek dosya); 19-20 = 1080p fMP4 HLS. fMP4 segmenti tek başına çözülmez, `init0.mp4` ile birleştir; ffmpeg HLS `-ss` "Invalid NAL" hataları sahte.
-Açık soru Dean'e: 360p beşini 1080p kaynaktan yeniden indirmek (onaysız dokunma). "26 izlendi" belirsiz kaldı. Fikir (yapılmadı): izlerken sıradaki bölümü indir, izleyince sil.
-Tek sonraki iş: Dean'in 0.9.50 cihaz geri bildirimi (Kayıtlar dizi kartı, bölüm listesi ✓▶●).
-GÜNCELLEME 2 (16:xx): 0.9.50 yayında (Kayıtlar dizi başına kart, bölüm listesi ✓▶●). İNDİRME DURDU: Dean "olsun ama dursun şimdilik, inenler kalsın" → `kayit_otomatik=0`, kuyruk boşaltıldı, yalnız Lioness S3B5 dublaj bitiyor. Yeni kayıt eklemeden önce SOR. DiziMom dublaj = ayrı dizi sayfası (hd16). Ayrıntı HANDOFF.md "4 Ekim 16:xx".
-GÜNCELLEME: 0.9.49 yayında; sunucu `644bf9d` Zima'da; kuyruk sorunları çözüldü (kodlu adres + pichive 403) — ayrıntı HANDOFF.md "4 Ekim öğleden sonra". Aşağıdaki "AÇIK SORUN" KAPANDI. Sonraki iş: Dean'in 0.9.49 cihaz geri bildirimi (⏺ hap, kayıttan oynatma).
-
-Ayrıntı kök `HANDOFF.md` (`4fe354e` bloğu "4 Ekim sabah"). Kısa baton:
-
-**Hedef:** Reklamsız TV uygulaması (client-tv, Mi Box) + Kayıtlar (Zima diskine indir, diskten oynat). Dean'in kusurlarını düzelt, bitince sormadan üç yere yayınla.
-
-**Durum (`fix/general-stability` @ `7fac3f8`, push'lu; Zima reposu `620d187`, stream rebuild 08:27Z):**
-- 0.9.48 üç yerde (yerel OTA 22 670 100 B, GitHub `v0.9.48-poc`, evaglass `netmovies-tv-v0.9.48` vc 948, sha `25d5f529…`). Cihazda doğrulanmadı. İçerik: `remote/state` bölümün adresini yollar, kayıt ● sol üstte.
-- Diskten oynatma KANITLI (09:45 `resolve: kayıttan · Lioness S3B4`, S3B4 segmentleri sda1'den okundu).
-- Hazır kayıtlar: Lioness S3B4, S3B7; Yeraltı S1B16 (3569 MB); Haysiyet S1B4 (2976 MB).
-- `kayit_otomatik=1` AÇIK (Dean "yayınlanınca indir"). Takip'e eklendi: Lioness, A.B.İ., MobLand, Yeraltı, Haysiyet, Anne Yarısı (bölüm-adlı girdiler kaldırıldı).
-- `620d187` canlıda: ses playlist'i baştan alınır. `7fac3f8` (otomatik tur %90+ izlenmişi atlar) push'lu, ZİMA'DA DEĞİL.
-
-**AÇIK SORUN (doğrulanmadı, 12:3x itibarıyla):** kuyruk toptan düştü:
-- Lioness S3B5 3 deneme, hep `403` `/proxy/video?url=…four.pichive.online/l.php?v=…`, ilerleme 0.0 → 403 ses listesinde DEĞİL, daha erken (master/video playlist ya da ilk segment). `620d187` düzeltmesi bu vakayı çözmedi.
-- A.B.İ. S1B16-18, S1B20-22, Daha 17 S1B19, Ömür Usta S1B2: `ValueError: kaynak bulunamadı` (DiziMom/DDizi bölüm url'leriyle `resolve_sources mode=full`). Motor mu düştü, DiziMom'da bölüm url'i mi çürük, bak: `docker logs netmovies-engine | grep resolve`, `curl .../resolve_sources?plugin=DiziMom&encoded_url=<bölüm>&mode=full`.
-- Kalan `bekliyor`: Lioness S3B6, Anne Yarısı S1B2, Neagley S1B8, Altı Üstü İstanbul S1B15 (Dean 2. dk'da, doğru kuyrukta).
-
-**Kararlar:** Dean A.B.İ. 16-17-18'i geriye dönük istedi (20-22 de kuyrukta kaldı, sormadı). MobLand S2B4 / Altı Üstü 16+ yayınlanınca otomatik tur alır (3 saatte bir, yalnız EN YENİ bölüm).
-
-**Tekrarlama:** Zima compose `export DOCKER_CONFIG=/tmp/dc`; stream rebuild sonrası cloudflared `--force-recreate` şart (502 gördük, 303'e döndü). İndirme sürerken rebuild etme (kayıt sıfırdan başlar). DiziPal `load_item` Lioness/MobLand'a 0 bölüm veriyor, bölüm listesi için `episodes_best`. `POST /kayitlar/ekle` JSON gövde çalışır; `hata` durumundaki kayıt `ekle` ile sıfır denemeyle yeniden kuyruğa girer.
-
-**Tek sonraki iş:** 403 ve "kaynak bulunamadı" kök nedeni (motor günlüğü + tek `resolve_sources` denemesi), düzelt, `7fac3f8` ile birlikte Zima'ya kur (TV `remote/status tv_online` false iken), düşen 9 kaydı `ekle` ile yeniden kuyruğa al.
+## Yeniden başlangıç promptu (yapıştır)
+```
+Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), el hareketi servisi
+Hikvision'dan (jest-hik → HA event; C920 emekli), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
+son kontrolde çevrimdışıydı; eski Android kutu retro konsol için RetroArch bekliyor.
+Ortam: C:\projects\netmovies, PC `hostname` ile kontrol et (DEANLOQ / WORKSTATION) (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
+Önce HANDOFF.md oku, Verify bloğunu koş; ZimaOS cevapsızsa `python ~/.ai/scripts/home-net/zima_wol.py` arka planda. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) hareket→eylem
+eşlemesi. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
+```
