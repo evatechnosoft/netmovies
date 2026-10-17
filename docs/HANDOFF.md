@@ -217,7 +217,7 @@ ekranındaki gerçek ölçüleri (emülatör 698dp, TV ~960dp).
 ## Yeniden başlangıç promptu (yapıştır)
 
 ```
-NetMovies (D:\projects\netmovies, dal fix/general-stability). 0.9.9 yayında.
+NetMovies (C:\projects\evaitec\netmovies, dal fix/general-stability). 0.9.9 yayında.
 Oynatıcıda ok tuşları artık sarma değil kumanda barı (Dean: "oklarla gezemiyorum").
 Bu oturumda: (0) film başlarken kendi kendine basılmış gibi olmasının kök nedeni —
 bir ekranda basılan tuşun ACTION_UP'ı yeni açılan ekrana düşüyordu (KeyPairGate);
@@ -1414,7 +1414,7 @@ Karar/kurulum dokümanları: `docs/MIMARI_SPEC.md`, `docs/ISKELET_SECIMI.md`, `d
 ## `/clear` sonrası başlangıç promptu (yapıştır)
 
 ```
-NetMovies (D:\projects\netmovies, dal fix/general-stability @ fe0b39f, 0 kirli dosya,
+NetMovies (C:\projects\evaitec\netmovies, dal fix/general-stability @ fe0b39f, 0 kirli dosya,
 push edilmedi). Bu oturumda kapanan iş: DiziMom favorilerinin oynamama nedeni (FirePlayer
 /tv embed adresi + video.twimg.com referer 403), kaynak zincirinin yüklü TÜM sağlayıcıları
 taraması, oynatıcı alt kumanda barı, sol altta 4x4 dakika tuş takımı, bölüm seçiminin ayrı
