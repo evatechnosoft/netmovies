@@ -11,7 +11,7 @@ class YapiskanYerelTest {
 
     @Test
     fun evdeVeYakindaCalistiysaYereldeKalir() =
-        assertEquals(zima, ServerResolver.yapiskanSecim(zima, simdi - 60_000, simdi, listOf("192.168.1")))
+        assertEquals(zima, ServerResolver.yapiskanSecim(zima, simdi - 60_000, simdi, listOf("192.168.0")))
 
     @Test
     fun evdenCikincaTuneleGecer() =
@@ -19,9 +19,9 @@ class YapiskanYerelTest {
 
     @Test
     fun uzunSuredirCalismiyorsaTuneleGecer() =
-        assertNull(ServerResolver.yapiskanSecim(zima, simdi - 11 * 60_000, simdi, listOf("192.168.1")))
+        assertNull(ServerResolver.yapiskanSecim(zima, simdi - 11 * 60_000, simdi, listOf("192.168.0")))
 
     @Test
     fun hicCalismadiysaTuneleGecer() =
-        assertNull(ServerResolver.yapiskanSecim(zima, 0, simdi, listOf("192.168.1")))
+        assertNull(ServerResolver.yapiskanSecim(zima, 0, simdi, listOf("192.168.0")))
 }
