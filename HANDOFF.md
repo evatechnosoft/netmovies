@@ -49,7 +49,7 @@ adb -s 192.168.0.205:5555 shell cmd package resolve-activity --brief -c android.
 Ev ağı/cihaz oturumunun devamı. Durum: TV 0.9.72 yayında (projektör HOME = NetMovies), el hareketi servisi
 Hikvision'dan (jest-hik → HA event; C920 emekli), Hikvision küp kamera kuruldu (Wi-Fi .218, HA camera.192_168_0_218, şifre Bitwarden) ama
 son kontrolde çevrimdışıydı; eski Android kutu retro konsol için RetroArch bekliyor.
-Ortam: C:\projects\evaitec\netmovies, PC DEANLOQ (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
+Ortam: C:\projects\netmovies, PC DEANLOQ (fix/general-stability), ZimaOS ssh zima, ev-dhcp /DATA/AppData/ev-dhcp.
 Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) Hikvision geri geldi mi, oda adı + panel 2) hareket→eylem
 eşlemesi. Dean'in cihazında onaysız kaldırma yok. Yeni iş açma.
 ```

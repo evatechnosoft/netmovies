@@ -13,7 +13,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 
 ## Çalıştırma
 **Aktif sunucu: ZimaOS `dean@192.168.0.186` → `/DATA/AppData/netmovies`** (ssh takma adı `zima`).
-Laptop (`C:\projects\evaitec\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
+Laptop (`C:\projects\netmovies`) yalnız kod + TV istemcisi derleme + yedek sunucu; laptopta
 docker PATH'te yok. Hangisi aktif: `bash scripts/sunucu.sh durum`; geçiş: `sunucu.sh gec zima|laptop`.
 `scripts/smoke.sh` yerel docker bulamazsa BASE'i ZimaOS'a çevirir, docker adımlarını ssh ile koşar.
 Sunucu kodu değişince ZimaOS'ta: `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && git pull && docker compose --profile tunnel up -d --build"` (DOCKER_CONFIG olmadan compose eklentisi görünmez).
