@@ -26,7 +26,11 @@ fi
 
 # Git Bash (Windows) container içi mutlak yolları C:\ ile değiştiriyor; Linux'ta etkisiz.
 export MSYS_NO_PATHCONV=1
-PY="$(command -v python3 || command -v python)"
+# Windows Store python3 stub exists on PATH but only prints an error; pick one that runs.
+PY=""
+for c in python3 python; do
+  if command -v "$c" >/dev/null && "$c" -c '' 2>/dev/null; then PY="$(command -v "$c")"; break; fi
+done
 if [[ -z "$PY" ]]; then
   echo "python bulunamadı (JSON sayımları için gerekli)" >&2
   exit 2
