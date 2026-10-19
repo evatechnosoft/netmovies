@@ -1,6 +1,9 @@
 # Handoff: ev ağı cihazları, kamera, projektör (15 Eki akşam)
 > 2026-10-17 öğle · `fix/general-stability` @ d6dbb7c · 0 dirty · NetMovies kodu temiz; iş çoğunlukla ev ağı/cihaz
 > 17 Eki (WORKSTATION, Precision 3551, 192.168.0.119): ZimaOS .186 ssh/3310 zaman aşımı — kapalı/ağsız, WOL denenmedi. Projektör .205 ve Hikvision .218 de cevapsız.
+> **19 Eki (DEANLOQ): ZimaOS AYAKTA** — 3310 `v0.9.72-poc`, konteyner jest-hik/netmovies-stream/ha up, ev-dhcp dnsmasq host süreci (konteyner değil; Verify grep'i bulamaz). Dal laptop↔WORKSTATION ayrışması rebase+push ile birleşti (HANDOFF çakışması: 17 Eki metni tutuldu), `31ffe6a`. .205/.218 ve smoke yoklanmadı.
+> 19 Eki Next 1-3 bitti: ödev PDF linki 200 application/pdf 1159691 B; geçici isimsiz anahtar artık yok (auth-tokens: yalnız 11/13 Chrome, 12 mirall); 17 Eki düşüşünün kökü bulunamaz — journal ~40 sa tutuyor (10×50 MB, icewhale-files health gürültüsü), 17 Eki silinmiş, boot 17 Eki 15:43.
+> Tünel (diff "no changes"): cloud 302, w 303, fit 200 OK. **my** → evaiteclabs :3001 ayakta, yalnız DNS CNAME yok. **dash** → `https://localhost:3000` = AdGuard yönetim paneli (http, DNS de yok). **prod** → `https://192.168.0.186:10443` = Nextcloud 443 (502). Karar Dean'de: my için CNAME açılsın mı; dash (AdGuard paneli dışarı açmak riskli) ve prod (cloud ile mükerrer) silinsin mi.
 
 ## Goal
 Dean'in ev cihazlarını düzenlemek: DHCP ZimaOS'ta (ev-dhcp), kameralar HA'da, projektör tek uygulama (NetMovies),
