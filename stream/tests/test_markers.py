@@ -2,7 +2,7 @@
 
 import unittest
 
-from Public.API.v1.Libs.markers import cue_ayristir, acilis_bul, jenerik_bul, isaretleri_cikar
+from Public.API.v1.Libs.markers import dis_arama_altyazisi_mi, cue_ayristir, acilis_bul, jenerik_bul, isaretleri_cikar
 
 
 def _vtt(cueler):
@@ -121,3 +121,12 @@ class TumCikarim(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DisAramaAltyazisi(unittest.TestCase):
+    def test_dis_arama_konaklari_reddedilir(self):
+        self.assertTrue(dis_arama_altyazisi_mi("https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/315847"))
+        self.assertTrue(dis_arama_altyazisi_mi("https://sub.wyzie.ru/c/abc/id/1?format=srt"))
+
+    def test_kaynagin_kendi_altyazisi_kabul(self):
+        self.assertFalse(dis_arama_altyazisi_mi("https://play2.pilavyerplay.top/api/sub.php?v=5d99"))

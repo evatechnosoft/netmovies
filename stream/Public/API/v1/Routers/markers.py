@@ -18,7 +18,7 @@ from pathlib import Path
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
 
-from ..Libs.markers import isaretleri_cikar
+from ..Libs.markers import dis_arama_altyazisi_mi, isaretleri_cikar
 from Public.Proxy.Libs.helpers import shared_client, url_is_public, prepare_request_headers
 
 # Aynı bölüm tekrar açıldığında altyazıyı yeniden indirmemek için küçük bir kayıt.
@@ -66,6 +66,9 @@ async def markers(request: Request, url: str = "", duration: float = 0.0):
     # SSRF kapısı: proxy uçlarıyla aynı kontrol — iç ağ adresleri çekilmez.
     if not await url_is_public(url):
         return {**api_v1_global_message, "result": {**bos, "source": "engellendi"}}
+
+    if dis_arama_altyazisi_mi(url):
+        return {**api_v1_global_message, "result": {**bos, "source": "dis-altyazi"}}
 
     anahtar = f"v2|{url}|{int(duration)}"     # v2: jenerik kuralı değişti, eski işaretler yeniden hesaplansın
     kayit   = _oku()

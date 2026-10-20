@@ -34,6 +34,18 @@ JENERIK_SONRASI_MAX_REPLIK = 2  # boşluktan sonra en fazla bu kadar replik (tan
                                 # çevirmen imzası); fazlası varsa bölüm sürüyordur
 UYUMSUZ_ALTYAZI_SN = 60.0   # altyazı videodan bu kadar uzunsa başka sürümündür
 
+# Dış altyazı arama servisleri (OpenSubtitles/stremio, Wyzie) başlık+IMDb ile film
+# arar; dizide başka içeriğin dosyası gelir. Teşkilat 187'ye 1959 filminin Arapça
+# altyazısı geldi, süresi bölüme uyduğu için sahte jenerik çizgisi çıktı.
+_DIS_ARAMA_KONAKLARI = ("strem.io", "wyzie.ru", "opensubtitles.")
+
+
+def dis_arama_altyazisi_mi(url: str) -> bool:
+    """İşaret çıkarılmayacak dış arama altyazısı mı (konak adına göre)."""
+    from urllib.parse import urlsplit
+    konak = (urlsplit(url).hostname or "").lower()
+    return any(k in konak for k in _DIS_ARAMA_KONAKLARI)
+
 
 def cue_ayristir(metin: str) -> list[tuple[float, float, str]]:
     """VTT/SRT metnini (başlangıç_sn, bitiş_sn, gövde) listesine çevirir.
