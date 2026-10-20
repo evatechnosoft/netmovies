@@ -30,6 +30,9 @@ JENERIK_MIN_SN    = 45.0    # bu kadar sessizlik varsa jeneriktir
 JENERIK_MAX_SN    = 600.0   # 10 dk'dan fazlaysa altyazı eksik, jenerik değil
 JENERIK_ARAMA_ESIGI = 0.70  # jenerik bölümün son %30'unda aranır; ortadaki sessiz
                             # sahne (aksiyon, diyalogsuz montaj) jenerik sayılmasın
+JENERIK_SONRASI_MAX_REPLIK = 2  # boşluktan sonra en fazla bu kadar replik (tanıtım,
+                                # çevirmen imzası); fazlası varsa bölüm sürüyordur
+UYUMSUZ_ALTYAZI_SN = 60.0   # altyazı videodan bu kadar uzunsa başka sürümündür
 
 
 def cue_ayristir(metin: str) -> list[tuple[float, float, str]]:
@@ -103,6 +106,17 @@ def jenerik_bul(cueler: list[tuple[float, float, str]], sure_sn: float) -> float
     if not cueler or sure_sn <= 0:
         return None
 
+    # Altyazı videodan uzunsa (başka kesim/sürüm) zamanlar tutmaz, tahmin yapma.
+    if max(c[1] for c in cueler) > sure_sn + UYUMSUZ_ALTYAZI_SN:
+        return None
+
+    # Her cue'dan SONRA kalan dolu replik sayısı. Ölçülen bölümde (DiziYou 93516,
+    # 63 dk) 47. dakikadaki 85 sn'lik sessiz sahne jenerik sanılıyordu; ardından
+    # 16 dk diyalog vardı. Jenerikten sonra konuşma olmaz.
+    dolu_kalan = [0] * len(cueler)
+    for i in range(len(cueler) - 2, -1, -1):
+        dolu_kalan[i] = dolu_kalan[i + 1] + (1 if cueler[i + 1][2].strip() else 0)
+
     en_erken = sure_sn * JENERIK_ARAMA_ESIGI    # bundan önceki boşluk jenerik değil
     # (boşluk_uzunluğu, başlangıç) — EN UZUN boşluk kazanır. En erkeni seçmek
     # yanıltıyordu: ölçülen bölümde (DiziYou/One Piece, 63 dk) son çeyrekte 75 ve
@@ -116,8 +130,8 @@ def jenerik_bul(cueler: list[tuple[float, float, str]], sure_sn: float) -> float
         adaylar.append((sure_sn - son_replik, son_replik))
 
     # Cue'lar arasındaki boşluklar.
-    for (_, onceki_bitis, _), (sonraki_bas, _, _) in zip(cueler, cueler[1:]):
-        if onceki_bitis < en_erken:
+    for i, ((_, onceki_bitis, _), (sonraki_bas, _, _)) in enumerate(zip(cueler, cueler[1:])):
+        if onceki_bitis < en_erken or dolu_kalan[i] > JENERIK_SONRASI_MAX_REPLIK:
             continue
         bosluk = sonraki_bas - onceki_bitis
         if JENERIK_MIN_SN <= bosluk <= JENERIK_MAX_SN:

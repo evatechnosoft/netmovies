@@ -85,6 +85,20 @@ class JenerikTespiti(unittest.TestCase):
         cueler += [(t, t + 3, "Diyalog.") for t in range(1400, 2690, 30)]
         self.assertIsNone(jenerik_bul(cue_ayristir(_vtt(cueler)), 2700))
 
+    def test_sessiz_sahneden_sonra_diyalog_suruyorsa_jenerik_degil(self):
+        # Ölçülmüş gerçek desen (DiziYou 93516, 63 dk): 47. dakikada 85 sn sessiz
+        # sahne, ardından 16 dk diyalog. İşaret oraya düşüp bölümü atlatıyordu.
+        cueler  = [(t, t + 3, "Diyalog.") for t in range(60, 2820, 30)]
+        cueler += [(t, t + 3, "Diyalog.") for t in range(2905, 3760, 30)]
+        jenerik = jenerik_bul(cue_ayristir(_vtt(cueler)), 3799)
+        self.assertTrue(jenerik is None or jenerik > 3700)
+
+    def test_videodan_uzun_altyazi_uyumsuzdur(self):
+        # Başka sürümün altyazısı (strem.io): işaret video süresini aşıyordu.
+        cueler = [(t, t + 3, "Diyalog.") for t in range(60, 3000, 30)]
+        cueler += [(t, t + 3, "Diyalog.") for t in range(3200, 4800, 30)]
+        self.assertIsNone(jenerik_bul(cue_ayristir(_vtt(cueler)), 3311))
+
     def test_asiri_bosluk_eksik_altyazidir(self):
         # Altyazı 10. dakikada kesilmiş: jenerik değil, eksik dosya.
         cueler = [(t, t + 3, "Diyalog.") for t in range(60, 600, 30)]

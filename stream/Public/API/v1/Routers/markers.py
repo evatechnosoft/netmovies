@@ -67,7 +67,7 @@ async def markers(request: Request, url: str = "", duration: float = 0.0):
     if not await url_is_public(url):
         return {**api_v1_global_message, "result": {**bos, "source": "engellendi"}}
 
-    anahtar = f"{url}|{int(duration)}"
+    anahtar = f"v2|{url}|{int(duration)}"     # v2: jenerik kuralı değişti, eski işaretler yeniden hesaplansın
     kayit   = _oku()
     onceki  = kayit.get(anahtar)
     if isinstance(onceki, dict) and (time.time() - onceki.get("at", 0)) < _TTL_SN:
