@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from Public.API.v1.Libs.bolum_esle import basliktan_bolum, bolum_sirasi, int_or_none
+from Public.API.v1.Libs.bolum_esle import basliktan_bolum, bolum_altyazisi_mi, bolum_sirasi, int_or_none
 
 
 def ep(sezon, bolum):
@@ -68,6 +68,17 @@ class DDiziOynatTest(unittest.TestCase):
         self.assertEqual(_OYNAT.search(sayfa).group(1), "/player/oynat/75c0e73fe027a027fcf170fadeea223a")
         oynat = 'sources: [{file:"https://video.twimg.com/a/pl/x.m3u8?tag=29", label: "auto"'
         self.assertEqual(_HLS.search(oynat).group(1), "https://video.twimg.com/a/pl/x.m3u8?tag=29")
+
+
+class BolumAltyazisiTest(unittest.TestCase):
+    def test_dis_film_altyazisi_elenir(self):
+        # Teşkilat 187: OpenSub film araması 1959 filminin Arapça altyazısını getirdi.
+        self.assertFalse(bolum_altyazisi_mi("OpenSub | ARA"))
+        self.assertFalse(bolum_altyazisi_mi("Wyzie | TR"))
+
+    def test_saglayici_altyazisi_kalir(self):
+        self.assertTrue(bolum_altyazisi_mi("Türkçe"))
+        self.assertTrue(bolum_altyazisi_mi(None))
 
 
 if __name__ == "__main__":

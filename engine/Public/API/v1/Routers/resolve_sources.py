@@ -21,7 +21,7 @@ from Core   import Request, JSONResponse
 from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 from ..Libs.arama_varyant import baslik_uyusuyor, query_variants
-from ..Libs.bolum_esle import basliktan_bolum, bolum_sirasi, int_or_none
+from ..Libs.bolum_esle import basliktan_bolum, bolum_altyazisi_mi, bolum_sirasi, int_or_none
 from ..Libs.kisa_klip import hls_av_orani, hls_kisa_klip_mi, kisa_klip_mi
 from .plugin_health import run_plugin_health
 
@@ -155,6 +155,7 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
     oranlar = await asyncio.gather(*(hls_av_orani(l.url, l.referer) for l in links))
     for oran in filter(None, oranlar):
         diag.add("warn", "link", f"{plugin_name} · ses/görüntü süresi uyuşmuyor (oran {oran}) — proxy'de eşitlenecek, sona alındı")
+    bolumde = episode_index > 0 or episode_no is not None
     return [
         {
             "plugin"     : plugin_name,
@@ -163,7 +164,7 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
             "referer"    : link.referer or "",
             "user_agent" : link.user_agent or "",
             "extra_headers": getattr(link, "extra_headers", None) or {},
-            "subtitles"  : [sub.model_dump() for sub in (link.subtitles or [])],
+            "subtitles"  : [sub.model_dump() for sub in (link.subtitles or []) if not bolumde or bolum_altyazisi_mi(sub.name)],
             "av_kayik"   : bool(oran),
             "av_oran"    : oran,
         }

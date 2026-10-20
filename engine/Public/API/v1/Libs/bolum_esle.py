@@ -56,3 +56,14 @@ def basliktan_bolum(baslik: str) -> tuple[str, int | None, int | None]:
         return baslik, None, None
     sezon = int(m.group(1)) if m.group(1) else None
     return baslik[: m.start()].strip(), sezon, int(m.group(2))
+
+
+# KekikStream dış altyazıyı (OpenSub/Wyzie) sezon/bölüm VERMEDEN film diye arıyor
+# (PluginEnrichment.finalize_subtitles): bölümde gelen dosya başka içeriğindir.
+# Teşkilat 187'ye 1959 filminin Arapça altyazısı geldi, jenerik işareti ondan çıktı.
+_DIS_ALTYAZI = ("OpenSub |", "Wyzie |")
+
+
+def bolum_altyazisi_mi(ad: str | None) -> bool:
+    """Bölüm için güvenilir altyazı mı — dış film araması değil mi."""
+    return not (ad or "").startswith(_DIS_ALTYAZI)
