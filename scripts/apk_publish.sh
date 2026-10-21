@@ -66,7 +66,7 @@ cp "$APK" "/tmp/$DOSYA"
 gh release create "$ETIKET" "/tmp/$DOSYA" -R evatechnosoft/evaglass-releases -t "$ETIKET" -n "$NOT"
 
 # apps.json: update the entries in place, then PUT with the blob sha (optimistic lock).
-gh api repos/evatechnosoft/evaglass-releases/contents/apps.json > /tmp/aj.json
+gh api repos/evatechnosoft/evaitec-ota/contents/apps.json > /tmp/aj.json
 python3 - "$V" "$NOT" "/tmp/$DOSYA" "https://github.com/evatechnosoft/evaglass-releases/releases/download/$ETIKET/$DOSYA" $IDLER <<'PY'
 import base64, datetime, hashlib, json, os, sys
 v, notes, apk, url, *ids = sys.argv[1:]
@@ -87,5 +87,5 @@ body = json.dumps(d, ensure_ascii=False, indent=2) + "\n"
 json.dump({"message": f"{ids[0]} {v}", "sha": meta["sha"],
            "content": base64.b64encode(body.encode()).decode()}, open("/tmp/put.json", "w"))
 PY
-gh api -X PUT repos/evatechnosoft/evaglass-releases/contents/apps.json --input /tmp/put.json --jq .commit.sha
+gh api -X PUT repos/evatechnosoft/evaitec-ota/contents/apps.json --input /tmp/put.json --jq .commit.sha
 echo "== yayinlandi: $HEDEF $V"
