@@ -19,6 +19,7 @@ object Network {
     private val client = OkHttpClient.Builder()
         .dns(PreferIpv4Dns)               // IPv4 + çalışan CF IP pin (TR bloklu 188.114 baypas)
         .addInterceptor(BaseUrlInterceptor())  // önce local, olmazsa uzak
+        .addInterceptor(CihazInterceptor())    // izleme geçmişi cihazın profiline yazılır
         // Timeout'lar: ölü bağlantı hızlı düşsün (connect 6s), soğuk aggregate için
         // read cömert (45s), hiçbir çağrı sonsuz asılmasın (call 50s) → "Yükleniyor"da kalmaz.
         .connectTimeout(6, TimeUnit.SECONDS)

@@ -39,6 +39,49 @@ class MainActivity : ComponentActivity() {
         /** Acilista "devam edelim mi" sorulan en buyuk kayit yasi (sn). Daha eski
          *  izleme kazayla kesilmis sayilmaz; Devam Et rafindan acilir. */
         private const val DEVAM_PENCERESI_SN = 30L * 60
+        private const val PROFIL_PREFS = "netmovies_profil"
+        private const val KEY_PIN_SORULDU = "pin_soruldu"
+    }
+
+    // Atanmamış cihaz bir kez sorulur: PIN profili bulur (Dean'in telefonu/tableti onun
+    // geçmişini görür), Atla kendi geçmişinde bırakır. Sunucuya ulaşılamazsa sonraki açılışta.
+    private fun pinSor(library: Library) {
+        if (isFinishing) return
+        val prefs = getSharedPreferences(PROFIL_PREFS, MODE_PRIVATE)
+        val input = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "PIN"
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Profil PIN'i")
+            .setMessage("Kendi izleme geçmişin için PIN gir. Atlarsan bu cihaz ayrı geçmiş tutar.")
+            .setView(input)
+            .setCancelable(false)
+            .setPositiveButton("Tamam") { _, _ ->
+                lifecycleScope.launch {
+                    val r = runCatching {
+                        com.evaitec.netmovies.tv.data.Network.api.profilPin(mapOf("pin" to input.text.toString())).result
+                    }.getOrNull()
+                    val cur = r?.current
+                    val mesaj = when {
+                        r == null -> "Sunucuya ulaşılamadı"
+                        r.status == "ok" && cur != null -> "Profil: $cur"
+                        r.status == "locked" -> "Çok fazla deneme, 5 dk sonra tekrar dene"
+                        else -> "PIN yanlış"
+                    }
+                    android.widget.Toast.makeText(this@MainActivity, mesaj, android.widget.Toast.LENGTH_SHORT).show()
+                    when {
+                        r == null -> Unit
+                        r.status == "ok" && cur != null -> {
+                            prefs.edit().putBoolean(KEY_PIN_SORULDU, true).apply()
+                            library.profiliUygula(cur)
+                        }
+                        else -> pinSor(library)
+                    }
+                }
+            }
+            .setNegativeButton("Atla") { _, _ -> prefs.edit().putBoolean(KEY_PIN_SORULDU, true).apply() }
+            .show()
     }
 
     /** Önceki açılışta çökme olduysa yığın izi — ekrandaki şerit bunu gösterir. */
@@ -411,6 +454,18 @@ class MainActivity : ComponentActivity() {
                         // başka bir TV'de aynı düzen gelsin (Dean: "her yüklemede sıfırlanıyor").
                         androidx.compose.runtime.LaunchedEffect(Unit) { bindings.sunucudanYukle() }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
+                        // Profil sunucuda atanır (admin, ör. projektör → Eva); atanmamış cihaz kendi
+                        // geçmişini tutar. Atama değişince yerel liste önbelleği o profile geçer.
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            runCatching {
+                                com.evaitec.netmovies.tv.data.Network.api.profil(android.os.Build.MODEL).result.current
+                            }.onSuccess { cur ->
+                                if (cur == null) return@onSuccess
+                                library.profiliUygula(cur)
+                                val prefs = getSharedPreferences(PROFIL_PREFS, MODE_PRIVATE)
+                                if (cur.startsWith("cihaz:") && !prefs.getBoolean(KEY_PIN_SORULDU, false)) pinSor(library)
+                            }
+                        }
 
                         // Izlerken uygulama arka planda oldurulurse (Ayarlar'a Bluetooth icin
                         // cikmak yetiyor) acilista ana ekrana dusuluyordu. Konum zaten sunucuda

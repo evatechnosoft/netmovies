@@ -50,4 +50,5 @@ from . import (
     yz,
     kayitlar,
     cocuk,
+    profil,
 )

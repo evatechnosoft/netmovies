@@ -283,3 +283,37 @@ async def admin_cocuk_kanal(girdi: str = ""):
     if not kanal:
         return JSONResponse(status_code=404, content={"ok": False, "error": "Kanal bulunamadı"})
     return JSONResponse({"ok": True, "kanal": kanal})
+
+
+# --------------------------------------------------------------------------- Profiller
+from ..Libs import watch_store
+
+
+@home_router.get("/api/admin/profiles")
+async def admin_profiles():
+    return JSONResponse({"profiles": watch_store.list_profiles(), "devices": watch_store.list_devices()})
+
+
+@home_router.post("/api/admin/profiles")
+async def admin_set_profile(request: Request):
+    """{id, name?, pin?} — pin "" PIN'i kaldırır."""
+    try:
+        body = await request.json()
+        ok = watch_store.set_profile(str(body.get("id") or ""), body.get("name"), body.get("pin"))
+    except (ValueError, AttributeError) as e:
+        return JSONResponse(status_code=400, content={"ok": False, "error": str(e) or "Geçersiz istek"})
+    return JSONResponse({"ok": ok}, status_code=200 if ok else 404)
+
+
+@home_router.post("/api/admin/devices")
+async def admin_assign_device(request: Request):
+    """{device_id, profile} — profile null atamayı kaldırır (cihaz kendi geçmişine döner)."""
+    try:
+        body = await request.json()
+    except ValueError:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Geçersiz JSON"})
+    device_id = str((body or {}).get("device_id") or "")
+    if not device_id:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "device_id gerekli"})
+    ok = watch_store.assign_device(device_id, body.get("profile") or None)
+    return JSONResponse({"ok": ok}, status_code=200 if ok else 404)

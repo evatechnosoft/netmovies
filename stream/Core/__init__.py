@@ -29,6 +29,9 @@ kekik_FastAPI.add_middleware(AdminAuthMiddleware)
 # Tünelden açılan site için PIN kapısı (çerezle; TV istemcisini kırmaz).
 from Core.Modules._pin import SitePinMiddleware
 kekik_FastAPI.add_middleware(SitePinMiddleware)
+# Yüklü uygulamanın cihaz kimliği → profil (geçmiş/favoriler profile özel).
+from Core.Modules._profil import ProfileMiddleware
+kekik_FastAPI.add_middleware(ProfileMiddleware)
 
 # ! ----------------------------------------» Routers
 

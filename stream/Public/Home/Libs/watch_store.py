@@ -17,8 +17,12 @@ import os
 import re
 import time
 import math
+import hmac
+import hashlib
+import secrets
 import sqlite3
 import threading
+import contextvars
 import unicodedata
 from pathlib import Path
 
@@ -32,11 +36,20 @@ _DB_PATH      = Path(os.getenv("WATCH_DB_PATH", _DEFAULT_PATH))
 # (Uvicorn tek worker + async; ağır eşzamanlılık yok, global kilit güvenli ve basit.)
 _CONN: sqlite3.Connection | None = None
 
+# İsteğin profili; middleware X-NM-Cihaz başlığından çözer. Başlıksız istek (web,
+# eski TV sürümü) Dean'dir — profillerden önceki tüm geçmiş de onundur.
+CURRENT_PROFILE: contextvars.ContextVar[str] = contextvars.ContextVar("nm_profile", default="dean")
+
+
+def _p() -> str:
+    return CURRENT_PROFILE.get()
+
 
 # --------------------------------------------------------------------------- Şema
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS watch_history (
-    content_key      TEXT PRIMARY KEY,
+    profile          TEXT NOT NULL DEFAULT 'dean',
+    content_key      TEXT NOT NULL,
     plugin           TEXT,
     title            TEXT,
     poster           TEXT,
@@ -44,19 +57,25 @@ CREATE TABLE IF NOT EXISTS watch_history (
     episode          TEXT,
     position_seconds REAL,
     duration_seconds REAL,
-    updated_at       INTEGER
+    updated_at       INTEGER,
+    content_url      TEXT,
+    PRIMARY KEY (profile, content_key)
 );
 
 CREATE TABLE IF NOT EXISTS favorites (
-    content_key TEXT PRIMARY KEY,
+    profile     TEXT NOT NULL DEFAULT 'dean',
+    content_key TEXT NOT NULL,
     plugin      TEXT,
     title       TEXT,
     poster      TEXT,
     media_type  TEXT,
-    added_at    INTEGER
+    added_at    INTEGER,
+    content_url TEXT,
+    PRIMARY KEY (profile, content_key)
 );
 
 CREATE TABLE IF NOT EXISTS user_lists (
+    profile     TEXT NOT NULL DEFAULT 'dean',
     content_key TEXT NOT NULL,
     list_name   TEXT NOT NULL,
     plugin      TEXT,
@@ -64,10 +83,32 @@ CREATE TABLE IF NOT EXISTS user_lists (
     poster      TEXT,
     media_type  TEXT,
     added_at    INTEGER,
-    PRIMARY KEY (content_key, list_name)
+    content_url TEXT,
+    PRIMARY KEY (profile, content_key, list_name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_watch_updated ON watch_history(updated_at DESC);
+CREATE TABLE IF NOT EXISTS profiles (
+    id       TEXT PRIMARY KEY,
+    name     TEXT NOT NULL,
+    kid      INTEGER NOT NULL DEFAULT 0,
+    pin_hash TEXT,
+    sort     INTEGER NOT NULL DEFAULT 0
+);
+INSERT OR IGNORE INTO profiles (id, name, kid, sort) VALUES
+    ('dean', 'Dean', 0, 1), ('eva', 'Eva', 1, 2),
+    ('profil3', 'Profil 3', 0, 3), ('profil4', 'Profil 4', 0, 4);
+
+CREATE TABLE IF NOT EXISTS devices (
+    device_id TEXT PRIMARY KEY,
+    profile   TEXT,
+    label     TEXT,
+    last_seen INTEGER
+);
+"""
+
+# Profil öncesi şemada tablo sütunları profile'sız; index yeniden kuruluştan SONRA gelir.
+_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_watch_profile_updated ON watch_history(profile, updated_at DESC);
 """
 
 
@@ -86,6 +127,8 @@ def _connect() -> sqlite3.Connection:
             if "content_url" not in columns:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN content_url TEXT")
         _migrate_type_suffix(conn)
+        _migrate_profiles(conn)
+        conn.executescript(_INDEXES)
         conn.commit()
         _CONN = conn
     return _CONN
@@ -127,6 +170,33 @@ def _migrate_type_suffix(conn: sqlite3.Connection) -> None:
                 conn.execute(f"UPDATE {table} SET content_key = ? WHERE rowid = ?", (new_key, rowid))
             else:
                 conn.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
+
+
+def _migrate_profiles(conn: sqlite3.Connection) -> None:
+    """Profil öncesi tabloları (profile, ...) birincil anahtarıyla yeniden kurar.
+
+    SQLite birincil anahtarı ALTER ile değiştiremez: eski tablo kenara alınır, yeni
+    şema kurulur, satırlar 'dean' profiline kopyalanır. Mevcut geçmiş Dean'indir.
+    """
+    pending = [t for t in ("watch_history", "favorites", "user_lists")
+               if "profile" not in {row[1] for row in conn.execute(f"PRAGMA table_info({t})")}]
+    if not pending:
+        return
+    # Tek işlem: yarıda kesilirse eski tablolar olduğu gibi kalır, sonraki açılış yeniden dener.
+    conn.commit()
+    conn.execute("BEGIN")
+    try:
+        conn.execute("DROP INDEX IF EXISTS idx_watch_updated")
+        for table in pending:
+            cols = ", ".join(row[1] for row in conn.execute(f"PRAGMA table_info({table})"))
+            conn.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
+            conn.execute(next(st for st in _SCHEMA.split(";") if f"EXISTS {table} (" in st))
+            conn.execute(f"INSERT INTO {table} (profile, {cols}) SELECT 'dean', {cols} FROM {table}_old")
+            conn.execute(f"DROP TABLE {table}_old")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 # --------------------------------------------------------------------- content_key
@@ -233,10 +303,10 @@ def upsert_progress(
         conn.execute(
             """
             INSERT INTO watch_history
-                (content_key, plugin, title, poster, media_type, episode, content_url,
+                (profile, content_key, plugin, title, poster, media_type, episode, content_url,
                  position_seconds, duration_seconds, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(content_key) DO UPDATE SET
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(profile, content_key) DO UPDATE SET
                 plugin           = excluded.plugin,
                 title            = excluded.title,
                 poster           = excluded.poster,
@@ -250,7 +320,7 @@ def upsert_progress(
                 duration_seconds = excluded.duration_seconds,
                 updated_at       = excluded.updated_at
             """,
-            (content_key, plugin, title, poster, media_type, episode, content_url,
+            (_p(), content_key, plugin, title, poster, media_type, episode, content_url,
              float(position_seconds or 0.0), float(duration_seconds or 0.0), ts),
         )
         conn.commit()
@@ -261,7 +331,7 @@ def get_progress(content_key: str) -> dict | None:
     with _LOCK:
         conn = _connect()
         row = conn.execute(
-            "SELECT * FROM watch_history WHERE content_key = ?", (content_key,)
+            "SELECT * FROM watch_history WHERE profile = ? AND content_key = ?", (_p(), content_key)
         ).fetchone()
     return dict(row) if row else None
 
@@ -278,12 +348,12 @@ def list_continue_watching(limit: int = 20) -> list[dict]:
         rows = conn.execute(
             """
             SELECT * FROM watch_history
-            WHERE duration_seconds <= 0
-               OR position_seconds < duration_seconds * 0.92
+            WHERE profile = ?
+              AND (duration_seconds <= 0 OR position_seconds < duration_seconds * 0.92)
             ORDER BY updated_at DESC
             LIMIT ?
             """,
-            (lim,),
+            (_p(), lim),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -296,12 +366,13 @@ def list_watched(limit: int = 20) -> list[dict]:
         rows = conn.execute(
             """
             SELECT * FROM watch_history
-            WHERE duration_seconds > 0
+            WHERE profile = ?
+              AND duration_seconds > 0
               AND position_seconds >= duration_seconds * 0.92
             ORDER BY updated_at DESC
             LIMIT ?
             """,
-            (lim,),
+            (_p(), lim),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -323,9 +394,9 @@ def add_favorite(
         conn = _connect()
         conn.execute(
             """
-            INSERT INTO favorites (content_key, plugin, title, poster, media_type, content_url, added_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(content_key) DO UPDATE SET
+            INSERT INTO favorites (profile, content_key, plugin, title, poster, media_type, content_url, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(profile, content_key) DO UPDATE SET
                 plugin      = excluded.plugin,
                 title       = excluded.title,
                 poster      = excluded.poster,
@@ -334,7 +405,7 @@ def add_favorite(
                 content_url = CASE WHEN excluded.content_url <> '' THEN excluded.content_url
                                    ELSE favorites.content_url END
             """,
-            (content_key, plugin, title, poster, media_type, content_url, ts),
+            (_p(), content_key, plugin, title, poster, media_type, content_url, ts),
         )
         conn.commit()
 
@@ -346,7 +417,8 @@ def remove_progress(content_keys: list[str]) -> int:
         return 0
     with _LOCK:
         conn = _connect()
-        cur = conn.executemany("DELETE FROM watch_history WHERE content_key = ?", [(k,) for k in keys])
+        cur = conn.executemany("DELETE FROM watch_history WHERE profile = ? AND content_key = ?",
+                               [(_p(), k) for k in keys])
         conn.commit()
     return cur.rowcount
 
@@ -355,7 +427,7 @@ def remove_favorite(content_key: str) -> None:
     """Favoriyi kaldırır."""
     with _LOCK:
         conn = _connect()
-        conn.execute("DELETE FROM favorites WHERE content_key = ?", (content_key,))
+        conn.execute("DELETE FROM favorites WHERE profile = ? AND content_key = ?", (_p(), content_key))
         conn.commit()
 
 
@@ -364,7 +436,7 @@ def is_favorite(content_key: str) -> bool:
     with _LOCK:
         conn = _connect()
         row = conn.execute(
-            "SELECT 1 FROM favorites WHERE content_key = ? LIMIT 1", (content_key,)
+            "SELECT 1 FROM favorites WHERE profile = ? AND content_key = ? LIMIT 1", (_p(), content_key)
         ).fetchone()
     return row is not None
 
@@ -393,7 +465,7 @@ def list_favorites() -> list[dict]:
     with _LOCK:
         conn = _connect()
         rows = conn.execute(
-            "SELECT * FROM favorites ORDER BY added_at DESC"
+            "SELECT * FROM favorites WHERE profile = ? ORDER BY added_at DESC", (_p(),)
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -421,22 +493,22 @@ def toggle_user_list(
     with _LOCK:
         conn = _connect()
         exists = conn.execute(
-            "SELECT 1 FROM user_lists WHERE content_key = ? AND list_name = ?",
-            (content_key, list_name),
+            "SELECT 1 FROM user_lists WHERE profile = ? AND content_key = ? AND list_name = ?",
+            (_p(), content_key, list_name),
         ).fetchone() is not None
         if exists:
             conn.execute(
-                "DELETE FROM user_lists WHERE content_key = ? AND list_name = ?",
-                (content_key, list_name),
+                "DELETE FROM user_lists WHERE profile = ? AND content_key = ? AND list_name = ?",
+                (_p(), content_key, list_name),
             )
         else:
             conn.execute(
                 """
                 INSERT INTO user_lists
-                    (content_key, list_name, plugin, title, poster, media_type, content_url, added_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (profile, content_key, list_name, plugin, title, poster, media_type, content_url, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (content_key, list_name, plugin, title, poster, media_type, content_url, ts),
+                (_p(), content_key, list_name, plugin, title, poster, media_type, content_url, ts),
             )
         conn.commit()
     return not exists
@@ -450,8 +522,8 @@ def list_user_list(list_name: str, limit: int = 100) -> list[dict]:
     with _LOCK:
         conn = _connect()
         rows = conn.execute(
-            "SELECT * FROM user_lists WHERE list_name = ? ORDER BY added_at DESC LIMIT ?",
-            (list_name, lim),
+            "SELECT * FROM user_lists WHERE profile = ? AND list_name = ? ORDER BY added_at DESC LIMIT ?",
+            (_p(), list_name, lim),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -479,3 +551,168 @@ def get_source_stats() -> list[dict]:
             """
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------- profiles
+MAX_PIN_FAILS = 5
+_PIN_LOCK_SECONDS = 300
+# shortcut: deneme sayacı bellekte, restart'ta sıfırlanır; çok sunuculu kurulumda DB'ye taşı.
+_PIN_FAILS: dict[str, tuple[int, float]] = {}
+
+
+def _hash_pin(pin: str, salt: str | None = None) -> str:
+    salt = salt or secrets.token_hex(8)
+    digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
+    return f"{salt}${digest}"
+
+
+def _pin_ok(pin: str, stored: str) -> bool:
+    salt, _, _ = stored.partition("$")
+    return hmac.compare_digest(_hash_pin(pin, salt), stored)
+
+
+def list_profiles() -> list[dict]:
+    with _LOCK:
+        rows = _connect().execute(
+            "SELECT id, name, kid, pin_hash FROM profiles ORDER BY sort, id"
+        ).fetchall()
+    return [
+        {"id": r["id"], "name": r["name"], "kid": bool(r["kid"]), "has_pin": bool(r["pin_hash"])}
+        for r in rows
+    ]
+
+
+def set_profile(profile: str, name: str | None = None, pin: str | None = None) -> bool:
+    """Ad ve/veya PIN günceller. pin="" PIN'i kaldırır. Profil yoksa False."""
+    if pin and not (pin.isdigit() and 4 <= len(pin) <= 6):
+        raise ValueError("PIN 4-6 haneli rakam olmalı")
+    with _LOCK:
+        conn = _connect()
+        if not conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile,)).fetchone():
+            return False
+        if name is not None and name.strip():
+            conn.execute("UPDATE profiles SET name = ? WHERE id = ?", (name.strip()[:40], profile))
+        if pin is not None:
+            conn.execute("UPDATE profiles SET pin_hash = ? WHERE id = ?",
+                         (_hash_pin(pin) if pin else None, profile))
+        conn.commit()
+    return True
+
+
+def device_profile(device_id: str, label: str = "") -> str | None:
+    """Cihazın atanmış profili; ilk görüldüğünde kaydeder.
+
+    Yeni cihaz, admin'de `model:<label>` kaydı varsa o profili alır (Mi Box güncellenince
+    Dean'de kalsın); yoksa atanmamış başlar ve kendi geçmişini tutar.
+    """
+    device_id = device_id.strip()[:64]
+    label = label.strip()[:60]
+    if not device_id:
+        return None
+    with _LOCK:
+        conn = _connect()
+        if label and not conn.execute("SELECT 1 FROM devices WHERE device_id = ?", (device_id,)).fetchone():
+            tpl = conn.execute("SELECT profile FROM devices WHERE device_id = ?", (f"model:{label}",)).fetchone()
+            if tpl and tpl["profile"]:
+                conn.execute(
+                    "INSERT INTO devices (device_id, profile, label, last_seen) VALUES (?, ?, ?, ?)",
+                    (device_id, tpl["profile"], label, _now()),
+                )
+        conn.execute(
+            """
+            INSERT INTO devices (device_id, profile, label, last_seen) VALUES (?, NULL, ?, ?)
+            ON CONFLICT(device_id) DO UPDATE SET
+                last_seen = excluded.last_seen,
+                label = CASE WHEN excluded.label <> '' THEN excluded.label ELSE devices.label END
+            """,
+            (device_id, label, _now()),
+        )
+        conn.commit()
+        row = conn.execute("SELECT profile FROM devices WHERE device_id = ?", (device_id,)).fetchone()
+    return row["profile"] if row else None
+
+
+def profile_for_device(device_id: str, label: str = "") -> str:
+    """Atanmış profil; atanmamış cihaz kendi geçmişini tutar (sonra admin'den profile bağlanır)."""
+    return device_profile(device_id, label) or f"cihaz:{device_id.strip()[:64]}"
+
+
+def list_devices() -> list[dict]:
+    with _LOCK:
+        rows = _connect().execute("SELECT * FROM devices ORDER BY last_seen DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def assign_device(device_id: str, profile: str | None) -> bool:
+    """Cihazı profile atar; None atamayı kaldırır (cihaz kendi geçmişine döner)."""
+    with _LOCK:
+        conn = _connect()
+        if profile is not None and not conn.execute(
+            "SELECT 1 FROM profiles WHERE id = ?", (profile,)
+        ).fetchone():
+            return False
+        cur = conn.execute("UPDATE devices SET profile = ? WHERE device_id = ?", (profile, device_id))
+        if not cur.rowcount and profile is not None:
+            conn.execute(
+                "INSERT INTO devices (device_id, profile, label, last_seen) VALUES (?, ?, '', ?)",
+                (device_id, profile, _now()),
+            )
+        conn.commit()
+    return True
+
+
+def claim_by_pin(device_id: str, pin: str) -> tuple[str, str | None]:
+    """Yeni cihazın ilk açılış PIN'i: PIN'i tutan profili bulup cihazı ona atar.
+
+    ("ok", profil) | ("bad_pin", None) | ("locked", None). Profil sorulmaz, PIN yeter
+    (Dean: telefon/tablet ilk açılışta "beni bulsun").
+    """
+    # Sayaç tek anahtarda: hangi profili denediği bilinmeyen tahmin hepsine birden işler.
+    fails, until = _PIN_FAILS.get("*", (0, 0.0))
+    if until > time.time():
+        return "locked", None
+    pin = (pin or "").strip()
+    with _LOCK:
+        rows = _connect().execute(
+            "SELECT id, pin_hash FROM profiles WHERE pin_hash IS NOT NULL ORDER BY sort, id"
+        ).fetchall()
+    profile = next((r["id"] for r in rows if pin and _pin_ok(pin, r["pin_hash"])), None)
+    if not profile:
+        fails += 1
+        _PIN_FAILS["*"] = (0, time.time() + _PIN_LOCK_SECONDS) if fails >= MAX_PIN_FAILS else (fails, 0.0)
+        return "bad_pin", None
+    _PIN_FAILS.pop("*", None)
+    assign_device(device_id, profile)
+    return "ok", profile
+
+
+def select_profile(device_id: str, profile: str, pin: str, fallback_pin: str = "") -> str:
+    """Cihazdan profil seçimi: "ok" | "bad_pin" | "locked" | "unknown".
+
+    Çocuk profili PIN'siz açılabilir. PIN'i ayarlanmamış yetişkin profil fallback_pin
+    (site PIN'i) ister; o da yoksa açılmaz.
+    """
+    with _LOCK:
+        row = _connect().execute(
+            "SELECT kid, pin_hash FROM profiles WHERE id = ?", (profile,)
+        ).fetchone()
+    if not row:
+        return "unknown"
+    # Sayaç profile bağlı: cihaz kimliği başlıktan gelir, değiştirilerek kilit atlatılmasın.
+    fails, until = _PIN_FAILS.get(profile, (0, 0.0))
+    if until > time.time():
+        return "locked"
+    pin = (pin or "").strip()
+    if row["pin_hash"]:
+        ok = _pin_ok(pin, row["pin_hash"])
+    elif row["kid"]:
+        ok = True
+    else:
+        ok = bool(fallback_pin) and hmac.compare_digest(pin.encode(), fallback_pin.encode())
+    if not ok:
+        fails += 1
+        _PIN_FAILS[profile] = (0, time.time() + _PIN_LOCK_SECONDS) if fails >= MAX_PIN_FAILS else (fails, 0.0)
+        return "bad_pin"
+    _PIN_FAILS.pop(profile, None)
+    assign_device(device_id, profile)
+    return "ok"

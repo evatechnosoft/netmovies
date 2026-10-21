@@ -82,6 +82,21 @@ class Library(context: Context) {
         }
     }
 
+    /**
+     * Sunucunun bu cihaza atadığı profil önbelleğin sahibinden farklıysa (projektör
+     * Eva'ya atandı) yerel listeleri at ve tazele; yoksa eski profilin Devam Et'i kalır.
+     */
+    fun profiliUygula(profil: String) {
+        if (prefs.getString(KEY_PROFIL, null) == profil) return
+        val edit = prefs.edit()
+        PROFIL_LISTELERI.forEach(edit::remove)
+        // Önbellekteki favoriler eski profilin: yeni profile yukarı taşınmasın.
+        edit.putString(KEY_PROFIL, profil).putBoolean(KEY_PUSHED, true).apply()
+        listOf(favorites, watched, izlenecek, takip, kayitTakip, izlenen).forEach { it.clear() }
+        progress.clear()
+        sync()
+    }
+
     // Sunucu senkronu gelmeden önce cihazda birikmiş favoriler kaybolmasın: bir kez
     // yukarı taşınır. `addFavorite` idempotent (toggle olsaydı kayıtlıyı silerdi).
     private suspend fun pushLocalFavoritesOnce() {
@@ -338,6 +353,9 @@ class Library(context: Context) {
         const val LISTE_TAKIP = "takip"
         const val LISTE_KAYIT_TAKIP = "kayit_takip"
         const val KEY_PUSHED = "favorites_pushed_v1"
+        const val KEY_PROFIL = "profil"
+        // Kayıtlar (sunucu diski) profile bağlı değil, burada yok.
+        val PROFIL_LISTELERI = listOf(KEY_FAV, KEY_WATCHED, KEY_IZLENECEK, KEY_TAKIP, KEY_KAYIT_TAKIP, KEY_IZLENEN)
         const val MAX_WATCHED = 30
     }
 }

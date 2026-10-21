@@ -60,6 +60,7 @@ object ServerResolver {
     /** Uygulama açılışında bir kez: son çalışan adresin hatırlanabilmesi için. */
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        Cihaz.init(context)   // her giriş noktası (activity, widget) buradan geçer
     }
 
     /** Yoklanacak yerel adaylar — LOCAL_URL virgülle ayrık liste olabilir. */

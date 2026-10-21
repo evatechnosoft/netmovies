@@ -331,4 +331,12 @@ interface NetMoviesApi {
         @Query("title") title: String? = null,
         @Query("type") type: String? = null,
     ): ItemResponse
+
+    // Profil: cihaz X-NM-Cihaz yollar; `current` null ise açılışta seçim + PIN.
+    @GET("api/v1/profil")
+    suspend fun profil(@Query("label") label: String): ProfilResponse
+
+    // Yeni cihazın tek seferlik PIN'i: eşleşen profil (ör. Dean) bu cihaza atanır.
+    @POST("api/v1/profil/pin")
+    suspend fun profilPin(@Body body: Map<String, String>): ProfilResponse
 }

@@ -498,3 +498,11 @@ data class FilmSerisi(
 
 @Serializable
 data class FilmSerileriResponse(val result: List<FilmSerisi> = emptyList())
+
+// /api/v1/profil — cihazın sunucudaki profili (atanmamışsa kendi `cihaz:<id>` geçmişi).
+@Serializable
+// `status` yalnız /profil/pin'de: ok | bad_pin | locked | no_device.
+data class ProfilDurum(val current: String? = null, val status: String = "")
+
+@Serializable
+data class ProfilResponse(val result: ProfilDurum = ProfilDurum())
