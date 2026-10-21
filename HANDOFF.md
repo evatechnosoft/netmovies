@@ -7,6 +7,16 @@ Dean'in ev cihazlarını düzenlemek: DHCP ZimaOS'ta (ev-dhcp), kameralar HA'da,
 eski Android kutu retro konsol. Ayrıntı hafızada: `ev-dhcp-zimaos`, `hikvision-kup-kamera`, `jest-servisi-c920`,
 `kurulu-uygulamaya-onaysiz-dokunma` (memory dizini `~/.claude-team/projects/C--projects-netmovies/memory/`).
 
+## Profiller (21 Eki, `feature/profiles`, TV 0.9.73)
+- İzleme geçmişi/favori/liste profil başına. Profiller: dean, eva (çocuk, boş), profil3, profil4. Eski kayıtlar dean'e göçtü
+  (watch 122, fav 11, liste 17). Göç öncesi yedek: ZimaOS `/data/netmovies.pre-profiles.db` (stream konteyneri).
+- Uygulama `X-NM-Cihaz` (ANDROID_ID) + `X-NM-Model` yollar. Başlıksız istek (web) = dean. `model:MIBOX4` → dean şablonu.
+  Diğer yeni cihaz `cihaz:<id>` profiliyle kendi geçmişini tutar; ilk açılışta bir kez PIN sorar (`POST /api/v1/profil/pin`),
+  PIN'i tutan profile bağlanır. Dean PIN'i yalnız sunucuda ayarlı (repoda yok). Atla → kendi geçmişi.
+- Atama: `POST /api/admin/devices {"device_id":"...","profile":"eva"}`, liste `GET /api/admin/devices`. Admin arayüzü yok.
+- ZimaOS şu an `feature/profiles` dalında çalışıyor (fix/general-stability'ye PR ile birleşecek).
+- Yayın 0.9.73: yerel OTA, GitHub `v0.9.73-poc`, evaglass `netmovies-tv-v0.9.73`, apps.json vc 973 (`add62db`). Cihazda denenmedi.
+
 ## State
 - **TV 0.9.72 yayında** (8484065): kapalı `HomeAlias` (HOME kategorisi). GitHub `v0.9.72-poc`, evaglass
   `netmovies-tv-v0.9.72`, apps.json vc 972 (`8e502ff`), yerel OTA `data/apk` → `/api/v1/app_update` size 22768680.
