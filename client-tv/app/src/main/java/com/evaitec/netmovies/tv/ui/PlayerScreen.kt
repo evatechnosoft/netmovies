@@ -212,9 +212,10 @@ fun PlayerScreen(
                 DefaultLoadControl.Builder()
                     // 5 dk ileri tampon: sunucu laptop ↔ ZimaOS değişirken (30-60 sn)
                     // oynatma tampondan sürer, segmentler yeni sunucudan gelir.
-                    // Bayt sınırı (Mi Box 2 GB RAM) süreden önce dolarsa o kazanır.
+                    // Tampon Java heapinde durur (Mi Box sınırı 224 MB): 160 MB heapi doldurup
+                    // GC ile oynatmayı donduruyordu. 64 MB ~2 dk 1080p, sunucu geçişine yeter.
                     .setBufferDurationsMs(300_000, 300_000, 2_500, 5_000)
-                    .setTargetBufferBytes(160 * 1024 * 1024)
+                    .setTargetBufferBytes(64 * 1024 * 1024)
                     .setBackBuffer(30_000, true)
                     .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
