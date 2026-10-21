@@ -8,7 +8,7 @@ RUN curl -fsSL -o /tmp/t.zip https://dl.google.com/android/repository/commandlin
  && mkdir -p $ANDROID_HOME/cmdline-tools && unzip -q /tmp/t.zip -d $ANDROID_HOME/cmdline-tools \
  && mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest && rm /tmp/t.zip \
  && yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null \
- && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" >/dev/null \
+ && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" "build-tools;35.0.0" "platform-tools" >/dev/null \
  && chmod -R a+rX $ANDROID_HOME
 RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz \
   | tar -xz -C /tmp && mv /tmp/gh_2.63.2_linux_amd64/bin/gh /usr/local/bin/ && rm -rf /tmp/gh_*
