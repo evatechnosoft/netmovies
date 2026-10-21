@@ -38,6 +38,14 @@ class YouTubeResmiTest(unittest.TestCase):
         siradan = [{"id": "x", "title": "Konser", "duration": 300}, {"id": "y", "title": "Röportaj"}]
         self.assertEqual([(b.episode, b.title) for b in liste_bolumleri(siradan)], [(1, "Konser"), (2, "Röportaj")])
 
+    def test_fragman_listesi_bolum_olmaz(self):
+        # Ömür Usta (21 Eki): fragman listesi sırayla 1-13 numaralanıp en zengin liste seçildi;
+        # 6-7. "bölüm" aslında "2. Bölüm Fragmanı" idi.
+        fragmanlar = [{"id": "a", "title": "Ömür Usta 5. Bölüm 1. Fragmanı", "duration": 60},
+                      {"id": "b", "title": "Ömür Usta 4. Bölüm 2. Fragmanı", "duration": 60},
+                      {"id": "c", "title": "Ömür Usta Yakında NOW'da!", "duration": 30}]
+        self.assertEqual(liste_bolumleri(fragmanlar), [])
+
     def test_arama_adresi_yalniz_resmi_liste(self):
         # Lioness → "LioNess" yemek kanalı: numarasız liste zincire bölüm olarak verilmez.
         import asyncio

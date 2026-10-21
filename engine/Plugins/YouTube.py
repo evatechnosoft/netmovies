@@ -96,6 +96,9 @@ def liste_bolumleri(entries: list[dict]) -> list[Episode]:
                                         url=f"https://www.youtube.com/watch?v={e['id']}"))
     if bolumler:
         return [bolumler[k] for k in sorted(bolumler)]
+    # Titles carry episode numbers but none is full-length: a trailer list, not a show.
+    if any(bolum_numarasi(e.get("title") or "") for e in entries):
+        return []
     # Aramadan açılan sıradan liste (konser, belgesel, program): listedeki sırayla.
     videolar = [e for e in entries if e.get("id")]
     return [Episode(season=1, episode=i + 1, title=e.get("title") or f"{i + 1}. video",
