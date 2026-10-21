@@ -28,13 +28,15 @@ if [ "${IC:-}" != 1 ]; then
   git pull --ff-only -q
   export DOCKER_CONFIG=/tmp/dc
   exec docker run --rm --user 999:1000 \
-    -v "$REPO":/src -v "$IMZA":/imza -v "$CACHE":/cache -v "$GH":/gh:ro \
+    -v "$REPO":/src -v "$IMZA":/imza -v "$CACHE":/cache -v "$GH":/gh-ro:ro \
     -e IC=1 -e ANDROID_USER_HOME=/imza -e GRADLE_USER_HOME=/cache -e HOME=/cache/home \
-    -e GH_CONFIG_DIR=/gh -e GH_NO_UPDATE_NOTIFIER=1 \
+    -e GH_CONFIG_DIR=/tmp/gh -e GH_NO_UPDATE_NOTIFIER=1 \
     -w /src netmovies-android-build bash scripts/apk_publish.sh "$@"
 fi
 
 # --- inside the container ---
+# gh migrates its config on first run; the mounted original stays untouched.
+cp -r /gh-ro /tmp/gh
 V=$(sed -n "s/^val $DEG = \"\(.*\)\"/\1/p" client-tv/$MODUL/build.gradle.kts)
 [ -n "$V" ] || { echo "surum okunamadi" >&2; exit 1; }
 DAL=$(git rev-parse --abbrev-ref HEAD)
