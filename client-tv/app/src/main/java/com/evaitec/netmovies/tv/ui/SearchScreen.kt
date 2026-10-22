@@ -222,9 +222,12 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             Column(Modifier.weight(1f)) {
                 when {
                     state.results != null -> {
+                        // Snapshot: GERİ nulls state.results while the lazy grid still
+                        // evaluates its item lambdas → NPE (crash 22 Oct 2026).
+                        val sonuclar = state.results.orEmpty()
                         Text(
                             text = if (state.loading) "Aranıyor: ${state.query}…"
-                                   else "Sonuç: ${state.query} (${state.results!!.size})",
+                                   else "Sonuç: ${state.query} (${sonuclar.size})",
                             fontWeight = FontWeight.Bold,
                             fontSize = NmType.RowTitle,
                             color = NmColor.OnSurface,
@@ -233,7 +236,7 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
                         val hata = aramaHatasi
                         if (hata != null && !state.loading) {
                             ErrorWithRetry(hata) { ara(state.query) }
-                        } else if (state.results!!.isEmpty() && !state.loading) {
+                        } else if (sonuclar.isEmpty() && !state.loading) {
                             Kutu("Sonuç bulunamadı — başka bir yazım deneyin.")
                         } else {
                             LazyVerticalGrid(
@@ -243,8 +246,8 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
                                 horizontalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                                 verticalArrangement = Arrangement.spacedBy(NmDim.CardGap),
                             ) {
-                                items(state.results!!.size) { i ->
-                                    val oge = state.results!![i]
+                                items(sonuclar.size) { i ->
+                                    val oge = sonuclar[i]
                                     BrowsePoster(oge) { sec(oge) }
                                 }
                             }
