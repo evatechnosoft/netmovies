@@ -64,12 +64,44 @@ def warp_olu(host: str) -> bool:
     return _warp_dead.get(host, 0.0) > time.monotonic()
 
 
+# Engel yalnız 403 değil, yavaşlık da olabiliyor: HDFilmCehennemi'nin CDN'i
+# (srv.pendik.cfd) ev hattına ~100 KB/s veriyor, aynı segment WARP'tan ~2,4 MB/s
+# iniyor (22 Eki ölçüm). 10 sn'lik 1080p segment 2–6 MB; doğrudan yolda oynatma
+# her birkaç saniyede tampon bekliyordu ("kesik hep"). Gerçek zamanın altında
+# kalan host WARP'a taşınır.
+_YAVAS_MIN_BAYT = 256 * 1024
+_YAVAS_BPS      = int(os.getenv("PROXY_SLOW_BPS", str(500 * 1024)))
+_warp_yavas: set[str] = set()
+
+
+def hiz_kaydet(target_url: str, nbytes: int, seconds: float) -> None:
+    """Doğrudan yoldan yavaş inen host'u WARP'a yapıştırır (yeterince büyük gövdede)."""
+    host = httpx.URL(target_url).host
+    if warp_client is None or host in _warp_hosts or warp_olu(host):
+        return
+    if nbytes < _YAVAS_MIN_BAYT or nbytes / max(seconds, 1e-3) >= _YAVAS_BPS:
+        return
+    # shortcut: WARP'ın da yavaş olduğu host'ta geri dönüş yok, gerekirse WARP hızını da ölç.
+    konsol.print(f"[yellow]🐢 Yavaş kaynak WARP'a:[/yellow] {host} · {nbytes / seconds / 1024:.0f} KB/s")
+    _warp_hosts.add(host)
+    _warp_yavas.add(host)
+
+
 async def open_upstream(target_url: str, request_headers: dict):
     """Kaynağı akış modunda açar; ISP engeli (403/404/451) WARP ile bir kez daha denenir."""
     host = httpx.URL(target_url).host
 
     if warp_client is not None and host in _warp_hosts:
-        return await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
+        response = await warp_client.send(warp_client.build_request("GET", target_url, headers=request_headers), stream=True)
+        if response.status_code < 400 or host not in _warp_yavas:
+            return response
+        # Hız yüzünden taşınan host WARP'ı reddetti (adres IP'ye imzalı olabilir): doğrudan yola dön.
+        await response.aclose()
+        _warp_hosts.discard(host)
+        _warp_yavas.discard(host)
+        _warp_dead[host] = time.monotonic() + _WARP_DEAD_TTL
+        konsol.print(f"[red]⊘ Yavaş kaynak WARP'ı reddetti:[/red] {host} · {response.status_code}")
+        return await shared_client.send(shared_client.build_request("GET", target_url, headers=request_headers), stream=True)
 
     try:
         response = await shared_client.send(shared_client.build_request("GET", target_url, headers=request_headers), stream=True)

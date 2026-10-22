@@ -5,14 +5,14 @@ from fastapi              import Request, Response
 from starlette.background import BackgroundTask
 from fastapi.responses    import StreamingResponse
 from .                    import proxy_router
-from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, parse_extra_headers, url_is_public
+from ..Libs.helpers       import prepare_request_headers, prepare_response_headers, detect_hls_from_url, stream_wrapper, rewrite_hls_manifest, is_hls_segment, open_upstream, hiz_kaydet, parse_extra_headers, url_is_public
 from ..Libs import manifest_cache
 from ..Libs.av_esitle     import oran_oku, ts_olcekle
 from ..Libs.segment_cache import segment_cache
 from ..Libs.proxy_token   import token_tanisi, validate_proxy_token
 from Public.API.v1.Libs  import kayit
 
-import asyncio
+import asyncio, time
 from urllib.parse import urljoin
 
 # Ön-yükleme: kaç segment, ve görevlerin GC'ye yem olmaması için referans kümesi.
@@ -45,6 +45,7 @@ async def _prefetch(urls: list[str], request_headers: dict):
     for segment_url in urls:
         if await segment_cache.get(segment_url):
             continue
+        t0 = time.monotonic()
         try:
             response = await open_upstream(segment_url, request_headers)
         except Exception:
@@ -52,6 +53,7 @@ async def _prefetch(urls: list[str], request_headers: dict):
         try:
             if response.status_code < 400:
                 content = await response.aread()
+                hiz_kaydet(segment_url, len(content), time.monotonic() - t0)
                 if len(content) <= segment_cache.max_item_bytes:
                     await segment_cache.set(segment_url, content)
         except Exception:
@@ -156,6 +158,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
 
     try:
         # GET isteğini başlat (engelli kaynak WARP'a düşer)
+        t0       = time.monotonic()
         response = await open_upstream(target_url, request_headers)
 
         if response.status_code >= 400:
@@ -275,6 +278,7 @@ async def video_proxy(request: Request, url: str, proxy_token: str = None, refer
             if not kaydedici and 0 < content_length <= segment_cache.max_item_bytes:
                 content = await response.aread()
                 await response.aclose()
+                hiz_kaydet(target_url, len(content), time.monotonic() - t0)
 
                 # Cache'e ekle (ham hâliyle: ölçek istek başına uygulanır)
                 await segment_cache.set(target_url, content)

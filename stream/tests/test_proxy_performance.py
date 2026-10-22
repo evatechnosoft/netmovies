@@ -111,3 +111,44 @@ class SegmentZinciriTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class YavasKaynakWarpTest(unittest.TestCase):
+    """Doğrudan yoldan gerçek zamanın altında inen host WARP'a taşınır (HDFC ~100 KB/s)."""
+
+    def setUp(self) -> None:
+        helpers._warp_dead.clear()
+        helpers._warp_hosts.clear()
+        helpers._warp_yavas.clear()
+        self._eski = helpers.warp_client
+        helpers.warp_client = object()
+
+    def tearDown(self) -> None:
+        helpers.warp_client = self._eski
+        helpers._warp_dead.clear()
+        helpers._warp_hosts.clear()
+        helpers._warp_yavas.clear()
+
+    def test_yavas_host_warpa_tasinir(self):
+        helpers.hiz_kaydet("https://srv.pendik.cfd/a/seg_1.png", 2_000_000, 20.0)
+        self.assertIn("srv.pendik.cfd", helpers._warp_hosts)
+
+    def test_hizli_host_dogrudan_kalir(self):
+        helpers.hiz_kaydet("https://hizli.example/seg_1.ts", 2_000_000, 1.0)
+        self.assertNotIn("hizli.example", helpers._warp_hosts)
+
+    def test_kucuk_govde_karar_vermez(self):
+        helpers.hiz_kaydet("https://kucuk.example/seg_1.ts", 10_000, 5.0)
+        self.assertNotIn("kucuk.example", helpers._warp_hosts)
+
+    def test_warp_olu_host_tasinmaz(self):
+        import time as _t
+
+        helpers._warp_dead["olu.example"] = _t.monotonic() + 60
+        helpers.hiz_kaydet("https://olu.example/seg_1.ts", 2_000_000, 20.0)
+        self.assertNotIn("olu.example", helpers._warp_hosts)
+
+    def test_warp_yoksa_dokunmaz(self):
+        helpers.warp_client = None
+        helpers.hiz_kaydet("https://srv.pendik.cfd/a/seg_1.png", 2_000_000, 20.0)
+        self.assertNotIn("srv.pendik.cfd", helpers._warp_hosts)
