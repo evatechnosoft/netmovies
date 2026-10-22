@@ -66,7 +66,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit, onCanli: (MediaItem) -> Unit) {
+fun AgendaScreen(onBack: () -> Unit, onAra: (String, String) -> Unit, onCanli: (MediaItem) -> Unit) {
     var gunler by remember { mutableStateOf<List<AgendaDay>>(emptyList()) }
     var toplam by remember { mutableStateOf(0) }
     // Üç adım: Bu Hafta · Bu Ay · Geçmiş. Geçmiş günler ana listede duruyordu ve
@@ -189,7 +189,7 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit, onCanli: (MediaIte
                                 modifier = if (ilk) Modifier.focusRequester(ilkKart) else Modifier,
                                 onAc = {
                                     val kanal = if (oge.tarih == bugunStr) kanalEsle(oge.kanal, kanallar) else null
-                                    if (kanal != null) secim = oge to kanal else onAra(oge.baslik)
+                                    if (kanal != null) secim = oge to kanal else onAra(oge.baslik, bolumRef(oge.bolum))
                                 },
                             )
                         }
@@ -203,10 +203,14 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String) -> Unit, onCanli: (MediaIte
         CanliSecimi(
             oge, kanal,
             onCanli = { secim = null; onCanli(kanal.copy(url = encodedUrl(kanal.url), autoplay = true)) },
-            onBolum = { secim = null; onAra(oge.baslik) },
+            onBolum = { secim = null; onAra(oge.baslik, bolumRef(oge.bolum)) },
         )
     }
 }
+
+/** "2. sezon 3. bölüm" → "S2B3" (oynatıcının bölüm kimliği); "Vizyon" → "". */
+internal fun bolumRef(bolum: String): String =
+    Regex("""(\d+)\. sezon (\d+)\. bölüm""").find(bolum)?.let { "S${it.groupValues[1]}B${it.groupValues[2]}" }.orEmpty()
 
 /**
  * TMDB kanal adını ("NOW", "Show TV") M3U kanalına eşler: önce tam ad, sonra

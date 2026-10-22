@@ -273,6 +273,7 @@ class MainActivity : ComponentActivity() {
                         // Gözat'a ajandadan mı girildi: GERİ oraya dönsün, arama
                         // sonucu tek eşleşmeyse dizi doğrudan açılsın.
                         var ajandadanGeldi by remember { mutableStateOf(false) }
+                        var ajandaBolumu by remember { mutableStateOf("") }
                         var showSearch by remember { mutableStateOf(false) }
                         // Canlı TV listesi oynatıcıya taşınır: kanal değiştirmek
                         // için ekrandan çıkmak gerekmesin.
@@ -556,8 +557,9 @@ class MainActivity : ComponentActivity() {
                                     // Ajandadaki satır oynatma adresi taşımıyor;
                                     // başlık telefon kumandasıyla aynı kanaldan
                                     // (remoteQuery) Gözat'ın aramasına düşer.
-                                    onAra = { baslik ->
+                                    onAra = { baslik, bolum ->
                                         kumandaMetni = baslik
+                                        ajandaBolumu = bolum
                                         ajandadanGeldi = true
                                         showAgenda = false
                                         showBrowse = true
@@ -582,6 +584,7 @@ class MainActivity : ComponentActivity() {
                                     onRemoteQueryUsed = { kumandaMetni = null },
                                     // Ajandadan gelen başlıkta tek eşleşme doğrudan açılır.
                                     otomatikAc = ajandadanGeldi,
+                                    acilacakBolum = ajandaBolumu,
                                     onOpenChannels = { showChannels = true },
                                     // ...ve GERİ, gelinen yere döner: ajandadan girip
                                     // ana ekrana düşmek "teker teker dönmek" oluyordu.

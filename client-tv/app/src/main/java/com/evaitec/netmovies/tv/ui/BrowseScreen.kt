@@ -139,6 +139,8 @@ fun BrowseScreen(
     // gitmiyor"). Birden çok sonuçta liste kalır — yanlış diziyi açmaktansa
     // seçtirmek doğru.
     otomatikAc: Boolean = false,
+    // Ajanda kartının bölümü ("S2B3"): otomatik açılan dizi o bölümden oynar.
+    acilacakBolum: String = "",
     // "TV" hapı Canlı TV ekranını açar; GERİ Gözat'a döner.
     onOpenChannels: () -> Unit = {},
     onBack: () -> Unit,
@@ -251,6 +253,7 @@ fun BrowseScreen(
     var resultsTitle by state::resultsTitle
     var resultsLoading by remember { mutableStateOf(false) }
     var acilacakBaslik by remember { mutableStateOf<String?>(null) }
+    var acilacakRef by remember { mutableStateOf("") }
     // Yıldızlı kaynaklar SUNUCUDA (prefs): kanal favorileriyle aynı yer, aynı
     // mantık — başka TV'den girince ya da yeniden kurunca kaybolmasın.
     var favKaynaklar by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -345,6 +348,7 @@ fun BrowseScreen(
     // Ajanda'dan gelen başlık akışıyla (remoteQuery/otomatikAc) AYNI yol.
     fun openSeriesPart(parca: FilmSerisiParcasi) {
         acilacakBaslik = parca.baslik
+        acilacakRef = ""
         doSearch(parca.baslik)
     }
 
@@ -355,6 +359,7 @@ fun BrowseScreen(
         if (metin.isNotEmpty() && plugins.isNotEmpty()) {
             query = metin
             acilacakBaslik = if (otomatikAc) metin else null
+            acilacakRef = if (otomatikAc) acilacakBolum else ""
             doSearch(metin)
             onRemoteQueryUsed()
         }
@@ -368,7 +373,7 @@ fun BrowseScreen(
             acilacakBaslik = null
             val tam = liste.filter { it.title.equals(hedef, ignoreCase = true) }
             val acilacak = tam.singleOrNull() ?: liste.singleOrNull()
-            if (acilacak != null) onSelect(acilacak)
+            if (acilacak != null) onSelect(acilacak.copy(episodeRef = acilacakRef))
         }
     }
 
