@@ -62,6 +62,14 @@ android {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // Küçültme DEBUG'da açık (yayınlanan APK debug imzalı, saatteki gibi): küçültmesiz
+        // 42 MB classes.dex kurulumdan sonra ilk açılışta ana iş parçacığında işleniyor,
+        // Mi Box her güncellemede ANR veriyordu (Dean, 23 Eki: "her güncellemede açılmıyor").
+        debug {
+            isMinifyEnabled   = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
 
     compileOptions {
