@@ -86,7 +86,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -2695,9 +2699,21 @@ internal fun SettingsPanel(
                             color = NmColor.OnSurfaceMuted,
                         )
                         val liste = episodes.withIndex().filter { it.value.season == acikSezon }
-                        KayanListe {
+                        // Uzun sezonun sonunda çipe geri kaymadan SOL/SAĞ sezon değiştirir (Dean, 23 Eki);
+                        // odak yeni sezonun ilk satırına iner, yoksa listede kaybolur.
+                        val ilkSatirFocus = remember { FocusRequester() }
+                        var tuslaDegisti by remember { mutableStateOf(false) }
+                        LaunchedEffect(acikSezon) {
+                            if (tuslaDegisti) { tuslaDegisti = false; runCatching { ilkSatirFocus.requestFocus() } }
+                        }
+                        KayanListe(Modifier.onPreviewKeyEvent { ev ->
+                            if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            val yon = when (ev.key) { Key.DirectionLeft -> -1; Key.DirectionRight -> +1; else -> return@onPreviewKeyEvent false }
+                            val hedef = komsuSezon(sezonlar, acikSezon, yon) ?: return@onPreviewKeyEvent false
+                            panelSezon = hedef; tuslaDegisti = true; true
+                        }) {
                             if (liste.isEmpty()) MutedRow("Bu sezonda bölüm yok")
-                            liste.forEach { (idx, ep) ->
+                            liste.forEachIndexed { sira, (idx, ep) ->
                                 val oynuyor = idx == currentEpIndex
                                 BolumSatiri(
                                     ep = ep,
@@ -2706,7 +2722,8 @@ internal fun SettingsPanel(
                                     // Kayıt tek "nereye kadar" tutar: öncekiler izlenmiş sayılır.
                                     izlendi = idx < currentEpIndex,
                                     kayitli = library.kayitBul(item.title, episodeRef(ep.season, ep.episode, idx)) != null,
-                                    modifier = if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier,
+                                    modifier = (if (sira == 0) Modifier.focusRequester(ilkSatirFocus) else Modifier)
+                                        .then(if (oynuyor) Modifier.focusRequester(bolumFocus) else Modifier),
                                 ) { onSelectEpisode(idx) }
                             }
                         }
@@ -2799,11 +2816,19 @@ internal fun SettingsPanel(
     }
 }
 
+/** Sıralı sezon listesinde bir önceki/sonraki sezon; uçta ya da tek sezonda null (SOL/SAĞ boşa gitmez). */
+internal fun komsuSezon(sezonlar: List<Int>, acik: Int?, yon: Int): Int? {
+    if (sezonlar.size < 2) return null
+    val i = sezonlar.indexOf(acik)
+    if (i < 0) return sezonlar.first()
+    return sezonlar.getOrNull(i + yon)
+}
+
 /** Panelin kalan boyunu dolduran dikey kayan alan: içerik ne kadar olursa olsun panel boyu değişmez. */
 @Composable
-private fun ColumnScope.KayanListe(icerik: @Composable ColumnScope.() -> Unit) {
+private fun ColumnScope.KayanListe(modifier: Modifier = Modifier, icerik: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = Modifier.weight(1f).fillMaxWidth().focusGroup().verticalScroll(rememberScrollState()),
+        modifier = modifier.weight(1f).fillMaxWidth().focusGroup().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(NmDim.ChipGap),
         content = icerik,
     )

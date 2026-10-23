@@ -89,13 +89,11 @@ fun PlayerScreen2(
   val panelFocus = remember { FocusRequester() }
   val previewExo = rememberPreviewPlayer(core, ui)
 
-  // Bölümler sekmesi açılınca en zengin liste aranır (core bir kez yapar).
-  LaunchedEffect(ui.ayarBolumler) {
-    if (ui.ayarBolumler) core.requestBestEpisodes()
-  }
-  // Ayarlar kapanınca bir sonraki açılış varsayılan sekmeden başlasın (eski 1273).
+  // Ayarlar açılınca en zengin liste aranır (core bir kez yapar). Yalnız ayarBolumler'e
+  // bağlıyken panel içinde Bölümler sekmesine geçiş tetiklemiyor, düz liste kalıyordu.
+  // Kapanınca bir sonraki açılış varsayılan sekmeden başlasın (eski 1273).
   LaunchedEffect(ui.showSettings) {
-    if (!ui.showSettings) ui.ayarBolumler = false
+    if (ui.showSettings) core.requestBestEpisodes() else ui.ayarBolumler = false
   }
 
   // Odak sahipliği: kök kutu odaksızsa D-pad controller'a gelmez. Tek requestFocus

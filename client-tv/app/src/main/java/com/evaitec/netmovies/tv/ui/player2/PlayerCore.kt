@@ -407,7 +407,10 @@ class PlayerCore(
                     plugin = aktifPlugin,
                     encodedUrl = aktifUrl,
                 ).result
-            }.getOrNull() ?: return@launch
+            }.getOrNull()
+            // Ağ hatası/zaman aşımında bayrak düşer: bir sonraki açılış yeniden dener,
+            // yoksa düz (sezonsuz) liste oturum boyunca kalıyordu.
+            if (yanit == null) { bolumAramasiYapildi = false; return@launch }
             if (yanit.episodes.size <= episodes.size) return@launch
 
             val simdiki = episodes.getOrNull(currentEpIndex)
