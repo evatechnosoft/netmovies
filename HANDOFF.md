@@ -1,55 +1,38 @@
-# Handoff: TV 0.9.77 — sezon gezinme + R8 küçültme (23 Eki)
-> 2026-10-23 · `fix/general-stability` @ 25dcf11 · OTA `v0.9.77-poc` (curl doğrulandı), GitHub + evaglass-releases + apps.json yayınlandı
-> **DEVİR:** 0.9.77: bölüm listesinde SOL/SAĞ sezon değiştirir (`komsuSezon`, odak yeni sezonun ilk satırına); `requestBestEpisodes` artık ayar paneli her açılışta tetiklenir, ağ hatasında bayrak düşer (düz "Sezon 1" listesi kalmıyor); **R8 küçültme debug derlemede açık** (`isMinifyEnabled`, `proguard-rules.pro` saat kurallarının kopyası) — dex 69 MB→15,5 MB, "her güncellemede açılmıyor" ANR'sinin kök düzeltmesi. Emülatörde (Pixel_API36) açıldı, MainActivity resumed; **Mi Box'ta doğrulanmadı** (kutu ağda yok, ADB .11/.17 yanıtsız, köprü kapalı). Dean "kaldır-kur" istedi; kutu dönünce: prefs yedekle → uninstall → 0.9.77 kur → prefs geri (hafıza `imza-anahtari-tasimada-kayboldu`). Sonraki: kutuda açılış kanıtı, sezon geçişi odak testi, R8 regresyonu (serialization/retrofit) logcat.
-
-# Handoff: dal birleştirme — tek dal fix/general-stability, TV 0.9.76 (23 Eki)
-> 2026-10-23 · `fix/general-stability` @ f45cb59 (= eski `fix/stream-segment-dedup` ucu; `feature/profiles`, `fix/tv-heap-buffer` de bu zincirde, silinmedi) · smoke YEŞİL
-> **DEVİR:** Laptop 12 commit geride, yanlış daldaydı; `fix/general-stability` dedup ucuna fast-forward edilip push'landı, ZimaOS da aynı dala alındı (aynı commit, rebuild yok). Canlı: engine 5363f7c, stream 04c8f03 imajı; OTA `v0.9.76-poc`, GitHub 0.9.76 prerelease. apps.json (evaitecOTA) sürümü doğrulanmadı. prod tüneli 502 (19 Eki'den beri). Durdurulan konteynerler açılışta geri kalkmadı (0). Aşağısı 21 Eki devri (0.9.74) — sonrası commit mesajlarında: 04c8f03 yavaş kaynak→WARP, fdba5d8 arama GERİ çökmesi, f45cb59 ajanda kartı.
-
-# Handoff: ZimaOS sadeleştirme + TV 0.9.74
-> 2026-10-21 · `fix/tv-heap-buffer` @ 1e81c42 (origin'de; `feature/profiles` da aynı commit'i içeriyor) · 2 untracked (`.claude/` yerel ayar, işle ilgisiz)
+# Handoff: TV 0.9.78 kumanda + ev DHCP
+> 2026-10-24 · `fix/general-stability` @ 888cd58 (origin'de) · 1 untracked (`.claude/settings.local.json`, işle ilgisiz)
 
 ## Goal
-Profiller (feature/profiles) + TV heap düzeltmesi canlıda; ZimaOS'u gereksiz yükten arındırmak.
-Profil ayrıntısı: hafıza + `git log feature/profiles`. Heap düzeltmesi: commit 1e81c42 mesajı.
+Kumanda düzeltmeleri canlıda (0.9.78); Mi Box'ta doğrulama bekliyor. Ayrıntı: `git show aeed5a0` mesajı.
 
 ## State
-- **ZimaOS kodu** `feature/profiles` @ 1e81c42; TV OTA `v0.9.74-poc` (curl ile doğrulandı).
-  0.9.74 kutuda açılışta ANR verdi → `cmd package compile -m speed -f` ile çözüldü (hafıza `adb-kurulum-dexopt-anr`).
-- **20 konteyner durduruldu**, restart=no: coolify-v4(+db,redis,sentinel), twenty-(server,worker,db,redis),
-  quiz-bank-frontend, quiz-bank-backend_old, callcenter-(frontend,backend,redis), sportapp-backend,
-  randevu-container, big-bear-flowise, flowise, obsidian, webtop, big-bear-dockhand.
-  Eski politikalar `/DATA/AppData/durdurulan-20261021.txt` (`ad politika`). Geri: `docker update --restart=<p> <ad> && docker start <ad>`.
-  RAM 11,4/31,7 GB. 97 konteyner hâlâ çalışıyor.
-- **Gece temizliği**: `/DATA/AppData/gece-temizlik/temizlik.sh` + `gece-temizlik.{service,timer}` (23:40, 00:00 kapanıştan önce).
-  21 Eki 23:40'ta kendiliğinden koştu; /DATA 90G boş. Volume/etiketli imaja dokunmaz.
-- **LOQ** `~/.gradle/gradle.properties`: daemon idletimeout 10 dk, Kotlin `in-process` (ayrı daemon yok).
-- nexus-db CPU = geçici `ingest.py`; dokunulmadı.
+- **0.9.78 yayında:** `apk_publish.sh` EXIT=0; OTA tag `v0.9.78-poc`, `data/apk/NetMovies-TV-v0.9.78.apk` 8571730 bayt, apps.json commit 005b9434. İçerik: MediaSession (`ui/MedyaOturumu.kt`), medya/Menü tuşu, YUKARI tek basış bölüm listesi, basılı tutma tekrarı yutulur (`input/UzunBasisKapisi.kt` + 5 test).
+- **Mi Box doğrulanmadı:** 23 Eki 21:36'dan beri ağda yok (ADB .11/.17/.55 yanıtsız). Dean: "boşver, olmuyorsa". Kutuya bir şey yapılmadı.
+- **Ev DHCP (ZimaOS):** internet çöküşü, aynı anda çalışan iki DHCP sunucusundan kaynaklanıyordu: `ev-dhcp` docker konteyneri ve host `ev-dhcp.service`. Konteyner durduruldu, `restart=no` (silinmedi; satır `/DATA/AppData/durdurulan-20261021.txt`). Host servis 23 Eki 22:02'de yeniden başladı; ardından DHCP döngüsü durdu (45 sn pasif yakalamada 0 paket).
+- `~/.claude/scripts/session-context.py` düzeltildi (`~/.claude` commit 43d4831): alt proje devir notu yalnız git kökünde aranıyor, artık C:\projects'te NetMovies notu basılmıyor.
 
 ## Next
-1. Yarın ZimaOS açılışında durdurulanlar geri kalktı mı: `ssh zima "docker ps --format '{{.Names}}' | grep -cE 'coolify|twenty|callcenter|flowise|webtop|obsidian'"` → 0 beklenir. >0 ise CasaOS açılışta başlatıyor; CasaOS app ayarından kapat.
-2. Dean'e açık soru: Kasm agent da durdurulsun mu?
-3. `fix/tv-heap-buffer` → `fix/general-stability` PR'ı (feature/profiles ile birlikte) — henüz açılmadı.
+1. Kutu ağa dönünce: `adb connect 192.168.0.11:5555` (wifi .17) → `adb shell dumpsys media_session | grep -A3 netmovies` ile MediaSession kaydını gör; `adb logcat -d | grep -iE "FATAL|R8|Serializ"` ile R8 regresyonu ara.
+2. Sezon geçişi (SOL/SAĞ) odak testi + Dean'in "kaldır-kur" isteği: prefs yedekle → uninstall → kur → prefs geri (hafıza `imza-anahtari-tasimada-kayboldu`).
+3. Board'da WI yok — bu iş için açılmadı; açılacaksa etechlab'da.
 
 ## Don't repeat
-- Durdurulan konteynerleri silme/prune etme — volume'ları ve verisi duruyor, yalnız durduruldu.
-- `docker volume prune` / `system prune -a` gece betiğine ekleme — durdurulan uygulamaların imajını/verisini götürür.
-- nexus-db psql rolü `nexus`, `postgres` değil.
-- Zima'da compose/docker için `export DOCKER_CONFIG=/tmp/dc` şart.
+- DHCP'den `interface=wlan0` çıkarma — Dean: telefonlara gerekli (hafıza `ev-dhcp-wlan0-kalsin`).
+- `ev-dhcp` konteynerini yeniden başlatma — ikili DHCP sunucusu interneti düşürür. Geri alma gerekirse: `docker update --restart=unless-stopped ev-dhcp && docker start ev-dhcp`.
+- Yayın komutunu Dean'e verme; onay varsa `apk_publish.sh`'yi ajan koşar (hafıza `ota-yayini-kendin-yap`).
+- Durdurulan konteynerleri silme/prune etme. Zima'da docker için `export DOCKER_CONFIG=/tmp/dc`.
 
 ## Verify
-git rev-parse --short HEAD                                         # 1e81c42
-curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'   # v0.9.74-poc
-ssh zima "systemctl list-timers gece-temizlik.timer --no-pager | sed -n 2p"        # sonraki 23:40
-ssh zima "cat /DATA/AppData/gece-temizlik/son.log | tail -1"                       # df satırı
+git rev-parse --short HEAD                                                          # 888cd58
+curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'    # v0.9.78-poc
+ssh zima 'systemctl is-active ev-dhcp; sudo ss -ulpn | grep -c ":67 "'              # active, 2 (biri libvirt virbr0)
+ssh zima 'export DOCKER_CONFIG=/tmp/dc; docker ps -a --filter name=^ev-dhcp$ --format "{{.Status}}"'  # Exited
 
 ## Yeniden başlangıç promptu (yapıştır)
 ```
-NetMovies / ZimaOS bakım devamı. Durum: ZimaOS feature/profiles @ 1e81c42, TV 0.9.74 yayında.
-21 Eki'de 20 kullanılmayan konteyner (coolify, twenty, callcenter, flowise, webtop…) durduruldu,
-restart=no; eski politikalar /DATA/AppData/durdurulan-20261021.txt. Gece 23:40 temizlik zamanlayıcısı kurulu.
-LOQ'ta Gradle/Kotlin boşta kapanıyor.
-Ortam: C:\projects\netmovies (worktree feature+profiles), ssh zima, DOCKER_CONFIG=/tmp/dc.
-Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) durdurulanlar açılışta geri kalktı mı
-2) Kasm sorusu Dean'e 3) fix/tv-heap-buffer PR. Yeni iş açma.
+NetMovies devamı. TV 0.9.78 (kumanda: MediaSession, medya/Menü tuşu, YUKARI bölüm listesi,
+basılı tutma tekrarı yutma) yayında, fix/general-stability @ 888cd58. Mi Box ağda yok, doğrulanmadı.
+Ev DHCP: ZimaOS host ev-dhcp.service tek sunucu; eski ev-dhcp konteyneri durduruldu (ikili DHCP interneti
+düşürüyordu) — yeniden başlatma, wlan0'ı conf'tan çıkarma.
+Ortam: C:\projects\netmovies, ssh zima, DOCKER_CONFIG=/tmp/dc.
+Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: kutu dönerse ADB doğrulama (Next 1-2). Yeni iş açma.
 ```
