@@ -1,3 +1,7 @@
+# Handoff: dal birleştirme — tek dal fix/general-stability, TV 0.9.76 (23 Eki)
+> 2026-10-23 · `fix/general-stability` @ f45cb59 (= eski `fix/stream-segment-dedup` ucu; `feature/profiles`, `fix/tv-heap-buffer` de bu zincirde, silinmedi) · smoke YEŞİL
+> **DEVİR:** Laptop 12 commit geride, yanlış daldaydı; `fix/general-stability` dedup ucuna fast-forward edilip push'landı, ZimaOS da aynı dala alındı (aynı commit, rebuild yok). Canlı: engine 5363f7c, stream 04c8f03 imajı; OTA `v0.9.76-poc`, GitHub 0.9.76 prerelease. apps.json (evaitecOTA) sürümü doğrulanmadı. prod tüneli 502 (19 Eki'den beri). Durdurulan konteynerler açılışta geri kalkmadı (0). Aşağısı 21 Eki devri (0.9.74) — sonrası commit mesajlarında: 04c8f03 yavaş kaynak→WARP, fdba5d8 arama GERİ çökmesi, f45cb59 ajanda kartı.
+
 # Handoff: ZimaOS sadeleştirme + TV 0.9.74
 > 2026-10-21 · `fix/tv-heap-buffer` @ 1e81c42 (origin'de; `feature/profiles` da aynı commit'i içeriyor) · 2 untracked (`.claude/` yerel ayar, işle ilgisiz)
 
