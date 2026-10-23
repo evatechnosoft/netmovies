@@ -104,6 +104,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.11.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
     implementation("androidx.media3:media3-ui:1.11.0")
+    // Kumandanın medya tuşları + Asistan: oynatıcı sisteme MediaSession olarak görünür.
+    implementation("androidx.media3:media3-session:1.11.0")
     // Oynatıcı istekleri OkHttp'den: BaseUrlInterceptor sunucu geçişinde segmenti yeni adrese taşır.
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
 

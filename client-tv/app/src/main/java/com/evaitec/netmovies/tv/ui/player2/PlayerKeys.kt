@@ -68,11 +68,11 @@ class PlayerKeys(
             RemoteAction.SEEK_HOLD_FWD -> seekBy(10_000)
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-10_000)
             RemoteAction.OPEN_SETTINGS -> if (kanalGecisiVar) kanalAtla(-1) else ui.showSettings = true
-            // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
-            RemoteAction.OPEN_EPISODES -> {
-                ui.ayarBolumler = core.episodes.isNotEmpty()
-                ui.showSettings = true
-                ui.showControls = false
+            // Bölüm listesi yoksa (film, canlı) YUKARI eski işini yapar: kanal / scrub.
+            RemoteAction.OPEN_EPISODES -> when {
+                kanalGecisiVar -> kanalAtla(+1)
+                core.episodes.isEmpty() -> enterScrub()
+                else -> { ui.ayarBolumler = true; ui.showSettings = true; ui.showControls = false }
             }
             RemoteAction.SHOW_CONTROLS -> ui.flashControls()
             // Canlı yayında YUKARI/AŞAĞI kanal değiştirir; dizi/filmde scrub.
@@ -122,6 +122,8 @@ class PlayerKeys(
         val ne = e.nativeKeyEvent
         // DOWN'unu görmediğimiz UP (önceki ekranda basılmış tuşun bırakılması) yutulur.
         if (!tusKapisi.kabul(ne.action, ne.keyCode)) return true
+        // Basılı tutmayla açılan panele parmak kalkana dek gelen tekrarlar gitmesin.
+        if (controller.swallowsHeldRepeat(ne)) return true
         // Tuş göstergesi: kökten aşağı ilk yol, her tuş buraya uğrar.
         if (ui.showKeys && ne.action == NKey.ACTION_DOWN && ne.repeatCount == 0) {
             ui.keyHint = keyLabel(ne.keyCode, bindings)

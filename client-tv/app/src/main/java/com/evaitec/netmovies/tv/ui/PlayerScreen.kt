@@ -627,11 +627,11 @@ fun PlayerScreen(
             RemoteAction.SEEK_HOLD_FWD -> seekBy(10_000)
             RemoteAction.SEEK_HOLD_BACK -> seekBy(-10_000)
             RemoteAction.OPEN_SETTINGS -> if (kanalGecisiVar) kanalAtla(-1) else showSettings = true
-            // Filmde bölüm listesi yok: tuş boşa basılmasın, ayarlar açılır.
-            RemoteAction.OPEN_EPISODES -> {
-                ayarBolumler = episodes.isNotEmpty()
-                showSettings = true
-                showControls = false
+            // Bölüm listesi yoksa (film, canlı) YUKARI eski işini yapar: kanal / scrub.
+            RemoteAction.OPEN_EPISODES -> when {
+                kanalGecisiVar -> kanalAtla(+1)
+                episodes.isEmpty() -> enterScrub()
+                else -> { ayarBolumler = true; showSettings = true; showControls = false }
             }
             RemoteAction.SHOW_CONTROLS -> flashControls()
             // Canlı yayında YUKARI/AŞAĞI klasik TV davranışı: kanal değiştirir.
@@ -641,6 +641,12 @@ fun PlayerScreen(
             RemoteAction.BACK -> onBack()
         }
     }
+
+    MedyaOturumu(
+        exo,
+        onNext = nextEpIndex?.let { i -> { goToEpisode(i) } },
+        onPrev = prevEpIndex?.let { i -> { goToEpisode(i) } },
+    )
 
     val controller = remember {
         RemoteInputController(
@@ -1512,6 +1518,8 @@ fun PlayerScreen(
                 // tetiklemez. Kökten aşağı ilk yol olduğu için panel de controller
                 // da bu olaydan haberdar olmaz.
                 if (!tusKapisi.kabul(ke.nativeKeyEvent.action, ke.nativeKeyEvent.keyCode)) return@onPreviewKeyEvent true
+                // Basılı tutmayla açılan panele parmak kalkana dek gelen tekrarlar gitmesin.
+                if (controller.swallowsHeldRepeat(ke.nativeKeyEvent)) return@onPreviewKeyEvent true
                 // Tuş göstergesi buradan beslenir: kökten aşağı İLK yol, yani
                 // hangi panel açık olursa olsun her tuş buraya uğrar.
                 if (showKeys &&

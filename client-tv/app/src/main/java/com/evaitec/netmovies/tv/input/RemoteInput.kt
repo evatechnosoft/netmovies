@@ -72,9 +72,10 @@ private val DEFAULTS: Map<String, RemoteAction> = buildMap {
     // Basılı tutma hızlanan sarma: basış boyunca hedef birikir, bırakınca tek atlama.
     put(k(RemoteKey.LEFT, PressType.LONG), RemoteAction.SEEK_HOLD_BACK)
     put(k(RemoteKey.RIGHT, PressType.LONG), RemoteAction.SEEK_HOLD_FWD)
-    put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.TOGGLE_SCRUB)
-    // Dizide bölüm listesi kumandada da tek harekette açılsın: YUKARI basılı tut.
-    put(k(RemoteKey.UP, PressType.LONG), RemoteAction.OPEN_EPISODES)
+    // YUKARI tek basış = bölüm listesi (dizi değilse oynatıcı scrub'a düşer),
+    // basılı tutma = scrub. Eskiden tersiydi; Dean listeyi tek basışta istedi.
+    put(k(RemoteKey.UP, PressType.SINGLE), RemoteAction.OPEN_EPISODES)
+    put(k(RemoteKey.UP, PressType.LONG), RemoteAction.TOGGLE_SCRUB)
     // AŞAĞI: süre/ilerleme bilgisi kısa süre görünür, basılı tutma ayarları açar.
     put(k(RemoteKey.DOWN, PressType.SINGLE), RemoteAction.SHOW_CONTROLS)
     put(k(RemoteKey.DOWN, PressType.LONG), RemoteAction.OPEN_SETTINGS)
@@ -166,6 +167,11 @@ class RemoteInputController(
     private val lastUp = HashMap<Int, Long>()
     private val pendingSingle = HashMap<Int, Job>()
     private val doubleWindowMs = 300L
+    private val uzunKapi = UzunBasisKapisi()
+
+    /** Tek seferlik uzun eylem panel açtıysa, tuş bırakılana dek gelen tekrarlar panele gitmesin.
+     * Ekran bunu panel/modal kontrolünden ÖNCE (onPreviewKeyEvent) sormalı. */
+    fun swallowsHeldRepeat(e: KeyEvent): Boolean = uzunKapi.yutar(e.action, e.keyCode, e.repeatCount)
 
     /** Uzun basışla bir eylem ateşlendiyse, o tuşun BIRAKILMA olayı hâlâ buraya aittir.
      *
@@ -202,6 +208,7 @@ class RemoteInputController(
                             onHold(longAction, e.eventTime - e.downTime)
                         } else if (longFired[code] != true) {
                             onAction(longAction); longFired[code] = true   // tek sefer
+                            uzunKapi.ateslendi(code)
                         }
                     }
                 }

@@ -66,6 +66,11 @@ fun PlayerScreen2(
   onKanal: (MediaItem) -> Unit = {},
 ) {
   val core = rememberPlayerCore(item, library, onExit = onBack)
+  com.evaitec.netmovies.tv.ui.MedyaOturumu(
+    core.exo,
+    onNext = core.nextEpIndex?.let { i -> { core.goToEpisode(i) } },
+    onPrev = core.prevEpIndex?.let { i -> { core.goToEpisode(i) } },
+  )
   val ui = remember(item.url) { PlayerUiState() }
   val keys = rememberPlayerKeys(core, ui, bindings, kanallar, onKanal, onExit = onBack)
   val exo = core.exo
