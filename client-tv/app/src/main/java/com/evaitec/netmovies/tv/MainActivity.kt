@@ -545,6 +545,10 @@ class MainActivity : ComponentActivity() {
                                     onBack = { showChannels = false },
                                     onKanallar = { kanalListesi = it },
                                 )
+                            // Telefon kumandayken ızgara klavye anlamsız: telefonun kendi
+                            // klavyesiyle arayan ekran; kart "Televizyonda oynat" ile gönderir.
+                            showSearch && !isTv && com.evaitec.netmovies.tv.ui.theme.nmTelefon() ->
+                                com.evaitec.netmovies.tv.ui.PhoneSearchScreen(onKapat = { showSearch = false })
                             showSearch ->
                                 com.evaitec.netmovies.tv.ui.SearchScreen(
                                     state = searchState,

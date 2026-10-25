@@ -56,6 +56,7 @@ import com.evaitec.netmovies.tv.data.MediaItem
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.StreamLink
 import com.evaitec.netmovies.tv.data.rawUrl
+import com.evaitec.netmovies.tv.input.NmBackHandler
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -88,6 +89,8 @@ fun PhoneSearchScreen(baslangic: String = "", onKapat: () -> Unit) {
     var secili by remember { mutableStateOf<MediaItem?>(null) }
     var durum by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    // Telefonun GERİ tuşu: kart açıksa kartı, değilse ekranı kapatır.
+    NmBackHandler { if (secili != null) secili = null else onKapat() }
 
     suspend fun ara(metin: String) {
         if (metin.isBlank()) return
