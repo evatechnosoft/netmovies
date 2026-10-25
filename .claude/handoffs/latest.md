@@ -1,4 +1,11 @@
-# Handoff: dal birleştirme — tek dal fix/general-stability, TV 0.9.76 (23 Eki)
+# Handoff: ev DHCP tek sunucu + modem yedek + ev hız ölçümü (25 Eki)
+> 2026-10-25 · worktree `fix/dhcp-kok-duzeltme` @ c4180e3 (origin'de; `fix/general-stability`'ye merge bekliyor) · kod değişikliği yok, yalnız docs/handoff
+> **DEVİR (25 Eki, kanıtlı):** Güncel durum kök `HANDOFF.md`'de (State/Don't repeat/Verify). Özet: ZimaOS host `ev-dhcp.service` tek DHCP; `dhcp-authoritative` kaldırıldı; eski `ev-dhcp` konteyneri silindi; Netmaster DHCP yedek havuz .220–.254/1 gün açık (`nm_dhcp.py ac 220 35 86400`). Dean kararı: modem NAK riski kabul, cihazlar MAC ile sabitlenir — bu riski yeniden raporlama.
+> **Hız ölçümü (25 Eki, iperf3 + Cloudflare, Dean'e raporlandı):** LOQ kablolu↔Zima eth0 949/941 Mbit/s; LOQ Wi-Fi↔Zima eth0 90/78; kablolu→Zima wlan0 95 (ters yön 851); Wi-Fi↔wlan0 132/77. İnternet: LOQ kablolu 121↓/18,6↑, LOQ Wi-Fi 91↓/18,3↑ (ilk koşu 2,8↑ dalgalanma), Zima host 115↓/19,2↑, netmovies-stream konteyner 59↓ (python urllib, UA şart: Cloudflare python UA'ya 403). Betikler `~/.claude/jobs/e12b219d/tmp/{lan_speed,inet_speed}.sh` (iş silinince gider). Sonuç: kablolu gigabit dolu, Wi-Fi ~80–130; TV Zima'ya hep eth0 (.186) ile gitmeli.
+> **Tek sonraki adım:** `fix/dhcp-kok-duzeltme` → `fix/general-stability` PR/merge (Dean onayı); sonra kök HANDOFF.md Next 1-2 (Mi Box ADB doğrulama).
+> **Tekrarlama:** `dhcp-authoritative` geri koyma; `ev-dhcp` konteynerini geri getirme; `interface=wlan0` çıkarma; Netmaster havuzunu .100–.179 ile çakıştırma; Zima docker için `export DOCKER_CONFIG=/tmp/dc` şart.
+
+# (eski) Handoff: dal birleştirme — tek dal fix/general-stability, TV 0.9.76 (23 Eki)
 > 2026-10-23 · `fix/general-stability` @ f45cb59 (= eski `fix/stream-segment-dedup` ucu; `feature/profiles`, `fix/tv-heap-buffer` de bu zincirde, silinmedi) · smoke YEŞİL
 > **DEVİR:** Laptop 12 commit geride, yanlış daldaydı; `fix/general-stability` dedup ucuna fast-forward edilip push'landı, ZimaOS da aynı dala alındı (aynı commit, rebuild yok). Canlı: engine 5363f7c, stream 04c8f03 imajı; OTA `v0.9.76-poc`, GitHub 0.9.76 prerelease. apps.json (evaitecOTA) sürümü doğrulanmadı. prod tüneli 502 (19 Eki'den beri). Durdurulan konteynerler açılışta geri kalkmadı (0). Aşağısı 21 Eki devri (0.9.74) — sonrası commit mesajlarında: 04c8f03 yavaş kaynak→WARP, fdba5d8 arama GERİ çökmesi, f45cb59 ajanda kartı.
 
