@@ -1,41 +1,45 @@
-# Handoff: TV 0.9.78 kumanda + ev DHCP tek sunucu + modem yedek
-> 2026-10-25 · `fix/general-stability` @ 888cd58 (origin'de) · 1 untracked (`.claude/settings.local.json`, işle ilgisiz)
+# Handoff: TV 0.9.81 yayında + ev DHCP tek sunucu + modem yedek
+> 2026-10-25 · `fix/dhcp-kok-duzeltme` @ 8655bcb (= origin/fix/general-stability) · 0 dirty (1 untracked `.claude/settings.local.json`, işle ilgisiz)
 
 ## Goal
-Kumanda düzeltmeleri canlıda (0.9.78); Mi Box'ta doğrulama bekliyor. Ayrıntı: `git show aeed5a0` mesajı.
+Telefon KUMANDA kipinde arama telefon klavyesiyle, GERİ tuşu ilk basışta çalışır (0.9.80–0.9.81); ev DHCP tek sunucu + modem yedek. Ayrıntı: `git log ff7e03f..8655bcb` mesajları, `.claude/handoffs/latest.md`.
 
 ## State
-- **0.9.78 yayında:** `apk_publish.sh` EXIT=0; OTA tag `v0.9.78-poc`, `data/apk/NetMovies-TV-v0.9.78.apk` 8571730 bayt, apps.json commit 005b9434. İçerik: MediaSession (`ui/MedyaOturumu.kt`), medya/Menü tuşu, YUKARI tek basış bölüm listesi, basılı tutma tekrarı yutulur (`input/UzunBasisKapisi.kt` + 5 test).
-- **Mi Box doğrulanmadı:** 23 Eki 21:36'dan beri ağda yok (ADB .11/.17/.55 yanıtsız). Dean: "boşver, olmuyorsa". Kutuya bir şey yapılmadı.
-- **Ev DHCP (ZimaOS), 25 Eki kök düzeltme + tek sunucu + modem yedek:** (1) `dhcp-authoritative` + eth0/wlan0 aynı LAN'da → dnsmasq kendi eth0 ACK'ını wlan0'dan `DHCPNAK wrong server-ID` ile bozuyordu; satır `ev.conf`'tan kaldırıldı (yedek `ev.conf.bak-20261025`), 12:42 sonrası 0 NAK (açılıştan beri sayaç 9'da sabit). (2) `zimaos-app-management` eski `ev-dhcp` konteynerini her açılışta başlatıyordu → konteyner `compose down` ile SİLİNDİ (imaj/conf/kira duruyor), `dhcp-container-guard.service` artık gereksiz ama zararsız. (3) Dean isteği: ZimaOS düşünce cihazlar modemden alsın → Netmaster DHCP AÇIK, ayrık havuz .220–.254, 1 gün (`~/.ai/scripts/home-net/nm_dhcp.py ac 220 35 86400`; geri alma `nm_dhcp.py kapat`). Ölçüm (`dhcp_probe.py`, `dhcp_request_probe.py`, Sonnet alt ajan + tekrar): DISCOVER'a .186→.161 ve .1→.220 teklifleri; modem havuz dışı INIT-REBOOT'a NAK veriyor (.150 → NAK). Risk: yeniden açılan cihaz NAK'la DISCOVER'a döner, modem teklifi önce gelirse rezervasyon yerine .220+ alır. Ayrıntı `~/.ai/scripts/home-net/ADRES-PLANI.md`.
-- `~/.claude/scripts/session-context.py` düzeltildi (`~/.claude` commit 43d4831): alt proje devir notu yalnız git kökünde aranıyor, artık C:\projects'te NetMovies notu basılmıyor.
+- **TV 0.9.81 yayında:** `apk_publish.sh` EXIT=0; OTA `v0.9.81-poc`, GitHub `v0.9.81-poc`, apps.json. ZimaOS repo `cebc0d3`. Kök neden/kanıt: commit `cebc0d3` mesajı (emülatör, IME arama tuşu; 114/0 birim testi). **Dean'in S24'ünde doğrulanmadı.**
+- 0.9.79 (ff7e03f): TV yerel sunucu seçiminde derlenmiş eth0 .186 hatırlanan wlan0 .174'ün önüne; 0.9.80 (f87db8f): `PhoneSearchScreen`. TELEFON kipi (cihazda izle) hâlâ ızgara klavye — PhoneSearchScreen yalnız TV'ye gönderir.
+- **Ev DHCP:** ZimaOS host `ev-dhcp.service` active, tek sunucu; `ev-dhcp` konteyneri silindi (docker ps -a boş); NAK sayacı 9 (açılış öncesi, artmıyor); Netmaster DHCP yedek havuz .220–.254/1 gün. Dean kararı: modem NAK riski kabul, cihazlar MAC ile sabitlenir — yeniden raporlama. Plan: `~/.ai/scripts/home-net/ADRES-PLANI.md`.
+- Hız ölçümü 25 Eki raporlandı: kablolu gigabit dolu, Wi-Fi ~80–130 Mbit; TV Zima'ya hep .186 ile.
+- Mi Box: 0.9.79+ sonrası isteklerin .186'dan geldiği doğrulanmadı.
 
 ## Next
-1. Kutu ağa dönünce: `adb connect 192.168.0.11:5555` (wifi .17) → `adb shell dumpsys media_session | grep -A3 netmovies` ile MediaSession kaydını gör; `adb logcat -d | grep -iE "FATAL|R8|Serializ"` ile R8 regresyonu ara.
-2. Sezon geçişi (SOL/SAĞ) odak testi + Dean'in "kaldır-kur" isteği: prefs yedekle → uninstall → kur → prefs geri (hafıza `imza-anahtari-tasimada-kayboldu`).
-3. Board'da WI yok — bu iş için açılmadı; açılacaksa etechlab'da.
+1. `adb connect 192.168.0.55:5555 && adb -s 192.168.0.55:5555 shell dumpsys package com.evaitec.netmovies.tv | grep versionName` → 0.9.81 beklenir; sonra `ssh zima "docker logs --since 10m netmovies-stream 2>&1 | grep -oE '192\.168\.0\.[0-9]+' | sort | uniq -c"` ile isteklerin .186'dan geldiğini gör.
+2. Dean telefonda GERİ'yi onaylamazsa: `sh ~/.claude/jobs/e12b219d/tmp/back_test5.sh` benzeri akışı emülatörde IME tuşuyla (`input tap 993 1710`) koş; `input keyevent 66` onSearch'ü TETİKLEMEZ, yanıltır.
+3. Dal kararı Dean'in: `fix/dhcp-kok-duzeltme` zaten `fix/general-stability` ile aynı commit; worktree silinebilir.
 
 ## Don't repeat
-- DHCP'den `interface=wlan0` çıkarma — Dean: telefonlara gerekli (hafıza `ev-dhcp-wlan0-kalsin`).
-- `ev-dhcp` konteynerini geri getirme (`compose up`) — ikili DHCP interneti düşürür; guard start anında durdurur. Host servisi tek sunucudur.
-- `dhcp-authoritative`'i ev.conf'a geri koyma — iki arayüzle kendi kendini NAK'lar (hafıza `ev-dhcp-zimaos`).
-- Yayın komutunu Dean'e verme; onay varsa `apk_publish.sh`'yi ajan koşar (hafıza `ota-yayini-kendin-yap`).
-- Netmaster DHCP havuzunu .100–.179 ile çakıştırma; `nm_dhcp.py ac` çağrısı her zaman `220 35 86400` ile. Zima'da docker için `export DOCKER_CONFIG=/tmp/dc`.
+- DHCP'den `interface=wlan0` çıkarma (telefonlara gerekli); `dhcp-authoritative` geri koyma; `ev-dhcp` konteynerini geri getirme; Netmaster havuzunu .100–.179 ile çakıştırma (`nm_dhcp.py ac 220 35 86400`).
+- Zima docker için `export DOCKER_CONFIG=/tmp/dc` şart. TV izlerken rebuild yok; boşta kontrolü `docker logs --since 1m netmovies-stream | grep -c remote/state`.
+- Dean'e link/ADB/elle kurulum önerme — telefon evaitecOTA `netmovies-phone`'dan alır.
+- Emülatör testinde donanım Enter ile arama (bkz. Next 2).
+
+## Read first
+1. `.claude/handoffs/latest.md` — 25 Eki tüm devir blokları (0.9.79/80/81, DHCP, hız)
+2. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/ui/PhoneSearchScreen.kt` — ara() + satır tıklaması, odak/klavye
+3. `client-tv/app/src/main/java/com/evaitec/netmovies/tv/MainActivity.kt` — kumanda kipi → PhoneSearchScreen, dispatchKeyEvent GERİ
 
 ## Verify
-git rev-parse --short HEAD                                                          # 888cd58
-curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'    # v0.9.78-poc
-ssh zima 'systemctl is-active ev-dhcp dhcp-container-guard; sudo ss -ulpn | grep -c ":67 "'   # active active 2 (biri libvirt virbr0)
-ssh zima 'sudo journalctl -b -u ev-dhcp --no-pager | grep -c "wrong server-ID"'           # 12:42 sonrası artmamalı (açılış öncesi 9)
-ssh zima 'export DOCKER_CONFIG=/tmp/dc; docker ps -a --filter name=^ev-dhcp$ --format "{{.Status}}"'  # boş (konteyner silindi)
+git rev-parse --short HEAD                                                          # 8655bcb
+git status --porcelain | wc -l                                                      # 1 (settings.local.json)
+curl -s 192.168.0.186:3310/api/v1/app_update?target=tv | grep -o '"tag":"[^"]*"'    # v0.9.81-poc
+ssh zima 'cd /DATA/AppData/netmovies && git rev-parse --short HEAD'                 # cebc0d3
+ssh zima 'systemctl is-active ev-dhcp; sudo journalctl -b -u ev-dhcp --no-pager | grep -c "wrong server-ID"'   # active, 9 (artmamalı)
 
 ## Yeniden başlangıç promptu (yapıştır)
 ```
-NetMovies devamı. TV 0.9.78 (kumanda: MediaSession, medya/Menü tuşu, YUKARI bölüm listesi,
-basılı tutma tekrarı yutma) yayında, fix/general-stability @ 888cd58. Mi Box ağda yok, doğrulanmadı.
-Ev DHCP: ZimaOS host ev-dhcp.service tek sunucu; eski ev-dhcp konteyneri durduruldu (ikili DHCP interneti
-düşürüyordu; dhcp-container-guard.service start anında durdurur), dhcp-authoritative kaldırıldı (kendi NAK'ı).
-Konteyner silindi; Netmaster DHCP yedek havuz .220–.254/1 gün açık (nm_dhcp.py). Dal fix/dhcp-kok-duzeltme → general-stability'ye merge bekliyor.
-Ortam: C:\projects\netmovies, ssh zima, DOCKER_CONFIG=/tmp/dc.
-Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: kutu dönerse ADB doğrulama (Next 1-2). Yeni iş açma.
+NetMovies devamı. TV 0.9.81 yayında (telefon KUMANDA kipinde arama telefon klavyesiyle, GERİ tuşu
+ilk basışta: klavye arama/kart adımında kapatılıyor; S24'te doğrulanmadı). fix/general-stability @ 8655bcb,
+ZimaOS cebc0d3. Ev DHCP: ZimaOS ev-dhcp.service tek sunucu, konteyner silindi, Netmaster yedek havuz .220+.
+Ortam: C:\projects\netmovies (worktree .claude/worktrees/dhcp-kok-duzeltme aynı commit), ssh zima, DOCKER_CONFIG=/tmp/dc.
+Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: Next 1 (Mi Box sürüm + .186 kanıtı), Dean dönüşü varsa Next 2.
+Yeni iş açma.
 ```
