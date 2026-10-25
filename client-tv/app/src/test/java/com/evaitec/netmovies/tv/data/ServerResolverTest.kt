@@ -1,5 +1,6 @@
 package com.evaitec.netmovies.tv.data
 
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -50,5 +51,18 @@ class ServerResolverTest {
             listOf("http://192.168.1.185:3310/", "http://192.168.0.185:3310/"),
             parsed.map { it.toString() },
         )
+    }
+
+    // Hatırlanan adres derlenmiş adresin ÖNÜNE geçince TV yavaş Wi-Fi bacağında (.174) kalıyordu.
+    @Test
+    fun compiledAddressBeatsRememberedOne() {
+        val yerel = ServerResolver.localCandidates("http://192.168.0.186:3310")
+        val hatirlanan = "http://192.168.0.174:3310".toHttpUrl()
+
+        assertEquals(
+            listOf("http://192.168.0.186:3310/", "http://192.168.0.174:3310/"),
+            ServerResolver.hizliAdaylar(hatirlanan, yerel).map { it.toString() },
+        )
+        assertEquals(yerel, ServerResolver.hizliAdaylar(yerel.first(), yerel))
     }
 }

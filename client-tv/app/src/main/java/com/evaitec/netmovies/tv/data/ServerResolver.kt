@@ -106,9 +106,14 @@ object ServerResolver {
 
     private fun quickLocal(): HttpUrl? {
         val remembered = prefs?.getString(KEY_LAST, null)?.toHttpUrlOrNull()
-        val quick = listOfNotNull(remembered) + localCandidates(BuildConfig.LOCAL_URL)
-        return firstAlive(quick, probe)?.also(::remember)
+        return firstAlive(hizliAdaylar(remembered, localCandidates(BuildConfig.LOCAL_URL)), probe)?.also(::remember)
     }
+
+    /** Saf: derlenmiş adres önce. Tarama Zima'nın Wi-Fi bacağını (.174, ~77 Mbit) bulup
+     *  hatırlayınca TV bir daha eth0'a (.186, gigabit) dönmüyordu; firstAlive sırayla
+     *  bekler, .186 ayaktaysa o kazanır. */
+    internal fun hizliAdaylar(hatirlanan: HttpUrl?, yerel: List<HttpUrl>): List<HttpUrl> =
+        (yerel + listOfNotNull(hatirlanan)).distinct()
 
     private fun discoverLocal(): HttpUrl? {
         quickLocal()?.let { return it }
