@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -89,11 +91,15 @@ fun PhoneSearchScreen(baslangic: String = "", onKapat: () -> Unit) {
     var secili by remember { mutableStateOf<MediaItem?>(null) }
     var durum by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val odak = LocalFocusManager.current
+    val klavye = LocalSoftwareKeyboardController.current
     // Telefonun GERİ tuşu: kart açıksa kartı, değilse ekranı kapatır.
     NmBackHandler { if (secili != null) secili = null else onKapat() }
 
     suspend fun ara(metin: String) {
         if (metin.isBlank()) return
+        // Klavye açıkken GERİ'yi klavye yutar; arama/kart adımında klavyeyi kapat (0.9.81).
+        odak.clearFocus(); klavye?.hide()
         araniyor = true
         durum = ""
         arananSorgu = metin
@@ -176,7 +182,7 @@ fun PhoneSearchScreen(baslangic: String = "", onKapat: () -> Unit) {
         }
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(NmDim.ItemGap)) {
-            items(sonuclar.size) { i -> SonucSatiri(sonuclar[i]) { secili = sonuclar[i] } }
+            items(sonuclar.size) { i -> SonucSatiri(sonuclar[i]) { odak.clearFocus(); klavye?.hide(); secili = sonuclar[i] } }
         }
     }
 
