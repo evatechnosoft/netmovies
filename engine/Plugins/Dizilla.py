@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
 import json
 import os
 import re
 
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__dizi_common import (
@@ -19,10 +16,7 @@ from Plugins.__dizi_common import (
     fetch_html,
     first_attr,
     first_text,
-    get_warp_client,
     normalize_url,
-    poster_attr,
-    season_episode,
 )
 from Plugins.__kekik_domain import discover_main_url
 
@@ -31,35 +25,50 @@ _MAIN_URL = discover_main_url(
     "Dizilla/src/main/kotlin/com/keyiflerolsun/Dizilla.kt", "https://dizilla.now", "DIZILLA_URL"
 )
 
-# Site Next.js'e geçince arama ucu /bg/searchcontent (cKey/cValue hidden input) yerine
-# POST /api/bg/searchContent?searchterm=... oldu ve gövde AES ile şifreleniyor.
-# Şema `_next/static/chunks/2067.*.js` + `_app.*.js` modül 379'dan deobfuscate edildi:
-#   key = sha256("!!22xx!!90!!").digest() -> base64 -> ilk 32 karakter (utf8 bayt olarak)
-#   iv  = 16 sıfır bayt, mod = AES-256-CBC, gövde base64
-_SEARCH_KEY = base64.b64encode(hashlib.sha256(b"!!22xx!!90!!").digest()).decode()[:32].encode()
-_SEARCH_IV = bytes(16)
-# Poster'lar ampproject önekiyle ve /f/f/ (genişlik/yükseklik) yer tutucusuyla geliyor.
-_AMP_PREFIX = "images-macellan-online.cdn.ampproject.org/i/s/"
 # Kaynak iframe'i (pichive) Cloudflare arkasında: tarayıcı User-Agent'ı yoksa 403 döner.
 _BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-
-def _decrypt_search(payload: str) -> dict:
-    """Decrypt the AES-256-CBC base64 body returned by /api/bg/searchContent."""
-    decryptor = Cipher(algorithms.AES(_SEARCH_KEY), modes.CBC(_SEARCH_IV)).decryptor()
-    plain = decryptor.update(base64.b64decode(payload)) + decryptor.finalize()
-    plain = plain[: -plain[-1]]  # PKCS#7
-    return json.loads(plain.decode("utf-8"))
-
-
-def _search_poster(value: str | None) -> str | None:
-    if not value:
-        return None
-    return value.replace(_AMP_PREFIX, "").replace("/f/f/", "/300/450/")
+# Ekim 2026 yeniden tasarımı (Next.js app router): __NEXT_DATA__/secureData ve şifreli
+# arama ucu kalktı. Veri artık sayfanın RSC "flight" metninde, kaçışlı JSON olarak duruyor:
+# dizi sayfasında JSON-LD `TVEpisode` adresleri, bölüm sayfasında `"sources":[...]`.
+_BOLUM_ADRESI = re.compile(r'https?://[^"/]+/([^"]+?)-(\d+)-sezon-(\d+)-bolum[^"]*')
+# Posterler küçük önizleme boyutunda (/0/0/100/) geliyor; dizi sayfası 256x384 kullanıyor.
+_KUCUK_POSTER = "/images/0/0/100/"
 
 
-_SEZON_NO = re.compile(r"-(\d+)-sezon/?$")
-_BOLUM_NO = re.compile(r"-(\d+)-bolum")
+def _flight(text: str) -> str:
+    """RSC flight payload'undaki `\\"` kaçışlarını aç — JSON parçaları düz okunur."""
+    return text.replace('\\"', '"')
+
+
+def _poster(url: str | None) -> str | None:
+    return url.replace(_KUCUK_POSTER, "/images/256/384/85/") if url else None
+
+
+def _bolumler(text: str, base_url: str) -> list[Episode]:
+    """JSON-LD `containsSeason[].episode[].url` adreslerinden sezon/bölüm listesi."""
+    bulunan: dict[tuple[int, int], str] = {}
+    for esle in _BOLUM_ADRESI.finditer(_flight(text)):
+        sezon, bolum = int(esle.group(2)), int(esle.group(3))
+        bulunan.setdefault((sezon, bolum), normalize_url(esle.group(0), base_url))
+    return [
+        Episode(season=sezon, episode=bolum, title=f"{sezon}. Sezon {bolum}. Bölüm", url=adres)
+        for (sezon, bolum), adres in sorted(bulunan.items())
+    ]
+
+
+def _kaynaklar(text: str) -> list[dict]:
+    """Bölüm sayfasındaki `"sources":[...]` dizisi; Türkçe dublaj önce."""
+    flight = _flight(text)
+    basla = flight.find('"sources":[')
+    if basla < 0:
+        return []
+    try:
+        dizi, _ = json.JSONDecoder().raw_decode(flight, basla + len('"sources":'))
+    except ValueError:
+        return []
+    kaynaklar = [k for k in dizi if isinstance(k, dict) and k.get("src") and not k.get("trailer")]
+    return sorted(kaynaklar, key=lambda k: k.get("lang") != "dub")
 
 
 class Dizilla(PluginBase):
@@ -86,10 +95,10 @@ class Dizilla(PluginBase):
     main_url = _MAIN_URL
     favicon = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "Dizilla — altyazılı ve Türkçe dublaj yabancı diziler."
+    # "Son Bölümler" (/tum-bolumler) çıkarıldı: yeni tasarımda dizi kartı taşımıyor,
+    # yalnız bölüm bağlantıları var.
     main_page = {
-        f"{main_url}/tum-bolumler": "Son Bölümler",
-        # "Dublaj Bölümleri" (/dublaj-bolumler) çıkarıldı: sayfa 200 dönüyor ama liste
-        # istemci tarafında yükleniyor; secureData yalnız sayfa kaydını taşıyor, bölüm yok.
+        f"{main_url}/turkce-dublaj-dizi-izle": "Türkçe Dublaj",
         f"{main_url}/dizi-turu/aile": "Aile",
         f"{main_url}/dizi-turu/aksiyon": "Aksiyon",
         f"{main_url}/dizi-turu/bilim-kurgu": "Bilim Kurgu",
@@ -97,180 +106,60 @@ class Dizilla(PluginBase):
         f"{main_url}/dizi-turu/komedi": "Komedi",
     }
 
-    def _sezon_adresleri(self, selector: HTMLHelper) -> list[tuple[int, str]]:
-        """Sayfadaki GERÇEK sezon bağlantıları — (sezon no, adres).
-
-        Seçici `-sezon` geçen her bağlantıyı alıyordu, ama bölüm adresleri de
-        `-1-sezon-3-bolum` kalıbında: her bölüm ayrı bir "sezon sayfası" sanılıp
-        içindeki bölümler tekrar tekrar toplanıyordu (Reacher'da 24 bölüm 124
-        satır olmuştu). Adres `-<n>-sezon` ile BİTMELİ.
-        """
-        bulunan: dict[int, str] = {}
-        for dugum in selector.select("a[href*='-sezon']"):
-            href = dugum.attrs.get("href") or ""
-            esle = _SEZON_NO.search(href)
-            if not esle:
+    def _kartlar(self, text: str) -> list[tuple[str, str, str | None]]:
+        """`a.pcard` kartları — (başlık, adres, poster). Arama, ana sayfa ve tür sayfası aynı."""
+        kartlar: list[tuple[str, str, str | None]] = []
+        for node in HTMLHelper(text).select("a.pcard"):
+            href = absolute(self.main_url, node.attrs.get("href"))
+            # Altbilgi/menü bağlantıları elensin: dizi adresi her zaman /dizi/<slug>.
+            if not href or "/dizi/" not in href:
                 continue
-            bulunan.setdefault(int(esle.group(1)), absolute(self.main_url, href))
-        return sorted((no, adres) for no, adres in bulunan.items() if adres)
-
-    @staticmethod
-    def _result(node: HTMLHelper, base_url: str, category: str) -> MainPageResult | None:
-        title = first_text(node, ("h2", "a"))
-        href = absolute(base_url, first_attr(node, ("a",), "href"))
-        poster = absolute(base_url, poster_attr(node, ("img",)))
-        if not title or not href:
-            return None
-        # `div.grid a` sayfanın altbilgi ızgarasını da yakalıyor: "Forum",
-        # "Gizlilik Politikası", "İletişim" ve site kökü katalogda dizi diye
-        # poster oluyordu. Dizi adresi her zaman /dizi/<slug>.
-        if "/dizi/" not in href:
-            return None
-        return MainPageResult(category=category, title=title, url=normalize_url(href, base_url), poster=poster)
+            title = first_text(node, ("span.mvk-t",)) or (node.attrs.get("aria-label") or "").split(",")[0].strip()
+            if not title:
+                continue
+            poster = _poster(first_attr(node, ("img",), "src"))
+            kartlar.append((title, normalize_url(href, self.main_url), poster))
+        return kartlar
 
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         text = await fetch_html(self.httpx, normalize_url(url, self.main_url))
-        selector = HTMLHelper(text)
-        # Tür sayfaları için ayrı seçici (`div.grid-cols-3 a`) vardı ve SIFIR düğüm
-        # buluyordu: site duyarlı sınıf adlarına geçmiş, kapsayıcı artık
-        # `class="grid sm:grid-cols-3 …"`. Katalogda Dizilla'dan yalnız 5 kayıt
-        # kalmıştı (Dean, 16 Eylül). `div.grid a` her iki sayfada da çalışıyor —
-        # ölçüm: tür sayfası 24, ana sayfa 23 sonuç. Gereksiz bağlantıları
-        # `_result` zaten `/dizi/` filtresiyle eliyor, sınıf adına bel bağlamaya
-        # gerek yok.
-        css = "div.grid a"
-        results: list[MainPageResult] = []
-        for node in selector.select(css):
-            item = self._result(node, self.main_url, category)
-            if item:
-                results.append(item)
-        return results
-
-    async def _search_payload(self, query: str) -> dict | None:
-        """POST the search term, retrying over WARP when the direct route is blocked."""
-        url = f"{self.main_url}/api/bg/searchContent"
-        headers = {
-            "Accept": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": f"{self.main_url}/",
-        }
-        clients = [self.httpx]
-        warp = get_warp_client()
-        if warp is not None:
-            clients.append(warp)
-        for client in clients:
-            try:
-                response = await client.post(url, params={"searchterm": query}, headers=headers, timeout=12.0)
-                body = response.json().get("response")
-                if body:
-                    return _decrypt_search(body)
-            except Exception:
-                continue
-        return None
+        return [
+            MainPageResult(category=category, title=title, url=href, poster=poster)
+            for title, href, poster in self._kartlar(text)
+        ]
 
     async def search(self, query: str) -> list[SearchResult]:
-        payload = await self._search_payload(query)
-        if not payload:
-            return []
-        results: list[SearchResult] = []
-        for item in payload.get("result") or []:
-            if not isinstance(item, dict) or item.get("used_type") == "MovieSeries":
-                continue
-            title = str(item.get("object_name") or "").strip()
-            slug = str(item.get("used_slug") or "").strip().lstrip("/")
-            if not title or not slug:
-                continue
-            alternative = str(item.get("object_alternative_name") or "").strip()
-            if alternative and alternative.lower() != title.lower():
-                title = f"{title} ({alternative})"
-            results.append(
-                SearchResult(
-                    title=title,
-                    url=f"{self.main_url}/{slug}",
-                    poster=_search_poster(item.get("object_poster_url")),
-                )
-            )
-        return results
+        text = await fetch_html(self.httpx, f"{self.main_url}/ara?q={quote(query)}")
+        return [SearchResult(title=title, url=href, poster=poster) for title, href, poster in self._kartlar(text)]
 
     async def load_item(self, url: str) -> SeriesInfo:
-        text = await fetch_html(self.httpx, normalize_url(url, self.main_url))
+        page = normalize_url(url, self.main_url)
+        text = await fetch_html(self.httpx, page)
         selector = HTMLHelper(text)
-        # h1 içinde başlığın ardına butonu geliyor ve düz metne "Darknetİzle" gibi
-        # yapışıyor — son "İzle" ekini at.
-        title = re.sub(r"\s*İzle$", "", first_text(selector, ("div.page-top h1", "h1")) or "")
-        poster = absolute(self.main_url, poster_attr(selector, ("div.page-top img", "img")))
-        description = first_text(selector, ("div.mv-det-p", "div.w-full div.text-base"))
-        episodes: list[Episode] = []
-        gorulen: set[str] = set()
-        for sezon_no, season_url in self._sezon_adresleri(selector):
-            season_text = await fetch_html(self.httpx, normalize_url(season_url, self.main_url))
-            season_selector = HTMLHelper(season_text)
-            for node in season_selector.select("div.episodes div.cursor-pointer, div.dub-episodes div.cursor-pointer"):
-                ep_title = first_text(node, ("a",))
-                ep_url = absolute(self.main_url, first_attr(node, ("a.opacity-60", "a"), "href"))
-                if not ep_title or not ep_url:
-                    continue
-                ep_url = normalize_url(ep_url, self.main_url)
-                if ep_url in gorulen:
-                    continue
-                gorulen.add(ep_url)
-                # Bölüm adı sayfada yalnız sıra numarası ("1", "2"); sezon ve bölüm
-                # numarası ADRESTEN okunur — `season_episode` metinde "1. Sezon"
-                # arıyor, bulamayınca her bölüm 1. sezona düşüyordu.
-                esle       = _BOLUM_NO.search(ep_url)
-                bolum_no   = int(esle.group(1)) if esle else season_episode(ep_title)[1]
-                episodes.append(Episode(
-                    season  = sezon_no,
-                    episode = bolum_no,
-                    title   = f"{sezon_no}. Sezon {bolum_no or ep_title}. Bölüm",
-                    url     = ep_url,
-                ))
-        episodes.sort(key=lambda e: (e.season or 0, e.episode or 0))
-        return SeriesInfo(url=normalize_url(url, self.main_url), title=title, poster=poster, description=description, episodes=episodes)
-
-    @staticmethod
-    def _secure_data(text: str) -> dict | None:
-        """Decrypt the `secureData` blob embedded in the page's __NEXT_DATA__ payload."""
-        match = re.search(r'id="__NEXT_DATA__"[^>]*>(.*?)</script>', text, re.S)
-        if not match:
-            return None
-        try:
-            blob = json.loads(match.group(1))["props"]["pageProps"]["secureData"]
-            return _decrypt_search(blob)
-        except Exception:
-            return None
+        title = re.sub(r"\s*İzle$", "", first_text(selector, ("h1",)) or "")
+        poster = next(
+            (img.attrs.get("src") for img in selector.select("img") if "/images/256/384/" in (img.attrs.get("src") or "")),
+            None,
+        )
+        description = first_attr(selector, ("meta[name='description']",), "content")
+        return SeriesInfo(url=page, title=title, poster=poster, description=description, episodes=_bolumler(text, self.main_url))
 
     async def load_links(self, url: str) -> list[ExtractResult]:
         page = normalize_url(url, self.main_url)
         text = await fetch_html(self.httpx, page)
-
-        # Oynatıcı artık sunucudan iframe olarak gelmiyor: `div#playerLsDizilla` boş
-        # bırakılıp kaynaklar __NEXT_DATA__ içindeki AES'li `secureData` bloğundan
-        # (arama ucuyla aynı anahtar) client-side basılıyor. HTML'de iframe aramak
-        # bu yüzden hep 0 sonuç veriyordu.
-        payload = self._secure_data(text) or {}
-        sources = (
-            payload.get("RelatedResults", {})
-            .get("getEpisodeSources", {})
-            .get("result")
-            or []
-        )
-
         results: list[ExtractResult] = []
-        for source in sources:
-            embed = re.search(r'src=["\']([^"\']+)', source.get("source_content") or "")
-            if not embed:
-                continue
-            iframe_url = absolute(self.main_url, embed.group(1))
+        for kaynak in _kaynaklar(text):
+            iframe_url = absolute(self.main_url, kaynak["src"])
             if not iframe_url:
                 continue
-            found = await self._pichive_sources(iframe_url)
+            etiket = " ".join(p for p in (kaynak.get("langLabel"), kaynak.get("name")) if p)
+            found = await self._pichive_sources(iframe_url, etiket)
             results.extend(found)
             if not found:
                 self.collect_results(results, await self.extract(iframe_url, referer=page))
         return self.deduplicate(results)
 
-    async def _pichive_sources(self, iframe_url: str) -> list[ExtractResult]:
+    async def _pichive_sources(self, iframe_url: str, etiket: str = "") -> list[ExtractResult]:
         """Resolve the pichive player: token → source2.php JSON → master.m3u8.
 
         Oynatıcı linki HTML'de yok; `openPlayer('<token>')` çağrısındaki token
@@ -327,7 +216,7 @@ class Dizilla(PluginBase):
                     continue
                 results.append(
                     ExtractResult(
-                        name       = f"{self.name} | {source.get('title') or 'Kaynak'}",
+                        name       = f"{self.name} | {etiket or source.get('title') or 'Kaynak'}",
                         url        = file_url.replace("m.php", "master.m3u8"),
                         referer    = iframe_url,
                         user_agent = _BROWSER_UA,
