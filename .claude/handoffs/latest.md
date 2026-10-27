@@ -1,3 +1,12 @@
+# Handoff: logo + DiziYou/DiziAbi proxy + Dizilla yeniden yazımı (27 Eki)
+> 2026-10-27 · worktree `worktree-logo-v1` @ 9cc5754 (= origin/fix/general-stability, push'landı) · ZimaOS aynı commit'te, engine 10:28 UTC yeniden kuruldu
+> **Hedef:** Dean Türkçe dublaj izlemek istiyor ("Dizimom dizilla yok mu").
+> **Kanıtlı:** a9cb077 yeni logo (TV 0.9.82 / saat 0.1.26 yayında) · d1cb25d DiziYou/DiziAbi segmentleri proxy'den (canlı) · 9cc5754 Dizilla Ekim 2026 Next.js tasarımına göre yeniden yazıldı: kart `a.pcard`/`span.mvk-t`, arama `/ara?q=`, bölümler flight JSON-LD adreslerinden, kaynaklar bölüm sayfasındaki `"sources":[...]` (lang dub önce), pichive zinciri aynı. Yeni raf "Türkçe Dublaj". Canlı `api/v1/search?plugin=Dizilla&query=wednesday` → 1 sonuç; konteyner testinde 16 bölüm + dublaj master.m3u8 200. Gemini anahtarı Bitwarden 82397c85.
+> **Doğrulanmadı:** TV'de Dizilla dublaj oynatma (Dean "Tamam oldu" dedi, açıkça oynattığını söylemedi).
+> **DiziMom:** .wiki/.food/.plus hepsi ölü, WARP ile de — yeni domain çıkana kadar dokunma.
+> **Ağ:** Dean kararı — DHCP'yi modem veriyor, ağ bekçisi kapalı; ağ/modem ayarına onaysız dokunma (aşağıdaki 25 Eki DHCP bloğu bu açıdan bayat).
+> **Tek sonraki adım:** yok — Dean'den yeni istek bekleniyor. Dizilla sorunu gelirse önce `docker logs netmovies-engine | grep -i dizilla`.
+
 # Handoff: ev DHCP tek sunucu + modem yedek + ev hız ölçümü (25 Eki)
 > 2026-10-25 · worktree `fix/dhcp-kok-duzeltme` @ cebc0d3 (= origin/fix/general-stability) · TV 0.9.81 yayında
 > **DEVİR (25 Eki, kanıtlı):** Güncel durum kök `HANDOFF.md`'de (State/Don't repeat/Verify). Özet: ZimaOS host `ev-dhcp.service` tek DHCP; `dhcp-authoritative` kaldırıldı; eski `ev-dhcp` konteyneri silindi; Netmaster DHCP yedek havuz .220–.254/1 gün açık (`nm_dhcp.py ac 220 35 86400`). Dean kararı: modem NAK riski kabul, cihazlar MAC ile sabitlenir — bu riski yeniden raporlama.
