@@ -19,7 +19,7 @@ from Public.Proxy.Libs.proxy_token import issue_proxy_token
 # istemci bu başlıkları gönderemez.
 # Özel Koleksiyon: xHamster akışı WARP çıkış IP'sine imzalı (ev IP'sinden 403),
 # HQPorner'ın CDN'i ISP'de bağlantı sıfırlıyor, PornHub da WARP'la çözülüyor.
-_ALWAYS_PROXY_PLUGINS = {"xHamster", "HQPorner", "PornHub", "SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi", "JetFilmizle", "FullHDFilmizlesene"}
+_ALWAYS_PROXY_PLUGINS = {"xHamster", "HQPorner", "PornHub", "SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi", "JetFilmizle", "FullHDFilmizlesene", "DiziYou", "DiziAbi"}
 
 
 def _altyazi_proxy(source: dict) -> dict:
