@@ -2674,13 +2674,16 @@ internal fun SettingsPanel(
                         }
                     }
                 }
-                // Kaldığım bölüm ve son bölüm liste kapalıyken de burada: tek tıkla
+                // Kaldığım bölüm ve son bölüm liste KAPALIYKEN burada: tek tıkla
                 // devam / sona atla (Dean, 3 Ekim: "ikonlu olan yerde olsun").
-                if (!kanalModu && oynatEtiketi.isNotBlank()) {
+                // Liste açıkken ikisi de listede var; üstten listeye inmek 4 basış
+                // sürüyordu (Dean, 28 Eki).
+                val listeGorunur = listeAcik && episodes.isNotEmpty()
+                if (!kanalModu && !listeGorunur && oynatEtiketi.isNotBlank()) {
                     Box(Modifier.focusRequester(oynatFocus)) { SettingRow(oynatEtiketi, false) { onPlay() } }
                 }
                 if (baslangic && !hazir) MutedRow("Kaynak aranıyor… OYNAT'a basabilirsin, hazır olunca başlar.")
-                if (episodes.size > 1) {
+                if (episodes.size > 1 && !listeGorunur) {
                     val sonIdx = episodes.lastIndex
                     SettingRow(
                         "⏭  Son bölüm — ${episodeLabel(episodes[sonIdx], sonIdx)}",
@@ -2688,7 +2691,7 @@ internal fun SettingsPanel(
                     ) { onSelectEpisode(sonIdx) }
                 }
                 when {
-                    listeAcik && episodes.isNotEmpty() -> {
+                    listeGorunur -> {
                         val sezonlar = remember(episodes) { episodes.map { it.season }.distinct().sorted() }
                         val simdikiSezon = episodes.getOrNull(currentEpIndex)?.season
                         val acikSezon = panelSezon ?: simdikiSezon ?: sezonlar.firstOrNull()
@@ -2714,7 +2717,9 @@ internal fun SettingsPanel(
                         LaunchedEffect(acikSezon) {
                             if (tuslaDegisti) { tuslaDegisti = false; runCatching { ilkSatirFocus.requestFocus() } }
                         }
-                        KayanListe(Modifier.onPreviewKeyEvent { ev ->
+                        // Yukarıdan inen odak oynayan bölüme gelir, geometrik en yakına değil.
+                        val oynayanBurada = liste.any { it.index == currentEpIndex }
+                        KayanListe(Modifier.girisOdagi { if (oynayanBurada) bolumFocus else FocusRequester.Default }.onPreviewKeyEvent { ev ->
                             if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                             val yon = when (ev.key) { Key.DirectionLeft -> -1; Key.DirectionRight -> +1; else -> return@onPreviewKeyEvent false }
                             val hedef = komsuSezon(sezonlar, acikSezon, yon) ?: return@onPreviewKeyEvent false
