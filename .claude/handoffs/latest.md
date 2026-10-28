@@ -1,3 +1,22 @@
+# Handoff: ZimaOS disk doldu → Nextcloud temizliği + SSD'ye taşıma (28 Eki)
+> 2026-10-28 · kod değişikliği yok (sunucu bakımı)
+> **Hedef (Dean):** "Yüklemiyor film dizi" + "temizle hepsini, diğer SSD'ye topla, aralıklı süzülsün, hiç dolmasın".
+> **Kök neden:** /DATA %100 — Nextcloud çöp kutusu 283G (PC İndirilenler → /Indirilenler eşitlemesi, qBittorrent `.!qB` dosyaları çöpe düşüyordu).
+> **Kanıtlı:** buildx prune 20G + trashbin/versions temizliği → /DATA 162G/457G (%36). Retention `auto, 3` (trashbin+versions), cron aktif. PC `%APPDATA%\Nextcloud\nextcloud.cfg` Folders\2 (Downloads) silindi, yedek `nextcloud.cfg.yedek-20261028` (client kapalıydı). Nextcloud data → `/DATA/sata/nextcloud-data` (sda1, 5.2G/220G): compose bind eklendi (`/var/lib/casaos/apps/nextcloud/docker-compose.yml`, yedek `/DATA/AppData/nextcloud-compose.backup-20261028.yml`), `docker compose up -d`, `occ status` maintenance:false, status.php OK. NetMovies health 200, stream'de "no space" 0.
+> **Doğrulanmadı:** TV'de film/dizi yüklenmesi (Dean'e soruldu).
+> **Bekleyen:** obsidian + netmovies-warp json logları 3.2G — truncate sınıflandırıcıya takıldı. files:scan hatası `/mnt/shared/apps/.recycle` izin — önceden var, ilgisiz.
+> **Açık soru:** "Collar ve lock" / "proje bine oturum" anlaşılmadı, soruldu.
+> **Akşam (Dean onaylı):** TV'de açıldı (Dean). gece-temizlik.timer 19:00 + Persistent=true; servis artık `nightly_cleanup.sh` çağırıyor (buildx prune + 200MB üstü json log truncate; eski `temizlik.sh` duruyor, kullanılmıyor). Silindi: OTA 1.7.0/1.7.0-beta1/1.8.0-beta2 (1.8.0 kaldı, kurulu 1.6.0), 8 eski imaj (dotnet sdk, temurin, nexus-mcp tarihli, sentinel), obsidian+warp logları. /DATA 155G (%34). Gece: llama3.2 silindi (kullanılmıyordu); gemma4:12b tutuldu (agent-eva night_model + yz). Eski Nextcloud host kopyası (5.2G) silindi, Nextcloud SSD'den çalışıyor (status OK). /DATA 148G (%33). android-build/ffmpeg/curl imajları bilerek tutuldu.
+> **Tek sonraki adım:** birkaç gün sonra eski Nextcloud data kopyasını sil (5.2G); Dean ollama model kararını versin.
+
+# Handoff: TV 0.9.83 — ayar panelinde bölüm listesine iniş (28 Eki)
+> 2026-10-28 · worktree `worktree-tv-bolum-ayar-odak` @ b41fae7 (fix/general-stability'ye push'landı) · TV 0.9.83 yayında (OTA v0.9.83-poc, evaglass-releases, apps.json 5217263)
+> **Hedef (Dean):** 180+ bölümlü dizide ayar paneli: GERİ önce üst sekmelere; üstten bölüme az basışla inmek.
+> **Kanıtlı:** GERİ→sekme davranışı 0.9.34'ten (2799a38) beri kodda var; Dean TV'de "geri üste çıktı" dedi. b41fae7: liste açıkken "Kaldığım bölüm"/"Son bölüm" satırları gizli, `KayanListe` giriş odağı oynayan bölüm (`girisOdagi`). Derleme + birim testleri yeşil.
+> **Doğrulanmadı:** iniş davranışı cihazda; Mi Box'ta kurulu sürüm (ADB .11/.105 yanıt vermedi). Dean'e "dene" deyip GERİ'yi kastetmem karışıklık yarattı — açıklandı.
+> **Tekrarlama:** emülatörü canlı sunucuya bağlı telefon kipinde tıklatma (remote/play TV'ye komut gönderir). Dean izlerken TV'ye/sunucuya müdahale yok.
+> **Tek sonraki adım:** Dean 0.9.83'te sekmeden aşağı inişi denesin; geri bildirime göre PlayerScreen.kt `SettingsPanel` (~2440).
+
 # Handoff: logo + DiziYou/DiziAbi proxy + Dizilla yeniden yazımı (27 Eki)
 > 2026-10-27 · worktree `worktree-logo-v1` @ 9cc5754 (= origin/fix/general-stability, push'landı) · ZimaOS aynı commit'te, engine 10:28 UTC yeniden kuruldu
 > **Hedef:** Dean Türkçe dublaj izlemek istiyor ("Dizimom dizilla yok mu").
