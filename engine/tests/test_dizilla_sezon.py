@@ -1,4 +1,4 @@
-"""Dizilla sezon bağlantıları: bölüm adresleri sezon sanılmamalı."""
+"""Dizilla bölüm listesi: sezon sayfası adresi bölüm sanılmamalı."""
 
 import os
 import sys
@@ -6,30 +6,24 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from KekikStream.Core import HTMLHelper
-from Plugins.Dizilla import Dizilla
+from Plugins.Dizilla import _bolumler
 
-# Sayfada sezon bağlantılarının yanında bölüm bağlantıları da `-sezon` taşıyor.
-_HTML = """
-<div class="gap-2">
-  <a href="/reacher-1-sezon">1</a>
-  <a href="/reacher-2-sezon">2</a>
-  <a href="/reacher-3-sezon">3</a>
-  <a href="/reacher-4-sezon">4</a>
-  <a href="/reacher-1-sezon-1-bolum-c06">1</a>
-  <a href="/reacher-1-sezon-2-bolum">2</a>
-  <a href="/reacher-4-sezon-7-bolum">7</a>
-</div>
+# Next.js flight metni: JSON-LD bölüm adresleri kaçışlı, sezon sayfası adresleri de geçiyor.
+_FLIGHT = r"""
+{\"@type\":\"TVSeason\",\"url\":\"https://dizilla.now/reacher-1-sezon\"}
+{\"@type\":\"TVSeason\",\"url\":\"https://dizilla.now/reacher-4-sezon\"}
+{\"@type\":\"TVEpisode\",\"url\":\"https://dizilla.now/reacher-4-sezon-7-bolum\"}
+{\"@type\":\"TVEpisode\",\"url\":\"https://dizilla.now/reacher-1-sezon-2-bolum\"}
+{\"@type\":\"TVEpisode\",\"url\":\"https://dizilla.now/reacher-1-sezon-1-bolum-c06\"}
+{\"@type\":\"TVEpisode\",\"url\":\"https://dizilla.now/reacher-1-sezon-1-bolum-c06\"}
 """
 
 
-class SezonAdresleri(unittest.TestCase):
-    def test_yalniz_sezon_sayfalari_alinir(self):
-        eklenti = Dizilla.__new__(Dizilla)
-        eklenti.main_url = "https://dizilla.now"
-        sonuc = eklenti._sezon_adresleri(HTMLHelper(_HTML))
-        self.assertEqual([no for no, _ in sonuc], [1, 2, 3, 4])
-        self.assertTrue(all(adres.endswith("-sezon") for _, adres in sonuc))
+class Bolumler(unittest.TestCase):
+    def test_yalniz_bolum_adresleri_sirali_ve_tekil(self):
+        sonuc = _bolumler(_FLIGHT, "https://dizilla.now")
+        self.assertEqual([(b.season, b.episode) for b in sonuc], [(1, 1), (1, 2), (4, 7)])
+        self.assertTrue(all("-bolum" in b.url for b in sonuc))
 
 
 if __name__ == "__main__":
