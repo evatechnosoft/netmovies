@@ -1,0 +1,15 @@
+# NetMovies gece kanaryası (ZimaOS). Kurulum: scripts/systemd/README.md
+[Unit]
+Description=NetMovies source canary (chain_scan + HA alert)
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=dean
+WorkingDirectory=/DATA/AppData/netmovies
+Environment=BASE=http://127.0.0.1:3310
+# HA_URL, HA_TOKEN (chmod 600, repoda değil)
+EnvironmentFile=-/DATA/AppData/netmovies/canary.env
+# chain_scan ölü kaynakta 1 döner; kanarya yine koşmalı.
+ExecStart=/bin/sh -c 'python3 scripts/chain_scan.py --n 2 --jsonl data/canary.jsonl; python3 scripts/source_canary.py data/canary.jsonl --days 2'
+TimeoutStartSec=1h

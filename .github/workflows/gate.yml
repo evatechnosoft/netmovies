@@ -33,6 +33,8 @@ jobs:
           docker build -t netmovies-stream:ci ./stream
           docker run --rm -w /usr/src/Stream netmovies-stream:ci \
             python -m unittest discover -s tests -v
+      - name: Kanarya testleri
+        run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
   engine-import:
     runs-on: ubuntu-latest
