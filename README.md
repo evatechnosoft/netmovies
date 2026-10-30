@@ -31,7 +31,7 @@ evde (residential IP) çalışmalı. Dış erişim için `docs/DEPLOY.md` (Cloud
 | Dosya | İçerik |
 |---|---|
 | `CLAUDE.md` | Agent talimatı — her oturumda ilk okunan |
-| `docs/HANDOFF.md` | Güncel durum, dosya haritası, backlog |
+| `HANDOFF.md` | Güncel devir (eski günlük: `docs/archive/`) |
 | `docs/MIMARI_SPEC.md` | Mimari kararlar (ADR) |
 | `docs/KURULUM.md` | Kurulum + yeni eklenti ekleme rehberi |
 | `docs/DEPLOY.md` | Hibrit deploy (ev + tünel) |

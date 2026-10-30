@@ -1,4 +1,4 @@
-"""Dizilla ana sayfa ızgarası: altbilgi bağlantıları katalogda dizi olmamalı."""
+"""Dizilla kart ızgarası: altbilgi/menü bağlantıları katalogda dizi olmamalı."""
 
 import os
 import sys
@@ -6,24 +6,23 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from KekikStream.Core import HTMLHelper
 from Plugins.Dizilla import Dizilla
 
 _HTML = """
 <div class="grid">
-  <a href="/dizi/breaking-bad-2"><h2>Breaking Bad</h2><img src="/p.jpg"></a>
-  <a href="/forum"><h2>Forum</h2></a>
-  <a href="/iletisim"><h2>İletişim</h2></a>
-  <a href="/"><h2>yabancı dizi</h2></a>
+  <a class="pcard" href="/dizi/breaking-bad-2"><span class="mvk-t">Breaking Bad</span><img src="/p.jpg"></a>
+  <a class="pcard" href="/forum"><span class="mvk-t">Forum</span></a>
+  <a class="pcard" href="/iletisim"><span class="mvk-t">İletişim</span></a>
+  <a class="pcard" href="/"><span class="mvk-t">yabancı dizi</span></a>
 </div>
 """
 
 
-class GridSuzgeci(unittest.TestCase):
+class KartSuzgeci(unittest.TestCase):
     def test_yalniz_dizi_adresleri_kalir(self):
-        secilen = HTMLHelper(_HTML).select("div.grid a")
-        sonuc   = [Dizilla._result(n, "https://dizilla.now", "Yeni") for n in secilen]
-        self.assertEqual([r.title for r in sonuc if r], ["Breaking Bad"])
+        eklenti = Dizilla.__new__(Dizilla)
+        eklenti.main_url = "https://dizilla.now"
+        self.assertEqual([baslik for baslik, _, _ in eklenti._kartlar(_HTML)], ["Breaking Bad"])
 
 
 if __name__ == "__main__":

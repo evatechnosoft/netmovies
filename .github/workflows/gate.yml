@@ -40,3 +40,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Engine imajı derlensin (import grafiği kırık değil)
         run: docker build -t netmovies-engine:ci ./engine
+      - name: Engine testleri (çevrimdışı, imaj içinde)
+        run: docker run --rm --network none -w /usr/src/KekikStreamAPI netmovies-engine:ci python -m unittest discover -s tests -v
