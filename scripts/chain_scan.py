@@ -17,6 +17,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 
 BASE = os.getenv("BASE", "http://localhost:3310").rstrip("/") + "/api/v1"
 
@@ -50,7 +51,7 @@ def episode_url(item):
     return item["url"]
 
 
-def scan(kind, per_plugin):
+def scan(kind, per_plugin, stats):
     items = (get("aggregate_new", type=kind) or {}).get("items") or []
     picked = {}
     for item in items:
@@ -60,7 +61,9 @@ def scan(kind, per_plugin):
 
     broken = []
     for plugin, plugin_items in sorted(picked.items()):
+        stat = stats.setdefault(plugin, {"items": 0, "ok": 0, "dead": 0})
         for item in plugin_items[:per_plugin]:
+            stat["items"] += 1
             url = item["url"] if kind == "movie" else episode_url(item)
             title = (item.get("title") or "")[:30]
             try:
@@ -69,17 +72,20 @@ def scan(kind, per_plugin):
             except Exception as exc:
                 print(f"{plugin:18} {title:32} RESOLVE HATA {exc}")
                 broken.append((plugin, title, "resolve"))
+                stat["dead"] += 1
                 continue
             sources = result.get("sources") or []
             if not sources:
                 fails = [d["message"] for d in (result.get("diagnostics") or []) if d.get("level") == "fail"]
                 print(f"{plugin:18} {title:32} KAYNAK YOK · {fails[:1]}")
                 broken.append((plugin, title, "kaynak yok"))
+                stat["dead"] += 1
                 continue
             for source in sources:
                 ok, note = playable(source.get("url", ""))
                 name = (source.get("name") or "?").split("|")[-1].strip()[:22]
                 print(f"{plugin:18} {title:32} {'OK   ' if ok else 'ÖLÜ  '} {name:24} {note}")
+                stat["ok" if ok else "dead"] += 1
                 if not ok:
                     broken.append((plugin, title, name))
     return broken
@@ -88,12 +94,20 @@ def scan(kind, per_plugin):
 parser = argparse.ArgumentParser()
 parser.add_argument("kinds", nargs="*", default=["movie", "serie"])
 parser.add_argument("--n", type=int, default=1, help="sağlayıcı başına içerik sayısı")
+parser.add_argument("--jsonl", help="sağlayıcı özetini bu dosyaya bir satır olarak ekle (kanarya geçmişi)")
 args = parser.parse_args()
 
 all_broken = []
+stats = {}
 for kind in args.kinds or ["movie", "serie"]:
     print(f"--- {kind} ---")
-    all_broken += scan(kind, args.n)
+    all_broken += scan(kind, args.n, stats)
+
+if args.jsonl:
+    # Katalogda hiç görünmeyen sağlayıcı burada yok; source_canary bunu geçmişle kıyaslayıp yakalar.
+    row = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "plugins": stats}
+    with open(args.jsonl, "a", encoding="utf-8") as history:
+        history.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 print()
 if all_broken:
