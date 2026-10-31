@@ -42,6 +42,7 @@ Kaçınılacaklar: ham puan toplamak, yalnız başlıkla tekilleştirmek, tüm k
 | 7 | 0 sonuçta "web'de şu sitelerde var" satırı (web başlık araması `search_all`'a) | Yüksek | S |
 | 8 | provider-scout: hdfilmcehennemi.nl / filmmakinesi.to (403) canlılık ve içerik farkı | Orta | S |
 | 9 | `global_search` sil (önce grep ile çağıran yok kanıtı) | Düşük | XS |
+| 10 | Takip edilen yabancı diziler aylık ajandada (Dean, 31 Eki) | Yüksek | S |
 
 Ertelendi (altın set ihtiyacı kanıtlarsa geri gelir): RRF sıralama, Gemini yeniden yazımı,
 RapidFuzz, üç katmanlı önbellek.
@@ -59,6 +60,10 @@ RapidFuzz, üç katmanlı önbellek.
   (`MainActivity.kt:445`) zaten var; yalnız dizi (`search/tv`). Film eklenir, ikinci liste açılmaz.
   Bulununca ana ekranın ilk rafının başında "Artık izlenebilir" posteri (tek OK); günlük tarama
   mevcut `following`/`agenda` TMDB çağrısına eklenir, yeni zamanlayıcı/push yok. Otomatik indirme YOK.
+- **#10 Aylık ajanda + takip:** `agenda.py?view=month` bugün yalnız TMDB `discover`
+  popüler dizilerini gösteriyor; takip listesi ayrı uçta (`/following`, `next_episode_to_air`).
+  Takipteki diziler aylık görünüme birleşir, en üstte ve işaretli; popüler adaylarla aynı dizi
+  tekilleşir (`tmdb_id`). Mevcut `_bolum_satiri`/`gunlere_bol` kullanılır, yeni uç yok.
 - **Sesli arama/trend zaten var:** `/voice` 0 sonuçta da aynı kartı göstermeli; boş arama
   ekranında mevcut popüler/ajanda rafı. Ayrı "deep search" modu gerekmez.
 
