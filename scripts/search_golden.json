@@ -1,5 +1,5 @@
 {
-  "_not": "tmdb_id yalnız emin olunanlarda dolu, aksi null. beklenen = kabul edilen başlık takma adları (normalize edilip karta içerik olarak aranır).",
+  "_not": "tmdb_id bilgi amaçlı (search_all kartı taşımıyor, ölçüme girmez). beklenen = kabul edilen başlık takma adları (normalize edilip kart başlığında kelime sınırlı aranır).",
   "bulunabilir": [
     {"q": "inception", "beklenen": ["inception", "baslangic"], "yil": 2010, "tur": "film", "tmdb_id": 27205},
     {"q": "başlangıç", "beklenen": ["inception", "baslangic"], "yil": 2010, "tur": "film", "tmdb_id": 27205},

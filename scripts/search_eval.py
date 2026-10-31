@@ -3,7 +3,7 @@
 Calistirma (stdin'den, konteyner icinde; dis adres cookie 302 verir):
   ssh zima "export DOCKER_CONFIG=/tmp/dc; docker exec -i -e GOLDEN_B64=$(base64 -w0 scripts/search_golden.json) netmovies-stream python - " < scripts/search_eval.py
 Yerelde: python scripts/search_eval.py --golden scripts/search_golden.json [--base URL]
-Isabet = ilk 3 kartta beklenen basliktan biri (normalize, icerir) ya da tmdb_id.
+Isabet = ilk 3 kartta beklenen basliktan biri (normalize, kelime sinirli icerir).
 "henuz_yok" kovasi isabet oranina girmez; bulunursa "BULUNDU" diye isaretlenir.
 """
 import base64, json, os, sys, time, urllib.parse, urllib.request
@@ -17,11 +17,11 @@ def norm(s):
 
 
 def isabet(sonuc, oge):
+    # Kelime sinirli: "isik" "kisik" icinde isabet sayilmasin.
+    # tmdb_id kontrolu yok: search_all karti tmdb_id tasimiyor.
     for kart in sonuc[:3]:
-        if oge.get("tmdb_id") and kart.get("tmdb_id") == oge["tmdb_id"]:
-            return True
-        baslik = norm(kart.get("title"))
-        if any(norm(b) in baslik for b in oge["beklenen"]):
+        baslik = f" {norm(kart.get('title'))} "
+        if any(f" {norm(b)} " in baslik for b in oge["beklenen"]):
             return True
     return False
 

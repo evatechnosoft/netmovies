@@ -206,6 +206,9 @@ async def _takip_satirlari(bas: datetime.date, son: datetime.date) -> list[dict]
 
     sonuc = await asyncio.gather(*(_dizi_bolumleri(i, bas, son) for i in idler), return_exceptions=True)
     satirlar = [s for liste in sonuc if isinstance(liste, list) for s in liste]
+    # Gün ve takip kümesi değiştikçe yeni anahtar açılır; eskiler birikmesin.
+    for eski in [k for k in _cache if k.startswith("takip:")]:
+        del _cache[eski]
     _cache[anahtar] = (time.monotonic() + _TAKIP_TTL, satirlar)
     return satirlar
 
