@@ -57,6 +57,7 @@ object NanoNiyet {
 
   /** Durumu sorar, sunucuya bildirir; indirilebilirse ve Wi-Fi'deyse indirmeyi başlatır. */
   fun baslat(context: Context) {
+    if (!com.evaitec.netmovies.tv.data.FeatureFlags.enabled(com.evaitec.netmovies.tv.data.Feature.GEMINI_NANO)) return
     val uygulama = context.applicationContext
     scope.launch {
       val durum = sorgula()

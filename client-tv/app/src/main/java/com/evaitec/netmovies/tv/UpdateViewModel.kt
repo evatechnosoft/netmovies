@@ -3,6 +3,8 @@ package com.evaitec.netmovies.tv
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.evaitec.netmovies.tv.data.Feature
+import com.evaitec.netmovies.tv.data.FeatureFlags
 import com.evaitec.netmovies.tv.data.Github
 import com.evaitec.netmovies.tv.data.Network
 import com.evaitec.netmovies.tv.data.PlaybackLog
@@ -67,7 +69,7 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
      * @param verbose elle tetiklenen kontrolde "zaten güncel" de gösterilir.
      */
     fun check(verbose: Boolean = false) {
-        if (checking) return
+        if (checking || !FeatureFlags.enabled(Feature.OTA_UPDATE)) return
         checking = true
         viewModelScope.launch {
             try {
