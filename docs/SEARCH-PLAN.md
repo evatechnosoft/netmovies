@@ -30,25 +30,48 @@ Persona: `search-engineer` (arama), `provider-scout` (kaynak kapsaması), `yz-mu
 
 Kaçınılacaklar: ham puan toplamak, yalnız başlıkla tekilleştirmek, tüm katalog için `/discover`, `/movie/changes`'ı yeni çıkan akışı saymak, Stremio protokolünü baştan kurmak.
 
-## Değer/çaba sırası
+## Değer/çaba sırası (brainstorm sonrası, v2)
 | # | İş | Değer | Çaba |
 |---|----|------|------|
-| 1 | FilmMakinesi eklenti aramasını düzelt (+ chain_scan) | Yüksek | S |
-| 2 | Boş `/search` sonucunu önbelleğe yazma | Orta | XS |
-| 3 | Altın sorgu seti + ölçüm betiği (`scripts/search_eval.py`) | Yüksek (kapı) | S |
+| 1 | FilmMakinesi teşhisi, sonra düzeltme (+ chain_scan) | Yüksek | S |
+| 2 | Altın sorgu seti + ölçüm betiği (`scripts/search_eval.py`) | Yüksek (kapı) | S |
+| 3 | Zaman bütçesi: kaynak başına devre kesici, TMDB çağrıları paralel, `_bolum_sayilari` beklemesi kısalır | Yüksek | S |
 | 4 | Tek normalize + birleşik/ayrık varyant, `_varyantlar` ↔ `query_variants` birleşimi | Yüksek | S |
 | 5 | TMDB kanonik kimlik: TR + orijinal ad fan-out, `tmdb_id` ile tekilleştirme | Çok yüksek | M |
-| 6 | "Henüz yok / sinemada" kartı + takip listesi | Yüksek (Dean'in sorusu) | M |
-| 7 | RRF sıralama | Orta | S |
-| 8 | Gemini yedek yorum (0 sonuçta) | Orta | S |
-| 9 | Web başlık aramasını `search_all`'a taşı | Düşük | S |
-| 10 | `global_search` onar ya da sil (kimse kullanmıyor → sil) | Düşük | XS |
-| 11 | provider-scout: hdfilmcehennemi.nl / filmmakinesi.to canlılık ve içerik farkı | Orta | S |
+| 6 | "Henüz yok / sinemada" kartı → mevcut takibe bağlı (`following.py`'ye `movie` tipi) | Yüksek (Dean'in sorusu) | M |
+| 7 | 0 sonuçta "web'de şu sitelerde var" satırı (web başlık araması `search_all`'a) | Yüksek | S |
+| 8 | provider-scout: hdfilmcehennemi.nl / filmmakinesi.to (403) canlılık ve içerik farkı | Orta | S |
+| 9 | `global_search` sil (önce grep ile çağıran yok kanıtı) | Düşük | XS |
+
+Ertelendi (altın set ihtiyacı kanıtlarsa geri gelir): RRF sıralama, Gemini yeniden yazımı,
+RapidFuzz, üç katmanlı önbellek.
+Çıkarıldı: "boş sonucu önbelleğe yazma" — zaten yazılmıyor (`stream/Public/API/v1/Libs/__init__.py:162`).
+
+### Madde ayrıntıları
+- **#1 Teşhis:** `FilmMakinesi.py:69` `poster-lang` rozeti olmayan kartları atıyor; `search()`
+  HTTP durumunu kontrol etmiyor (:83-84). Sitenin `?s=matrix` sayfasında `poster` sınıfı 1,
+  `/film/` bağlantısı 0 (31 Eki) — arama sonucu farklı biçimde/JS ile geliyor olabilir, önce HTML'e bak.
+- **#2 Altın set:** ≥30 sorgu, iki kova: (a) bulunabilir (beklenen `tmdb_id` + ilk 3) ve
+  (b) henüz yok (beklenen: "sinemada" kartı). Türkçe İ/ı, birleşik/ayrık ad, TR/orijinal ad çiftleri içerir.
+- **#3 Zaman:** bugünkü yapıda p95 ≤ 6 sn imkânsız (12 sn kaynak zaman aşımı, sıralı TMDB,
+  `_bolum_sayilari` 12 sn'ye kadar). Önce ölç (#2), sonra hedef koy.
+- **#6 Takip:** `watch_store.list_user_list("takip")`, `/following`, TV `showFollowing`
+  (`MainActivity.kt:445`) zaten var; yalnız dizi (`search/tv`). Film eklenir, ikinci liste açılmaz.
+  Bulununca ana ekranın ilk rafının başında "Artık izlenebilir" posteri (tek OK); günlük tarama
+  mevcut `following`/`agenda` TMDB çağrısına eklenir, yeni zamanlayıcı/push yok. Otomatik indirme YOK.
+- **Sesli arama/trend zaten var:** `/voice` 0 sonuçta da aynı kartı göstermeli; boş arama
+  ekranında mevcut popüler/ajanda rafı. Ayrı "deep search" modu gerekmez.
 
 ## Başarı kriteri
 - Altın sette isabet oranı önce/sonra raporlanır; hedef ≥ %90 ilk 3'te doğru başlık.
-- p95 `search_all` ≤ 6 sn (sıcak), tek kaynak askıda kalınca da.
-- Whalefall gibi vizyondaki film: 0 sonuç yerine "sinemada" kartı.
+- p95 hedefi #2 ölçümünden sonra konur.
+- Whalefall gibi vizyondaki film: 0 sonuç yerine "sinemada" kartı + web'de bulunduğu siteler.
 
-## Açık sorular
-- Bu planın brainstorm çıktısı aşağıdaki bölüme eklenir.
+## Brainstorm (Takım Pi, 31 Eki)
+- **reviewer (REWORK):** #2 zaten yapılmış; altın set tanımsız; p95 hedefi mevcut zaman
+  aşımlarıyla tutmaz; FilmMakinesi için teşhis önce; .to → .co; takip listesi zaten var.
+- **tv-urun (REWORK, küçük):** #6 mevcut takibe bağlanmalı; "web'de var" satırı Dean'in
+  sorusunun birebir cevabı, değeri yükseldi; RRF/Gemini/RapidFuzz YAGNI. Örnek UX:
+  Plex ortak izleme listesi (techcrunch.com/2022/04/05/huge-plex-update-…), Google TV
+  "izlenebilir olunca bildir" (support.google.com/googletv/answer/10059391).
+- v2 sıralaması iki görüşün birleşimidir.

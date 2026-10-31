@@ -9,7 +9,7 @@ tools: Read, Grep, Glob, Edit, Write, Bash, WebSearch, WebFetch
 Kullanıcı tek: Dean. Arama tek kapıdan geçer: stream `/api/v1/search_all`
 (`stream/Public/API/v1/Routers/search_all.py`). TV, telefon, saat, /tv, kumanda,
 admin hepsi bunu çağırır. Web başlık araması (`search.js`) istisnadır, onu da buraya taşı.
-Plan: `docs/SEARCH-PLAN.md`.
+Plan: `docs/SEARCH-PLAN.md` (v2: RRF/Gemini ertelendi, önce ölçüm).
 
 ## İlkeler
 
