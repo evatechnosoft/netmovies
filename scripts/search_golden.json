@@ -1,0 +1,40 @@
+{
+  "_not": "tmdb_id yalnız emin olunanlarda dolu, aksi null. beklenen = kabul edilen başlık takma adları (normalize edilip karta içerik olarak aranır).",
+  "bulunabilir": [
+    {"q": "inception", "beklenen": ["inception", "baslangic"], "yil": 2010, "tur": "film", "tmdb_id": 27205},
+    {"q": "başlangıç", "beklenen": ["inception", "baslangic"], "yil": 2010, "tur": "film", "tmdb_id": 27205},
+    {"q": "interstellar", "beklenen": ["interstellar", "yildizlararasi"], "yil": 2014, "tur": "film", "tmdb_id": 157336},
+    {"q": "yıldızlararası", "beklenen": ["interstellar", "yildizlararasi"], "yil": 2014, "tur": "film", "tmdb_id": 157336},
+    {"q": "the dark knight", "beklenen": ["dark knight", "kara sovalye"], "yil": 2008, "tur": "film", "tmdb_id": 155},
+    {"q": "kara şövalye", "beklenen": ["dark knight", "kara sovalye"], "yil": 2008, "tur": "film", "tmdb_id": 155},
+    {"q": "fight club", "beklenen": ["fight club", "dovus kulubu"], "yil": 1999, "tur": "film", "tmdb_id": 550},
+    {"q": "dövüş kulübü", "beklenen": ["fight club", "dovus kulubu"], "yil": 1999, "tur": "film", "tmdb_id": 550},
+    {"q": "parasite", "beklenen": ["parasite", "parazit"], "yil": 2019, "tur": "film", "tmdb_id": 496243},
+    {"q": "parazit", "beklenen": ["parasite", "parazit"], "yil": 2019, "tur": "film", "tmdb_id": 496243},
+    {"q": "the odyssey", "beklenen": ["odyssey", "odysseia"], "yil": 2026, "tur": "film", "tmdb_id": null},
+    {"q": "odyssey", "beklenen": ["odyssey", "odysseia"], "yil": 2026, "tur": "film", "tmdb_id": null},
+    {"q": "breaking bad", "beklenen": ["breaking bad"], "yil": 2008, "tur": "dizi", "tmdb_id": 1396},
+    {"q": "breakingbad", "beklenen": ["breaking bad"], "yil": 2008, "tur": "dizi", "tmdb_id": 1396},
+    {"q": "game of thrones", "beklenen": ["game of thrones", "taht oyunlari"], "yil": 2011, "tur": "dizi", "tmdb_id": 1399},
+    {"q": "taht oyunları", "beklenen": ["game of thrones", "taht oyunlari"], "yil": 2011, "tur": "dizi", "tmdb_id": 1399},
+    {"q": "stranger things", "beklenen": ["stranger things"], "yil": 2016, "tur": "dizi", "tmdb_id": 66732},
+    {"q": "strangerthings", "beklenen": ["stranger things"], "yil": 2016, "tur": "dizi", "tmdb_id": 66732},
+    {"q": "reacher", "beklenen": ["reacher"], "yil": 2022, "tur": "dizi", "tmdb_id": null},
+    {"q": "örümcek adam", "beklenen": ["orumcek adam", "spider man", "spider-man"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "spider-man", "beklenen": ["orumcek adam", "spider man", "spiderman"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "İstanbul", "beklenen": ["istanbul"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "ışık", "beklenen": ["isik"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "ÇINAR", "beklenen": ["cinar"], "yil": null, "tur": "dizi", "tmdb_id": null},
+    {"q": "ırmak", "beklenen": ["irmak"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "apocalypse z", "beklenen": ["apocalypse z", "apocalipsis z"], "yil": 2024, "tur": "film", "tmdb_id": null},
+    {"q": "apocalypse z the beginning of the end", "beklenen": ["apocalypse z", "apocalipsis z"], "yil": 2024, "tur": "film", "tmdb_id": null},
+    {"q": "resident evil dublaj", "beklenen": ["resident evil"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "the matrix", "beklenen": ["matrix"], "yil": 1999, "tur": "film", "tmdb_id": 603},
+    {"q": "matrix", "beklenen": ["matrix"], "yil": 1999, "tur": "film", "tmdb_id": 603}
+  ],
+  "henuz_yok": [
+    {"q": "whalefall", "beklenen": ["whalefall"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "balina düşüşü", "beklenen": ["whalefall", "balina dususu"], "yil": null, "tur": "film", "tmdb_id": null},
+    {"q": "whale fall", "beklenen": ["whalefall", "whale fall"], "yil": null, "tur": "film", "tmdb_id": null}
+  ]
+}
