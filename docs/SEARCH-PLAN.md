@@ -8,7 +8,7 @@ Persona: `search-engineer` (arama), `provider-scout` (kaynak kapsaması), `yz-mu
   Film 16 Eki 2026'da vizyona girdi, dijitalde yok, web kopyaları büyük olasılıkla CAM.
 - Bizim eklentilerde durum (31 Eki, ZimaOS):
   - HDFilmCehennemi (`.land`): "matrix" için 4 sonuç geliyor, Whalefall sayfası 404. `.nl` 403 dönüyor (Cloudflare olabilir).
-  - **FilmMakinesi eklentisi bozuk:** "matrix" için bile 0 sonuç. Site (`filmmakinesi.co/?s=matrix`) sonuç veriyor, yani sorun eklentinin ayrıştırmasında.
+  - FilmMakinesi "matrix" için 0 sonuç veriyor. Eklenti bozuk değil (teşhis aşağıda, #1): sitenin kataloğunda Matrix yok.
   - JetFilmizle: yalnız ilgisiz "Balina" başlıkları geliyor.
 - Engine `global_search` her sorguda 0 dönüyor. Muhtemel neden: `elem.plugin = name` ataması pydantic'te hata veriyor, çıplak `except` bunu yutuyor. Bu uç noktayı çağıran istemci yok.
 
@@ -33,7 +33,7 @@ Kaçınılacaklar: ham puan toplamak, yalnız başlıkla tekilleştirmek, tüm k
 ## Değer/çaba sırası (brainstorm sonrası, v2)
 | # | İş | Değer | Çaba |
 |---|----|------|------|
-| 1 | FilmMakinesi teşhisi, sonra düzeltme (+ chain_scan) | Yüksek | S |
+| 1 | FilmMakinesi teşhisi — **bitti: hata yok, katalog boşluğu** | Yüksek | S |
 | 2 | Altın sorgu seti + ölçüm betiği (`scripts/search_eval.py`) | Yüksek (kapı) | S |
 | 3 | Zaman bütçesi: kaynak başına devre kesici, TMDB çağrıları paralel, `_bolum_sayilari` beklemesi kısalır | Yüksek | S |
 | 4 | Tek normalize + birleşik/ayrık varyant, `_varyantlar` ↔ `query_variants` birleşimi | Yüksek | S |
@@ -42,7 +42,7 @@ Kaçınılacaklar: ham puan toplamak, yalnız başlıkla tekilleştirmek, tüm k
 | 7 | 0 sonuçta "web'de şu sitelerde var" satırı (web başlık araması `search_all`'a) | Yüksek | S |
 | 8 | provider-scout: hdfilmcehennemi.nl / filmmakinesi.to (403) canlılık ve içerik farkı | Orta | S |
 | 9 | `global_search` sil (önce grep ile çağıran yok kanıtı) | Düşük | XS |
-| 10 | Takip edilen yabancı diziler aylık ajandada (Dean, 31 Eki) | Yüksek | S |
+| 10 | Takip edilen yabancı diziler aylık ajandada (Dean, 31 Eki) — **bitti** | Yüksek | S |
 
 Ertelendi (altın set ihtiyacı kanıtlarsa geri gelir): RRF sıralama, Gemini yeniden yazımı,
 RapidFuzz, üç katmanlı önbellek.
@@ -50,8 +50,10 @@ RapidFuzz, üç katmanlı önbellek.
 
 ### Madde ayrıntıları
 - **#1 Teşhis:** `FilmMakinesi.py:69` `poster-lang` rozeti olmayan kartları atıyor; `search()`
-  HTTP durumunu kontrol etmiyor (:83-84). Sitenin `?s=matrix` sayfasında `poster` sınıfı 1,
-  `/film/` bağlantısı 0 (31 Eki) — arama sonucu farklı biçimde/JS ile geliyor olabilir, önce HTML'e bak.
+  HTTP durumunu kontrol etmiyor (:83-84).
+  **Sonuç (31 Eki): hata yok, katalog boşluğu.** Sitede Matrix/Inception/John Wick/Joker hiç yok;
+  WP REST ve ajax araması da boş. Ayrıştırıcı çalışıyor (ballerina 1, ice 10, avatar 1).
+  `poster-lang` süzgeci doğru: rozetsiz sayfalarda oynatıcı iframe'i yok. Kod değişmedi.
 - **#2 Altın set:** ≥30 sorgu, iki kova: (a) bulunabilir (beklenen `tmdb_id` + ilk 3) ve
   (b) henüz yok (beklenen: "sinemada" kartı). Türkçe İ/ı, birleşik/ayrık ad, TR/orijinal ad çiftleri içerir.
 - **#3 Zaman:** bugünkü yapıda p95 ≤ 6 sn imkânsız (12 sn kaynak zaman aşımı, sıralı TMDB,
