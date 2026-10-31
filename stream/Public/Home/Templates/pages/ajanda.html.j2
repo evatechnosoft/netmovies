@@ -22,6 +22,7 @@
   .ajanda-rozet { padding:1px 8px; border-radius:999px; font-size:.74rem; border:1px solid rgba(255,255,255,.16); }
   .ajanda-rozet.film { background:rgba(56,189,248,.16); border-color:rgba(56,189,248,.45); }
   .ajanda-rozet.dizi { background:rgba(167,139,250,.16); border-color:rgba(167,139,250,.45); }
+  .ajanda-rozet.takip { background:rgba(250,204,21,.16); border-color:rgba(250,204,21,.5); }
   .ajanda-ozet { font-size:.82rem; opacity:.6; margin:4px 0 0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .ajanda-bos { opacity:.65; padding:30px 0; }
 </style>
@@ -53,6 +54,7 @@
         <p class="ajanda-ad">{{ oge.baslik }}</p>
         <div class="ajanda-meta">
           <span class="ajanda-rozet {{ oge.tur }}">{{ 'Film' if oge.tur == 'film' else 'Dizi' }}</span>
+          {% if oge.takip %}<span class="ajanda-rozet takip">Takipte</span>{% endif %}
           <span>{{ oge.bolum }}</span>
           {% if oge.puan %}<span>★ {{ oge.puan }}</span>{% endif %}
         </div>

@@ -4,7 +4,7 @@
 import datetime
 import unittest
 
-from Public.API.v1.Libs.ajanda_grup import aralikla, gunlere_bol
+from Public.API.v1.Libs.ajanda_grup import aralikla, gunlere_bol, takibi_birlestir
 
 
 class AgendaGrupTest(unittest.TestCase):
@@ -55,6 +55,37 @@ class AgendaAralikTest(unittest.TestCase):
         hafta = aralikla(ay, str(bugun + datetime.timedelta(days=7)))
         say = lambda satirlar: sum(1 for s in satirlar if s["tarih"] == str(bugun))
         self.assertEqual(say(hafta), say(ay))
+
+
+class AgendaTakipTest(unittest.TestCase):
+    """Takip edilen diziler ajandada aynı günün başında, işaretli ve popüler
+    adaylarla tekilleşmiş görünmeli."""
+
+    def _satir(self, tarih, baslik, tmdb_id):
+        return {"tarih": tarih, "baslik": baslik, "tur": "dizi", "tmdb_id": tmdb_id}
+
+    def test_takip_once_ve_isaretli(self):
+        sonuc = takibi_birlestir(
+            [self._satir("2026-11-02", "A", 1)],
+            [self._satir("2026-11-02", "Z", 9)],
+        )
+        self.assertEqual([s["baslik"] for s in sonuc], ["Z", "A"])
+        self.assertTrue(sonuc[0]["takip"])
+        self.assertNotIn("takip", sonuc[1])
+
+    def test_ayni_dizi_tekillesir(self):
+        populer = [self._satir("2026-11-02", "A", 1), self._satir("2026-11-03", "B", 2)]
+        sonuc = takibi_birlestir(populer, [self._satir("2026-11-02", "A", 1)])
+        self.assertEqual([s["baslik"] for s in sonuc], ["A", "B"])
+        self.assertTrue(sonuc[0]["takip"])
+        # Önbellekteki popüler satır yerinde değişmemeli (paylaşılan cache).
+        self.assertNotIn("takip", populer[0])
+
+    def test_takip_tarih_sirasina_girer(self):
+        populer = [self._satir("2026-11-01", "A", 1), self._satir("2026-11-03", "B", 2)]
+        self.assertEqual(takibi_birlestir(populer, []), populer)
+        sonuc = takibi_birlestir(populer, [self._satir("2026-11-02", "T", 7)])
+        self.assertEqual([s["baslik"] for s in sonuc], ["A", "T", "B"])
 
 
 if __name__ == "__main__":
