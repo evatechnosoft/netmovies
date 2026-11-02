@@ -1,0 +1,7 @@
+# NetMovies gece yedeği (ZimaOS). Kurulum: scripts/systemd/README.md
+[Unit]
+Description=NetMovies /data yedegi (take + verify)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '/DATA/AppData/netmovies/scripts/backup.sh take && /DATA/AppData/netmovies/scripts/backup.sh verify'

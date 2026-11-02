@@ -15,3 +15,16 @@ sudo systemctl start source-canary.service && tail -1 data/canary.jsonl   # ilk 
 ```
 
 `canary.env` yoksa uyarı yalnız günlüğe yazılır (`journalctl -u source-canary`).
+
+# Gece yedeği (ZimaOS)
+
+03:30 `scripts/backup.sh take && verify`: `/data` → `/DATA/Backup/netmovies/netmovies-<tarih>.tar.gz`,
+son 14 kopya; `.env`, cache ve apk tar'a girmez (`.env` Bitwarden'da). `verify` son tar'ı açıp
+SQLite `integrity_check` koşar.
+
+```bash
+sudo cp scripts/systemd/netmovies-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now netmovies-backup.timer
+sudo systemctl start netmovies-backup.service && journalctl -u netmovies-backup -n 5
+# geri alma: sudo systemctl disable --now netmovies-backup.timer
+```
