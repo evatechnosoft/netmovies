@@ -330,6 +330,20 @@ fun PlayerScreen2(
         CornerStatus(status, loader = status != KAYNAK_YOK && status != BOLUM_YOK)
     }
 
+    // Two players share the same UI; the tag tells them apart during the trial.
+    if (ui.showControls && !ui.scrubMode) {
+      Box(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
+        Text(
+          "Oynatıcı 2",
+          fontSize = NmType.Caption,
+          fontWeight = FontWeight.Medium,
+          color = NmColor.OnSurface,
+          modifier = Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(NmDim.PillRadius))
+            .background(NmColor.Scrim).padding(horizontal = 14.dp, vertical = 7.dp),
+        )
+      }
+    }
+
     // Tuş göstergesi EN ÜSTTE: paneller açıkken de görünsün.
     ui.keyHint?.let { KeyHintChip(it) }
   }
