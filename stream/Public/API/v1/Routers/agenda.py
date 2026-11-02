@@ -7,8 +7,8 @@
 #     `next_episode_to_air` okunur; tarihi aralıkta olmayan aday düşer.
 #   - Filmler: `movie/upcoming` (TR) zaten vizyon tarihiyle geliyor.
 #
-# Takip listesi ayrı bir uç (`/following`) ve kendi takvimini taşıyor; burada
-# tekrarlanmaz.
+#   - Takip listesi: yabancı diziler dahil, aynı günün başında ve işaretli
+#     (`takip`); popülerdeki aynı dizi `tmdb_id` ile tekilleşir.
 #
 #   GET /api/v1/agenda?view=week|month
 #
@@ -26,9 +26,13 @@ import httpx
 
 from Core import Request
 from .    import api_v1_router, api_v1_global_message
-from ..Libs.ajanda_grup import aralikla, gunlere_bol
+from ..Libs.ajanda_grup import aralikla, gunlere_bol, takibi_birlestir
+from .following import _tmdb_show
+from Public.Home.Libs import watch_store
 
 _API_KEY   = os.getenv("TMDB_API_KEY", "").strip()
+# Takipteki dizilerin bölüm tarihi gün içinde değişebilir (yeni bölüm duyurusu).
+_TAKIP_TTL = 60 * 60
 _DISCOVER  = "https://api.themoviedb.org/3/discover/tv"
 _TV_DETAIL = "https://api.themoviedb.org/3/tv/{id}"
 _UPCOMING  = "https://api.themoviedb.org/3/movie/upcoming"
@@ -88,6 +92,8 @@ def _bolum_satiri(detay: dict, bolum: dict, bas: datetime.date, son: datetime.da
     poster = detay.get("poster_path")
     return {
         "tur"     : "dizi",
+        # Takip listesiyle tekilleştirme anahtarı (`takibi_birlestir`).
+        "tmdb_id" : detay.get("id"),
         "baslik"  : detay.get("name") or "",
         "tarih"   : tarih,
         "poster"  : f"{_IMG_BASE}{poster}" if poster else "",
@@ -179,6 +185,34 @@ async def _filmler(bas: datetime.date, son: datetime.date) -> list[dict]:
     return satirlar
 
 
+async def _takip_satirlari(bas: datetime.date, son: datetime.date) -> list[dict]:
+    """Takip listesindeki dizilerin aralığa düşen bölümleri.
+
+    `discover` yalnız TR popüler dizileri getiriyor; takip edilen yabancı dizi
+    aylık görünümde hiç yoktu (Dean, 31 Eki). Liste profile göre değiştiği için
+    popüler önbelleğine yazılmaz; kendi kısa önbelleği takip kümesine bağlıdır.
+    """
+    infos = await asyncio.gather(*(
+        _tmdb_show(r.get("title") or "") for r in watch_store.list_user_list("takip", 50)
+    ))
+    idler = sorted({i["tmdb_id"] for i in infos if i.get("tmdb_id")})
+    if not idler:
+        return []
+
+    anahtar = f"takip:{bas}:{','.join(map(str, idler))}"
+    onbellek = _cache.get(anahtar)
+    if onbellek and onbellek[0] > time.monotonic():
+        return onbellek[1]
+
+    sonuc = await asyncio.gather(*(_dizi_bolumleri(i, bas, son) for i in idler), return_exceptions=True)
+    satirlar = [s for liste in sonuc if isinstance(liste, list) for s in liste]
+    # Gün ve takip kümesi değiştikçe yeni anahtar açılır; eskiler birikmesin.
+    for eski in [k for k in _cache if k.startswith("takip:")]:
+        del _cache[eski]
+    _cache[anahtar] = (time.monotonic() + _TAKIP_TTL, satirlar)
+    return satirlar
+
+
 async def agenda_verisi(view: str) -> dict:
     """Ajanda gövdesi. Hem `/api/v1/agenda` hem `/ajanda` sayfası bunu çağırır —
     sayfanın kendi kendine HTTP turu atmasına gerek yok."""
@@ -199,6 +233,9 @@ async def agenda_verisi(view: str) -> dict:
         diziler, filmler = await asyncio.gather(_diziler(bas, son), _filmler(bas, son))
         satirlar = sorted(diziler + filmler, key=lambda s: (s["tarih"], s["baslik"]))
         _cache["month"] = (time.monotonic() + _CACHE_TTL, satirlar)
+
+    # Takip satırları her istekte birleşir (profile özgü); popüler önbellek değişmez.
+    satirlar = takibi_birlestir(satirlar, await _takip_satirlari(*_aralik("month")))
 
     if view == "week":
         satirlar = aralikla(satirlar, str(_aralik("week")[1]))

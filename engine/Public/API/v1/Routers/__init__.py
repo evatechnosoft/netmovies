@@ -21,7 +21,6 @@ from . import (
     get_plugin,
     get_main_page,
     search,
-    global_search,
     load_item,
     load_links,
     extract,
