@@ -8,6 +8,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -122,6 +123,10 @@ dependencies {
     // Cihaz üstü YZ: Gemini Nano (ML Kit GenAI Prompt API, AICore). Desteklemeyen
     // cihazda checkStatus UNAVAILABLE döner; model APK'ya girmez. Bkz. docs/YZ-PLAN.md.
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+
+    // Uzaktan kill-switch (Remote Config). Yeni native bağımlılık: OTA yetmez, tam sürüm gerekir.
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-config")
 
     testImplementation("junit:junit:4.13.2")
     // org.json is an Android stub on the JVM; the real one for share/web tests.

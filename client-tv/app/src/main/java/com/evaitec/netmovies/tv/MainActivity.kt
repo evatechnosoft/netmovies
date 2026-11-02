@@ -222,6 +222,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
             .registerAudioDeviceCallback(sesCihazi, null)
+        com.evaitec.netmovies.tv.data.FeatureFlags.init(this)
         com.evaitec.netmovies.tv.data.ServerResolver.init(this)
         // Çökme izi: bu açılıştan önceki çökme varsa sunucuya gider, sonra silinir.
         com.evaitec.netmovies.tv.data.CrashLog.kur(this)

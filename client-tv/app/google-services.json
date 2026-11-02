@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "678591815722",
+    "project_id": "netmovies-evaitec",
+    "storage_bucket": "netmovies-evaitec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678591815722:android:3e4f5baef4daf49483e353",
+        "android_client_info": {
+          "package_name": "com.evaitec.netmovies.tv"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPq2MTdcTL0utXa8n_fcIcETX1dLofpA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

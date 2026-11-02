@@ -69,6 +69,7 @@ object ZimaUyandir {
 
     /** Ağ iş parçacığından çağrılır. Dakikada en fazla bir kez gönderir. */
     fun gonder() {
+        if (!FeatureFlags.enabled(Feature.WAKE_ON_LAN)) return
         val elle = System.currentTimeMillis() < elleBitis
         if (!izinli(onPlanda, java.time.LocalTime.now().hour, elle)) return
         val simdi = System.currentTimeMillis()
