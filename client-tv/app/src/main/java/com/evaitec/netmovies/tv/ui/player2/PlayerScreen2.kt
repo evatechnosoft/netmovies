@@ -312,7 +312,9 @@ fun PlayerScreen2(
           ui.showKeys = !ui.showKeys
           keyPrefs.edit().putBoolean("show_keys", ui.showKeys).apply()
         },
-        onClose = { ayarKapat() },
+        // Start panel: BACK = play (or exit without sources); the panel's own BackHandler
+        // sits above the player's, so route through the same decision here.
+        onClose = { if (baslangic) ui.onBack(core, onBack) else ayarKapat() },
         modifier = Modifier.align(Alignment.CenterEnd),
         canli = core.canliYayin,
         kanallar = kanallar,

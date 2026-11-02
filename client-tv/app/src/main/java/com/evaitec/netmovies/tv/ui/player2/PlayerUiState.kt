@@ -38,8 +38,7 @@ class PlayerUiState {
 
     /**
      * GERİ önceliği (eski PlayerScreen:643-666 ile birebir): geri sayım → iptal;
-     * scrub → kapat; başlangıç paneli → liste/sezon kapat, kaynak varsa OYNAT, yoksa
-     * çık; ayarlar → kapat (+paneli geri getir); kontroller → gizle; yoksa [onExit].
+     * scrub → kapat; başlangıç paneli → liste/sezon kapat, yoksa çık; ayarlar → kapat (+paneli geri getir); kontroller → gizle; yoksa [onExit].
      */
     fun onBack(core: PlayerCore, onExit: () -> Unit) {
         val cokSezon = core.episodes.map { it.season }.distinct().size > 1
@@ -50,7 +49,6 @@ class PlayerUiState {
                 baslangicPaneli = core.showStartPanel,
                 liste = panelAsList,
                 bolumSayfasi = secilenSezon != null && cokSezon,
-                kaynakVar = core.links.isNotEmpty(),
                 ayarlar = showSettings,
                 kontroller = showControls,
             )
@@ -59,7 +57,6 @@ class PlayerUiState {
             GeriEylem.SCRUB_KAPAT -> scrubMode = false
             GeriEylem.SEZONLARA_DON -> secilenSezon = null
             GeriEylem.LISTEYI_KAPAT -> { core.showStartPanel = false; panelAsList = false }
-            GeriEylem.OYNAT -> core.panelOynat()
             GeriEylem.AYARLARI_KAPAT -> {
                 showSettings = false
                 if (panelGeriGelsin) { panelGeriGelsin = false; core.showStartPanel = true }
@@ -71,7 +68,7 @@ class PlayerUiState {
 }
 
 internal enum class GeriEylem {
-    SAYIMI_IPTAL, SCRUB_KAPAT, SEZONLARA_DON, LISTEYI_KAPAT, OYNAT, AYARLARI_KAPAT, KONTROLLERI_GIZLE, CIK,
+    SAYIMI_IPTAL, SCRUB_KAPAT, SEZONLARA_DON, LISTEYI_KAPAT, AYARLARI_KAPAT, KONTROLLERI_GIZLE, CIK,
 }
 
 /**
@@ -84,20 +81,18 @@ internal fun geriEylemi(
     baslangicPaneli: Boolean,
     liste: Boolean,
     bolumSayfasi: Boolean,
-    kaynakVar: Boolean,
     ayarlar: Boolean,
     kontroller: Boolean,
 ): GeriEylem = when {
     // Geri sayım sürerken GERİ = "geçme, jeneriği izliyorum"; bölümden çıkarmaz.
     geriSayimVar -> GeriEylem.SAYIMI_IPTAL
     scrub -> GeriEylem.SCRUB_KAPAT
-    // Başlangıç panelinde GERİ = OYNAT (Dean). Kaynak yoksa oynatacak bir şey yok → çıkış.
+    // Başlangıç panelinde GERİ = çıkış (Dean 02.11: "bölüm başlamadan çıkmıyor"); oynatmak OK'un işi.
     // Oynarken açılan bölüm listesinde arkada film var: GERİ önce sezon sayfasına,
     // sonra listeyi kapatır.
     baslangicPaneli -> when {
         liste && bolumSayfasi -> GeriEylem.SEZONLARA_DON
         liste -> GeriEylem.LISTEYI_KAPAT
-        kaynakVar -> GeriEylem.OYNAT
         else -> GeriEylem.CIK
     }
     ayarlar -> GeriEylem.AYARLARI_KAPAT

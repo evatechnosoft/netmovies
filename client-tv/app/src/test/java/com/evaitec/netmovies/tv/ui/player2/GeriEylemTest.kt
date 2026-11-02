@@ -11,25 +11,21 @@ class GeriEylemTest {
         panel: Boolean = false,
         liste: Boolean = false,
         bolumSayfasi: Boolean = false,
-        kaynak: Boolean = false,
         ayarlar: Boolean = false,
         kontroller: Boolean = false,
-    ) = geriEylemi(sayim, scrub, panel, liste, bolumSayfasi, kaynak, ayarlar, kontroller)
+    ) = geriEylemi(sayim, scrub, panel, liste, bolumSayfasi, ayarlar, kontroller)
 
+    // Dean 02.11: bölüm başlamadan GERİ çıkmalı (eskiden kaynak varsa OYNAT'tı).
     @Test
-    fun `baslangic panelinde GERI kaynak varsa OYNAT`() {
-        assertEquals(GeriEylem.OYNAT, geri(panel = true, kaynak = true))
-    }
-
-    @Test
-    fun `baslangic panelinde kaynak yoksa cikis`() {
+    fun `baslangic panelinde GERI cikis`() {
         assertEquals(GeriEylem.CIK, geri(panel = true))
+        assertEquals(GeriEylem.CIK, geri(panel = true, ayarlar = true, kontroller = true))
     }
 
     @Test
     fun `liste sirasi bolum sayfasi sonra liste`() {
-        assertEquals(GeriEylem.SEZONLARA_DON, geri(panel = true, liste = true, bolumSayfasi = true, kaynak = true))
-        assertEquals(GeriEylem.LISTEYI_KAPAT, geri(panel = true, liste = true, kaynak = true))
+        assertEquals(GeriEylem.SEZONLARA_DON, geri(panel = true, liste = true, bolumSayfasi = true))
+        assertEquals(GeriEylem.LISTEYI_KAPAT, geri(panel = true, liste = true))
     }
 
     @Test
