@@ -1,6 +1,7 @@
 # NetMovies — Gelişmiş Yapı Planı (Ekim 2026)
 
-> Durum: **TASLAK — Dean onayı bekliyor.** Takım Pi kuralı: "başla" gelmeden kod/koşu yok.
+> Durum: **AÇIK** — Dean 30 Eki'de onayladı: önce F0 sonra F1, hafif gözlem, uyarı Home Assistant'a, PLAYER2 Mi Box'ta 1 hafta varsayılan.
+> F0 (`feature/f0-gates`): engine testleri CI'da; engine/stream/warp healthcheck zaten vardı (doh/tünel imajlarında kabuk yok, atlandı); `docs/HANDOFF.md` arşivde.
 > Kaynak: 30 Eki 2026 araştırması (mevcut durum haritası + web trend taraması + persona araştırması).
 > Trend iddialarının bir kısmı yalnız arama özetine dayanıyor; o maddeler **[doğrulanmadı]** etiketli.
 

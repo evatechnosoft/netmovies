@@ -6,7 +6,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 ## Her oturumda ilk yap
 1. **Güncel kal:** `git fetch && git checkout fix/general-stability && git pull`
    (Tüm iş bu daldadır; `master` ESKİDİR.)
-2. **Bağlamı al:** kök `HANDOFF.md` oku (`docs/HANDOFF.md` eski günlük) — en üstteki "DEVİR" bloğu durumu ve sıradaki
+2. **Bağlamı al:** kök `HANDOFF.md` oku (`docs/archive/HANDOFF-2026-10-17.md` eski günlük) — en üstteki "DEVİR" bloğu durumu ve sıradaki
    işi verir; altındaki oturum günlükleri gerekçeyi taşır.
 3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
    Kırmızıysa önce onu çöz; kod yazmadan önce ne bozuk olduğunu bil.
