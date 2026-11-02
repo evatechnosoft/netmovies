@@ -1,3 +1,11 @@
+# DEVİR (2 Kas 2026): TV 0.9.84 yayında + gece yedeği + kaynak kanaryası
+> `fix/general-stability` (PR #7–#14 birleşti) · ZimaOS aynı dalda, engine+stream+cloudflared yeniden kuruldu · smoke YEŞİL (movie 363, serie 433, live 10)
+- **Yayın 0.9.84:** yerel OTA `v0.9.84-poc`, GitHub release, evaglass-releases `netmovies-tv-v0.9.84`, katalog `evaitec-ota/apps.json` versionCode 984. (evaglass-releases'teki apps.json bayat kopya, katalog DEĞİL.) **Mi Box'ta doğrulanmadı** (ADB .11:5555 zaman aşımı).
+- **Gece yedeği:** `netmovies-backup.timer` 03:30, 14 kopya; ilk koşu `integrity=ok watch_history=131`. `.env` tar'a girmez. Geri alma: `systemctl disable --now netmovies-backup.timer`.
+- **Kaynak kanaryası:** `source-canary.timer` açık, `data/canary.jsonl`; HA bildirimi `canary.env` (Zima'da, git dışı). İlk koşuda JetFilmizle 2/2 ölü.
+- **Bekçi:** aktif sunucuda durmuş netmovies konteynerlerini başlatır (ZimaOS 1.8 app olmayan yığını açılışta başlatmıyor); bu dal canlı test edilmedi.
+- **Dean kararı bekleyen:** Zima'da commit edilmemiş `docker-compose.yml` değişikliği (cloudflared `depends_on: service_healthy`, yedek `.bak-20261101`). Plan önermiyor: izlerken recreate kesintisi 14 sn → 40+ sn.
+
 # Handoff: TV 0.9.81 yayında + ev DHCP tek sunucu + modem yedek
 > 2026-10-25 · `fix/dhcp-kok-duzeltme` @ 8655bcb (= origin/fix/general-stability) · 0 dirty (1 untracked `.claude/settings.local.json`, işle ilgisiz)
 
