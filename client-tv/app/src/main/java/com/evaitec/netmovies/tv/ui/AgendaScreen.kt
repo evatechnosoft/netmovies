@@ -208,9 +208,10 @@ fun AgendaScreen(onBack: () -> Unit, onAra: (String, String) -> Unit, onCanli: (
     }
 }
 
-/** "2. sezon 3. bölüm" → "S2B3" (oynatıcının bölüm kimliği); "Vizyon" → "". */
+/** "2. sezon 3. bölüm" / "S2B3 · ad" → "S2B3" (oynatıcının bölüm kimliği); "Vizyon" → "". */
 internal fun bolumRef(bolum: String): String =
-    Regex("""(\d+)\. sezon (\d+)\. bölüm""").find(bolum)?.let { "S${it.groupValues[1]}B${it.groupValues[2]}" }.orEmpty()
+    (Regex("""(\d+)\. sezon (\d+)\. bölüm""").find(bolum) ?: Regex("""^S(\d+)B(\d+)""").find(bolum))
+        ?.let { "S${it.groupValues[1]}B${it.groupValues[2]}" }.orEmpty()
 
 /**
  * TMDB kanal adını ("NOW", "Show TV") M3U kanalına eşler: önce tam ad, sonra
@@ -360,7 +361,8 @@ private fun AjandaKarti(oge: AgendaItem, modifier: Modifier = Modifier, onAc: ()
             )
             Text(
                 text = buildString {
-                    append(oge.bolum)
+                    append(oge.bolum.substringBefore(" · "))
+                    if (oge.kalan > 1) append(" · ").append(oge.kalan).append(" bölüm kaldı")
                     if (oge.puan > 0) append(" · ★ ").append(oge.puan)
                 },
                 fontSize = NmType.Caption,

@@ -57,6 +57,26 @@ def _izlenen_bolum(baslik: str) -> tuple[int, int] | None:
     return ref_coz((kayit or {}).get("episode")) if kayit else None
 
 
+def _mutlaktan_sezona(izlenen: tuple[int, int], sayilar: list[int]) -> tuple[int, int]:
+    """Sağlayıcı tek sezon varsayıp mutlak numara yazar (Teşkilat S1B191); TMDB
+    gerçek sezon verir. `sayilar` = sezon 1..n bölüm sayıları, sırayla."""
+    sezon, bolum = izlenen
+    if sezon != 1 or not sayilar or bolum <= sayilar[0]:
+        return izlenen
+    for i, adet in enumerate(sayilar):
+        if bolum <= adet:
+            return (i + 1, bolum)
+        bolum -= adet
+    # Bilinen tüm bölümlerden ötede: hepsi izlenmiş.
+    return (len(sayilar) + 1, bolum)
+
+
+def _tek_satir(satirlar: list[dict]) -> list[dict]:
+    """Dizi başına TEK satır: sıradaki izlenmemiş bölüm + kaç bölüm kaldığı.
+    `satirlar` sezon/bölüm sırasıyla gelir; ilki sıradakidir."""
+    return [{**satirlar[0], "kalan": len(satirlar)}] if satirlar else []
+
+
 def _takip_edilen_basliklar() -> list[str]:
     basliklar: list[str] = []
     kaynaklar = (
@@ -93,14 +113,18 @@ async def _dizinin_bolumleri(baslik: str, bas: datetime.date, bugun: datetime.da
         return []
 
     detay = await _json(_TV_DETAIL.format(id=ilk["id"]), {"language": "tr-TR"})
-    sezonlar = [
-        s.get("season_number") for s in (detay.get("seasons") or [])
-        if isinstance(s.get("season_number"), int) and s["season_number"] > 0
-    ]
+    gercek = sorted(
+        (s for s in (detay.get("seasons") or [])
+         if isinstance(s.get("season_number"), int) and s["season_number"] > 0),
+        key=lambda s: s["season_number"],
+    )
+    sezonlar = [s["season_number"] for s in gercek]
     if not sezonlar:
         return []
 
     izlenen = _izlenen_bolum(baslik)
+    if izlenen:
+        izlenen = _mutlaktan_sezona(izlenen, [int(s.get("episode_count") or 0) for s in gercek])
     poster  = detay.get("poster_path")
     satirlar: list[dict] = []
 
@@ -134,7 +158,7 @@ async def _dizinin_bolumleri(baslik: str, bas: datetime.date, bugun: datetime.da
                 "ozet"   : (bolum.get("overview") or "")[:300],
                 "puan"   : round(float(detay.get("vote_average") or 0), 1),
             })
-    return satirlar
+    return _tek_satir(satirlar)
 
 
 @api_v1_router.get("/unwatched")

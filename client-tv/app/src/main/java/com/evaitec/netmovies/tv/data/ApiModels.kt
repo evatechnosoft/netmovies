@@ -433,6 +433,7 @@ data class AgendaItem(
     val ozet: String = "",
     val puan: Double = 0.0,
     val kanal: String = "",        // TMDB yayın kanalı ("NOW"); canlı seçeneği için
+    val kalan: Int = 0,            // İzlemediklerim: dizi başına tek satır, izlenmemiş bölüm sayısı
 )
 
 @Serializable
