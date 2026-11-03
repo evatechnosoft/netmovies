@@ -1,14 +1,12 @@
 """DiziPal provider — dizi + film, tek oynatıcı zinciri.
 
-Upstream .kt bayat: site v57 ile tamamen yeniden yazıldı (dp-card/dp-episode
-sınıfları, /yeni-eklenen-bolumler yolu) ve oynatıcı adresi artık sayfaya AES ile
-şifreli gömülüyor. Zincir:
+Upstream .kt bayat. Kasım 2026'da site Next.js uygulamasına taşındı (eski
+dizipalNNNN adresleri dizipal1824.com'a 301 atıyor): kartlar `a.tc` / `div.ec`,
+arama `GET /arama-yap?s=`, oynatıcı bilgisi Next.js flight verisinde. Zincir:
 
-    bölüm sayfası  -> [data-rm-k] {ciphertext,iv,salt}
-      -> PBKDF2-SHA512(passphrase, salt, 999) + AES-CBC  (passphrase pageload.js'te)
-      -> oynatıcı iframe -> openPlayer('<blob>')
-      -> source2.php?v=<blob> -> playlist[].sources[].file
-      -> m.php yerine master.m3u8
+    bölüm sayfası  -> "player":{sources[], enc:{ciphertext,iv,salt}, k}
+      -> PBKDF2-SHA512(k, salt, 999) + AES-CBC  (anahtar artık sayfada)
+      -> oynatıcı iframe -> window.NP_CONFIG.sources[].master  (HLS)
 
 Bölüm listesi HTML yerine sayfadaki JSON-LD'den okunur: site kabuğu sık
 değişiyor ama schema.org bloğu duruyor.
@@ -28,59 +26,58 @@ import urllib.request
 
 import httpx
 from Crypto.Cipher import AES
-from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo
-from Plugins.__dizi_common import absolute, fetch_html, first_attr, get_warp_client, normalize_url
+from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo, Subtitle
+from Plugins.__dizi_common import _DEFAULT_UA, absolute, fetch_html, first_attr, first_text, get_warp_client, normalize_url, poster_attr
 
 
 # Terk edilmiş dizipalNNNN adresleri ölmüyor: 200 dönen boş bir kabuk sayfası
 # sunuyorlar. Sadece HTTP durumuna bakan bir keşif katalogu sessizce boşaltır —
 # adres ancak kart işaretini gerçekten döndürüyorsa kabul edilir.
-_SIGNATURE = "dp-card"
+_SIGNATURE = 'class="tc"'
+_DEFAULT_URL = "https://dizipal1824.com"
 
 
-def _serves_content(url: str) -> bool:
-    # The first connection of a cold process often times out; one retry keeps
-    # discovery from pinning a dead fallback for the whole engine lifetime.
+def _content_root(url: str) -> str | None:
+    """Return the post-redirect root if `url` serves real cards, else None.
+
+    Old numbers 301 to the current one; keeping the redirecting host turned
+    POSTs into GETs and added a hop per request. Direct connections hit the ISP
+    SNI block, so the WARP proxy is tried first.
+    """
     req = urllib.request.Request(f"{url}/diziler", headers={"User-Agent": "Mozilla/5.0"})
-    for _ in range(2):
+    warp = os.getenv("WARP_PROXY", "http://warp:8080")
+    openers = [urllib.request.build_opener(urllib.request.ProxyHandler({"http": warp, "https": warp})),
+               urllib.request.build_opener()]
+    for opener in openers:
         try:
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                return _SIGNATURE in resp.read(200_000).decode("utf-8", "ignore")
+            with opener.open(req, timeout=10) as resp:
+                if _SIGNATURE in resp.read(400_000).decode("utf-8", "ignore"):
+                    return re.sub(r"/diziler/?$", "", resp.geturl().split("?")[0]).rstrip("/")
         except Exception:
             continue
-    return False
+    return None
 
 
 def _discover() -> str:
     manual = os.getenv("DIZIPAL_URL")
     if manual:
         return manual.rstrip("/")
-    fallback = "https://dizipal2221.com"
+    fallback = _DEFAULT_URL
     if os.getenv("AUTO_DISCOVER_DOMAINS", "0").lower() not in ("1", "true", "yes"):
         return fallback
-    if _serves_content(fallback):
-        return fallback
-    # Numara ilerledikçe eski adresler yenisine 301 atıyor; hedefi imzayla doğrula.
-    try:
-        req = urllib.request.Request("https://dizipal2206.com", headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            hedef = resp.geturl().rstrip("/")
-        if re.match(r"^https?://dizipal\d+\.com$", hedef) and _serves_content(hedef):
-            return hedef
-    except Exception:
-        pass
-    # Redirect chain stalls on an old number; probe the next ones by signature.
-    # ponytail: sequential 20-step scan at import, widen if the site jumps further.
-    start = int(re.search(r"(\d+)", fallback).group(1))
-    for n in range(start + 1, start + 21):
-        aday = f"https://dizipal{n}.com"
-        if _serves_content(aday):
-            return aday
+    # Old numbers redirect to the live one; the target is checked by signature.
+    for candidate in (fallback, "https://dizipal2221.com"):
+        root = _content_root(candidate)
+        if root and re.match(r"^https?://dizipal\d+\.com$", root):
+            return root
     return fallback
 
 
 _MAIN_URL = _discover()
-_PLAYER_HOST_RE = re.compile(r"openPlayer\('([^']+)'")
+# Flight data is backslash-escaped JSON; a bare "k" search grabs the wrong field.
+_ENC_RE = re.compile(r'"enc":(\{"ciphertext":"[^"]+","iv":"[^"]+","salt":"[^"]+"\}),"k":"([^"]+)"')
+_SOURCES_RE = re.compile(r'"player":\{[^{}]*?"sources":(\[[^\]]*\])')
+_NP_CONFIG_RE = re.compile(r"window\.NP_CONFIG\s*=\s*(\{.*?\});\s*\n", re.S)
 
 
 class DiziPal(PluginBase):
@@ -92,21 +89,8 @@ class DiziPal(PluginBase):
     main_page = {
         f"{main_url}/yeni-eklenen-bolumler": "Son Bölümler",
         f"{main_url}/diziler": "Yeni Diziler",
-        # /filmler arşivi popülerliğe göre ve hiç değişmiyor; gerçek "yeni" liste ana
-        # sayfadaki "Son Eklenen Filmler" bölümünde (Dean: "başta hiç değişmeyen liste").
-        f"{main_url}/": "Son Eklenen Filmler",
         f"{main_url}/filmler": "Popüler Filmler",
     }
-
-    @staticmethod
-    def _home_section(html: str, heading: str) -> str:
-        """Ana sayfada <h2>heading</h2> taşıyan <section> bloğu (yoksa boş)."""
-        for chunk in html.split("<section")[1:]:
-            if f"<h2>{heading}</h2>" in chunk:
-                return f"<section{chunk}"
-        return ""
-
-    _passphrase: str | None = None
 
     def _client(self) -> httpx.AsyncClient:
         return get_warp_client() or self.httpx
@@ -139,27 +123,29 @@ class DiziPal(PluginBase):
     # ------------------------------------------------------------------ listeler
     @staticmethod
     def _cards(selector: HTMLHelper, base_url: str, category: str) -> list[MainPageResult]:
+        """`a.tc` is a series/film card, `div.ec` an episode card (link in inner `a.ecl`)."""
         results: list[MainPageResult] = []
-        for node in selector.select("a.dp-poster, a.dp-episode"):
+        for node in selector.select("a.tc"):
             href = absolute(base_url, node.attrs.get("href"))
-            title = first_attr(node, ("img",), "alt")
-            poster = first_attr(node, ("img",), "data-src")
+            title = first_text(node, ("span.tt",)) or (node.attrs.get("aria-label") or "").split(",")[0]
+            if href and title:
+                results.append(MainPageResult(category=category, title=title.strip(), url=href,
+                                              poster=poster_attr(node, ("img",))))
+        for node in selector.select("div.ec"):
+            href = absolute(base_url, first_attr(node, ("a.ecl",), "href"))
+            title = first_text(node, ("span.tn",))
             if not href or not title:
                 continue
-            results.append(MainPageResult(category=category, title=title.strip(), url=href, poster=poster))
+            ep = re.search(r"/(\d+)-sezon/(\d+)-bolum", href)
+            label = f"{title.strip()} {ep.group(1)}. Sezon {ep.group(2)}. Bölüm" if ep else title.strip()
+            results.append(MainPageResult(category=category, title=label, url=href, poster=poster_attr(node, ("img",))))
         return results
 
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         target = normalize_url(url, self.main_url)
         if page and page > 1:
-            # Yalnız /diziler sayfalanabiliyor; digerleri /2 icin 404 veriyor.
-            if not target.endswith("/diziler"):
-                return []
-            target = f"{target}/{page}"
-        html = await self._html(target)
-        if target.rstrip("/") == self.main_url.rstrip("/"):
-            html = self._home_section(html, category)
-        return self._cards(HTMLHelper(html), self.main_url, category)
+            target = f"{target}?page={page}"
+        return self._cards(HTMLHelper(await self._html(target)), self.main_url, category)
 
     # Arama ucu IP başına sıkı hız sınırı koyuyor (art arda 2. istek 429):
     # zincir her çözümde fast+full × varyant kadar arıyor, çoğu 429'a düşüp
@@ -175,38 +161,22 @@ class DiziPal(PluginBase):
     _ARAMA_ARALIK_SN = 3.0
 
     async def search(self, query: str) -> list[SearchResult]:
-        # Site aramayı `/api/search-autocomplete`'ten `/bg/searchcontent`'e taşıdı
-        # (form: searchterm + type=hepsi); eski uç 404 verip her arama boş dönüyordu.
-        # Yanıt: {"data": {"result": [{"object_name", "used_slug", "object_poster_url"}]}}.
-        anahtar = query.strip().lower()
-        kayit = self._arama_onbellek.get(anahtar)
-        if kayit and time.monotonic() - kayit[0] < self._ARAMA_TTL_SN:
-            return list(kayit[1])
-        payload = None
+        # Next.js sürümünde arama düz sayfa: GET /arama-yap?s=<sorgu>, sonuçlar `a.tc` kartı.
+        key = query.strip().lower()
+        cached = self._arama_onbellek.get(key)
+        if cached and time.monotonic() - cached[0] < self._ARAMA_TTL_SN:
+            return list(cached[1])
         try:
-            resp = await self._sirayla(lambda: self._client().post(
-                f"{self.main_url}/bg/searchcontent",
-                data={"searchterm": query, "type": "hepsi"},
-                headers={"X-Requested-With": "XMLHttpRequest", "Referer": f"{self.main_url}/", "Origin": self.main_url},
+            resp = await self._sirayla(lambda: self._client().get(
+                f"{self.main_url}/arama-yap", params={"s": query}, headers={"Referer": f"{self.main_url}/"},
             ))
-            payload = resp.json()
+            if resp.status_code != 200:
+                return []
         except Exception:
             return []
-        items = ((payload or {}).get("data") or {}).get("result") if isinstance(payload, dict) else None
-        results: list[SearchResult] = []
-        for item in items or []:
-            slug = item.get("used_slug") if isinstance(item, dict) else None
-            if not slug:
-                continue
-            results.append(
-                SearchResult(
-                    title=item.get("object_name") or "",
-                    url=absolute(self.main_url, "/" + str(slug).lstrip("/")) or "",
-                    poster=item.get("object_poster_url"),
-                )
-            )
-        if payload is not None:
-            self._arama_onbellek[anahtar] = (time.monotonic(), list(results))
+        results = [SearchResult(title=card.title, url=card.url, poster=card.poster)
+                   for card in self._cards(HTMLHelper(resp.text), self.main_url, "")]
+        self._arama_onbellek[key] = (time.monotonic(), list(results))
         return results
 
     # ------------------------------------------------------------------ detay
@@ -228,66 +198,73 @@ class DiziPal(PluginBase):
         return MovieInfo(url=url, title=title, poster=poster, description=description)
 
     # ------------------------------------------------------------------ oynatma
-    async def _get_passphrase(self) -> str | None:
-        """Çözme parolası site JS'inde açık duruyor; sürüm değişirse yeniden okunur."""
-        if self._passphrase:
-            return self._passphrase
-        try:
-            js = await self._html(f"{self.main_url}/assets/js-dizipal/pageload.js")
-        except Exception:
-            return None
-        match = re.search(r"oyunculistdc\('([^']+)'", js)
-        self._passphrase = match.group(1) if match else None
-        return self._passphrase
-
     async def load_links(self, url: str) -> list[ExtractResult]:
         target = normalize_url(url, self.main_url)
-        page = await self._html(target)
+        page = _unescape_flight(await self._html(target))
 
-        blob = re.search(r'data-rm-k="true">([^<]+)<', page)
-        passphrase = await self._get_passphrase()
-        if not blob or not passphrase:
-            return []
-        player_url = _decrypt_player_url(html_lib.unescape(blob.group(1)), passphrase)
+        # Subtitled and dubbed versions are separate pages (?player=<hash>);
+        # the active one's cipher is on this page.
+        pages: list[tuple[str, str]] = [("", page)]
+        for source in _player_sources(page):
+            label = str(source.get("label") or "").split("·")[-1].strip()
+            if source.get("on"):
+                pages[0] = (label, page)
+            elif source.get("href"):
+                other = await self._html(absolute(self.main_url, source["href"]) or "")
+                pages.append((label, _unescape_flight(other)))
+
+        results: list[ExtractResult] = []
+        for label, body in pages:
+            results.extend(await self._links_from_page(body, label))
+        return self.deduplicate(results)
+
+    async def _links_from_page(self, page: str, label: str) -> list[ExtractResult]:
+        enc = _ENC_RE.search(page)
+        player_url = _decrypt_player_url(enc.group(1), enc.group(2)) if enc else None
         if not player_url:
             return []
         if player_url.startswith("//"):
             player_url = f"https:{player_url}"
-
-        # Oynatıcı host'u Referer'sız isteği Cloudflare sayfasıyla karşılıyor.
-        iframe_html = await fetch_html(self._client(), player_url, headers={"Referer": f"{self.main_url}/"})
-        playlist_blob = _PLAYER_HOST_RE.search(iframe_html)
-        if not playlist_blob:
-            return []
-
         host = re.match(r"^(https?://[^/]+)", player_url).group(1)
+
+        # Player host answers a Referer-less request with a Cloudflare page.
+        iframe_html = await fetch_html(self._client(), player_url, headers={"Referer": f"{self.main_url}/"})
+        config_match = _NP_CONFIG_RE.search(iframe_html or "")
         try:
-            resp = await self._client().get(
-                f"{host}/source2.php", params={"v": playlist_blob.group(1)}, headers={"Referer": f"{host}/"}
-            )
-            payload = resp.json()
-        except Exception:
+            config = json.loads(config_match.group(1)) if config_match else {}
+        except ValueError:
             return []
 
+        subtitles = [
+            Subtitle(name=str(sub.get("label") or sub.get("lang") or "Altyazı"), url=absolute(host, sub["url"]))
+            for sub in config.get("subtitles") or []
+            if isinstance(sub, dict) and sub.get("url")
+        ]
         results: list[ExtractResult] = []
-        for entry in payload.get("playlist") or []:
-            for source in entry.get("sources") or []:
-                file_url = str(source.get("file") or "")
-                if not file_url:
-                    continue
-                # Oynatici m.php'yi master.m3u8 ile degistiriyor; ham m.php oynamaz.
-                results.append(
-                    ExtractResult(
-                        name=f"{self.name} | {source.get('title') or 'Kaynak'}",
-                        url=file_url.replace("m.php", "master.m3u8"),
-                        referer=f"{host}/",
-                    )
-                )
-        return self.deduplicate(results)
+        for source in config.get("sources") or []:
+            master = str(source.get("master") or "") if isinstance(source, dict) else ""
+            if not master:
+                continue
+            name = " · ".join(part for part in (label, source.get("title")) if part) or "Kaynak"
+            results.append(ExtractResult(name=f"{self.name} | {name}", url=absolute(host, master) or master,
+                                         referer=f"{host}/", user_agent=_DEFAULT_UA, subtitles=subtitles))
+        return results
+
+
+def _unescape_flight(page: str) -> str:
+    return (page or "").replace('\\"', '"')
+
+
+def _player_sources(page: str) -> list[dict]:
+    match = _SOURCES_RE.search(page)
+    try:
+        return _as_list(json.loads(match.group(1))) if match else []
+    except ValueError:
+        return []
 
 
 def _decrypt_player_url(raw_json: str, passphrase: str) -> str | None:
-    """CryptoJS eşleniği: PBKDF2-SHA512(999, 32 bayt) + AES-CBC."""
+    """CryptoJS equivalent: PBKDF2-SHA512(999, 32 bytes) + AES-CBC. Key: flight-data `k`."""
     try:
         obj = json.loads(raw_json)
         key = hashlib.pbkdf2_hmac("sha512", passphrase.encode(), bytes.fromhex(obj["salt"]), 999, 32)
