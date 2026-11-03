@@ -21,6 +21,14 @@ from datetime import datetime, timezone
 
 BASE = os.getenv("BASE", "http://localhost:3310").rstrip("/") + "/api/v1"
 
+# Plugins the canary must always account for. aggregate_new drops a plugin that
+# fails health, so one dead before the first run never appeared in history and
+# was never alerted (DiziPal, DiziMom, SezonlukDizi, Nov 2026).
+EXPECTED = (
+    "DDizi", "DiziAbi", "DiziBox", "DiziMom", "DiziPal", "DiziYou", "Dizilla", "FilmMakinesi",
+    "FullHDFilmizlesene", "HDFilmCehennemi", "JetFilmizle", "KultFilmler", "SezonlukDizi",
+)
+
 
 def get(path, encoded_url=None, **params):
     query = urllib.parse.urlencode(params)
@@ -104,7 +112,9 @@ for kind in args.kinds or ["movie", "serie"]:
     all_broken += scan(kind, args.n, stats)
 
 if args.jsonl:
-    # Katalogda hiç görünmeyen sağlayıcı burada yok; source_canary bunu geçmişle kıyaslayıp yakalar.
+    # Katalogdan düşen beklenen sağlayıcı sıfırla yazılır; source_canary seriyi sayıp uyarır.
+    for plugin in EXPECTED:
+        stats.setdefault(plugin, {"items": 0, "ok": 0, "dead": 0})
     row = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "plugins": stats}
     with open(args.jsonl, "a", encoding="utf-8") as history:
         history.write(json.dumps(row, ensure_ascii=False) + "\n")
