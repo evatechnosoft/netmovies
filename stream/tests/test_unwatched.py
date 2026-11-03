@@ -41,5 +41,25 @@ class PencereTest(unittest.TestCase):
         self.assertLessEqual(bugun - datetime.timedelta(days=uw._GERI_GUN), datetime.date(2026, 8, 17))
 
 
+class MutlaktanSezonaTest(unittest.TestCase):
+    def test_mutlak_numara_gercek_sezona_iner(self) -> None:
+        self.assertEqual((7, 7), uw._mutlaktan_sezona((1, 191), [14, 34, 31, 32, 37, 36, 10]))
+        self.assertEqual((2, 4), uw._mutlaktan_sezona((1, 20), [16, 5]))
+
+    def test_ilk_sezon_icindeyse_dokunulmaz(self) -> None:
+        self.assertEqual((1, 21), uw._mutlaktan_sezona((1, 21), [25]))
+        self.assertEqual((3, 2), uw._mutlaktan_sezona((3, 2), [10, 10, 10]))
+
+
+class TekSatirTest(unittest.TestCase):
+    def test_dizi_basina_sirada_ki_bolum_ve_kalan(self) -> None:
+        satirlar = [{"bolum": f"S7B{n}", "baslik": "Teşkilat"} for n in range(1, 8)]
+        tek = uw._tek_satir(satirlar)
+        self.assertEqual(1, len(tek))
+        self.assertEqual("S7B1", tek[0]["bolum"])
+        self.assertEqual(7, tek[0]["kalan"])
+        self.assertEqual([], uw._tek_satir([]))
+
+
 if __name__ == "__main__":
     unittest.main()

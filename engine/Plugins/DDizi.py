@@ -80,10 +80,10 @@ class DDizi(PluginBase):
     favicon     = f"https://www.google.com/s2/favicons?domain={_MAIN_URL}&sz=64"
     description = "DDizi — yerli ve yabancı diziler, yayıncının resmi bölümleri."
 
+    # Only the home page is newest-first; /yabanci-dizi-izle and /eski.diziler are
+    # alphabetic with no sort option, so they were dropped (static shelves).
     main_page = {
-        f"{main_url}/"                  : "Yerli Diziler",
-        f"{main_url}/yabanci-dizi-izle" : "Yabancı Diziler",
-        f"{main_url}/eski.diziler"      : "Eski Diziler",
+        f"{main_url}/" : "Son Bölümler",
     }
 
     def _cards(self, html: str) -> list[tuple[str, str, str | None]]:
@@ -103,11 +103,28 @@ class DDizi(PluginBase):
 
         return list(dict.fromkeys(out))
 
+    def _son_bolumler(self, html: str) -> list[tuple[str, str, str | None]]:
+        """Newest episode cards (`/izle/`) mapped to their series page, one per series.
+
+        An episode URL is an empty shell for `load_item`, so the series URL comes from
+        the sidebar list via the shared slug; cards without a series page (daily shows)
+        are skipped.
+        """
+        diziler = {_slug(href): (baslik.strip(), self.fix_url(href)) for href, baslik in _LISTE.findall(html)}
+        out: dict[str, tuple[str, str, str | None]] = {}
+        for href, _title, govde in _KART.findall(html):
+            dizi = diziler.get(_slug(href)) if "/izle/" in href else None
+            if dizi is None or dizi[1] in out:
+                continue
+            poster = _POSTER.search(govde)
+            out[dizi[1]] = (dizi[0], dizi[1], self.fix_url(poster.group(1)) if poster else None)
+        return list(out.values())
+
     async def get_main_page(self, page: int, url: str, category: str) -> list[MainPageResult]:
         if page > 1:
             return []
         html = await fetch_html(self.httpx, url, headers={"User-Agent": _UA})
-        return [MainPageResult(category=category, title=t, url=u, poster=p) for t, u, p in self._cards(html)]
+        return [MainPageResult(category=category, title=t, url=u, poster=p) for t, u, p in self._son_bolumler(html)]
 
     async def search(self, query: str) -> list[SearchResult]:
         istek = dict(data={"arama": query}, headers={"User-Agent": _UA, "Referer": f"{self.main_url}/"})
