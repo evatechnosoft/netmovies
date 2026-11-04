@@ -12,17 +12,28 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
+import time
 
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 from KekikStream.Core import Episode, ExtractResult, MainPageResult, PluginBase, SearchResult, SeriesInfo
 from Plugins.__kekik_domain import discover_main_url
 from Plugins.__warp_client import ytdlp_info
 # ddizi.im ev hattında SNI-engelli (12 Eki, Netmaster): doğrudan → WARP → düz sırası.
 from Plugins.__dizi_common import fetch_html, get_warp_client
+from Plugins.__ddizi_parcali import birlestir, en_iyi_varyant, master_olustur, parca_adresleri
 
 _MAIN_URL = discover_main_url("DDizi/src/main/kotlin/com/keyiflerolsun/DDizi.kt", "https://www.ddizi.im", "DDIZI_URL")
+
+# Parçalı bölümün birleşik playlist'i engine'in kendi ucundan (`Routers/ddizi_birlesik.py`)
+# sunulur; stream proxy'si bu adrese compose ağından erişir (bkz. helpers `_ic_engine`).
+_ENGINE_URL   = os.getenv("ENGINE_SELF_URL", "http://engine:3310")
+_BIRLESIK_TTL = 1800.0
+_birlesik: dict[str, tuple[float, dict[str, str]]] = {}
+_birlesik_kilit = asyncio.Lock()
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
@@ -231,6 +242,17 @@ class DDizi(PluginBase):
         iframe = _OYNAT.search(html)
         if not iframe:
             return []
+        parcalar = parca_adresleri(html, url)
+        if parcalar:
+            return [
+                ExtractResult(
+                    name       = f"{self.name} | Oynatıcı ({len(parcalar)} parça)",
+                    url        = f"{_ENGINE_URL}/api/v1/ddizi_birlesik?u={quote(url, safe='')}&t=m",
+                    referer    = url,
+                    user_agent = _UA,
+                    subtitles  = [],
+                )
+            ]
         oynat = urljoin(url, iframe.group(1))
         sayfa = await fetch_html(self.httpx, oynat, headers={"User-Agent": _UA, "Referer": url})
         dosya = _HLS.search(sayfa)
@@ -245,3 +267,39 @@ class DDizi(PluginBase):
                 subtitles  = [],
             )
         ]
+
+    async def _parca_master(self, sayfa: str) -> tuple[str, str | None, dict[str, str]]:
+        html   = await fetch_html(self.httpx, sayfa, headers={"User-Agent": _UA})
+        iframe = _OYNAT.search(html)
+        oynat  = urljoin(sayfa, iframe.group(1)) if iframe else ""
+        dosya  = _HLS.search(await fetch_html(self.httpx, oynat, headers={"User-Agent": _UA, "Referer": sayfa})) if oynat else None
+        if not dosya:
+            raise ValueError(f"parça oynatıcısı yok: {sayfa}")
+        # twimg playlist'i Referer'lı istekte 403 verir: Referer'sız çekilir.
+        master = await fetch_html(self.httpx, dosya.group(1), headers={"User-Agent": _UA})
+        secim  = en_iyi_varyant(master, dosya.group(1))
+        if secim is None:
+            raise ValueError(f"parça master'ı varyantsız: {sayfa}")
+        return secim
+
+    async def _medya(self, adres: str) -> tuple[str, str]:
+        return await fetch_html(self.httpx, adres, headers={"User-Agent": _UA}), adres
+
+    async def birlesik(self, url: str, tur: str) -> str:
+        """Parçalı bölümün birleşik playlist'i: `m` master, `v` görüntü, `a` ses."""
+        async with _birlesik_kilit:
+            kayit = _birlesik.get(url)
+            if kayit is None or kayit[0] < time.monotonic():
+                html     = await fetch_html(self.httpx, url, headers={"User-Agent": _UA})
+                sayfalar = parca_adresleri(html, url)
+                if not sayfalar:
+                    raise ValueError("bölüm parçalı değil")
+                secimler = await asyncio.gather(*(self._parca_master(s) for s in sayfalar))
+                metinler = {"v": birlestir(list(await asyncio.gather(*(self._medya(s[0]) for s in secimler))))}
+                if all(s[1] for s in secimler):
+                    metinler["a"] = birlestir(list(await asyncio.gather(*(self._medya(s[1]) for s in secimler))))
+                temel = f"ddizi_birlesik?u={quote(url, safe='')}&t="
+                metinler["m"] = master_olustur(temel + "v", temel + "a" if "a" in metinler else None, secimler[0][2])
+                kayit = (time.monotonic() + _BIRLESIK_TTL, metinler)
+                _birlesik[url] = kayit
+            return kayit[1][tur]

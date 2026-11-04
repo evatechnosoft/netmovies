@@ -139,6 +139,7 @@ import com.evaitec.netmovies.tv.input.PressType
 import com.evaitec.netmovies.tv.input.RemoteAction
 import com.evaitec.netmovies.tv.input.RemoteInputController
 import com.evaitec.netmovies.tv.input.RemoteKey
+import com.evaitec.netmovies.tv.ui.player2.jenerikteMi
 import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.ui.theme.NmDim
 import com.evaitec.netmovies.tv.ui.theme.NmType
@@ -1468,7 +1469,7 @@ fun PlayerScreen(
 
     // Geri sayım: jenerik başladığında (işaret varsa) ya da akış bittiğinde
     // (işaret yoksa). İptal edilmişse bir daha başlamaz.
-    val jenerikte = jenerikBas != null && duration > 0 && position >= jenerikBas
+    val jenerikte = jenerikteMi(duration, position, jenerikBas)
     // `!akisGecersiz`: kısa klip STATE_ENDED'e ulaşsa bile bu gerçek izleme değil,
     // otomatik geçişin ikinci savunması — kök neden STATE_READY'de engellense de
     // burada da kapalı tutulur.
@@ -2288,11 +2289,13 @@ internal const val BOLUM_YOK = "Bu bölüm sağlayıcıda yok"
 // jenerik 70 sn kala). Sessizlik/konuşma temelli tespit denenmedi: dizi ve filmde
 // sahne içinde de uzun sessizlik oluyor, yanlış yerde tetiklerdi. Jenerik işareti
 // varsa bu pencere zaten hiç kullanılmaz.
-internal const val NEXT_EPISODE_WINDOW_MS = 70_000L
+// Dean, 4 Kasım: "son 1 dk'ya koy" — kart da sayım da yalnız son dakikada.
+internal const val NEXT_EPISODE_WINDOW_MS = 60_000L
 
 // Jenerik başlayınca sonraki bölüme geçmeden önce beklenen süre. Son sahneyi
-// kaçırmamak için var: GERİ basan kişi jeneriği sonuna kadar izler.
-internal const val NEXT_COUNTDOWN_SEC = 10
+// kaçırmamak için var: GERİ basan kişi jeneriği sonuna kadar izler. 10 sn azdı,
+// erken bulunan jenerik işaretiyle bölüm bitmeden geçiyordu (Resident Alien, 4 Kasım).
+internal const val NEXT_COUNTDOWN_SEC = 30
 
 // Bölüm sonu kartı — sağ altta, oynatmayı kesmeden. Kumandada SAĞ ok kabul eder
 // (tuş işleme oynatıcıda; kart odak almaz ki D-pad sarma/kontrol akışı bozulmasın),
