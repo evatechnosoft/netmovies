@@ -29,5 +29,6 @@ from . import (
     plugin_health,
     aggregate_new,
     quick_channels,
-    resolve_sources
+    resolve_sources,
+    ddizi_birlesik
 )

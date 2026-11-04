@@ -202,11 +202,20 @@ async def host_is_public(host: str) -> bool:
     return ok
 
 
+def ic_engine_mi(url: str) -> bool:
+    """Engine'in DDizi parça birleştirme ucu (docker iç ağı): proxy yalnız bu tek yolu açar."""
+    motor = httpx.URL(os.getenv("DEFAULT_PROVIDER_URL", "http://engine:3310"))
+    parts = httpx.URL(url)
+    return (parts.scheme, parts.host, parts.port) == (motor.scheme, motor.host, motor.port) and parts.path == "/api/v1/ddizi_birlesik"
+
+
 async def url_is_public(url: str) -> bool:
     """URL'nin şeması http(s) ve host'u proxy'lenebilir mi?"""
     parts = httpx.URL(url)
     if parts.scheme not in ("http", "https"):
         return False
+    if ic_engine_mi(url):
+        return True
     return await host_is_public((parts.host or "").lower().rstrip("."))
 
 
