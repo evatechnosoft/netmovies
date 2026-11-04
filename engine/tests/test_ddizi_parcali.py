@@ -33,6 +33,10 @@ class DDiziParcaliTest(unittest.TestCase):
     def test_parcasiz_bolum_bos_liste(self):
         self.assertEqual(parca_adresleri(f'<a href="{URL}">x</a>', URL), [])
 
+    def test_tek_parca_sekmesi_varsa_birlestirme(self):
+        # 4 Kas: ilk sekme "Tek Parça" = tam 2 sa 7 dk; birleştirmek bölümü iki kez oynatıyordu
+        self.assertEqual(parca_adresleri(SAYFA.replace("1.Parça", "Tek Parça"), URL), [])
+
     def test_en_yuksek_cozunurluk_ve_eslesen_ses(self):
         video, ses, nitelik = en_iyi_varyant(MASTER, "https://video.twimg.com/amplify_video/1/pl/m.m3u8?tag=29")
         self.assertEqual(video, "https://video.twimg.com/pl/1080/v.m3u8")

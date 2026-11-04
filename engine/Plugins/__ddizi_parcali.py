@@ -9,11 +9,15 @@ import re
 from urllib.parse import urljoin, urlparse
 
 _PARCA = re.compile(r'href="([^"]*/izle/\d+/[^"]+\.htm)/(\d+)"')
+# Site bazen tam bölümü "Tek Parça" adıyla ilk sekmeye koyuyor; o zaman diğer sekmeler fazlalık.
+_TEK_PARCA = re.compile(r">\s*Tek Par[çc]a\s*</a>", re.I)
 _NITELIK = re.compile(r'([A-Z0-9-]+)=("[^"]*"|[^,]*)')
 
 
 def parca_adresleri(html: str, url: str) -> list[str]:
     """Bölümün parça sayfaları sırayla (1. parça = bölüm adresi). Parçasızsa boş liste."""
+    if _TEK_PARCA.search(html):
+        return []
     yol = urlparse(url).path
     numaralar = sorted({int(n) for href, n in _PARCA.findall(html) if urlparse(href).path == yol})
     if not numaralar or numaralar[0] != 2:
