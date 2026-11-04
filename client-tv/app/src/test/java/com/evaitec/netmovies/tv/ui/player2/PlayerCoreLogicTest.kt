@@ -25,13 +25,28 @@ class PlayerCoreLogicTest {
     }
 
     @Test
-    fun `teklif penceresi son 70 sn ve kisa klipte kapali`() {
+    fun `teklif penceresi son 60 sn ve kisa klipte kapali`() {
+        // Pencere 70 → 60 sn: Dean 4 Kasım "son 1 dk'ya koy".
         val sure = 40 * 60_000L
-        assertTrue(teklifPenceresinde(sure, sure - 70_000))
+        assertTrue(teklifPenceresinde(sure, sure - 60_000))
         assertTrue(teklifPenceresinde(sure, sure))
-        assertFalse(teklifPenceresinde(sure, sure - 70_001))
+        assertFalse(teklifPenceresinde(sure, sure - 60_001))
         // 20 sn'lik kaldırılmış klip: her konum "sona yakın" ama teklif yok.
         assertFalse(teklifPenceresinde(20_000, 10_000))
+    }
+
+    @Test
+    fun `jenerik sayimi son dakikaya kirpilir`() {
+        val sure = 40 * 60_000L
+        // Erken jenerik işareti (5 dk kala): sayım son dakikaya kadar başlamaz.
+        assertFalse(jenerikteMi(sure, sure - 120_000, sure - 300_000))
+        assertTrue(jenerikteMi(sure, sure - 60_000, sure - 300_000))
+        // Geç işaret (30 sn kala) kendi yerinde başlar.
+        assertFalse(jenerikteMi(sure, sure - 40_000, sure - 30_000))
+        assertTrue(jenerikteMi(sure, sure - 30_000, sure - 30_000))
+        // İşaret yoksa ya da kısa klipse hiç başlamaz.
+        assertFalse(jenerikteMi(sure, sure, null))
+        assertFalse(jenerikteMi(20_000, 19_000, 1_000))
     }
 
     @Test
