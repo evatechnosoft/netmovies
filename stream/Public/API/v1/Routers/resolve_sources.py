@@ -138,7 +138,8 @@ async def resolve_sources(request: Request):
     # Fast mode where the selected provider only has YouTube (DDizi): Dean wants other
     # providers tried first (5 Nov) — run the full chain, YouTube stays as last resort.
     hizli = (result or {}).get("sources") if isinstance(result, dict) else None
-    if params.get("mode") == "fast" and hizli and params.get("title") and all(_youtube_mu(k) for k in hizli):
+    # An explicitly chosen YouTube video (plugin=YouTube) is the user's pick: keep it.
+    if params.get("mode") == "fast" and params.get("plugin") != "YouTube" and hizli and params.get("title") and all(_youtube_mu(k) for k in hizli):
         # TV read timeout is 45 s for the whole call; spend only what is left.
         kalan = 40.0 - (time.time() - basla)
         try:

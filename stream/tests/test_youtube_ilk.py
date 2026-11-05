@@ -42,6 +42,19 @@ class YouTubeIlkTest(unittest.TestCase):
         k = [{"name": "DDizi · DDizi | YouTube (resmi)"}, {"name": "DDizi · twimg"}, {"name": "HDFC"}]
         self.assertEqual([x["name"] for x in rs.youtube_sona(k)], ["DDizi · twimg", "HDFC", "DDizi · DDizi | YouTube (resmi)"])
 
+    def test_secili_youtube_tam_zincire_dusmez(self):
+        cagri = []
+
+        async def sahte(endpoint, params=None, timeout=0, client_headers=None):
+            cagri.append(params["mode"])
+            return {"sources": [{"plugin": "YouTube", "name": "YouTube | Resmi", "url": "https://yt/m.m3u8"}]}
+
+        istek = mock.Mock(base_url="http://x/")
+        istek.state.veri = {"mode": "fast", "plugin": "YouTube", "title": "Suskunlar", "encoded_url": "https://youtube.com/watch?v=a"}
+        with mock.patch.object(rs, "fuck_dmca", sahte), mock.patch.object(rs, "get_client_headers", lambda r: {}),              mock.patch.object(rs.kayit, "hazir_kayit", lambda *a: None), mock.patch.object(rs.lang_memo, "kaydet", lambda *a: None):
+            asyncio.run(rs.resolve_sources(istek))
+        self.assertEqual(cagri, ["fast"])
+
 
 if __name__ == "__main__":
     unittest.main()
