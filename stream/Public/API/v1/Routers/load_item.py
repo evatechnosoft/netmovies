@@ -30,7 +30,7 @@ async def _isit(params: dict, client_headers: dict):
         konsol.log(f"[yellow]ön-ısıtma atlandı:[/] {type(hata).__name__}")
 
 
-def _kullanilabilir(result, tip: str = "") -> bool:
+def _kullanilabilir(result, tip: str = "", plugin: str = "") -> bool:
     """Detay gerçekten açılabilir mi?
 
     Sağlayıcı ölü domain'de 500 döndüğünde `result` None gelir. Dizi sayfası
@@ -41,6 +41,10 @@ def _kullanilabilir(result, tip: str = "") -> bool:
     if not isinstance(result, dict):
         return False
     if result.get("episodes"):
+        return True
+    # A YouTube watch URL is one exact video the user picked (Suskunlar 21, 5 Nov):
+    # rescuing it by title swapped in another provider's wrong cut.
+    if plugin == "YouTube" and result.get("url"):
         return True
     # Dizi olduğu KAYITTAN biliniyorsa bölümsüz detay çürüktür: DiziPal listeleri
     # `/2-sezon/1-bolum` adresini saklıyor, o adres bölüm listesi olmayan (çoğu
@@ -144,7 +148,7 @@ async def load_item(request:Request):
     # Özel Koleksiyon'da başlık başka sağlayıcıda aranmaz: HQPorner kartı DDizi'de
     # alakasız bir diziye "kurtarılıyordu".
     yetiskin = str(veri.get("plugin") or "") in set(admin_config.load_config()["adult_providers"])
-    if baslik and not yetiskin and not _kullanilabilir(result, tip):
+    if baslik and not yetiskin and not _kullanilabilir(result, tip, str(veri.get("plugin") or "")):
         kurtarma = await _kurtar(baslik, str(veri.get("plugin") or ""), tip, client_headers)
         if kurtarma is not None:
             result = kurtarma
