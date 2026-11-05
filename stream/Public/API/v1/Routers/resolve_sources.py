@@ -201,6 +201,8 @@ async def resolve_sources(request: Request):
             # Last, not first: Dean 5 Nov — YouTube opened before the provider's own source.
             result["sources"] = [k for k in result["sources"] if k.get("url") not in adresler] + resmi
         result["sources"] = youtube_sona(result["sources"])
+        if params.get("plugin") == "YouTube":   # explicitly chosen video stays first
+            result["sources"].sort(key=lambda k: not _youtube_mu(k))
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"

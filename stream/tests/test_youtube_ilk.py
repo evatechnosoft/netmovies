@@ -55,6 +55,17 @@ class YouTubeIlkTest(unittest.TestCase):
             asyncio.run(rs.resolve_sources(istek))
         self.assertEqual(cagri, ["fast"])
 
+    def test_secili_youtube_tam_modda_once(self):
+        async def sahte(endpoint, params=None, timeout=0, client_headers=None):
+            return {"sources": [{"plugin": "DiziAbi", "name": "DiziAbi · pilav", "url": "https://a/m.m3u8"},
+                                {"plugin": "YouTube", "name": "YouTube | Resmi", "url": "https://yt/m.m3u8"}]}
+
+        istek = mock.Mock(base_url="http://x/")
+        istek.state.veri = {"mode": "full", "plugin": "YouTube", "title": "Suskunlar", "encoded_url": "https://youtube.com/watch?v=a"}
+        with mock.patch.object(rs, "fuck_dmca", sahte), mock.patch.object(rs, "get_client_headers", lambda r: {}),              mock.patch.object(rs.kayit, "hazir_kayit", lambda *a: None), mock.patch.object(rs.lang_memo, "kaydet", lambda *a: None):
+            sonuc = asyncio.run(rs.resolve_sources(istek))
+        self.assertEqual(sonuc["result"]["sources"][0]["plugin"], "YouTube")
+
 
 if __name__ == "__main__":
     unittest.main()
