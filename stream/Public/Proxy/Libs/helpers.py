@@ -285,18 +285,18 @@ def prepare_request_headers(request: Request, url: str, referer: str | None, use
     headers["Accept-Encoding"] = "identity"
     headers["Connection"]      = "keep-alive"
 
-    # user-agent ayarı
+    # Canonical case: DiziPal's dplayer82 answers 403 to lowercase "user-agent"/"referer" (5 Nov).
     if user_agent and user_agent != "None":
-        headers["user-agent"] = user_agent
+        headers["User-Agent"] = user_agent
     else:
-        headers["user-agent"] = DEFAULT_USER_AGENT
+        headers["User-Agent"] = DEFAULT_USER_AGENT
 
     # Referer KABUL ETMEYEN CDN'ler: Twitter/X amplify akışı referer'sız 200,
     # embed sayfasının referer'ı ile 403 veriyor. DiziMom'un FirePlayer embed'leri
     # (hdstreamable/peacemakerst) bu CDN'i kullanıyor — kaynak bulunuyor ama
     # oynatıcıda "Upstream Error: 403" çıkıyordu. Adres imzalı, referer gerekmiyor.
     if referer and referer != "None" and not _referer_reddeden(url):
-        headers["referer"] = referer
+        headers["Referer"] = referer
 
     # Client'tan gelen Range header'ı aktar (MP4 seek/byte-range desteği, goProxy parity)
     range_header = request.headers.get("range")

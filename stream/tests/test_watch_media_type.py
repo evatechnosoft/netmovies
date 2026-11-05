@@ -11,6 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from Public.Home.Libs import watch_store as ws
 
+# Another test may import watch_store first with the real path: pin the temp DB here.
+ws._DB_PATH = Path(os.environ["WATCH_DB_PATH"])
+ws._CONN = None
+
 
 class DiziFilmeDusmezTest(unittest.TestCase):
     def test_serie_kalir(self) -> None:
