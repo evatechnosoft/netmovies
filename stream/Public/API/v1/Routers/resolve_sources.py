@@ -31,9 +31,13 @@ def decorate(sources: list) -> list:
     return ordered
 
 
+def _youtube_mu(source: object) -> bool:
+    return isinstance(source, dict) and "youtube" in str(source.get("name") or "").lower()
+
+
 def youtube_sona(sources: list) -> list:
     """Any YouTube source (also DDizi's own "YouTube (resmi)") goes behind native players (Dean, 5 Nov)."""
-    return sorted(sources, key=lambda k: isinstance(k, dict) and "youtube" in str(k.get("name") or "").lower())
+    return sorted(sources, key=_youtube_mu)
 
 
 def _puanli_sira() -> str:
@@ -120,6 +124,7 @@ async def resolve_sources(request: Request):
         params["order"] = sira
 
     istemci_basliklari = get_client_headers(request)
+    basla = time.time()
     result, youtube = await asyncio.gather(
         fuck_dmca(
             "/resolve_sources",
@@ -129,6 +134,23 @@ async def resolve_sources(request: Request):
         ),
         _youtube_kaynaklari(params, istemci_basliklari),
     )
+
+    # Fast mode where the selected provider only has YouTube (DDizi): Dean wants other
+    # providers tried first (5 Nov) — run the full chain, YouTube stays as last resort.
+    hizli = (result or {}).get("sources") if isinstance(result, dict) else None
+    if params.get("mode") == "fast" and hizli and params.get("title") and all(_youtube_mu(k) for k in hizli):
+        # TV read timeout is 45 s for the whole call; spend only what is left.
+        kalan = 40.0 - (time.time() - basla)
+        try:
+            tam = await asyncio.wait_for(fuck_dmca(
+                "/resolve_sources", params = {**params, "mode": "full"},
+                timeout = kalan, client_headers = istemci_basliklari,
+            ), kalan) if kalan > 5 else None
+        except Exception:
+            tam = None   # YouTube still plays; the client's own full call follows
+        if isinstance(tam, dict) and (tam.get("sources") or []):
+            konsol.log(f"[yellow]↻ resolve:[/] hızlı yanıt yalnız YouTube — tam zincir: {len(tam['sources'])} kaynak")
+            result = tam
 
     # Zincirin TAMAMI boş döndüyse başlık kurtarma: sağlayıcı aramaları harfi
     # harfine çalışıyor, "the odyssey" sıfır sonuç veriyor. Kaybedecek bir şey
