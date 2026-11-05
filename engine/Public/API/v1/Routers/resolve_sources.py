@@ -111,6 +111,11 @@ async def _links_for(plugin_name: str, content_url: str, episode_index: int, dia
                 # Kart bölüm sayfasıysa kendi bölümü oynardı: olmayan S3B9 → S3B8.
                 diag.add("warn", "bölüm", f"{plugin_name} · istenen bölüm listede yok")
                 return [], episodes
+        elif baslik:
+            # Alternative with no episode list = film page matched by title only
+            # (KultFilmler "Yeraltı" dubbed film played for series S1E21, 5 Nov).
+            diag.add("warn", "bölüm", f"{plugin_name} · bölüm listesi yok (film sayfası) — atlandı")
+            return [], []
 
     links = await _load(target)
 
