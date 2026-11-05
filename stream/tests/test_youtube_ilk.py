@@ -1,4 +1,4 @@
-# Resmi YouTube listesi hızlı modda ilk kaynak olur; listesi olmayan başlık 12 saat sorulmaz.
+# Resmi YouTube listesi hızlı modda yedek kaynak olur (sona eklenir); listesi olmayan başlık 12 saat sorulmaz.
 import asyncio
 import os
 import sys

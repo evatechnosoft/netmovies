@@ -170,7 +170,8 @@ async def resolve_sources(request: Request):
         if youtube:
             resmi = route_through_proxy(decorate(youtube), base_url)
             adresler = {k.get("url") for k in resmi}
-            result["sources"] = resmi + [k for k in result["sources"] if k.get("url") not in adresler]
+            # Last, not first: Dean 5 Nov — YouTube opened before the provider's own source.
+            result["sources"] = [k for k in result["sources"] if k.get("url") not in adresler] + resmi
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"
