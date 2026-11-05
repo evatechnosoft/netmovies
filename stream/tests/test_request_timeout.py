@@ -26,6 +26,9 @@ class IstekTimeoutTest(unittest.TestCase):
     def test_dosya_uclari_uzun(self):
         self.assertEqual(istek_timeout("/admin/backup"), 120)
 
+    def test_cozumleme_tv_sinirina_kadar(self):
+        self.assertEqual(istek_timeout("/api/v1/resolve_sources"), 44)
+
     def test_normal_uclar_30sn(self):
         self.assertEqual(istek_timeout("/api/v1/health"), 30)
         self.assertEqual(istek_timeout("/api/v1/proxy/image"), 30)

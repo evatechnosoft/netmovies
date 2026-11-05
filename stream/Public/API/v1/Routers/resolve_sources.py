@@ -141,7 +141,7 @@ async def resolve_sources(request: Request):
     # An explicitly chosen YouTube video (plugin=YouTube) is the user's pick: keep it.
     if params.get("mode") == "fast" and params.get("plugin") != "YouTube" and hizli and params.get("title") and all(_youtube_mu(k) for k in hizli):
         # TV read timeout is 45 s for the whole call; spend only what is left.
-        kalan = 40.0 - (time.time() - basla)
+        kalan = 40.0 - (time.time() - basla)   # under the 44 s route limit (_istek.py)
         try:
             tam = await asyncio.wait_for(fuck_dmca(
                 "/resolve_sources", params = {**params, "mode": "full"},
