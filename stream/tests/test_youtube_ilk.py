@@ -38,6 +38,10 @@ class YouTubeIlkTest(unittest.TestCase):
             self.assertEqual(asyncio.run(rs._youtube_kaynaklari({"mode": "fast", "title": "Film", "plugin": "X"}, {})), [])
             self.assertEqual(asyncio.run(rs._youtube_kaynaklari({"mode": "full", "title": "A", "episode_no": "1"}, {})), [])
 
+    def test_youtube_adli_kaynak_sona(self):
+        k = [{"name": "DDizi · DDizi | YouTube (resmi)"}, {"name": "DDizi · twimg"}, {"name": "HDFC"}]
+        self.assertEqual([x["name"] for x in rs.youtube_sona(k)], ["DDizi · twimg", "HDFC", "DDizi · DDizi | YouTube (resmi)"])
+
 
 if __name__ == "__main__":
     unittest.main()

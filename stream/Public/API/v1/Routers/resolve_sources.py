@@ -31,6 +31,11 @@ def decorate(sources: list) -> list:
     return ordered
 
 
+def youtube_sona(sources: list) -> list:
+    """Any YouTube source (also DDizi's own "YouTube (resmi)") goes behind native players (Dean, 5 Nov)."""
+    return sorted(sources, key=lambda k: isinstance(k, dict) and "youtube" in str(k.get("name") or "").lower())
+
+
 def _puanli_sira() -> str:
     """Engine'e verilecek tarama sırası: kanıtlanmış kaynak önde.
 
@@ -172,6 +177,7 @@ async def resolve_sources(request: Request):
             adresler = {k.get("url") for k in resmi}
             # Last, not first: Dean 5 Nov — YouTube opened before the provider's own source.
             result["sources"] = [k for k in result["sources"] if k.get("url") not in adresler] + resmi
+        result["sources"] = youtube_sona(result["sources"])
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"
