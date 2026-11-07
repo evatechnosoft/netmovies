@@ -47,6 +47,9 @@ DEFAULT_CONFIG: dict = {
     "vault_alias": "Koleksiyon",
     "vault_pin": "",     # Gizli kasa PIN kodu (opsiyonel)
     "adult_providers": list(ADULT_PROVIDERS),
+    # Per-title provider ban: {content_key: [plugin]}. Provider whose episode numbering
+    # does not match the official one (DiziAbi Suskunlar = old 49-57 min cuts, Dean 6 Nov).
+    "title_blocked_providers": {},
     # Uzak KekikStreamAPI "geniş katalog" sağlayıcısı (opsiyonel). Boşsa yerel motor
     # kullanılır. Doluysa tüm cihazlar (telefon/Mibox/PC) bu sağlayıcıyı görür —
     # 200+ eklenti + CF/domain bakımı upstream'de. Bedeli: istekler o sunucudan geçer.
@@ -99,6 +102,9 @@ def _normalize(cfg: dict) -> dict:
     out["vault_alias"]       = str(out.get("vault_alias") or "Koleksiyon")
     out["vault_pin"]         = str(out.get("vault_pin") or "")
     out["adult_providers"]   = list(out.get("adult_providers") or list(DEFAULT_CONFIG["adult_providers"]))
+    out["title_blocked_providers"] = {
+        str(k): [str(p) for p in v] for k, v in dict(out.get("title_blocked_providers") or {}).items() if isinstance(v, list)
+    }
     out["site_pin"]          = str(out.get("site_pin") or "").strip()
     out["rc_show_recent"]    = bool(out.get("rc_show_recent", True))
     out["rc_text_to_tv"]     = bool(out.get("rc_text_to_tv", True))

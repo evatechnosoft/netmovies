@@ -19,6 +19,7 @@ from ..Libs         import source_score
 from ..Libs         import lang_memo
 from ..Libs.title_rescue import alternatif_basliklar
 from ..Libs              import kayit
+from Public.Home.Libs    import admin_config, watch_store
 
 
 def decorate(sources: list) -> list:
@@ -29,6 +30,12 @@ def decorate(sources: list) -> list:
             rank = language_rank(source)
             source["language"] = {"rank": rank, "label": language_name(rank)}
     return ordered
+
+
+def engelli_cikar(sources: list, title: str, cfg: dict) -> list:
+    """Drops providers banned for this title in the admin config (title_blocked_providers)."""
+    engelli = set((cfg.get("title_blocked_providers") or {}).get(watch_store.normalize_key(title), []))
+    return [k for k in sources if not (isinstance(k, dict) and k.get("plugin") in engelli)] if engelli else sources
 
 
 def _youtube_mu(source: object) -> bool:
@@ -203,6 +210,7 @@ async def resolve_sources(request: Request):
         result["sources"] = youtube_sona(result["sources"])
         if params.get("plugin") == "YouTube":   # explicitly chosen video stays first
             result["sources"].sort(key=lambda k: not _youtube_mu(k))
+        result["sources"] = engelli_cikar(result["sources"], str(params.get("title") or ""), admin_config.load_config())
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"

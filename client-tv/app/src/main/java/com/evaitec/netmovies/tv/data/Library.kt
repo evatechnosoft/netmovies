@@ -315,7 +315,9 @@ class Library(context: Context) {
     fun addWatched(item: MediaItem) {
         // Özel Koleksiyon Devam Et'e düşmez (sunucu da kaydetmiyor).
         if (com.evaitec.netmovies.tv.ui.isVaultPlugin(item.plugin)) return
-        watched.removeAll { sameItem(it, item) }
+        // Server keys progress by title, not by provider: the same series opened from
+        // another provider (DiziAbi → YouTube list) must replace the card, not add a second.
+        watched.removeAll { sameItem(it, item) || ayniBaslik(it, item) }
         watched.add(0, item)
         while (watched.size > MAX_WATCHED) watched.removeAt(watched.lastIndex)
         persist(KEY_WATCHED, watched.toList())
@@ -441,3 +443,9 @@ fun episodeIndexByUrl(cardUrl: String, episodes: List<EpisodeItem>): Int {
 fun encodedUrl(raw: String): String =
     if (raw.isBlank() || !raw.contains("://")) raw
     else runCatching { URLEncoder.encode(raw, "UTF-8") }.getOrDefault(raw)
+
+/** Same title regardless of provider (server progress key is title-based). */
+internal fun ayniBaslik(a: MediaItem, b: MediaItem): Boolean {
+    val x = a.title?.trim()?.lowercase().orEmpty()
+    return x.isNotEmpty() && x == b.title?.trim()?.lowercase()
+}
