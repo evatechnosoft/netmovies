@@ -72,9 +72,9 @@ class SearchState {
     var tus by mutableStateOf(0)
     /** Last searched term; the live search does not re-run it when the screen returns. */
     var aranan = ""
-    /** YouTube araması: "0" kapalı (varsayılan), "video", "liste" (oynatma listesi).
+    /** YouTube araması: "video" (varsayılan), "liste" (oynatma listesi), "0" kapalı.
      *  Kapalı: açıkken asıl diziler kısa videoların altında kalıyordu (Dean, 6 Ekim). */
-    var ytMod by mutableStateOf("0")
+    var ytMod by mutableStateOf("video")   // Dean 8 Nov: video default, order video / playlist / off
 }
 
 /** Son aranan metinler; cihazda kalır, oturum aşar. */
@@ -341,9 +341,9 @@ private fun Kutu(metin: String) {
 }
 
 private val YT_MODLAR = listOf(
-    "0" to Icons.Filled.Block,
     "video" to Icons.Filled.PlayArrow,
     "liste" to Icons.AutoMirrored.Filled.PlaylistPlay,
+    "0" to Icons.Filled.Block,
 )
 
 /** One pill split into icon segments; each segment is a separate focus target. */
