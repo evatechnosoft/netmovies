@@ -90,3 +90,33 @@ class AgendaTakipTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AgendaBosOnbellekTest(unittest.TestCase):
+    # 8 Nov: Zima rebooted, TMDB unreachable for a moment; the empty month was cached
+    # for 24 h and the Ajanda stayed empty although TMDB was back.
+    def test_bos_sonuc_onbellege_yazilmaz(self):
+        import asyncio
+        from Public.API.v1.Routers import agenda as a
+
+        eski = (a._API_KEY, a._json, a._filmler, a._takip_satirlari)
+        satir = {"tur": "dizi", "baslik": "X", "tarih": str(datetime.date.today()), "tmdb_id": 1}
+        durum = {"tmdb": False}
+
+        async def diziler(bas, son):
+            return [satir] if durum["tmdb"] else []
+
+        async def bos(*_):
+            return []
+
+        a._API_KEY, a._filmler, a._takip_satirlari = "k", bos, bos
+        eski_diziler, a._diziler = a._diziler, diziler
+        a._cache.clear()
+        try:
+            self.assertEqual(0, asyncio.run(a.agenda_verisi("month"))["toplam"])
+            durum["tmdb"] = True
+            self.assertEqual(1, asyncio.run(a.agenda_verisi("month"))["toplam"])
+        finally:
+            a._API_KEY, a._json, a._filmler, a._takip_satirlari = eski
+            a._diziler = eski_diziler
+            a._cache.clear()

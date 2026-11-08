@@ -209,7 +209,8 @@ async def _takip_satirlari(bas: datetime.date, son: datetime.date) -> list[dict]
     # Gün ve takip kümesi değiştikçe yeni anahtar açılır; eskiler birikmesin.
     for eski in [k for k in _cache if k.startswith("takip:")]:
         del _cache[eski]
-    _cache[anahtar] = (time.monotonic() + _TAKIP_TTL, satirlar)
+    if satirlar:
+        _cache[anahtar] = (time.monotonic() + _TAKIP_TTL, satirlar)
     return satirlar
 
 
@@ -232,7 +233,9 @@ async def agenda_verisi(view: str) -> dict:
         bas, son = _aralik("month")
         diziler, filmler = await asyncio.gather(_diziler(bas, son), _filmler(bas, son))
         satirlar = sorted(diziler + filmler, key=lambda s: (s["tarih"], s["baslik"]))
-        _cache["month"] = (time.monotonic() + _CACHE_TTL, satirlar)
+        # Empty = TMDB unreachable (e.g. right after a reboot, 8 Nov): never cache it for 24 h.
+        if satirlar:
+            _cache["month"] = (time.monotonic() + _CACHE_TTL, satirlar)
 
     # Takip satırları her istekte birleşir (profile özgü); popüler önbellek değişmez.
     satirlar = takibi_birlestir(satirlar, await _takip_satirlari(*_aralik("month")))
