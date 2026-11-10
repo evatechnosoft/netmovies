@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import re
 from urllib.parse import urlsplit
@@ -168,6 +169,8 @@ class KultFilmler(PluginBase):
             try:
                 if "/video/" in iframe_url:
                     found = await self._fireplayer(iframe_url, label, url)
+                elif "ok.ru/videoembed" in iframe_url:
+                    found = await self._okru(iframe_url, label)
                 else:
                     found = await self.extract(iframe_url, referer=url)
                     found = found if isinstance(found, list) else ([found] if found else [])
@@ -181,6 +184,23 @@ class KultFilmler(PluginBase):
                     found = []
             results.extend(found)
         return self.deduplicate(results)
+
+    async def _okru(self, iframe_url: str, label: str) -> list[ExtractResult]:
+        """ok.ru gömmesi: `data-options` → flashvars.metadata → ondemandHls (master, Referer istemez).
+
+        Motorda ok.ru extractor'ı yok; eskiden "Extractor bulunamadı" ile sessizce boş dönüyordu.
+        """
+        frame = await self.httpx.get(iframe_url, headers={"User-Agent": _UA, "Referer": f"{self.main_url}/"})
+        options = re.search(r'data-options="([^"]+)"', frame.text)
+        if not options:
+            return []
+        metadata = json.loads(html_lib.unescape(options.group(1)))["flashvars"]["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        stream = metadata.get("ondemandHls")
+        if not stream:
+            return []
+        return [ExtractResult(name=f"{self.name} | {label}", url=stream, referer="https://ok.ru/", user_agent=_UA, subtitles=[])]
 
     async def _fireplayer(self, iframe_url: str, label: str, page_url: str) -> list[ExtractResult]:
         """FirePlayer (vidpapi.xyz): hash → getVideo JSON → imzalı HLS master + altyazı."""
