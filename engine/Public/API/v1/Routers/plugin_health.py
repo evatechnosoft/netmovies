@@ -42,9 +42,13 @@ async def _check_one(name: str) -> dict:
         try:
             async with httpx.AsyncClient(timeout=8, follow_redirects=True, proxy=proxy) as client:
                 resp = await client.get(main_url, headers=headers)
-            if resp.status_code >= 400 and proxy is None and len(attempts) > 1:
+            if resp.status_code >= 400 and resp.headers.get("cf-mitigated") != "challenge" and proxy is None and len(attempts) > 1:
                 continue  # engelli olabilir → WARP ile bir daha dene
-            ok = resp.status_code < 400
+            # Cloudflare "Just a moment" sınaması (cf-mitigated) alan adının CANLI olduğunu
+            # gösterir; eklentinin kendi UA'sı geçer (ddizi.tel). Sağlıksız sayılırsa
+            # kaynak aggregate/resolve'dan sessizce düşer.
+            challenge = resp.headers.get("cf-mitigated") == "challenge"
+            ok = resp.status_code < 400 or challenge
             return {
                 "plugin"   : name,
                 "main_url" : main_url,
