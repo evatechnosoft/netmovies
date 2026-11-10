@@ -1,3 +1,5 @@
+> **Güncel durum (10 Kas):** release/0.9.86 birleşti (PR #20, 3 Kas); geliştirme `fix/bolumde-film-eleme` dalında client-tv 0.9.91. Aşağıdaki bloklar 2 Kas ve öncesini anlatır.
+
 # DEVİR (2 Kas 2026, akşam): TV 0.9.85 yayında — bölüm ekranında GERİ çıkar
 > PR #16 birleşti (`c2a0417` → `fix/general-stability`) · yayın `ff00506`
 - **Düzeltme:** Oynatıcı 2 başlangıç (bölüm) panelinde GERİ artık oynatıcıdan çıkar; eskiden kaynak varsa oynatıyordu (Dean: "bölüm başlamadan çıkmıyor"). Karar tek yerde: `ui/player2/PlayerUiState.kt` `geriEylemi()`; SettingsPanel'in BackHandler'ı oynatıcınınkini gölgelediği için `PlayerScreen2.kt` `onClose` başlangıçta `ui.onBack` çağırır. Test `GeriEylemTest` (`testDebugUnitTest assembleDebug` EXIT=0).
@@ -12,6 +14,8 @@
 - **Kaynak kanaryası:** `source-canary.timer` açık, `data/canary.jsonl`; HA bildirimi `canary.env` (Zima'da, git dışı). İlk koşuda JetFilmizle 2/2 ölü.
 - **Bekçi:** aktif sunucuda durmuş netmovies konteynerlerini başlatır (ZimaOS 1.8 app olmayan yığını açılışta başlatmıyor); bu dal canlı test edilmedi.
 - **Dean kararı bekleyen:** Zima'da commit edilmemiş `docker-compose.yml` değişikliği (cloudflared `depends_on: service_healthy`, yedek `.bak-20261101`). Plan önermiyor: izlerken recreate kesintisi 14 sn → 40+ sn.
+
+> (eski, 10 Kas notu: ev DHCP 4 Kas'ta modeme döndü, ev-dhcp servisi kapalı; `systemctl is-active ev-dhcp` artık inactive beklenir. Mi Box adresi için hafıza `mibox-adb-ve-sadelestirme`.)
 
 # Handoff: TV 0.9.81 yayında + ev DHCP tek sunucu + modem yedek
 > 2026-10-25 · `fix/dhcp-kok-duzeltme` @ 8655bcb (= origin/fix/general-stability) · 0 dirty (1 untracked `.claude/settings.local.json`, işle ilgisiz)

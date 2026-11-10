@@ -1,6 +1,6 @@
 # NetMovies — Gelişmiş Yapı Planı (Ekim 2026)
 
-> Durum: **AÇIK** — Dean 30 Eki'de onayladı: önce F0 sonra F1, hafif gözlem, uyarı Home Assistant'a, PLAYER2 Mi Box'ta 1 hafta varsayılan.
+> Durum: F0 (`feature/f0-gates`, PR #9) ve F1 (`feature/f1-source-resilience`, PR #10) `fix/general-stability`'ye birleşti (10 Kas'ta doğrulandı); F2+ açık. Dean 30 Eki'de onayladı: önce F0 sonra F1, hafif gözlem, uyarı Home Assistant'a, PLAYER2 Mi Box'ta 1 hafta varsayılan.
 > F0 (`feature/f0-gates`): engine testleri CI'da; engine/stream/warp healthcheck zaten vardı (doh/tünel imajlarında kabuk yok, atlandı); `docs/HANDOFF.md` arşivde.
 > Kaynak: 30 Eki 2026 araştırması (mevcut durum haritası + web trend taraması + persona araştırması).
 > Trend iddialarının bir kısmı yalnız arama özetine dayanıyor; o maddeler **[doğrulanmadı]** etiketli.
