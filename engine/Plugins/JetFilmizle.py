@@ -21,7 +21,7 @@ from KekikStream.Core import ExtractResult, MainPageResult, MovieInfo, PluginBas
 from Plugins.__kekik_domain import discover_main_url
 
 _MAIN_URL = discover_main_url(
-    "JetFilmizle/src/main/kotlin/com/keyiflerolsun/JetFilmizle.kt", "https://jetfilmizle.now", "JETFILMIZLE_URL"
+    "JetFilmizle/src/main/kotlin/com/keyiflerolsun/JetFilmizle.kt", "https://jetfilmizle.app", "JETFILMIZLE_URL"
 )
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
