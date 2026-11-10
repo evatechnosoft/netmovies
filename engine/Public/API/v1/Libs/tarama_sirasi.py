@@ -9,8 +9,9 @@
 # (Public/API/v1/Libs/source_score.py) — engine mekanizmayı tutar, hafızayı değil.
 
 # Dublaj ağırlıklı kaynaklar önde; sonra harf sırası.
-_ONCELIKLI = ["DiziPal", "DiziMom", "HDFilmCehennemi"]
-_DIGERLERI = sorted(["KultFilmler", "FilmMakinesi", "DiziBox", "DiziYou", "Dizilla", "SezonlukDizi"])
+# DiziMom 03.11 öldü (tüm domainler park); yerini ddizimom.net (DDiziMom) aldı
+_ONCELIKLI = ["DDiziMom", "HDFilmCehennemi"]
+_DIGERLERI = sorted(["KultFilmler", "FilmMakinesi", "DiziBox", "DiziYou", "Dizilla", "DiziPal", "SezonlukDizi"])
 ALTERNATIVE_ORDER = _ONCELIKLI + _DIGERLERI
 
 # Tarama DIŞI: yetişkin eklentileri film/dizi çözümlemesinde asla işe yaramaz,
