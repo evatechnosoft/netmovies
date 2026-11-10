@@ -2,6 +2,15 @@ package com.evaitec.netmovies.tv.ui
 
 import com.evaitec.netmovies.tv.data.kullaniciMesaji
 import android.content.Context
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.evaitec.netmovies.tv.ui.theme.nmFocusRing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -63,9 +72,9 @@ class SearchState {
     var tus by mutableStateOf(0)
     /** Last searched term; the live search does not re-run it when the screen returns. */
     var aranan = ""
-    /** YouTube araması: "0" kapalı (varsayılan), "video", "liste" (oynatma listesi).
+    /** YouTube araması: "video" (varsayılan), "liste" (oynatma listesi), "0" kapalı.
      *  Kapalı: açıkken asıl diziler kısa videoların altında kalıyordu (Dean, 6 Ekim). */
-    var ytMod by mutableStateOf("0")
+    var ytMod by mutableStateOf("video")   // Dean 8 Nov: video default, order video / playlist / off
 }
 
 /** Son aranan metinler; cihazda kalır, oturum aşar. */
@@ -189,12 +198,11 @@ fun SearchScreen(state: SearchState, onSelect: (MediaItem) -> Unit, onBack: () -
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("YouTube:", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
-            listOf("0" to "Kapalı", "video" to "▶  Video", "liste" to "☰  Oynatma listesi").forEach { (mod, etiket) ->
-                SourceChip(etiket, active = state.ytMod == mod, favori = false) {
-                    if (state.ytMod != mod) {
-                        state.ytMod = mod
-                        if (state.results != null && state.query.isNotBlank()) ara(state.query)
-                    }
+            // Icon-only segmented control (Dean, 8 Nov): off / video / playlist.
+            IkonSegment(YT_MODLAR, state.ytMod) { mod ->
+                if (state.ytMod != mod) {
+                    state.ytMod = mod
+                    if (state.results != null && state.query.isNotBlank()) ara(state.query)
                 }
             }
             Text("   Klavye:", fontSize = NmType.Label, color = NmColor.OnSurfaceMuted)
@@ -329,5 +337,40 @@ private fun GecmisSatiri(metin: String, onSec: () -> Unit) {
 private fun Kutu(metin: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(metin, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
+    }
+}
+
+private val YT_MODLAR = listOf(
+    "video" to Icons.Filled.PlayArrow,
+    "liste" to Icons.AutoMirrored.Filled.PlaylistPlay,
+    "0" to Icons.Filled.Block,
+)
+
+/** One pill split into icon segments; each segment is a separate focus target. */
+@Composable
+private fun IkonSegment(secenekler: List<Pair<String, ImageVector>>, secili: String, onSec: (String) -> Unit) {
+    val dis = RoundedCornerShape(NmDim.PillRadius)
+    Row(Modifier.clip(dis).background(NmColor.Surface)) {
+        secenekler.forEach { (mod, ikon) ->
+            var odak by remember { mutableStateOf(false) }
+            val aktif = mod == secili
+            Box(
+                modifier = Modifier
+                    .clip(dis)
+                    .background(if (odak) NmColor.Primary else if (aktif) NmColor.PrimarySelected else NmColor.Surface)
+                    .nmFocusRing(odak, dis)
+                    .onFocusChanged { odak = it.isFocused }
+                    .clickable { onSec(mod) }
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    ikon,
+                    contentDescription = mod,
+                    modifier = Modifier.size(22.dp),
+                    colorFilter = ColorFilter.tint(if (odak) NmColor.OnPrimary else if (aktif) NmColor.OnSurface else NmColor.OnSurfaceMuted),
+                )
+            }
+        }
     }
 }

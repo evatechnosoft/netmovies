@@ -1,3 +1,17 @@
+# Handoff: DDizi parçalı bölüm (4-5 Kas)
+> dal `fix/ddizi-parcali` @ 881e278 · PR #23 → fix/general-stability (merge EDİLMEDİ) · Zima bu dalda, engine 4 Kas 21:01 UTC, stream 20:58 UTC kuruldu
+> Yeraltı 21 ~13 dk'da bitiyordu: sayfada 1.Parça..9.Parça, eklenti yalnız 1. parçayı oynatıyordu. 7e89d0f parçaları `ddizi_birlesik` ucuyla tek HLS'e birleştirir. Site 4 Kas'ta ilk sekmeyi "Tek Parça" (tam 7628 sn) yaptı → 881e278: o sekme varsa birleştirme yok, doğrudan tam video. Kanıt: konteynerde load_links tek link, twimg 2118080436668624896 (7628 sn); stream testleri 285 OK.
+> Zima compose: `/tmp/dc` izin hatası → `DOCKER_CONFIG=/tmp/dc-dean`.
+> TV'de oynatma doğrulanmadı.
+
+# Handoff: sonraki bölüm son dakika (0.9.87) + DHCP modeme devredildi (4 Kas)
+> 2026-11-04 · worktree `fix-sonraki-bolum-son-dakika` · dal `fix/sonraki-bolum-son-dakika` @ 23fc75d (push'lu) · PR #22 → fix/general-stability (merge EDİLMEDİ)
+> **Hedef A (bitti, kanıtlı):** 5b00b4c — geri sayım `jenerikteMi()` (PlayerCore.kt) ile son 60 sn'ye kırpılır, `NEXT_COUNTDOWN_SEC` 10→30, `NEXT_EPISODE_WINDOW_MS` 70→60 (iki oynatıcı). testDebugUnitTest 118/0 fail. 0.9.87 OTA + GitHub `v0.9.87-poc` + apps.json (afbfdb75) yayında, imza 7328a32d. Mi Box'ta açılış doğrulanmadı. "Her bölüm aynı" şikâyetine bakılmadı.
+> **Hedef B (bitti, kanıtlı 4 Kas akşam):** Dean: ev-dhcp kapalı kalacak, tüm cihazlar modemden alacak. Dean modemi elle yeniden başlattı; ondan sonra `dhcp_probe.py 192.168.0.20` → `offer 192.168.0.167 from 192.168.0.1` (tek teklif). Zima `ev-dhcp`: inactive + disabled, konteyner yok. Zima'da :67 dinleyen dnsmasq libvirt `virbr0` (virtnetworkd), LAN DHCP değil. Modem havuzu son uygulanan `ac 20 150 86400` (home-net handoff'una göre; bu oturumda okunmadı) (web reboot düğmesi çalışmıyor, fiziksel reboot gerekti).
+> **Açık risk:** eski Zima kiraları bitince Mi Box .11'den kayabilir → `ATV_HOST` (Zima atv :3311) + ADB adresi güncellenmeli; doğrulanmadı.
+> **Tekrarlama:** ev-dhcp'yi açma (Dean kararı); `dhcp-authoritative`/eski konteyner yok; modem web reboot'u (`RgSecurity_btnReboot`) tetiklenmiyor, Dean'e fiş çektir.
+> **Tek sonraki adım:** Mi Box'ın güncel adresini kontrol et (`adb connect 192.168.0.11:5555`; olmazsa modem istemci tablosu) ve gerekirse ATV_HOST'u güncelle.
+
 # Handoff: logo + DiziYou/DiziAbi proxy + Dizilla yeniden yazımı (27 Eki)
 > 2026-10-27 · worktree `worktree-logo-v1` @ 9cc5754 (= origin/fix/general-stability, push'landı) · ZimaOS aynı commit'te, engine 10:28 UTC yeniden kuruldu
 > **Hedef:** Dean Türkçe dublaj izlemek istiyor ("Dizimom dizilla yok mu").

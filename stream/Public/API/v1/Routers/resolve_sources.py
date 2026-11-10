@@ -19,6 +19,7 @@ from ..Libs         import source_score
 from ..Libs         import lang_memo
 from ..Libs.title_rescue import alternatif_basliklar
 from ..Libs              import kayit
+from Public.Home.Libs    import admin_config, watch_store
 
 
 def decorate(sources: list) -> list:
@@ -29,6 +30,21 @@ def decorate(sources: list) -> list:
             rank = language_rank(source)
             source["language"] = {"rank": rank, "label": language_name(rank)}
     return ordered
+
+
+def engelli_cikar(sources: list, title: str, cfg: dict) -> list:
+    """Drops providers banned for this title in the admin config (title_blocked_providers)."""
+    engelli = set((cfg.get("title_blocked_providers") or {}).get(watch_store.normalize_key(title), []))
+    return [k for k in sources if not (isinstance(k, dict) and k.get("plugin") in engelli)] if engelli else sources
+
+
+def _youtube_mu(source: object) -> bool:
+    return isinstance(source, dict) and "youtube" in str(source.get("name") or "").lower()
+
+
+def youtube_sona(sources: list) -> list:
+    """Any YouTube source (also DDizi's own "YouTube (resmi)") goes behind native players (Dean, 5 Nov)."""
+    return sorted(sources, key=_youtube_mu)
 
 
 def _puanli_sira() -> str:
@@ -115,6 +131,7 @@ async def resolve_sources(request: Request):
         params["order"] = sira
 
     istemci_basliklari = get_client_headers(request)
+    basla = time.time()
     result, youtube = await asyncio.gather(
         fuck_dmca(
             "/resolve_sources",
@@ -124,6 +141,24 @@ async def resolve_sources(request: Request):
         ),
         _youtube_kaynaklari(params, istemci_basliklari),
     )
+
+    # Fast mode where the selected provider only has YouTube (DDizi): Dean wants other
+    # providers tried first (5 Nov) — run the full chain, YouTube stays as last resort.
+    hizli = (result or {}).get("sources") if isinstance(result, dict) else None
+    # An explicitly chosen YouTube video (plugin=YouTube) is the user's pick: keep it.
+    if params.get("mode") == "fast" and params.get("plugin") != "YouTube" and hizli and params.get("title") and all(_youtube_mu(k) for k in hizli):
+        # TV read timeout is 45 s for the whole call; spend only what is left.
+        kalan = 40.0 - (time.time() - basla)   # under the 44 s route limit (_istek.py)
+        try:
+            tam = await asyncio.wait_for(fuck_dmca(
+                "/resolve_sources", params = {**params, "mode": "full"},
+                timeout = kalan, client_headers = istemci_basliklari,
+            ), kalan) if kalan > 5 else None
+        except Exception:
+            tam = None   # YouTube still plays; the client's own full call follows
+        if isinstance(tam, dict) and (tam.get("sources") or []):
+            konsol.log(f"[yellow]↻ resolve:[/] hızlı yanıt yalnız YouTube — tam zincir: {len(tam['sources'])} kaynak")
+            result = tam
 
     # Zincirin TAMAMI boş döndüyse başlık kurtarma: sağlayıcı aramaları harfi
     # harfine çalışıyor, "the odyssey" sıfır sonuç veriyor. Kaybedecek bir şey
@@ -170,7 +205,12 @@ async def resolve_sources(request: Request):
         if youtube:
             resmi = route_through_proxy(decorate(youtube), base_url)
             adresler = {k.get("url") for k in resmi}
-            result["sources"] = resmi + [k for k in result["sources"] if k.get("url") not in adresler]
+            # Last, not first: Dean 5 Nov — YouTube opened before the provider's own source.
+            result["sources"] = [k for k in result["sources"] if k.get("url") not in adresler] + resmi
+        result["sources"] = youtube_sona(result["sources"])
+        if params.get("plugin") == "YouTube":   # explicitly chosen video stays first
+            result["sources"].sort(key=lambda k: not _youtube_mu(k))
+        result["sources"] = engelli_cikar(result["sources"], str(params.get("title") or ""), admin_config.load_config())
         if yerel:   # dil hafızasına girmez: kaydın dili kaynağınkidir, rozet bozulmasın
             result["sources"] = [yerel] + result["sources"]
         first = result["sources"][0]["language"]["label"] if result["sources"] else "yok"

@@ -1,4 +1,4 @@
-# Resmi YouTube listesi hızlı modda ilk kaynak olur; listesi olmayan başlık 12 saat sorulmaz.
+# Resmi YouTube listesi hızlı modda yedek kaynak olur (sona eklenir); listesi olmayan başlık 12 saat sorulmaz.
 import asyncio
 import os
 import sys
@@ -37,6 +37,34 @@ class YouTubeIlkTest(unittest.TestCase):
         with mock.patch.object(rs, "fuck_dmca", side_effect=AssertionError("sorulmamalı")):
             self.assertEqual(asyncio.run(rs._youtube_kaynaklari({"mode": "fast", "title": "Film", "plugin": "X"}, {})), [])
             self.assertEqual(asyncio.run(rs._youtube_kaynaklari({"mode": "full", "title": "A", "episode_no": "1"}, {})), [])
+
+    def test_youtube_adli_kaynak_sona(self):
+        k = [{"name": "DDizi · DDizi | YouTube (resmi)"}, {"name": "DDizi · twimg"}, {"name": "HDFC"}]
+        self.assertEqual([x["name"] for x in rs.youtube_sona(k)], ["DDizi · twimg", "HDFC", "DDizi · DDizi | YouTube (resmi)"])
+
+    def test_secili_youtube_tam_zincire_dusmez(self):
+        cagri = []
+
+        async def sahte(endpoint, params=None, timeout=0, client_headers=None):
+            cagri.append(params["mode"])
+            return {"sources": [{"plugin": "YouTube", "name": "YouTube | Resmi", "url": "https://yt/m.m3u8"}]}
+
+        istek = mock.Mock(base_url="http://x/")
+        istek.state.veri = {"mode": "fast", "plugin": "YouTube", "title": "Suskunlar", "encoded_url": "https://youtube.com/watch?v=a"}
+        with mock.patch.object(rs, "fuck_dmca", sahte), mock.patch.object(rs, "get_client_headers", lambda r: {}),              mock.patch.object(rs.kayit, "hazir_kayit", lambda *a: None), mock.patch.object(rs.lang_memo, "kaydet", lambda *a: None):
+            asyncio.run(rs.resolve_sources(istek))
+        self.assertEqual(cagri, ["fast"])
+
+    def test_secili_youtube_tam_modda_once(self):
+        async def sahte(endpoint, params=None, timeout=0, client_headers=None):
+            return {"sources": [{"plugin": "DiziAbi", "name": "DiziAbi · pilav", "url": "https://a/m.m3u8"},
+                                {"plugin": "YouTube", "name": "YouTube | Resmi", "url": "https://yt/m.m3u8"}]}
+
+        istek = mock.Mock(base_url="http://x/")
+        istek.state.veri = {"mode": "full", "plugin": "YouTube", "title": "Suskunlar", "encoded_url": "https://youtube.com/watch?v=a"}
+        with mock.patch.object(rs, "fuck_dmca", sahte), mock.patch.object(rs, "get_client_headers", lambda r: {}),              mock.patch.object(rs.kayit, "hazir_kayit", lambda *a: None), mock.patch.object(rs.lang_memo, "kaydet", lambda *a: None):
+            sonuc = asyncio.run(rs.resolve_sources(istek))
+        self.assertEqual(sonuc["result"]["sources"][0]["plugin"], "YouTube")
 
 
 if __name__ == "__main__":

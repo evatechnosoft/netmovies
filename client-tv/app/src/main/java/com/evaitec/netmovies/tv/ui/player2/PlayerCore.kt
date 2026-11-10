@@ -79,6 +79,14 @@ internal fun tutmaAdimi(heldMs: Long): Long = when {
 internal fun teklifPenceresinde(duration: Long, position: Long): Boolean =
     duration >= MIN_GECERLI_SURE_MS && (duration - position) in 0..NEXT_EPISODE_WINDOW_MS
 
+/**
+ * Jenerik geri sayımı başlasın mı: işaret geçildi VE son [NEXT_EPISODE_WINDOW_MS] içindeyiz.
+ * Jenerik işareti (en uzun sessizlik) bölüm ortasına düşebiliyor; son dakikaya kırpılır.
+ */
+internal fun jenerikteMi(duration: Long, position: Long, jenerikBas: Long?): Boolean =
+    jenerikBas != null && duration >= MIN_GECERLI_SURE_MS &&
+        position >= maxOf(jenerikBas, duration - NEXT_EPISODE_WINDOW_MS)
+
 /** Birikimli sarma hedefi: süre biliniyorsa [0, süre], değilse ≥ 0. */
 internal fun sarmaHedefi(base: Long, deltaMs: Long, dur: Long): Long =
     (base + deltaMs).let { if (dur > 0) it.coerceIn(0, dur) else it.coerceAtLeast(0) }
@@ -243,7 +251,7 @@ class PlayerCore(
         }
 
     private val jenerikte: Boolean
-        get() = jenerikBas?.let { duration > 0 && position >= it } == true
+        get() = jenerikteMi(duration, position, jenerikBas)
 
     /** Geri sayım koşulu: jenerik başladı (işaret varsa) ya da akış bitti. */
     internal val sayimBaslasin: Boolean

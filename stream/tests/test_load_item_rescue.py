@@ -67,6 +67,11 @@ class LoadItemRescueTest(unittest.TestCase):
         _, cagrilar = self._kurtar(ValueError("provider 500"))
         self.assertNotIn("OluKaynak", [p.get("plugin") for e, p in cagrilar if e == "/search"])
 
+    def test_secili_youtube_videosu_kurtarilmaz(self) -> None:
+        video = {"title": "Suskunlar (21. Bölüm)", "url": "https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Da"}
+        self.assertTrue(router._kullanilabilir(video, "serie", "YouTube"))
+        self.assertFalse(router._kullanilabilir(video, "serie"))   # rescue candidates stay strict
+
     def test_bolumsuz_dizi_detayi_curuk_sayilir(self) -> None:
         # Bölüm sayfası kaydı: istek BAŞARILI ama bölüm listesi yok.
         self.assertFalse(router._kullanilabilir({"title": "MobLand", "url": "x"}, "serie"))

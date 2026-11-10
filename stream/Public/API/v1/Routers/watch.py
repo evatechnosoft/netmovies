@@ -11,6 +11,7 @@ from .    import api_v1_router, api_v1_global_message
 
 from Public.Home.Libs import admin_config, watch_store
 from ..Libs           import kayit
+from ..Libs.youtube_dizi import diziye_bagla, video_id
 
 # İçerik → son bildirilen konum. TV duraklatılmışken de 15 sn'de bir yazıyor;
 # konum ilerlemiyorsa izleme sayılmaz, kayıt indirmesi boşuna kısılmaz.
@@ -76,6 +77,14 @@ async def save_progress(request: Request):
     position_seconds, duration_seconds.
     """
     veri = request.state.veri or {}
+    # An episode video of a playlist the user keeps is saved under that series.
+    if veri.get("plugin") == "YouTube" and video_id(veri.get("content_url")):
+        dizi = await diziye_bagla(str(veri.get("content_url")))
+        if dizi:
+            tek = _key_from(veri)
+            veri = {**veri, **dizi, "media_type": "serie", "content_key": ""}
+            if tek != _key_from(veri):
+                watch_store.remove_progress([tek])
     ck   = _key_from(veri)
     if not ck:
         return {**api_v1_global_message, "result": {"ok": False, "error": "title veya content_key gerekli"}}

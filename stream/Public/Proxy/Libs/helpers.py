@@ -202,11 +202,20 @@ async def host_is_public(host: str) -> bool:
     return ok
 
 
+def ic_engine_mi(url: str) -> bool:
+    """Engine'in DDizi parça birleştirme ucu (docker iç ağı): proxy yalnız bu tek yolu açar."""
+    motor = httpx.URL(os.getenv("DEFAULT_PROVIDER_URL", "http://engine:3310"))
+    parts = httpx.URL(url)
+    return (parts.scheme, parts.host, parts.port) == (motor.scheme, motor.host, motor.port) and parts.path == "/api/v1/ddizi_birlesik"
+
+
 async def url_is_public(url: str) -> bool:
     """URL'nin şeması http(s) ve host'u proxy'lenebilir mi?"""
     parts = httpx.URL(url)
     if parts.scheme not in ("http", "https"):
         return False
+    if ic_engine_mi(url):
+        return True
     return await host_is_public((parts.host or "").lower().rstrip("."))
 
 
@@ -276,18 +285,18 @@ def prepare_request_headers(request: Request, url: str, referer: str | None, use
     headers["Accept-Encoding"] = "identity"
     headers["Connection"]      = "keep-alive"
 
-    # user-agent ayarı
+    # Canonical case: DiziPal's dplayer82 answers 403 to lowercase "user-agent"/"referer" (5 Nov).
     if user_agent and user_agent != "None":
-        headers["user-agent"] = user_agent
+        headers["User-Agent"] = user_agent
     else:
-        headers["user-agent"] = DEFAULT_USER_AGENT
+        headers["User-Agent"] = DEFAULT_USER_AGENT
 
     # Referer KABUL ETMEYEN CDN'ler: Twitter/X amplify akışı referer'sız 200,
     # embed sayfasının referer'ı ile 403 veriyor. DiziMom'un FirePlayer embed'leri
     # (hdstreamable/peacemakerst) bu CDN'i kullanıyor — kaynak bulunuyor ama
     # oynatıcıda "Upstream Error: 403" çıkıyordu. Adres imzalı, referer gerekmiyor.
     if referer and referer != "None" and not _referer_reddeden(url):
-        headers["referer"] = referer
+        headers["Referer"] = referer
 
     # Client'tan gelen Range header'ı aktar (MP4 seek/byte-range desteği, goProxy parity)
     range_header = request.headers.get("range")

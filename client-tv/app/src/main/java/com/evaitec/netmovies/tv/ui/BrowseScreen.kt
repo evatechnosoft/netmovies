@@ -335,10 +335,10 @@ fun BrowseScreen(
                     }.awaitAll().flatten()
                 }
             } else if (selectedPlugin == YOUTUBE) {
-                // YouTube seçiliyken YouTube'da arar; genel arama YouTube'suz (Dean, 6 Ekim).
+                // YouTube seçiliyken yalnız YouTube; genel arama da YouTube videolarını katar (Dean, 8 Kas: Kaos Show yalnız YouTube’da).
                 runCatching { Network.api.searchAll(term, yt = "video", sadece = "youtube").result }.getOrDefault(emptyList())
             } else {
-                runCatching { Network.api.searchAll(term, yt = "0").result }.getOrDefault(emptyList())
+                runCatching { Network.api.searchAll(term, yt = "video").result }.getOrDefault(emptyList())
             }
             resultsLoading = false
         }

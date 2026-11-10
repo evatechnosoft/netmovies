@@ -1,5 +1,7 @@
 """KultFilmler contract test: a.mcard cards, search, film and series (a.ep) detail."""
 
+import html
+import json
 import os
 import sys
 import unittest
@@ -47,6 +49,15 @@ class KultFilmlerContract(unittest.IsolatedAsyncioTestCase):
         info = await _plugin([("/dizi/", _SERIES)]).load_item("https://kultfilmler.net/dizi/x/")
         self.assertEqual([(b.season, b.episode, b.url) for b in info.episodes],
                          [(2, 3, "https://kultfilmler.net/dizi/x/s2b3/")])
+
+    async def test_okru_embed_resolves_hls(self):
+        # selector: ok.ru `data-options` (HTML-escaped JSON) → flashvars.metadata (JSON string) → ondemandHls
+        meta = json.dumps({"ondemandHls": "https://ok6.vkuser.net/m.m3u8"})
+        options = html.escape(json.dumps({"flashvars": {"metadata": meta}}))
+        page = '<iframe src="https://ok.ru/videoembed/1?nochat=1"></iframe>'
+        plugin = _plugin([("/film/", page), ("ok.ru/videoembed", f'<div data-options="{options}"></div>')])
+        links = await plugin.load_links("https://kultfilmler.net/film/kult-bir/")
+        self.assertEqual([x.url for x in links], ["https://ok6.vkuser.net/m.m3u8"])
 
 
 if __name__ == "__main__":

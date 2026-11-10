@@ -25,8 +25,8 @@ BASE = os.getenv("BASE", "http://localhost:3310").rstrip("/") + "/api/v1"
 # fails health, so one dead before the first run never appeared in history and
 # was never alerted (DiziPal, DiziMom, SezonlukDizi, Nov 2026).
 EXPECTED = (
-    "DDizi", "DiziAbi", "DiziBox", "DiziMom", "DiziPal", "DiziYou", "Dizilla", "FilmMakinesi",
-    "FullHDFilmizlesene", "HDFilmCehennemi", "JetFilmizle", "KultFilmler", "SezonlukDizi",
+    "DDizi", "DDiziMom", "DiziAbi", "DiziBox", "DiziYou", "Dizilla", "FilmMakinesi",
+    "FullHDFilmizlesene", "HDFilmCehennemi", "JetFilmizle", "KultFilmler",
 )
 
 

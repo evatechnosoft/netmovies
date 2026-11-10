@@ -232,8 +232,8 @@ async def aggregate_new(request: Request):
 # URL'ine bağlanır. Kaynak canlılığından bağımsız — link her zaman geçerlidir.
 _HOME_CARDS = [
     {"key": "movie",   "title": "Filmler",         "icon": "fa-film",            "type": "movie",         "plugins": ["HDFilmCehennemi"]},
-    {"key": "tv_local","title": "Türk Diziler",     "icon": "fa-tv",              "type": "serie_local",   "plugins": ["DiziMom", "DiziBox"]},
-    {"key": "tv_foreign","title": "Yabancı Diziler","icon": "fa-globe",           "type": "serie_foreign", "plugins": ["DiziMom", "Dizilla", "DiziYou"]},
+    {"key": "tv_local","title": "Türk Diziler",     "icon": "fa-tv",              "type": "serie_local",   "plugins": ["DDiziMom", "DiziBox"]},
+    {"key": "tv_foreign","title": "Yabancı Diziler","icon": "fa-globe",           "type": "serie_foreign", "plugins": ["DDiziMom", "Dizilla", "DiziYou"]},
     {"key": "live",    "title": "Canlı TV",         "icon": "fa-broadcast-tower", "type": "live",          "plugins": ["M3UPlaylist"]},
 ]
 

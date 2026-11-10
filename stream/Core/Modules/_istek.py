@@ -23,6 +23,8 @@ def istek_timeout(path: str) -> float | None:
         return None
     if any(p in path for p in _UZUN_TIMEOUT_PATHS):
         return 120
+    if path.endswith("/resolve_sources"):
+        return 44   # fast mode may chain a full scan (DDizi→YouTube only); TV read timeout is 45 s
     return 30
 
 
