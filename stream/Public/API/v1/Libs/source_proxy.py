@@ -17,9 +17,10 @@ from Public.Proxy.Libs.proxy_token import issue_proxy_token
 # DiziBox (molystream), Dizilla (pichive) ve DiziMom (hdplayersystem/FirePlayer) de
 # aynı: çıplak istekte manifest 403, kaynağın kendi referer+user_agent'ı ile 200 —
 # istemci bu başlıkları gönderemez.
+# DDiziMom (pilavyerplay stream.php): çıplak istekte Cloudflare 1010 (403).
 # Özel Koleksiyon: xHamster akışı WARP çıkış IP'sine imzalı (ev IP'sinden 403),
 # HQPorner'ın CDN'i ISP'de bağlantı sıfırlıyor, PornHub da WARP'la çözülüyor.
-_ALWAYS_PROXY_PLUGINS = {"xHamster", "HQPorner", "PornHub", "SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi", "JetFilmizle", "FullHDFilmizlesene", "DiziYou", "DiziAbi"}
+_ALWAYS_PROXY_PLUGINS = {"xHamster", "HQPorner", "PornHub", "SezonlukDizi", "DiziPal", "KultFilmler", "FilmMakinesi", "DiziBox", "Dizilla", "DiziMom", "DDizi", "DDiziMom", "JetFilmizle", "FullHDFilmizlesene", "DiziYou", "DiziAbi"}
 
 
 def _altyazi_proxy(source: dict) -> dict:
