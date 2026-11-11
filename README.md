@@ -3,7 +3,7 @@
 Reklamsız, kişisel, "tıkla‑izle" odaklı **film / dizi / canlı TV** uygulaması.
 İki servis (Docker) + PWA arayüz:
 
-- **`engine/`** — KekikStream tabanlı sağlayıcı API (Python 3.14). Kendi eklentilerimiz `engine/Plugins/` altında (HDFilmCehennemi, DiziYou, RecTV, M3UPlaylist).
+- **`engine/`** — KekikStream tabanlı sağlayıcı API (Python 3.14). Kendi eklentilerimiz `engine/Plugins/` altında (güncel liste: `engine/Plugins/`; ör. HDFilmCehennemi, DiziYou, Dizilla, M3UPlaylist).
 - **`stream/`** — Web arayüzü (PWA) + header‑enjekteli video/altyazı proxy + API gateway.
 - **`doh`** — DNS‑over‑HTTPS resolver (ISP DNS engelini aşar).
 - **`warp`** — Cloudflare WARP çıkış proxy'si (TR SNI/DPI engelini aşar). Engine

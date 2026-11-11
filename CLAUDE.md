@@ -5,7 +5,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 
 ## Her oturumda ilk yap
 1. **Güncel kal:** `git fetch && git checkout fix/general-stability && git pull`
-   (Tüm iş bu daldadır; `master` ESKİDİR.)
+   (Entegrasyon hattı bu daldır, son birleşen 0.9.86 / 3 Kas; güncel aktif iş `fix/bolumde-film-eleme` (client-tv 0.9.91, 8 Kas, push'lu, henüz birleşmedi); `master` ESKİDİR.)
 2. **Bağlamı al:** kök `HANDOFF.md` oku (`docs/archive/HANDOFF-2026-10-17.md` eski günlük) — en üstteki "DEVİR" bloğu durumu ve sıradaki
    işi verir; altındaki oturum günlükleri gerekçeyi taşır.
 3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
@@ -41,7 +41,7 @@ Motoru buluta/Azure'a KOYMA: kaynaklar datacenter IP'sini engeller.
 - Yeni özellik/düzeltme → aynı dala commit + push → herkes `git pull` ile alır.
 
 ## Mimari (özet)
-- `engine/` — KekikStream (Python 3.14) + `engine/Plugins/` (DiziPal, SezonlukDizi, HDFilmCehennemi, DiziBox, DiziMom, DiziYou, Dizilla, M3UPlaylist).
+- `engine/` — KekikStream (Python 3.14) + `engine/Plugins/` (güncel liste için dizine bak; DiziMom ölü, bkz. DDiziMom).
 - `stream/` — web UI + video proxy + auth + admin. `DEFAULT_PROVIDER_URL` ile engine'e bağlı.
 - `docker-compose.yml` — engine + stream + doh (DNS-over-HTTPS) + cloudflared (tünel, profile).
 
