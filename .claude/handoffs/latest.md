@@ -2,8 +2,10 @@
 > 2026-11-11 · kod değişikliği yok · `fix/general-stability` @ ea272f5 = ZimaOS (dal değiştirildi, rebuild yok: e62e8e3 sonrası yalnız doküman) · ana checkout `fix/general-stability`
 > **Kanıtlı (11 Kas):** `smoke.sh` YEŞİL (16 eklenti, movie 399, serie 410, live 10). `BASE=http://192.168.0.186:3310 python scripts/chain_scan.py --n 2` → "TÜM KAYNAKLAR OYNUYOR". `BASE` verilmezse localhost'a gider, laptopta reddedilir.
 > **Birleşti:** PR #26 `fix/film-eslesme` (Balina Düşüşü → Moonfall), PR #24 `fix/bayat-bilgi` (taban `fix/general-stability`'ye çevrildi). PR #4 kapatıldı.
-> **Temizlik:** 16 birleşmiş worktree kaldırıldı, 12 yerel dal silindi (`branch -d`); silinemeyen 5 klasör Geri Dönüşüm Kutusu'nda. Kaybolacak iki handoff bloğu (30 Eki, 31 Eki/3 Kas) bu dosyanın sonuna eklendi.
-> **Bırakılan 9 worktree (dokunma, sahibi/işi var):** `unwatched-one` (commit'siz `unwatched.py` + test, 33 satır) · `agent-acacc…` (commit'siz Routers değişikliği + `scripts/`) · `agent-ad68…` (`scripts/backup.sh`, `zima`) · `stream-segment-dedup` (`.probe/`) · `feature+profiles` (iç içe `.claude/handoffs`) · `tv-bolum-ayar-odak` (birleşmemiş handoff commit'i ce14230) · `fix-sonraki-bolum-son-dakika`, `search-plan`, `tv-season-nav` (bekleyen oturumlara bağlı).
+> **Temizlik:** 19 worktree kaldırıldı, 19 yerel dal silindi (`branch -d`); silinemeyen 5 klasör Geri Dönüşüm Kutusu'nda. Kaybolacak iki handoff bloğu (30 Eki, 31 Eki/3 Kas) bu dosyanın sonuna eklendi.
+> **Seat devri (11 Kas):** oturum kota nedeniyle eralp seatinden deancjx seatine taşındı; eralp kopyası açık kalmış olabilir, aynı işi iki yerden sürdürme.
+> **Sonradan (Dean "gereksizse sil"):** `unwatched-one`, `agent-acacc…`, `agent-ad68…` incelendi, içerikleri ana dalda daha yeni haliyle var; üçü ve 7 dal daha silindi. ZimaOS dbcfbaf, 6 netmovies konteyneri ayakta.
+> **Bırakılan 6 worktree:** `stream-segment-dedup` (`.probe/`) · `feature+profiles` (iç içe `.claude/handoffs`) · `tv-bolum-ayar-odak` (birleşmemiş handoff commit'i ce14230) · `fix-sonraki-bolum-son-dakika`, `search-plan`, `tv-season-nav` (bekleyen oturumlara bağlı). Yerel `feature/ddizimom-plugin` dalı duruyor (yalnız yerini PR #27'nin aldığı 695d9da).
 > **Aşağıdaki 10 Kas bloğu bayat:** onarım canlıda; DiziPal, SezonlukDizi, DiziMom kaldırıldı (603bc98).
 > **Doğrulanamadı:** film-eslesme'nin canlı davranışı · Mi Box'ta 0.9.91 · KultFilmler ok.ru gerçek TV'de.
 > **Tek sonraki adım:** Mi Box sürüm kontrolü: `adb connect 192.168.0.11:5555 && adb shell dumpsys package com.evaitec.netmovies.tv | grep versionName` → 0.9.91 beklenir.
