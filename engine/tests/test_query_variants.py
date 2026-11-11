@@ -73,6 +73,13 @@ class BaslikUyusuyorTest(unittest.TestCase):
         # Saglayici Turkce ve orijinal adi tek satirda veriyor.
         self.assertTrue(baslik_uyusuyor("Dark Matter", "Karanlık Madde - Dark Matter"))
 
+    def test_kisa_kelimeli_aday_kisa_ad_sayilmaz(self):
+        # Dean: "balina dususu actim baska film". "Ay'in" iki harfe bolunup
+        # eleniyordu; geriye {dususu} kalinca kisa ad yolu Moonfall'u kabul etti.
+        self.assertFalse(baslik_uyusuyor("Balina Düşüşü", "Ay'ın Düşüşü - Moonfall"))
+        self.assertFalse(baslik_uyusuyor("Balina Düşüşü", "Ay'ın Düşüşü"))
+        self.assertTrue(baslik_uyusuyor("Special Ops Lioness", "Lioness"))
+
     def test_bos_aday(self):
         self.assertFalse(baslik_uyusuyor("Inception", ""))
         self.assertFalse(baslik_uyusuyor("", "Inception"))

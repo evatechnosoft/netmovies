@@ -71,6 +71,12 @@ def _anlamli_kelimeler(metin: str) -> set[str]:
     }
 
 
+def _tum_kelimeler(metin: str) -> set[str]:
+    """Uzunluk süzgeci olmadan, yıl/sıra sayıları ve sezon ekleri hariç tüm kelimeler."""
+    sade = str(metin or "").translate(_HARFLER).lower()
+    return {k for k in re.sub(r"[^\w\s]", " ", sade).split() if not k.isdigit() and k not in _EKLER}
+
+
 # Sağlayıcı başlığına eklenen sıra/bölüm sözcükleri yapımı değiştirmez.
 _EKLER = {"sezon", "sezonu", "bolum", "bolumu", "son", "kisim", "part", "season", "episode"}
 
@@ -123,9 +129,12 @@ def baslik_uyusuyor(aranan: str, aday_baslik: str | None) -> bool:
     sade = clean_title(aranan)
     if not any(a in sade for a in _AYRACLAR):
         son = (sade.split() or [""])[-1].translate(_HARFLER)
+        # Kısa kelimeler de sayılır: "Ay'ın Düşüşü"nde "ay"/"ın" elenince geriye
+        # {düşüşü} kalıyor ve "Balina Düşüşü" araması Moonfall'u açıyordu.
+        hedef_tum = _tum_kelimeler(aranan)
         for parca in _aday_parcalari(aday_baslik):
             aday = _anlamli_kelimeler(parca)
-            if aday and aday <= hedef and son in aday:
+            if aday and aday <= hedef and son in aday and _tum_kelimeler(parca) <= hedef_tum:
                 return True
 
     return False
