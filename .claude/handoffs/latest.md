@@ -1,3 +1,21 @@
+# Handoff: denetim + dal/worktree temizliği (11 Kas)
+> 2026-11-11 · kod değişikliği yok · `fix/general-stability` @ ea272f5 = ZimaOS (dal değiştirildi, rebuild yok: e62e8e3 sonrası yalnız doküman) · ana checkout `fix/general-stability`
+> **Kanıtlı (11 Kas):** `smoke.sh` YEŞİL (16 eklenti, movie 399, serie 410, live 10). `BASE=http://192.168.0.186:3310 python scripts/chain_scan.py --n 2` → "TÜM KAYNAKLAR OYNUYOR". `BASE` verilmezse localhost'a gider, laptopta reddedilir.
+> **Birleşti:** PR #26 `fix/film-eslesme` (Balina Düşüşü → Moonfall), PR #24 `fix/bayat-bilgi` (taban `fix/general-stability`'ye çevrildi). PR #4 kapatıldı.
+> **Temizlik:** 16 birleşmiş worktree kaldırıldı, 12 yerel dal silindi (`branch -d`); silinemeyen 5 klasör Geri Dönüşüm Kutusu'nda. Kaybolacak iki handoff bloğu (30 Eki, 31 Eki/3 Kas) bu dosyanın sonuna eklendi.
+> **Bırakılan 9 worktree (dokunma, sahibi/işi var):** `unwatched-one` (commit'siz `unwatched.py` + test, 33 satır) · `agent-acacc…` (commit'siz Routers değişikliği + `scripts/`) · `agent-ad68…` (`scripts/backup.sh`, `zima`) · `stream-segment-dedup` (`.probe/`) · `feature+profiles` (iç içe `.claude/handoffs`) · `tv-bolum-ayar-odak` (birleşmemiş handoff commit'i ce14230) · `fix-sonraki-bolum-son-dakika`, `search-plan`, `tv-season-nav` (bekleyen oturumlara bağlı).
+> **Aşağıdaki 10 Kas bloğu bayat:** onarım canlıda; DiziPal, SezonlukDizi, DiziMom kaldırıldı (603bc98).
+> **Doğrulanamadı:** film-eslesme'nin canlı davranışı · Mi Box'ta 0.9.91 · KultFilmler ok.ru gerçek TV'de.
+> **Tek sonraki adım:** Mi Box sürüm kontrolü: `adb connect 192.168.0.11:5555 && adb shell dumpsys package com.evaitec.netmovies.tv | grep versionName` → 0.9.91 beklenir.
+
+# Handoff: bütün eklentilerin onarımı (10 Kas)
+> 2026-11-10 09:54 · dal `fix/eklenti-onarim` @ 304b6de, push'landı (PR yok) · ZimaOS `/DATA/AppData/netmovies` bu dalda, yeni engine imajı derlendi · **canlıya ALINMADI**: `netmovies-engine` konteyneri hâlâ 2026-11-05 tarihli (kontrol 10 Kas). Oturum kişisel hesapta kotaya takıldı, ekip hesabına `--resume` ile devredildi.
+> **Değişen (dal birleşimi: fix/eklenti-ddizi 03cbe85 + fix/eklenti-film 6c61ec4 + feature/ddizimom-plugin):** DDizi sağlık kontrolü Cloudflare sınamasını canlı sayıyor (katalogdan düşmüyor) · DDiziMom yeni eklenti, rafta ve sırada DiziMom'un yerini aldı (The Boys 40 bölüm, manifest iniyor) · JetFilmizle POST `.now`→`.app` (ilk 6 filmin 5'i açılıyor) · KultFilmler ok.ru gömmesi çözülüyor (16/16) · DiziPal öncelikten düştü.
+> **Kanıtlı:** birleşik engine testleri konteynerde 118 OK (oturum raporu).
+> **Değişmedi:** DiziBox, DiziAbi, DiziYou, HQPorner sağlam · DiziMom ölü (tüm adresler park/kapalı). DiziPal oynatıcı, SezonlukDizi (reCAPTCHA/gömme yasağı) ve Dizilla altyazılı kaynak (Pichive) bot korumasının arkasında; aşma kodu izin sisteminde reddedildi, tekrar deneme.
+> **Dean kararı bekliyor:** DiziPal ve SezonlukDizi kapatılsın mı (oturumun önerisi: kapat).
+> **Tek sonraki adım:** TV boşta mı (`ssh zima "docker logs --since 2m netmovies-stream 2>&1 | grep -c remote/state"` → 0) bak; boştaysa `ssh zima "export DOCKER_CONFIG=/tmp/dc; cd /DATA/AppData/netmovies && docker compose --profile tunnel up -d --no-build engine"`, sonra `python scripts/chain_scan.py --n 2` ile uçtan uca tara. KultFilmler ok.ru gerçek TV'de denenmedi (IP'ye bağlı adres, WARP'ta açılmayabilir).
+
 # Handoff: DDizi parçalı bölüm (4-5 Kas)
 > dal `fix/ddizi-parcali` @ 881e278 · PR #23 → fix/general-stability (merge EDİLMEDİ) · Zima bu dalda, engine 4 Kas 21:01 UTC, stream 20:58 UTC kuruldu
 > Yeraltı 21 ~13 dk'da bitiyordu: sayfada 1.Parça..9.Parça, eklenti yalnız 1. parçayı oynatıyordu. 7e89d0f parçaları `ddizi_birlesik` ucuyla tek HLS'e birleştirir. Site 4 Kas'ta ilk sekmeyi "Tek Parça" (tam 7628 sn) yaptı → 881e278: o sekme varsa birleştirme yok, doğrudan tam video. Kanıt: konteynerde load_links tek link, twimg 2118080436668624896 (7628 sn); stream testleri 285 OK.
@@ -82,3 +100,37 @@ Ortam: C:\projects\netmovies (worktree feature+profiles), ssh zima, DOCKER_CONFI
 Önce HANDOFF.md oku, Verify bloğunu koş. Sıra: 1) durdurulanlar açılışta geri kalktı mı
 2) Kasm sorusu Dean'e 3) fix/tv-heap-buffer PR. Yeni iş açma.
 ```
+
+# Handoff: İzlemediklerim düzeltmesi + DDizi Son Bölümler (3 Kas)
+> 2026-11-03 · dal `fix/gozat-izlemediklerim` @ 4d428b1, push'landı · draft PR #19 (base `fix/general-stability`) · **canlıya ALINMADI**
+> **Kanıtlı:** stream `unittest discover` 284 OK (Zima geçici konteyner, ağsız) · client `:app:testDebugUnitTest --tests '*AjandaBolumRefTest*' :app:compileDebugKotlin` EXIT=0, 2/2 · DDizi canlı çağrı (engine'de /tmp/kanit, canlı dosyaya dokunmadan): 22 dizi/22 poster, load_item 19 bölüm.
+> **Değişen:** unwatched.py `_mutlaktan_sezona` (S1B191→S7B7) + `_tek_satir` (dizi başına tek satır, `kalan`); AgendaScreen `SxBy` bolumRef + "N bölüm kaldı"; DDizi main_page yalnız "Son Bölümler" (ana sayfa `/izle/` kartları → sidebar slug ile dizi sayfası; dizi sayfası olmayan günlük programlar atlanır).
+> **Karar (Dean):** alfabetik raf yok, rastgele sıra yok; Yabancı/Eski kaldırıldı (sitede tarih sıralaması yok, sayfa 2 = sayfa 1).
+> **Yapma:** onaysız Zima rebuild; bu dosyayı commit'e katma (başka oturumun değişikliği var).
+> **Tek sonraki adım:** Dean "canlıya al" derse ve TV boştaysa (`remote/state` sayısı 0): Zima'da dalı çek, engine+stream build → `up -d --no-build`; TV istemcisi için sürüm yayını ayrı.
+
+# Handoff: sunucu geneli kontrol + temizlik (31 Eki)
+> 2026-10-31 · `fix/general-stability` @ b41fae7 (laptop = origin = ZimaOS, TV 0.9.83) · kod değişikliği yok
+> **Kanıtlı:** smoke YEŞİL; ZimaOS 31 Eki 08:50 yeniden başladı. Dean "yap hepsini" sonrası:
+> - `durdurulan-20261021.txt` listesindeki 20 konteyner tekrar durduruldu (running=0). Kök neden: ZimaOS açılışta restart=no olanları da başlatıyor → bir sonraki açılışta GERİ GELECEK.
+> - Kasm onarıldı: kasm_manager/guac/rdp_gateway/rdp_https_gateway restart=always yapıldı, manager→proxy→guac sırasıyla başlatıldı; hepsi healthy.
+> - nexus-mcp ve code-server-dean BAŞLATILMADI, gerek yok: yerlerini `nexus-mcp-stub-stopped` (nexus-mcp:latest, :8900 healthy) ve `code-server` (:8901, code-server-aile compose) almış; çıkmış olanlar eski kopya.
+> **Silindi (Dean onayı, 31 Eki):** 15 konteyner (coolify-v4 x3 + sentinel, callcenter x3, quiz-bank-frontend/backend_old, sportapp-backend, randevu, flowise x2, obsidian, dockhand) + 12 imaj, /DATA 159→145 GB. Veri klasörleri yerinde. CasaOS app dizinleri `/DATA/AppData/_casaos-removed-20261031/`'a taşındı (geri: `/var/lib/casaos/apps/`'e geri taşı). Kalan liste `durdurulan-20261021.txt` = yalnız twenty x4 + webtop (Dean: kalsın; açılışta kalkarlarsa sorun değil); eski liste `.bak-20261031`. Bekçi servisi gereksizleşti, kurulmadı.
+> **Dokunulmadı:** supervisor-firewall-gateway (iptables raw yok), dev-lifeosfinance-web, volley-backend-1.
+> **Tek sonraki adım:** yok.
+
+# Handoff: Gelişmiş yapı planı + F0 kapıları + F1 (30 Eki)
+> 2026-10-30 · worktree `advanced-structure-plan`, dal `feature/f1-source-resilience` @ 11360e7 (push'landı) · ZimaOS'ta hiçbir şey kurulmadı/değişmedi (geçici /tmp denemeleri silindi)
+> **F1 = PR #10 (draft, taban `feature/f0-gates`):** 7e80427 gece kanaryası (`scripts/chain_scan.py --jsonl`, `scripts/source_canary.py`, `scripts/systemd/source-canary.{service,timer}` + README; HA `notify.mobile_app_fold`, `canary.env` gitignore) · 11360e7 DiziAbi/FilmMakinesi/JetFilmizle/KultFilmler/SezonlukDizi sözleşme testleri (`engine/tests/test_*_contract.py` + `fake_http.py`). **Kanıt:** kanarya unittest 5/5; Zima'da canlı `chain_scan movie --n 1 --jsonl` 5 film sağlayıcısı OK, kanarya "sorun yok" (HA'ya gönderim denenmedi); engine imajında `--network none` 96/96 OK (bağımsız tekrar). CI'ya bakılmadı.
+> **F1 bekleyen (Dean onayı):** #10 birleşince Zima'ya timer kurulumu + HA uzun ömürlü jeton (`scripts/systemd/README.md`). Testte görülen, düzeltilmeyen: KultFilmler `tags` liste değil düz metin; JetFilmizle `_LD_BLOK` son bloktan sonra >1200 karakterde son filmi kaçırabilir — ayrı fix için Dean'e soruldu.
+> **Sıradaki tek eylem:** Dean'in birleştirme/onay cevabı; gelmezse `gh pr checks 10` ve `gh pr checks 9`.
+> **Hedef:** `docs/PLAN-advanced-structure-2026-10.md` fazlarını sırayla yürütmek (F0→F1…), her faz ayrı dal + PR.
+> **Kararlar (Dean, 30 Eki "Başlat önerinden"):** önce F0 sonra F1 · hafif gözlem (F2 Seçenek A) · uyarı Home Assistant'a · PLAYER2 Mi Box'ta 1 hafta varsayılan.
+> **Açık PR'lar (hepsi Dean birleştirmesini bekliyor, kendin merge ETME):**
+> - #7 `worktree-advanced-structure-plan` → fix/general-stability: plan + 4 persona ajanı (33a89d5).
+> - #8 oynatıcı 1/2 etiketi ayırt edilsin + PLAYER2 varsayılan (TV 0.9.84). Birleşince yayın: `ssh zima 'bash /DATA/AppData/netmovies/scripts/apk_publish.sh tv "Oynatıcı 2 varsayılan"'` — yayınlanmadı.
+> - #9 `feature/f0-gates` → #7 dalı (draft): engine unittest gate.yml'de (`--network none`, imaj içinde); test_dizilla_grid/sezon 9cc5754 sonrası `_kartlar`/`_bolumler`'e taşındı. **Kanıt:** Zima'da engine imajında 80/80 OK. CI koşusu sonucu bakılmadı. #7 birleşince tabanı fix/general-stability'ye çevir.
+> **F0 eksik:** diğer plan dosyalarına durum satırı eklenmedi (durumları doğrulanmadı). Compose healthcheck eklenmedi: engine/stream/warp zaten healthy, doh/cloudflared distroless.
+> **Tekrarlama:** rules-gate english-names hook'u Türkçe kelimeli Bash'i (heredoc/sed) engeller → Write/Edit kullan. PR gövdesi `--body-file` ile job tmp'den.
+> **F0 sonrası:** Dean #7/#8/#9'u birleştirince 0.9.84 yayını (F1 dalı açıldı, yukarıda).
+
