@@ -26,6 +26,13 @@ def bolum_sirasi(bolumler: list, sira: int, bolum_no: int | None = None, sezon_n
         # düşmek başka bölüm açar: son bölümden sonra yayınlanmamış sezona
         # geçilince sezonun 1. bölümü oynuyordu (Dean, 28 Eylül).
         if any(alan(ep, "episode") is not None for ep in bolumler):
+            # DDizi sezonsuz sayar (Yeraltı "S1B22"), diğerleri sezonlu (S2B6): numara
+            # hiçbir sezonda yoksa ve liste baştan eksiksizse baştan sayılan sıradır.
+            sezonlar = {alan(ep, "season") for ep in bolumler}
+            if (sezon_no in (None, 1) and len(sezonlar) > 1 and bolum_no <= len(bolumler)
+                    and (alan(bolumler[0], "season"), alan(bolumler[0], "episode")) == (1, 1)
+                    and all(alan(ep, "episode") != bolum_no for ep in bolumler)):
+                return bolum_no - 1
             return None
     if 0 <= sira < len(bolumler):
         return sira
