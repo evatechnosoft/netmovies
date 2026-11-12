@@ -1,3 +1,12 @@
+# Handoff: Yeraltı açılmıyor — DDizi çöktü, yedek eşleşme yarım (12 Kas akşam)
+> 2026-11-12 21:17 (+03) · dal `fix/devam-et-tazeleme` @ 64b3e05 (push'lu, 0 dirty) · taslak PR #28 → `fix/general-stability`, birleşmedi · oturum seat 1'e taşındı (netmovies-s1)
+> **Sorun (Dean):** "Yeraltı izliyorduk, şimdi açmıyor." Devam Et kaydı: DDizi · S1B22 · 4254/7715 sn · `ddizi.tel/diziler/2158/yeralti-5-son-bolum-izle`.
+> **Kök neden 1 (dış):** `www.ddizi.tel` Cloudflare 522 / ReadTimeout — motordan doğrudan da, WARP (Cloudflare vekili) üzerinden de, laptoptan da. `ddizi.im`, `ddizi.plus` ConnectError. Bizim düzeltebileceğimiz bir şey değil.
+> **Kök neden 2 (bizim, 64b3e05):** yedek kaynaklar (DiziAbi, DDiziMom) aynı bölümü S2B6 diye veriyor (22 bölüm: S1 1-16 + S2 1-6), DDizi sezonsuz S1B22 diyor → "istenen bölüm listede yok". `bolum_sirasi` artık numara hiçbir sezonda yoksa ve liste S1B1'den başlıyorsa baştan sayıyor. `engine/tests/test_bolum_esle.py` 11/12 geçti; 12.si laptopta `KekikStream` modülü olmadığı için import hatası (benim değişikliğimle ilgisiz), konteynerde koşulmadı.
+> **Canlı:** ZimaOS'ta engine 64b3e05 ile derlendi ve yeniden oluşturuldu (`.Created` 2026-11-12T18:15:30Z, healthy, konteynerde yeni kod var). **ZimaOS checkout'u hâlâ `fix/devam-et-tazeleme`'de** (geri alınmadı). `/tmp/dc` dean'e kapalı çıktı; compose `DOCKER_CONFIG=/tmp/dc-dean` ile çalıştı.
+> **HÂLÂ AÇILMIYOR (21:16 günlüğü):** yeni motorda bütün sağlayıcılar aramada "sonuç yok (1 varyant denendi)" döndü, bölüm eşleşmesine hiç gelinmedi. 21:09'da aynı arama ('yeralti') DiziAbi/DDiziMom/JetFilmizle'de eşleşmişti. Günlükte sorgu `'yeralt�'` görünüyor: ya başlık bozuk kodlamayla geliyor ya da motor açılışının ilk saniyeleriydi. Neden doğrulanamadı.
+> **Tek sonraki adım:** `ssh zima "docker logs --since 10m netmovies-engine 2>&1 | grep 'resolve: arama'"` ile aramanın hâlâ boş dönüp dönmediğine bak; boşsa sorgu metnini (ı harfi) izle, doluysa Yeraltı S1B22'nin DiziAbi S2B6'ya düştüğünü uçtan uca doğrula.
+
 # Handoff: Devam Et / Son izlenenler tazeleme, client-tv 0.9.92 (12 Kas)
 > 2026-11-12 · dal `fix/devam-et-tazeleme` @ 8576d15 (push'lu) · taslak PR #28 → `fix/general-stability`, MERGEABLE, birleşmedi · worktree `.claude/worktrees/devam-et-tazeleme`, 0 dirty
 > **Sorun (Dean):** telefonda "son izlenenler / nerede kaldığım" bazen görünmüyor. Sunucu sağlam: TV konumu 15 sn'de bir yazıyor, telefon (SM-S928B) ve Mi Box aynı `dean` profilinde.
