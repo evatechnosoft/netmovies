@@ -1,5 +1,5 @@
 # Handoff: Yeraltı açıldı — DDizi çöktü, yedek eşleşme düzeltildi (12 Kas gece)
-> 2026-11-12 ~22:20 (+03) · dal `fix/devam-et-tazeleme` @ d2e8e1d öncesi kod 64b3e05 (push'lu, 0 dirty) · taslak PR #28 → `fix/general-stability`, OPEN/MERGEABLE, birleşmedi · oturum seat 4'e taşındı (önceki seat kopyası açık olabilir)
+> 2026-11-12 ~22:20 (+03) · dal `fix/devam-et-tazeleme` @ d2e8e1d öncesi kod 64b3e05 (push'lu, 0 dirty) · taslak PR #28 → `fix/general-stability`, OPEN/MERGEABLE, birleşmedi · oturum seat 3'e taşındı (22:49; seat 4 kopyası açık olabilir, aynı dala yazıyor — commit öncesi `git pull`)
 > **Sorun (Dean):** "Yeraltı izliyorduk, şimdi açmıyor." Devam Et kaydı: DDizi · S1B22 · 4254/7715 sn · `ddizi.tel/diziler/2158/yeralti-5-son-bolum-izle`.
 > **Kök neden 1 (dış):** `www.ddizi.tel` Cloudflare 522 / ReadTimeout — motordan doğrudan da, WARP (Cloudflare vekili) üzerinden de, laptoptan da. `ddizi.im`, `ddizi.plus` ConnectError. Bizim düzeltebileceğimiz bir şey değil.
 > **Kök neden 2 (bizim, 64b3e05):** yedek kaynaklar (DiziAbi, DDiziMom) aynı bölümü S2B6 diye veriyor (22 bölüm: S1 1-16 + S2 1-6), DDizi sezonsuz S1B22 diyor → "istenen bölüm listede yok". `bolum_sirasi` artık numara hiçbir sezonda yoksa ve liste S1B1'den başlıyorsa baştan sayıyor. `engine/tests/test_bolum_esle.py` 11/12 geçti; 12.si laptopta `KekikStream` modülü olmadığı için import hatası (benim değişikliğimle ilgisiz), konteynerde koşulmadı.
@@ -8,6 +8,7 @@
 > **Açık:** (1) açılış 26 sn: çözüm önce çökmüş DDizi'yi iki kez bekliyor (sağlıksız işaretli SEÇİLİ kaynak atlanmıyor) — Dean'e önerildi, onay yok. (2) ı'lı başlık araması. (3) PR #28 birleşmeden stream yeniden derlenirse `/rc` düzeltmesi (docker cp ile canlıda) geri gider. (4) daf6ef6 (pilavyer ses dili) bu dalda başka oturumdan; ZimaOS motorunda olup olmadığı doğrulanmadı.
 > **Tek sonraki adım:** TV boşta olunca (`remote/state` 0) Dean onaylarsa seçili sağlıksız kaynağı atlayan düzeltme; yoksa PR #28 birleştirme kararı Dean'de. 22:20'de TV oynuyordu (2 dk'da 24 `remote/state`) — sunucuya dokunma.
 > **22:37 ek kanıt:** Yeraltı S1B22 sonuna kadar izlendi (`/watched`: 7930/7930 sn, 22:23). TV şimdi Dexter S2B12 oynatıyor (DiziAbi, 4 kaynak hazır). Engine 1 saattir healthy.
+> **22:49 kanıt (seat 3):** kod 64b3e05 = ZimaOS checkout; engine/stream/warp healthy; TV oynuyor (2 dk'da 24 `remote/state`) — sunucuya dokunma; `/rc` düzeltmesi konteynerde duruyor (`sonImza` 3); `ddizi.tel` laptoptan hâlâ zaman aşımı; PR #28 OPEN/taslak/MERGEABLE.
 
 # Handoff: Devam Et / Son izlenenler tazeleme, client-tv 0.9.92 (12 Kas)
 > 2026-11-12 · dal `fix/devam-et-tazeleme` @ 8576d15 (push'lu) · taslak PR #28 → `fix/general-stability`, MERGEABLE, birleşmedi · worktree `.claude/worktrees/devam-et-tazeleme`, 0 dirty
