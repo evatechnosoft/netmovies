@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -47,12 +48,15 @@ class Library(context: Context) {
         kayitTakip.addAll(read(KEY_KAYIT_TAKIP))
         izlenen.addAll(read(KEY_IZLENEN))
         kayitlar.addAll(read(KEY_KAYIT))
-        sync()
+        // İlk sync burada değil: MainActivity öne geldikçe ve dakikada bir çağırır.
     }
+
+    // Üst üste binen iki tazeleme aynı listeyi iki kez doldurmasın.
+    private val syncKilidi = kotlinx.coroutines.sync.Mutex()
 
     /** Sunucudan tazeler. Ağ yoksa önbellek olduğu gibi kalır. */
     fun sync() {
-        scope.launch {
+        scope.launch { syncKilidi.withLock {
             pushLocalFavoritesOnce()
 
             runCatching { Network.api.favorites().result }
@@ -79,7 +83,7 @@ class Library(context: Context) {
                         if (ratio > 0f) progress[encodedUrl(row.contentUrl)] = ratio
                     }
                 }
-        }
+        } }
     }
 
     /**
