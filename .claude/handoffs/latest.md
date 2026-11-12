@@ -7,6 +7,7 @@
 > **ÇÖZÜLDÜ (21:17-21:19):** kayıttaki istekle (`plugin=DDizi`, `episode=21`, `episode_no=22`, `season_no=1`, başlık "Yeraltı") `resolve_sources` HTTP 200, 26,5 sn, 1 kaynak: DiziAbi (motor günlüğü: "DiziAbi · seçilen bölüm 22/22 · bölüm no 22", "1 kaynak hazır"). Dean: "Başladı". 21:16'daki "sonuç yok" başlık "Yeraltı" (ı) ile aramada oluyor; ağ geçidinin "Yeralti" tekrarı buluyor. ı'lı aramanın neden boş döndüğü doğrulanamadı.
 > **Açık:** (1) açılış 26 sn: çözüm önce çökmüş DDizi'yi iki kez bekliyor (sağlıksız işaretli SEÇİLİ kaynak atlanmıyor) — Dean'e önerildi, onay yok. (2) ı'lı başlık araması. (3) PR #28 birleşmeden stream yeniden derlenirse `/rc` düzeltmesi (docker cp ile canlıda) geri gider. (4) daf6ef6 (pilavyer ses dili) bu dalda başka oturumdan; ZimaOS motorunda olup olmadığı doğrulanmadı.
 > **Tek sonraki adım:** TV boşta olunca (`remote/state` 0) Dean onaylarsa seçili sağlıksız kaynağı atlayan düzeltme; yoksa PR #28 birleştirme kararı Dean'de. 22:20'de TV oynuyordu (2 dk'da 24 `remote/state`) — sunucuya dokunma.
+> **22:37 ek kanıt:** Yeraltı S1B22 sonuna kadar izlendi (`/watched`: 7930/7930 sn, 22:23). TV şimdi Dexter S2B12 oynatıyor (DiziAbi, 4 kaynak hazır). Engine 1 saattir healthy.
 
 # Handoff: Devam Et / Son izlenenler tazeleme, client-tv 0.9.92 (12 Kas)
 > 2026-11-12 · dal `fix/devam-et-tazeleme` @ 8576d15 (push'lu) · taslak PR #28 → `fix/general-stability`, MERGEABLE, birleşmedi · worktree `.claude/worktrees/devam-et-tazeleme`, 0 dirty
