@@ -1,3 +1,14 @@
+# Handoff: Devam Et / Son izlenenler tazeleme, client-tv 0.9.92 (12 Kas)
+> 2026-11-12 · dal `fix/devam-et-tazeleme` @ 8576d15 (push'lu) · taslak PR #28 → `fix/general-stability`, MERGEABLE, birleşmedi · worktree `.claude/worktrees/devam-et-tazeleme`, 0 dirty
+> **Sorun (Dean):** telefonda "son izlenenler / nerede kaldığım" bazen görünmüyor. Sunucu sağlam: TV konumu 15 sn'de bir yazıyor, telefon (SM-S928B) ve Mi Box aynı `dean` profilinde.
+> **Kök neden 1 (uygulama, 0af76a6):** `Library.sync()` yalnız açılışta ve oynatıcıdan çıkarken çağrılıyordu. Şimdi `MainActivity` `repeatOnLifecycle(RESUMED)` ile öne gelince + 60 sn'de bir; `sync` Mutex'li.
+> **Kök neden 2 (kumanda sayfası `/rc`, 8576d15):** `rc.html.j2` `sonIzlenenler()` yalnız sayfa yüklenirken koşuyordu. Şimdi 60 sn'de bir + `visibilitychange`; liste değişmediyse yeniden çizilmez.
+> **Kanıt:** `./gradlew testDebugUnitTest assembleDebug` yeşil. Emülatör (Pixel_API36) + sunucu günlüğü: önde 06:20:53 / 06:21:52 / 06:22:52 UTC istek, arka planda 140 sn istek yok, öne dönünce 3 sn içinde istek.
+> **Yayın 0.9.92:** `apk_publish.sh tv` ZimaOS'ta, imza `7328a32d`. `app_update` → `v0.9.92-poc` / `NetMovies-TV-v0.9.92.apk`; release `v0.9.92-poc`; evaglass-releases `netmovies-tv-v0.9.92`. Laptopta derlenen APK farklı imzalı (20319a76), yayınlanmaz.
+> **Canlı:** `rc.html.j2` konteynere `docker cp` ile kondu (rebuild yok, konteyner başlangıcı 2026-11-12T05:21Z). ZimaOS checkout'u `fix/general-stability`; PR #28 birleşmeden stream rebuild edilirse kumanda düzeltmesi geri gider.
+> **Doğrulanamadı:** gerçek telefonda kumanda ekranı · Mi Box/telefonun 0.9.92'yi kurduğu · `evaitec-ota/apps.json` satırı (yalnız betiğin "yayinlandi" çıktısı).
+> **Tek sonraki adım:** PR #28'i birleştir (Dean kararı), sonra `ssh zima "cd /DATA/AppData/netmovies && git pull"`.
+
 # Handoff: denetim + dal/worktree temizliği (11 Kas)
 > 2026-11-11 · kod değişikliği yok · `fix/general-stability` @ ea272f5 = ZimaOS (dal değiştirildi, rebuild yok: e62e8e3 sonrası yalnız doküman) · ana checkout `fix/general-stability`
 > **Kanıtlı (11 Kas):** `smoke.sh` YEŞİL (16 eklenti, movie 399, serie 410, live 10). `BASE=http://192.168.0.186:3310 python scripts/chain_scan.py --n 2` → "TÜM KAYNAKLAR OYNUYOR". `BASE` verilmezse localhost'a gider, laptopta reddedilir.
