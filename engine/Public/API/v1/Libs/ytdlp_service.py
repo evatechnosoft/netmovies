@@ -197,6 +197,7 @@ async def ytdlp_search(query: str, limit: int = 20, tur: str = "video"):
                     "poster"  : ((e.get("thumbnails") or [{}])[-1]).get("url") or "",
                     "duration": 0,
                     "channel" : e.get("channel") or e.get("uploader") or "",
+                    "channel_id": e.get("channel_id") or "",
                 })
                 continue
             if (e.get("duration") or 0) and e["duration"] < _MIN_VIDEO_SN:
@@ -208,6 +209,7 @@ async def ytdlp_search(query: str, limit: int = 20, tur: str = "video"):
                 "poster"   : f"https://i.ytimg.com/vi/{kimlik}/hqdefault.jpg",
                 "duration" : e.get("duration") or 0,
                 "channel"  : e.get("channel") or e.get("uploader") or "",
+                "channel_id": e.get("channel_id") or "",   # ad değişir, kimlik değişmez (izin listesi)
             })
         return sonuclar
     except asyncio.TimeoutError:
