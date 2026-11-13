@@ -13,7 +13,7 @@ import re
 from urllib.parse import quote
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo, Subtitle
-from Plugins.__dizi_common import fetch_html, normalize_url
+from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
 from Plugins.__kekik_domain import discover_main_url
 
 _MAIN_URL = discover_main_url("DDiziMom/none.kt", "https://ddizimom.net", "DDIZIMOM_URL", signature="ddizimom")
@@ -136,7 +136,7 @@ class DDiziMom(PluginBase):
         # Türkçe altyazı önde: oynatıcı ilkini varsayılan alıyor.
         subs = sorted(veri.get("subs") or [], key=lambda s: s.get("lang") != "tr")
         return [ExtractResult(
-            name      = f"{self.name} | Dublaj + Orijinal",
+            name      = pilavyer_kaynak_adi(self.name, veri.get("audios")),
             url       = veri["stream"],
             referer   = f"{_PLAYER}/",
             subtitles = [Subtitle(name=s.get("label") or s.get("lang") or "Altyazı", url=s["src"]) for s in subs if s.get("src")],

@@ -30,6 +30,15 @@ class BolumEsleTest(unittest.TestCase):
         self.assertIsNone(bolum_sirasi(liste, 1, bolum_no=9))
         self.assertIsNone(bolum_sirasi(liste, 0, bolum_no=1, sezon_no=2))
 
+    def test_sezonsuz_numara_sezonlu_listede_bastan_sayilir(self):
+        # DDizi "S1B5" = baştan 5. bölüm; sezonlu listede S2B2.
+        liste = [ep(1, 1), ep(1, 2), ep(1, 3), ep(2, 1), ep(2, 2), ep(2, 3)]
+        self.assertEqual(bolum_sirasi(liste, 0, bolum_no=5, sezon_no=1), 4)
+        self.assertIsNone(bolum_sirasi(liste, 0, bolum_no=7, sezon_no=1))   # listeden uzun
+        self.assertIsNone(bolum_sirasi(liste, 0, bolum_no=5, sezon_no=2))   # sezon açıkça istendi
+        # Liste baştan başlamıyorsa sayım güvenilmez.
+        self.assertIsNone(bolum_sirasi(liste[1:], 0, bolum_no=5, sezon_no=1))
+
     def test_numarasiz_listede_siraya_duser(self):
         liste = [ep(1, None), ep(1, None)]
         self.assertEqual(bolum_sirasi(liste, 1, bolum_no=9), 1)
