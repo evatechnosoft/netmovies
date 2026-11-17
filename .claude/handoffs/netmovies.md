@@ -1,3 +1,18 @@
+# Handoff: netmovies — 17 Kas 2026 (fotoğraf arşivi yan işi)
+
+> 17 Kas gece · NetMovies kodunda değişiklik yok; aşağıdaki 16 Kas bloğu hâlâ geçerli.
+
+## 17 Kas yan iş: Nextcloud fotoğraf arşivi (ZimaOS)
+- Telefon fotoğraflarının tek yeri `dean/files/Resimler/E-Arsiv` (3.840 resim: Belge 228, Ekran-Goruntusu 1.186, Manzara 37, Yuz 628, Diger 1.761). InstantUpload'daki 708 resim CLIP ile türlere ayrılıp buraya taşındı; `InstantUpload` boş.
+- Geri alma günlükleri: `/DATA/sata/stage_e/Resimler/undo_instant.csv`, `undo_merge.csv`.
+- Hatalı çift kopya (6,3 GB) Nextcloud dışına park edildi: `/DATA/sata/trash-photos-20261117` — silinmedi, Dean onayı bekliyor.
+- Recognize'da `imagenet.enabled` ve `landmarks.enabled` açıldı, `recognize:recrawl` kuyruğa alındı; etiketlerin oluştuğu DOĞRULANMADI.
+- Robot Eva görselleri: `C:\projects\evaitec\opsguardai\opsguard\assets\{eva,eva2,1,2,kl,li}.png` → Nextcloud `Resimler/Evaitec`.
+- Laptop: Nextcloud istemci ayarı yedekleri `%APPDATA%\Nextcloud\nextcloud.cfg.bak-20261117{,b}`; ölü klasör `C:\Users\Dean\PhoneBackup` duruyor (silme onayı yok).
+- Yarım: Dean "elektronik ayrışan vardı" dedi → `Diger` içinden elektronik fotoğraflarını ayırma. Alt tür sınıflandırması `~/.ai/work/photo-sort/sub.csv` dosyasına yazılıyor (betik `jobs/52cc3f87/tmp/find_electronics.py`, girdi `E:/Resimler/Diger` + `~/.ai/work/photo-sort/InstantUpload`). Sonraki adım: `sub.csv`'de "electronics" satırlarını `E-Arsiv/Diger` altından yeni bir klasöre taşı, günlük yaz, `occ files:scan`.
+- Betikler: `~/.ai/scripts/photo-sort/{classify_dir.py,apply_instant.sh}`, `~/.ai/work/photo-sort/merge.sh`.
+- Dean onayı bekleyen: park edilmiş kopyanın ve laptoptaki `PhoneBackup`, `~/.ai/work/su-faturasi` (278 MB, kimlik resimleri), `~/.ai/work/photo-sort/InstantUpload` (2 GB) klasörlerinin silinmesi; yeni fotoğraflar için gecelik otomatik ayıklama.
+
 # Handoff: netmovies — 16 Kas 2026 gece kapanışı
 
 > 2026-11-16 23:32 (+03) · worktree `C:\projects\netmovies\.claude\worktrees\devam-et-tazeleme` · dal `fix/devam-et-tazeleme` (push'lu, 0 dirty) · yarım kalan adım yok.
