@@ -105,6 +105,14 @@ class DDiziMomYardimcilar(unittest.TestCase):
         self.assertFalse(alakali("teşkilat", "Düzenbaz Pete"))
         self.assertTrue(alakali("breaking", "Breaking Bad"))
 
+    def test_kaynak_adi_gercek_ses_dilinden(self):
+        from Plugins.__dizi_common import pilavyer_kaynak_adi as ad
+        # Dexter S2B10 (12.11.2026): tek ses, İngilizce; dublaj sayılmamalı.
+        self.assertEqual(ad("DDiziMom", [{"name": "a0", "lang": "en", "label": "İngilizce Dublaj"}]), "DDiziMom | Orijinal Dil")
+        self.assertEqual(ad("DDiziMom", [{"lang": "tr"}]), "DDiziMom | Türkçe Dublaj")
+        self.assertEqual(ad("DDiziMom", [{"lang": "tr"}, {"lang": "en"}]), "DDiziMom | Türkçe Dublaj + Orijinal")
+        self.assertEqual(ad("DDiziMom", None), "DDiziMom")
+
     def test_dizi_adresi(self):
         self.assertEqual(dizi_adresi(f"{_BASE}/dizi/a/sezon-2/bolum-5?x=1"), f"{_BASE}/dizi/a")
         self.assertEqual(dizi_adresi(f"{_BASE}/film/davet"), f"{_BASE}/film/davet")

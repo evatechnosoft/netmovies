@@ -25,6 +25,7 @@ import com.evaitec.netmovies.tv.ui.theme.NmColor
 import com.evaitec.netmovies.tv.data.Library
 import com.evaitec.netmovies.tv.data.MediaItem
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.BrowseScreen
@@ -456,6 +457,17 @@ class MainActivity : ComponentActivity() {
                         // başka bir TV'de aynı düzen gelsin (Dean: "her yüklemede sıfırlanıyor").
                         androidx.compose.runtime.LaunchedEffect(Unit) { bindings.sunucudanYukle() }
                         val library = remember(this@MainActivity) { Library(this@MainActivity) }
+                        // TV 15 sn'de bir konum yazıyor ama telefon listeyi yalnız açılışta
+                        // çekiyordu: arka plandan dönünce Devam Et bayat kalıyordu. Öne
+                        // gelince ve öndeyken dakikada bir tazele; arka planda durur.
+                        androidx.compose.runtime.LaunchedEffect(library) {
+                            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+                                while (true) {
+                                    library.sync()
+                                    kotlinx.coroutines.delay(60_000)
+                                }
+                            }
+                        }
                         // Profil sunucuda atanır (admin, ör. projektör → Eva); atanmamış cihaz kendi
                         // geçmişini tutar. Atama değişince yerel liste önbelleği o profile geçer.
                         androidx.compose.runtime.LaunchedEffect(Unit) {

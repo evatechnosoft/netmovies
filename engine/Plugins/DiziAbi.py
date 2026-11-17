@@ -21,12 +21,12 @@ from KekikStream.Core import (
 )
 
 try:
-    from Plugins.__dizi_common import fetch_html, normalize_url
+    from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
     from Plugins.__kekik_domain import discover_main_url
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
-    from __dizi_common import fetch_html, normalize_url
+    from __dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
     from __kekik_domain import discover_main_url
 
 # Upstream .kt yok; adres taşınırsa DIZIABI_URL ile sabitlenir.
@@ -121,7 +121,7 @@ class DiziAbi(PluginBase):
         # Türkçe altyazı önde: oynatıcı ilkini varsayılan alıyor.
         subs = sorted(veri.get("subs") or [], key=lambda s: s.get("lang") != "tr")
         return [ExtractResult(
-            name      = f"{self.name} | Dublaj + Orijinal",
+            name      = pilavyer_kaynak_adi(self.name, veri.get("audios")),
             url       = veri["stream"],
             referer   = f"{_PLAYER}/",
             subtitles = [Subtitle(name=s.get("label") or s.get("lang") or "Altyazı", url=s["src"]) for s in subs if s.get("src")],
