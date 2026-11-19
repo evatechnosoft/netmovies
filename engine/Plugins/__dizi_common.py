@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import html
+import json
 import os
 import re
 from urllib.parse import urljoin, urlsplit
@@ -113,6 +114,33 @@ def normalize_url(url: str, base_url: str) -> str:
     if url.startswith("/"):
         return base_url.rstrip("/") + url
     return re.sub(r"^https?://[^/]+", base_url.rstrip("/"), url)
+
+
+# Oynatıcı konağı sayfada yazılı: `<script src="https://<konak>/assets/js/core.js">`.
+# DiziAbi'de sabit `play2.` alt alanı kaldırılınca s.php 404 verdi ve Türkçe dublajlı
+# tek kaynak sessizce düştü (Dexter, 19 Kas). Sayfada yoksa PILAVYER_URL / varsayılan.
+_PILAVYER_VARSAYILAN = os.getenv("PILAVYER_URL", "https://pilavyerplay.top").rstrip("/")
+_PILAVYER_KONAK      = re.compile(r'src="(https?://[^/"]+)/assets/js/core\.js')
+_PILAVYER_PV         = re.compile(r'data-pv="([^"]+)"')
+_PILAVYER_JSON       = re.compile(r"window\.__PLAYER__\s*=\s*(\{.*?\});", re.S)
+
+
+async def pilavyer_oynatici(client: httpx.AsyncClient, sayfa: str, site: str) -> tuple[dict, str] | None:
+    """Bölüm sayfasından pilavyer oynatıcı verisi: (`__PLAYER__`, oynatıcı kökü) ya da None.
+
+    `site` Referer'dır; onsuz embed 403 verir.
+    """
+    pv = _PILAVYER_PV.search(sayfa)
+    if not pv:
+        return None
+    konak = _PILAVYER_KONAK.search(sayfa)
+    kok   = konak.group(1) if konak else _PILAVYER_VARSAYILAN
+    embed = await fetch_html(client, f"{kok}/assets/js/s.php?s={pv.group(1)}", headers={"Referer": f"{site.rstrip('/')}/"})
+    m = _PILAVYER_JSON.search(embed)
+    if not m:
+        return None
+    veri = json.loads(m.group(1))
+    return (veri, kok) if veri.get("stream") else None
 
 
 def pilavyer_kaynak_adi(eklenti: str, audios: list | None) -> str:

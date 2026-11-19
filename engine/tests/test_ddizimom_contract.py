@@ -94,6 +94,22 @@ class DDiziMomContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r[0].url, "https://pilavyerplay.top/api/stream.php?v=1&token=t")
         self.assertEqual([s.name for s in r[0].subtitles], ["Türkçe Altyazı", "İngilizce Altyazı"])
 
+    async def test_oynatici_konagi_sayfadan_okunur(self):
+        # Konak sabit yazılınca taşınmada s.php 404 verip Türkçe dublajlı kaynak düşüyordu (Dexter, 19 Kas).
+        seen = []
+        sayfa = _EP + '<script src="https://yeni.oynatici.example/assets/js/core.js" async></script>'
+        p = _plugin([("s.php?s=yEILM0ysEtqZE5fmdNHeeg", _PLAYER), ("/bolum-1", sayfa)])
+        orijinal = p.httpx.get
+
+        async def get(url, **kw):
+            seen.append(url)
+            return await orijinal(url, **kw)
+
+        p.httpx.get = get
+        r = await p.load_links(f"{_BASE}/dizi/breaking-bad/sezon-1/bolum-1")
+        self.assertIn("https://yeni.oynatici.example/assets/js/s.php?s=yEILM0ysEtqZE5fmdNHeeg", seen)
+        self.assertEqual(r[0].referer, "https://yeni.oynatici.example/")
+
     async def test_video_yoksa_bos(self):
         html = '<div data-player data-player-type="none"></div><template data-tbx-defer><div data-pv="abc"></div></template>'
         self.assertEqual(await _plugin([("/bolum-1", html)]).load_links(f"{_BASE}/dizi/x/sezon-1/bolum-1"), [])

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 
 from KekikStream.Core import (
@@ -21,17 +20,16 @@ from KekikStream.Core import (
 )
 
 try:
-    from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
+    from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi, pilavyer_oynatici
     from Plugins.__kekik_domain import discover_main_url
 except Exception:
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
-    from __dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
+    from __dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi, pilavyer_oynatici
     from __kekik_domain import discover_main_url
 
 # Upstream .kt yok; adres taşınırsa DIZIABI_URL ile sabitlenir.
 _MAIN_URL = discover_main_url("DiziAbi/none.kt", "https://www.diziabi.net", "DIZIABI_URL", signature="DiziAbi")
-_PLAYER   = "https://play2.pilavyerplay.top"
 
 
 class DiziAbi(PluginBase):
@@ -105,24 +103,15 @@ class DiziAbi(PluginBase):
 
     async def load_links(self, url: str) -> list[ExtractResult]:
         text = await fetch_html(self.httpx, normalize_url(url, self.main_url))
-        slug = re.search(r'data-pv="([^"]+)"', text)
-        if not slug:
+        sonuc = await pilavyer_oynatici(self.httpx, text, self.main_url)
+        if not sonuc:
             return []
-        oynatici = await fetch_html(
-            self.httpx, f"{_PLAYER}/assets/js/s.php?s={slug.group(1)}",
-            headers={"Referer": f"{self.main_url}/"},
-        )
-        m = re.search(r"window\.__PLAYER__\s*=\s*(\{.*?\});", oynatici, re.S)
-        if not m:
-            return []
-        veri = json.loads(m.group(1))
-        if not veri.get("stream"):
-            return []
+        veri, oynatici = sonuc
         # Türkçe altyazı önde: oynatıcı ilkini varsayılan alıyor.
         subs = sorted(veri.get("subs") or [], key=lambda s: s.get("lang") != "tr")
         return [ExtractResult(
             name      = pilavyer_kaynak_adi(self.name, veri.get("audios")),
             url       = veri["stream"],
-            referer   = f"{_PLAYER}/",
+            referer   = f"{oynatici}/",
             subtitles = [Subtitle(name=s.get("label") or s.get("lang") or "Altyazı", url=s["src"]) for s in subs if s.get("src")],
         )]
