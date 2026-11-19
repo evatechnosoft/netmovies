@@ -26,6 +26,12 @@ class RemoteCommandTest(unittest.TestCase):
         cmd = remote.build_command({"plugin": "DiziPal", "url": "https://x/y"})
         self.assertEqual("play", cmd["type"])
 
+    def test_play_force_is_off_unless_exactly_true(self) -> None:
+        temel = {"plugin": "DiziAbi", "url": "https://x/y"}
+        self.assertFalse(remote.build_command(temel)["force"])
+        self.assertFalse(remote.build_command({**temel, "force": "true"})["force"])
+        self.assertTrue(remote.build_command({**temel, "force": True})["force"])
+
     def test_unknown_key_is_rejected(self) -> None:
         self.assertIsInstance(remote.build_command({"type": "key", "key": "POWER_OFF"}), str)
         self.assertEqual("UP", remote.build_command({"type": "key", "key": "up"})["key"])
