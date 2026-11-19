@@ -7,23 +7,19 @@
 
 from __future__ import annotations
 
-import json
 import re
 
 from urllib.parse import quote
 
 from KekikStream.Core import Episode, ExtractResult, HTMLHelper, MainPageResult, MovieInfo, PluginBase, SearchResult, SeriesInfo, Subtitle
-from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi
+from Plugins.__dizi_common import fetch_html, normalize_url, pilavyer_kaynak_adi, pilavyer_oynatici
 from Plugins.__kekik_domain import discover_main_url
 
 _MAIN_URL = discover_main_url("DDiziMom/none.kt", "https://ddizimom.net", "DDIZIMOM_URL", signature="ddizimom")
-_PLAYER   = "https://pilavyerplay.top"
 
 # Numara adresten: sıra değil (bölüm listesi farklı yerden başlayabilir).
 _BOLUM  = re.compile(r"/sezon-(\d+)/bolum-(\d+)")
 _SEZON  = re.compile(r"\?sezon=(\d+)#bolumler")
-_PV     = re.compile(r'data-pv="([^"]+)"')
-_PLAYER_JSON = re.compile(r"window\.__PLAYER__\s*=\s*(\{.*?\});", re.S)
 # `data-player-type="none"` → sayfada video yok.
 _PV_NONE = re.compile(r'data-player-type="none"')
 _TR = str.maketrans("çğıöşüÇĞİÖŞÜâîû", "cgiosucgiosuaiu")
@@ -122,22 +118,17 @@ class DDiziMom(PluginBase):
 
     async def load_links(self, url: str) -> list[ExtractResult]:
         text = await fetch_html(self.httpx, normalize_url(url, self.main_url))
-        pv   = _PV.search(text)
-        if not pv or _PV_NONE.search(text):
+        if _PV_NONE.search(text):
             return []
-        # Referer olmadan embed 403 verir.
-        embed = await fetch_html(self.httpx, f"{_PLAYER}/assets/js/s.php?s={pv.group(1)}", headers={"Referer": f"{self.main_url}/"})
-        m = _PLAYER_JSON.search(embed)
-        if not m:
+        sonuc = await pilavyer_oynatici(self.httpx, text, self.main_url)
+        if not sonuc:
             return []
-        veri = json.loads(m.group(1))
-        if not veri.get("stream"):
-            return []
+        veri, oynatici = sonuc
         # Türkçe altyazı önde: oynatıcı ilkini varsayılan alıyor.
         subs = sorted(veri.get("subs") or [], key=lambda s: s.get("lang") != "tr")
         return [ExtractResult(
             name      = pilavyer_kaynak_adi(self.name, veri.get("audios")),
             url       = veri["stream"],
-            referer   = f"{_PLAYER}/",
+            referer   = f"{oynatici}/",
             subtitles = [Subtitle(name=s.get("label") or s.get("lang") or "Altyazı", url=s["src"]) for s in subs if s.get("src")],
         )]

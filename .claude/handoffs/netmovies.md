@@ -1,3 +1,13 @@
+# Handoff: netmovies — 19 Kas 2026 (Dexter Türkçe dublaj)
+
+> 19 Kas 19:40 (+03) · dal `fix/pilavyer-player-host` (abc73be, push'lu; `fix/devam-et-tazeleme` üstüne) · ZimaOS checkout'u ve engine imajı bu dalda.
+
+- **Hata:** Dexter'da Türkçe dublaj yok. Kök neden: DiziAbi sabit `play2.pilavyerplay.top` kullanıyordu, alt alan kalkınca `s.php` 404 → dublajlı kaynak sessizce düşüyor, yalnız DiziBox (altyazılı) kalıyordu.
+- **Düzeltme:** `engine/Plugins/__dizi_common.py::pilavyer_oynatici` konağı bölüm sayfasındaki `core.js` adresinden okur; DiziAbi + DDiziMom bunu kullanır (yoksa `PILAVYER_URL` / varsayılan). Test: `test_oynatici_konagi_sayfadan_okunur` (konteynerde 11/11 OK).
+- **Canlı kanıt (19:39):** `resolve_sources` Dexter S4B12 → 3 kaynak: "DiziAbi | Türkçe Dublaj", "DDiziMom | Türkçe Dublaj", "DiziBox | MolyStream". Engine 19:38'de yeniden oluşturuldu (healthy), TV o sırada oynuyordu.
+- **Doğrulanmadı:** TV'de kulakla Türkçe ses (akış tek ses parçalı, dil oynatıcının `audios` alanından); Dean'in açık oynatmasının kaynağı kendiliğinden değişmez, bölümü yeniden açmak gerekir.
+- **Bekleyen:** bu dal için PR açılmadı/birleşmedi; aşağıdaki 16 Kas kararları aynen duruyor.
+
 # Handoff: netmovies — 17 Kas 2026 (fotoğraf arşivi yan işi)
 
 > 17 Kas gece · NetMovies kodunda değişiklik yok; aşağıdaki 16 Kas bloğu hâlâ geçerli.
