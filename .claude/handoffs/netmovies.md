@@ -1,6 +1,7 @@
 # Handoff: netmovies — 19 Kas 2026 20:05 kapanış
 
-> worktree `C:\projects\netmovies\.claude\worktrees\devam-et-tazeleme` · dal `feature/remote-play-force` (f5a3f80 push'lu; bu devir commit'i push EDİLMEDİ) · yarım adım yok.
+> worktree `C:\projects\netmovies\.claude\worktrees\devam-et-tazeleme` · dal `feature/remote-play-force` (push'lu, 0 dirty) · yarım adım yok.
+> **21 Kas 00:17 kapanış kanıtı:** 19 Kas'tan beri kod değişikliği yok; bekleyen devir commit'i 2b635ba push edildi. ZimaOS kapalı/erişilemez (`ssh zima` zaman aşımı) — canlı durum bu turda DOĞRULANMADI, aşağıdaki canlı satırları 19 Kas'a ait. Açık taslak PR'lar: #28 `fix/devam-et-tazeleme`, #29 `feature/ytdlp-channel-id`, #30 `fix/pilavyer-player-host`. `feature/remote-play-force` için PR yok.
 
 ## Hedef
 (1) Dexter'da Türkçe dublaj yok hatası — sistemde düzeltildi, canlıda. (2) Uzaktan "oynat"a sormadan geç + "ara ve aç" betiği — hazırlandı, yayınlanmadı (Dean: "hazırla, işlem yapma, izliyorum").
