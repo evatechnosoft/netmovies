@@ -629,6 +629,9 @@
   setInterval(() => { if (!document.hidden) sonIzlenenler(); }, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sonIzlenenler(); });
 
+  // Sunucu, hiçbir sağlayıcısı kaynak vermeyen yeni filmi `lang` içinde işaretler.
+  const VIZYON = { SINEMA: 'Sinemada', YAKINDA: 'Yakında' };
+
   function kartlariBas(kap, ogeler) {
     kap.innerHTML = '';
     ogeler.forEach((o) => {
@@ -636,7 +639,8 @@
       kart.className = 'kart';
       kart.innerHTML = '<img loading="lazy" alt=""><span></span>';
       kart.querySelector('img').src = poster(o.poster, o.title);
-      kart.querySelector('span').textContent = o.title || o.url;
+      const vizyon = (Array.isArray(o.lang) ? o.lang : []).map((r) => VIZYON[r]).find(Boolean);
+      kart.querySelector('span').textContent = (vizyon ? vizyon + ' · ' : '') + (o.title || o.url);
       onayaBagla(kart, o);
       kap.appendChild(kart);
     });

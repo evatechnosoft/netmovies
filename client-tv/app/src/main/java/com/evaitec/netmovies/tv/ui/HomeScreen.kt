@@ -834,6 +834,7 @@ private fun PosterCard(
                 "DUB"       -> "D"
                 // Sunucu, hiçbir sağlayıcısı kaynak vermeyen yeni filmi böyle işaretler.
                 "SINEMA"    -> "Sinemada"
+                "YAKINDA"   -> "Yakında"
                 Library.REC -> it
                 else        -> null
             }

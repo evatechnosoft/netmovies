@@ -2,7 +2,7 @@
 
 import unittest
 
-from Public.API.v1.Routers.search_all import SINEMADA, _sinemada_isaretle, _yeni_film
+from Public.API.v1.Routers.search_all import SINEMADA, YAKINDA, _sinemada_isaretle, _yeni_film
 
 
 def _sayac(tablo: dict[str, int | None]):
@@ -23,6 +23,11 @@ class SinemadaRozetiTest(unittest.IsolatedAsyncioTestCase):
         kart = {"year": 2026, "lang": ["ALT"], "providers": [{"plugin": "A", "url": "u"}, {"plugin": "B", "url": "u"}]}
         await _sinemada_isaretle([kart], _sayac({"A": 0, "B": 0}), 2026)
         self.assertEqual(kart["lang"], ["ALT", SINEMADA])
+
+    async def test_gelecek_yilin_filmi_yakinda(self):
+        kart = {"year": 2027, "plugin": "A", "url": "u"}
+        await _sinemada_isaretle([kart], _sayac({"A": 0}), 2026)
+        self.assertEqual(kart["lang"], [YAKINDA])
 
     async def test_bir_saglayici_doluysa_rozet_yok(self):
         kart = {"year": 2026, "providers": [{"plugin": "A", "url": "u"}, {"plugin": "B", "url": "u"}]}

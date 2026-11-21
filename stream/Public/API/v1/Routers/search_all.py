@@ -193,6 +193,7 @@ async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
 # ama bizde gözükmüyor"): siteler vizyondaki filme videosuz tanıtım sayfası açıyor.
 # Kart gizlenmez, "Sinemada" rozeti alır; istemci rozeti `lang` içindeki bu değerden çizer.
 SINEMADA = "SINEMA"
+YAKINDA  = "YAKINDA"   # yapım yılı gelecek yıl: henüz vizyona girmedi
 _SINEMA_TIMEOUT = 6.0
 
 
@@ -210,7 +211,7 @@ async def _sinemada_isaretle(
         saglayicilar = oge.get("providers") or [{"plugin": oge.get("plugin"), "url": oge.get("url")}]
         sayilar = await asyncio.gather(*(kaynak_sayisi(s["plugin"], s["url"]) for s in saglayicilar))
         if all(sayi == 0 for sayi in sayilar):
-            oge["lang"] = [*(oge.get("lang") or []), SINEMADA]
+            oge["lang"] = [*(oge.get("lang") or []), YAKINDA if oge["year"] > bu_yil else SINEMADA]
 
     await asyncio.gather(*(yokla(o) for o in ogeler[:_ZENGIN_TAVANI] if _yeni_film(o, bu_yil)))
 
