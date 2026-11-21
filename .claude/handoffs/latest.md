@@ -1,3 +1,12 @@
+# Handoff: KAPANIŞ 22 Kas 00:20 — arama onarımı + rozetler canlıda, 0.9.95 yayında
+> **Dal zinciri (hepsi push'lu):** `fix/general-stability` ← #28 `fix/devam-et-tazeleme` ← #30 `fix/pilavyer-player-host` ← `feature/remote-play-force` ← `fix/bt-audio-offset` ← `fix/arama-onarim` (uç, 600cab0 + bu not). ZimaOS checkout `fix/arama-onarim`; engine 21 Kas 21:20, stream 22 Kas ~00:15 yeni imaj.
+> **Canlıda (kanıt komut çıktısı):** FilmMakinesi araması yeni uçta ("arıcı" 2 sonuç) · FullHD sonuçsuz arama `[]` · "whalefall" → Balina Düşüşü (TMDB Türkçe ad tekrarı) · rozet: "balina düşüşü" `['DUB','SINEMA']`, "beekeeper 2" `['YAKINDA']` · `/rc` şablonunda rozet (konteynerde `VIZYON` 2 eşleşme) · testler motor 120, stream 307 OK · tünel 303 · `apk_publish.sh tv` → "yayinlandi: tv 0.9.95" (imza 7328a32d).
+> **Doğrulanmadı:** rozetin TV ve `/rc` ekranındaki görünümü (cihazda/tarayıcıda bakılmadı) · 0.9.95 Mi Box'a kuruldu mu · Bluetooth ses ofsetinin kulakla etkisi (Mi Box'ta 0.9.93 kuruluydu, ofset 0).
+> **Kararlar:** kaynak 0 kart gizlenmez, rozet alır (Dean "olur") · yoklama yalnız bu yıl/gelecek yıl film kartı, ilk 14, 6 sn tavan; yanıtsız = işaretleme · gelecek yıl = Yakında.
+> **Tekrarlama:** Balina Düşüşü/Beekeeper 2 kaynağı arama (film dijitalde yok / 15 Oca 2027) · ses kaymasında kaynak/proxy ölçümü (temiz).
+> **Bekleyen (Dean):** Bluetooth ofseti için oturan ms (varsayılan yapılacak) · PR birleştirme sırası · eski: seçili sağlıksız kaynağı atlama, 13 Kas denetim maddeleri.
+> **Tek sonraki adım:** Dean ms değerini yazarsa `SesOfseti` varsayılanını ona çek; yoksa PR zincirini `fix/general-stability`'ye birleştirme kararını sor.
+
 # Handoff: Sinemada rozeti canlıda, 0.9.94 yayında (21 Kas 21:40)
 > dal `fix/arama-onarim` @ fc1eeb8 (push'lu), PR yok. Stream 21:3x'te yeniden derlendi+yenilendi; `apk_publish.sh tv` → "yayinlandi: tv 0.9.94" (imza 7328a32d).
 > **Yapılan:** `search_all` bu yıl/gelecek yıl film kartlarında (ilk 14) `load_links` yoklar; tüm sağlayıcılar 0 ise `lang`'a `SINEMA` ekler (yanıtsız = işaretleme). TV kartı `SINEMA` → "Sinemada" (`HomeScreen.kt`).
