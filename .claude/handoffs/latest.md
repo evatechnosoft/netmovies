@@ -1,3 +1,7 @@
+# Handoff: 0.9.93 yayında — Bluetooth ses gecikmesi ayarı (21 Kas)
+> 2026-11-21 · dal `fix/bt-audio-offset` (push'lu), PR yok. `apk_publish.sh tv` çıktısı: imza 7328a32d, release `v0.9.93-poc` + `netmovies-tv-v0.9.93`, "yayinlandi: tv 0.9.93". ZimaOS checkout artık `fix/bt-audio-offset` (konteynerler yeniden derlenmedi).
+> **Doğrulanmadı:** Mi Box'a kuruldu mu · ayarın kulakla etkisi. **Bekleyen:** Dean'in bulduğu ms değeri (varsayılan yapılabilir).
+
 # Handoff: Bluetooth ses ofseti yazıldı, yayın TV boşalınca (21 Kas)
 > 2026-11-21 ~10:35 (+03) · dal `fix/bt-audio-offset` @ ff20a76 (push'lu, taban `feature/remote-play-force`), client-tv 0.9.93, PR yok.
 > **Yapılan:** `data/SesOfseti.kt` — `DefaultRenderersFactory.buildAudioSink` → `ForwardingAudioSink.getCurrentPositionUs` + ofset; yalnız A2DP çıkışında; kalıcı (`player` prefs `bt_ses_ofseti_ms`), ±50 ms, sınır ±400. İki oynatıcıya bağlı (`PlayerCore.kt`, `PlayerScreen.kt`). Ayar: oynatıcı Ayarlar > Ses sekmesi "Ses gecikmesi (Bluetooth)" (satır yalnız Bluetooth bağlıyken görünür). Artı = sesi geciktir.
