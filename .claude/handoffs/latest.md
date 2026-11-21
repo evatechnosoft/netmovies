@@ -1,3 +1,10 @@
+# Handoff: Sinemada rozeti canlıda, 0.9.94 yayında (21 Kas 21:40)
+> dal `fix/arama-onarim` @ fc1eeb8 (push'lu), PR yok. Stream 21:3x'te yeniden derlendi+yenilendi; `apk_publish.sh tv` → "yayinlandi: tv 0.9.94" (imza 7328a32d).
+> **Yapılan:** `search_all` bu yıl/gelecek yıl film kartlarında (ilk 14) `load_links` yoklar; tüm sağlayıcılar 0 ise `lang`'a `SINEMA` ekler (yanıtsız = işaretleme). TV kartı `SINEMA` → "Sinemada" (`HomeScreen.kt`).
+> **Kanıt (canlı):** "balina düşüşü" → `['DUB','SINEMA']` 4,2 sn · "beekeeper 2" → `['SINEMA']` 3,6 sn · "matrix" rozetsiz 6,1 sn · stream testleri 306 OK · tünel 303.
+> **Doğrulanmadı:** rozetin TV ekranındaki görünümü (0.9.94 cihazda açılmadı) · web/`/rc` araması rozeti çizmiyor (yalnız TV/telefon uygulaması).
+> **Bekleyen (Dean):** Bluetooth ofseti için oturan ms değeri.
+
 # Handoff: arama onarımı canlıda (21 Kas akşam)
 > 2026-11-21 ~21:20 (+03) · dal `fix/arama-onarim` @ 23781d6 (push'lu, taban `fix/bt-audio-offset`), PR yok. ZimaOS checkout bu dalda; engine + stream + tunnel 21:14-21:20'de yeni imajla yenilendi.
 > **Yapılan:** FilmMakinesi araması `/?knl_ajax_search=1&s=` ucuna geçti · FullHDFilmizlesene sonuçsuz aramada 404 istisnası → `[]` (istemci 2xx dışında fırlatıyor, durum kodu kontrolü yetmedi) · `search_all` sonuç 0 ise TMDB Türkçe adıyla bir kez daha arar (`tmdb.turkce_ad`).
