@@ -17,7 +17,7 @@ from ..Libs import fuck_dmca, get_client_headers, lang_memo, source_score
 from ..Libs.arama_niyet import ayristir, sirala, tekillestir, yapim_yili
 
 from Public.Home.Libs import admin_config, watch_store
-from Public.Home.Routers.tmdb import rating_for, type_for, year_for
+from Public.Home.Routers.tmdb import rating_for, turkce_ad, type_for, year_for
 
 # Kaynak başına tavan: bir eklenti asılırsa bütün arama onu beklemesin.
 # Middleware isteği 30sn'de kesiyor (`_istek.py`), altında kalmalı.
@@ -252,9 +252,7 @@ async def search_all(request: Request):
     # sağlayıcıya gitmez (HDFilmCehennemi "resident evil 2026" için 0 döndürüyor).
     niyet  = ayristir(sorgu)
     aranan = niyet.baslik or sorgu
-    varyantlar = _varyantlar(aranan)
-
-    async def tek(ad: str) -> list:
+    async def tek(ad: str, varyantlar: list[str]) -> list:
         for varyant in varyantlar:
             try:
                 sonuc = await asyncio.wait_for(
@@ -288,16 +286,19 @@ async def search_all(request: Request):
         return youtube_kartlari(sonuc if isinstance(sonuc, list) else [])
 
     yt_gorev = asyncio.create_task(youtube())
-    gruplar  = await asyncio.gather(*(tek(ad) for ad in adlar), return_exceptions=True)
 
-    ogeler: list[dict] = []
-    for grup in gruplar:
-        if isinstance(grup, list):
-            ogeler.extend(grup)
+    async def topla(baslik: str) -> list[dict]:
+        varyantlar = _varyantlar(baslik)
+        gruplar = await asyncio.gather(*(tek(ad, varyantlar) for ad in adlar), return_exceptions=True)
+        bulunan = [oge for grup in gruplar if isinstance(grup, list) for oge in grup]
+        # Gizli kategori ve puan eşiği de burada uygulanır.
+        return _alakali(admin_config.filter_aggregate_items(bulunan, cfg), baslik)
 
-    # Gizli kategori ve puan eşiği de burada uygulanır.
-    ogeler = admin_config.filter_aggregate_items(ogeler, cfg)
-    ogeler = _alakali(ogeler, aranan)
+    ogeler = await topla(aranan)
+    # Özgün adla hiçbir kaynak bulamadıysa Türkçe adıyla bir kez daha dene.
+    if not ogeler and (tr_ad := await turkce_ad(aranan)) and _sade(tr_ad) != _sade(aranan):
+        aranan = tr_ad
+        ogeler = await topla(aranan)
 
     # Sıra: kullanıcının kendi listeleri en önde, sonra kanıtlanmış sağlayıcı.
     # Stabil sıralama — eşit ağırlıkta kaynakların kendi sırası korunur.

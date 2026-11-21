@@ -37,8 +37,15 @@ class FilmMakinesiContract(unittest.IsolatedAsyncioTestCase):
                          [("Ballerina", "https://filmmakinesi.co/film/ballerina/", "https://filmmakinesi.co/p/b.jpg")])
 
     async def test_search(self):
-        r = await _plugin([("?s=ballerina", _CARDS)]).search("ballerina")
-        self.assertEqual([x.title for x in r], ["Ballerina"])
+        # selector: <a href class="search-result"><img src>...<span class="title">
+        govde = ('<a href="https://filmmakinesi.co/ballerina/" class="search-result"><img src="/p/b.webp" loading="lazy">'
+                 '<div class="search-result-content"><span class="title">Ballerina</span></div></a>')
+        r = await _plugin([("knl_ajax_search=1&s=ballerina", govde)]).search("ballerina")
+        self.assertEqual([(x.title, x.url, x.poster) for x in r],
+                         [("Ballerina", "https://filmmakinesi.co/ballerina/", "https://filmmakinesi.co/p/b.webp")])
+
+    async def test_search_empty(self):
+        self.assertEqual(await _plugin([("knl_ajax_search", "")]).search("yok"), [])
 
     async def test_load_item(self):
         info = await _plugin([("/film/ballerina/", _DETAIL)]).load_item("https://filmmakinesi.co/film/ballerina/")

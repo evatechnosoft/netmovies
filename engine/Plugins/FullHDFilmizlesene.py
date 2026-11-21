@@ -88,6 +88,9 @@ class FullHDFilmizlesene(PluginBase):
 
     async def search(self, query: str) -> list[SearchResult]:
         response = await self.httpx.get(f"{self.main_url}/arama/{query}", headers={"User-Agent": _UA})
+        # Site sonuçsuz aramada 404 veriyor; hata değil, "yok" demek.
+        if response.status_code != 200:
+            return []
         return [SearchResult(title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
 
     async def load_item(self, url: str) -> MovieInfo:

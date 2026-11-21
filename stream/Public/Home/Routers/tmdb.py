@@ -97,6 +97,37 @@ async def _resolve_poster(clean_title: str) -> str | None:
     return poster_path
 
 
+_tr_ad_cache: dict[str, str | None] = {}
+
+
+async def turkce_ad(sorgu: str) -> str | None:
+    """Sorgunun TMDB'deki Türkçe adı ("whalefall" → "Balina Düşüşü"); yoksa None.
+
+    Kaynak siteler yalnız Türkçe adı tanıyor; özgün adla arama boş dönüyordu.
+    """
+    key = sorgu.strip().lower()
+    if not TMDB_API_KEY or len(key) < 3:
+        return None
+    if key in _tr_ad_cache:
+        return _tr_ad_cache[key]
+    ad: str | None = None
+    try:
+        resp = await _client.get(_TMDB_SEARCH, params={
+            "api_key": TMDB_API_KEY, "language": "tr-TR", "query": sorgu, "include_adult": "false",
+        })
+        if resp.status_code == 200:
+            ad = next(
+                (str(r.get("title") or r.get("name") or "").strip() or None
+                 for r in (resp.json().get("results") or []) if r.get("media_type") in ("movie", "tv")),
+                None,
+            )
+    except httpx.HTTPError:
+        return None   # ağ hatası cache'lenmez
+    if len(_tr_ad_cache) < _CACHE_MAX:
+        _tr_ad_cache[key] = ad
+    return ad
+
+
 def year_for(title: str) -> int | None:
     """Başlığın TMDB yılı — YALNIZ cache'ten (puanla aynı aramadan gelir)."""
     clean = _clean_title(title)
