@@ -1,3 +1,10 @@
+# Handoff: Bluetooth ses ofseti yazıldı, yayın TV boşalınca (21 Kas)
+> 2026-11-21 ~10:35 (+03) · dal `fix/bt-audio-offset` @ ff20a76 (push'lu, taban `feature/remote-play-force`), client-tv 0.9.93, PR yok.
+> **Yapılan:** `data/SesOfseti.kt` — `DefaultRenderersFactory.buildAudioSink` → `ForwardingAudioSink.getCurrentPositionUs` + ofset; yalnız A2DP çıkışında; kalıcı (`player` prefs `bt_ses_ofseti_ms`), ±50 ms, sınır ±400. İki oynatıcıya bağlı (`PlayerCore.kt`, `PlayerScreen.kt`). Ayar: oynatıcı Ayarlar > Ses sekmesi "Ses gecikmesi (Bluetooth)" (satır yalnız Bluetooth bağlıyken görünür). Artı = sesi geciktir.
+> **Kanıt:** laptopta `./gradlew testDebugUnitTest assembleDebug` yeşil, `SesOfsetiTest` 4/4. Mi Box `player.xml` tunneling=false (ofset tunneling açıkken etkisiz olurdu).
+> **Doğrulanmadı:** cihazda etkisi (kulakla); varsayılan 0, Dean ayarlayacak.
+> **Tek sonraki adım:** TV boşta ise (`remote/state` 0) `ssh zima "cd /DATA/AppData/netmovies && git fetch -q && git checkout fix/bt-audio-offset"` sonra `apk_publish.sh tv "Bluetooth ses gecikmesi ayarı"`; Dean'e: ses öndeyse +100'den başla.
+
 # Handoff: ses-görüntü kayması — Bluetooth çıkışında ses önde (21 Kas)
 > 2026-11-21 ~10:40 (+03) · worktree `devam-et-tazeleme`, dal `feature/remote-play-force` @ 8d41bb0 (push'lu) · bu iş için kod DEĞİŞMEDİ, yeni dal açılmadı.
 > **Sorun (Dean, loq üzerinden + kendi sözü):** ses ile görüntü senkron değil; "yine ses ilerde oluyor, çok az fark etti" → SES ÖNDE, fark küçük.
