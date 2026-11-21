@@ -9,6 +9,8 @@
 import asyncio
 
 from dataclasses import asdict
+from datetime import date
+from typing import Awaitable, Callable
 from urllib.parse import quote_plus, unquote_plus
 
 from Core   import Request
@@ -187,6 +189,32 @@ async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
     await asyncio.gather(*(bolumler(o) for o in ogeler[:_ZENGIN_TAVANI]), return_exceptions=True)
 
 
+# Kaynağı olmayan yeni film kartı (Dean, 21 Kas: "Balina Düşüşü bazı sağlayıcılarda var
+# ama bizde gözükmüyor"): siteler vizyondaki filme videosuz tanıtım sayfası açıyor.
+# Kart gizlenmez, "Sinemada" rozeti alır; istemci rozeti `lang` içindeki bu değerden çizer.
+SINEMADA = "SINEMA"
+_SINEMA_TIMEOUT = 6.0
+
+
+def _yeni_film(oge: dict, bu_yil: int) -> bool:
+    """Yalnız bu yılın/gelecek yılın filmleri yoklanır: eski filmde boş kaynak arıza demektir, vizyon değil."""
+    yil = oge.get("year")
+    return isinstance(yil, int) and yil >= bu_yil and not oge.get("episode_count")
+
+
+async def _sinemada_isaretle(
+    ogeler: list[dict], kaynak_sayisi: Callable[[str, str], Awaitable[int | None]], bu_yil: int
+) -> None:
+    """Hiçbir sağlayıcısı kaynak vermeyen yeni filme rozet ekler. Yanıt alınamayan (None) kart işaretlenmez."""
+    async def yokla(oge: dict) -> None:
+        saglayicilar = oge.get("providers") or [{"plugin": oge.get("plugin"), "url": oge.get("url")}]
+        sayilar = await asyncio.gather(*(kaynak_sayisi(s["plugin"], s["url"]) for s in saglayicilar))
+        if all(sayi == 0 for sayi in sayilar):
+            oge["lang"] = [*(oge.get("lang") or []), SINEMADA]
+
+    await asyncio.gather(*(yokla(o) for o in ogeler[:_ZENGIN_TAVANI] if _yeni_film(o, bu_yil)))
+
+
 # YouTube araması (Dean, 5 Ekim: "ne yazarsam bulsun, öne al"). Sağlayıcı
 # aramasından AYRI: YouTube eklentisinin kendi `search`ü yalnız resmi dizi
 # listesi döner, çünkü kaynak zinciri onu başlık eşleştirmede kullanıyor; her
@@ -327,6 +355,22 @@ async def search_all(request: Request):
     ogeler = sorted(ogeler, key=lambda o: -agirlik.get(lang_memo.anahtar(o.get("title") or ""), 0))
 
     await _bolum_sayilari(ogeler, basliklar)
+
+    async def kaynak_sayisi(plugin: str, url: str) -> int | None:
+        try:
+            sonuc = await asyncio.wait_for(
+                fuck_dmca(
+                    "/load_links",
+                    params         = {"plugin": plugin, "encoded_url": unquote_plus(str(url or ""))},
+                    client_headers = basliklar,
+                ),
+                timeout = _SINEMA_TIMEOUT,
+            )
+        except Exception:
+            return None   # yanıt yok ≠ kaynak yok
+        return len(sonuc) if isinstance(sonuc, list) else None
+
+    await _sinemada_isaretle(ogeler, kaynak_sayisi, date.today().year)
     # Bölüm sayımı YouTube kartlarına yapılmaz: her video için yt-dlp koşardı.
     if yt_tur in ("video", "liste"):
         ogeler = youtube_one(await yt_gorev, ogeler)
