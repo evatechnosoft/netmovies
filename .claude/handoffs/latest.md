@@ -1,3 +1,10 @@
+# Handoff: arama onarımı canlıda (21 Kas akşam)
+> 2026-11-21 ~21:20 (+03) · dal `fix/arama-onarim` @ 23781d6 (push'lu, taban `fix/bt-audio-offset`), PR yok. ZimaOS checkout bu dalda; engine + stream + tunnel 21:14-21:20'de yeni imajla yenilendi.
+> **Yapılan:** FilmMakinesi araması `/?knl_ajax_search=1&s=` ucuna geçti · FullHDFilmizlesene sonuçsuz aramada 404 istisnası → `[]` (istemci 2xx dışında fırlatıyor, durum kodu kontrolü yetmedi) · `search_all` sonuç 0 ise TMDB Türkçe adıyla bir kez daha arar (`tmdb.turkce_ad`).
+> **Kanıt (canlı):** FilmMakinesi "arıcı" 2 sonuç · FullHD "whalefall" `result:[]`, "arıcı" 3 sonuç · `search_all?query=whalefall` 10 sonuç, ilki Balina Düşüşü (DDiziMom) · testler motor 120, stream 302 OK · w.evaitec.com 303.
+> **Bilinen:** Balina Düşüşü ve Beekeeper 2 kartı var, kaynak 0 (film dijitalde yok / 15 Oca 2027). FilmMakinesi "matrix" 0 (sitede yok mu doğrulanmadı). Türkçe ad tekrarı alakasız "balina" sonuçlarını da getiriyor.
+> **Bekleyen (Dean):** videosuz kartı "Sinemada" işaretleme · Bluetooth ofseti için oturan ms değeri.
+
 # Handoff: 0.9.93 yayında — Bluetooth ses gecikmesi ayarı (21 Kas)
 > 2026-11-21 · dal `fix/bt-audio-offset` (push'lu), PR yok. `apk_publish.sh tv` çıktısı: imza 7328a32d, release `v0.9.93-poc` + `netmovies-tv-v0.9.93`, "yayinlandi: tv 0.9.93". ZimaOS checkout artık `fix/bt-audio-offset` (konteynerler yeniden derlenmedi).
 > **Doğrulanmadı:** Mi Box'a kuruldu mu · ayarın kulakla etkisi. **Bekleyen:** Dean'in bulduğu ms değeri (varsayılan yapılabilir).
