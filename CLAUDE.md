@@ -5,7 +5,7 @@ Bu, reklamsız kişisel film/dizi/canlı TV uygulamasıdır. Başka bir oturum/a
 
 ## Her oturumda ilk yap
 1. **Güncel kal:** `git fetch && git checkout fix/general-stability && git pull`
-   (Entegrasyon hattı bu daldır, son birleşen 0.9.86 / 3 Kas; güncel aktif iş `fix/bolumde-film-eleme` (client-tv 0.9.91, 8 Kas, push'lu, henüz birleşmedi); `master` ESKİDİR.)
+   (Entegrasyon hattı bu daldır; 22 Kas: #28–#33 birleşti, client-tv 0.9.96, ZimaOS bu dalda; `master` ESKİDİR.)
 2. **Bağlamı al:** kök `HANDOFF.md` oku (`docs/archive/HANDOFF-2026-10-17.md` eski günlük) — en üstteki "DEVİR" bloğu durumu ve sıradaki
    işi verir; altındaki oturum günlükleri gerekçeyi taşır.
 3. **Kapıyı çal:** `bash scripts/smoke.sh` — yığın ayakta mı, katalog/zincir/testler yeşil mi.
