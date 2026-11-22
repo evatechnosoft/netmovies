@@ -1713,16 +1713,6 @@ private fun SettingsMenu(
                 onClick = { com.evaitec.netmovies.tv.data.yz.NanoNiyet.baslat(kipContext) },
             )
         }
-        // Oynatıcı 2 denemesi: yeni varsayılan, eski yedek. Bkz. docs/PLAYER2-PLAN.md.
-        val context = androidx.compose.ui.platform.LocalContext.current
-        var yeniOynatici by remember { mutableStateOf(com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(context)) }
-        MenuRow(
-            if (yeniOynatici) "▶  Oynatıcı: 2 (yeni)" else "▶  Oynatıcı: 1 (eski)",
-            onClick = {
-                yeniOynatici = !yeniOynatici
-                com.evaitec.netmovies.tv.data.OynaticiSecimi.ayarla(context, yeniOynatici)
-            },
-        )
         // Tek satır: eskiden önce "Göster" bayrağı çevrilip Ayarlar TEKRAR açılıyordu.
         // İki adımın ikincisi bulunamıyordu; koleksiyon doğrudan açılıyor.
         // Kilit ikonu yok: PIN/parola YOK, güvenlik vaat edilmiyor.
