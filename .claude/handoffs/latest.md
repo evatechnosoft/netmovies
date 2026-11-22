@@ -1,3 +1,9 @@
+# Handoff: 22 Kas 10:25 — PR zinciri birleşti, ZimaOS fix/general-stability
+> #28 #30 #31 #32 #33 #29 `fix/general-stability`'ye merge (f44d4ef). ZimaOS checkout fix/general-stability, engine 07:21Z yeniden derlendi (#29 channel_id), sağlıklı. Stream testleri geçti.
+> **smoke kırmızı ama sahte:** katalogun ilk FullHD kartı vizyona girmemiş 'Avengers Secret Wars' → kaynak yok. Gerçek film (Amazon'da Dehşet) resolve 1 kaynak. smoke örnek seçimi yayınlanmamış filmi atlamalı (yapılmadı).
+> **Bluetooth ofseti:** Dean ±400 ms denedi, fark yalnız Dexter'da göze battı → varsayılan 0 kaldı; Dexter kayması kaynağa özgü olabilir (ölçülmedi).
+> master'a birleştirme yapılmadı (general-stability entegrasyon hattı).
+
 # Handoff: 22 Kas 10:20 — oynatıcı sadeleşti, 0.9.96 yayında
 > dal `fix/oynatici-sadelestir` (6be3694, push'lu, `fix/arama-onarim` üstüne); ZimaOS checkout bu dal, sunucu kodu değişmedi (rebuild yok).
 > **Yapıldı:** eski oynatıcı + anahtar silindi (hep Oynatıcı 2), ön izleme kalktı (YUKARI = çubuk), Bölümler/Önizleme/Ayarlar hapları + ipucu satırı + "Oynatıcı 2" etiketi kalktı, filmde açılış/jenerik işareti yok. Kanıt: compileDebugKotlin + testDebugUnitTest exit 0; apk_publish → "yayinlandi: tv 0.9.96" (imza 7328a32d).
