@@ -1,5 +1,5 @@
-# Handoff: 22 Kas — seat 3'e devir (kod değişikliği yok)
-> Repo temiz, tüm iş push'lu ve fix/general-stability'de (d7c5183 docs PR dahil). ZimaOS f44d4ef, 24 konteyner healthy. Eski seat tmp'de repoya alınacak iş yok (bu oturum doğrudan repoda çalıştı).
+# Handoff: 23 Kas — seat devri (seat 1 → 3), kod değişikliği yok
+> Repo temiz, tüm iş push'lu ve fix/general-stability'de (d7c5183 docs PR dahil). ZimaOS f44d4ef, netmovies engine/stream/warp healthy (23 Kas kontrol). Eski seat tmp'de repoya alınacak iş yok (bu oturum doğrudan repoda çalıştı).
 > Açık: Dean 0.9.96'yı TV'de denesin (filmde geçiş hâlâ var mı); smoke örneği yayınlanmamış filmi atlamalı; Dexter ses kayması ölçülmedi.
 
 # Handoff: 22 Kas 10:25 — PR zinciri birleşti, ZimaOS fix/general-stability
