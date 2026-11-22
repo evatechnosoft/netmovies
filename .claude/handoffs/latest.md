@@ -1,3 +1,7 @@
+# Handoff: 22 Kas — seat 3'e devir (kod değişikliği yok)
+> Repo temiz, tüm iş push'lu ve fix/general-stability'de (d7c5183 docs PR dahil). ZimaOS f44d4ef, 24 konteyner healthy. Eski seat tmp'de repoya alınacak iş yok (bu oturum doğrudan repoda çalıştı).
+> Açık: Dean 0.9.96'yı TV'de denesin (filmde geçiş hâlâ var mı); smoke örneği yayınlanmamış filmi atlamalı; Dexter ses kayması ölçülmedi.
+
 # Handoff: 22 Kas 10:25 — PR zinciri birleşti, ZimaOS fix/general-stability
 > #28 #30 #31 #32 #33 #29 `fix/general-stability`'ye merge (f44d4ef). ZimaOS checkout fix/general-stability, engine 07:21Z yeniden derlendi (#29 channel_id), sağlıklı. Stream testleri geçti.
 > **smoke kırmızı ama sahte:** katalogun ilk FullHD kartı vizyona girmemiş 'Avengers Secret Wars' → kaynak yok. Gerçek film (Amazon'da Dehşet) resolve 1 kaynak. smoke örnek seçimi yayınlanmamış filmi atlamalı (yapılmadı).
