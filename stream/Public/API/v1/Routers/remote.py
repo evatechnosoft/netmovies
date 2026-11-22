@@ -73,6 +73,9 @@ def build_command(veri: dict) -> dict | str:
             "poster"  : str(veri.get("poster") or ""),
             # Telefon bölüm seçtiyse 0 tabanlı sıra; -1 = TV kayıttan/baştan karar verir.
             "episode" : max(episode, -1),
+            # Oynayan bir şey varken TV "açayım mı?" diye sorar; True = sormadan geç
+            # (uzaktan yönetim: karşıda onay verecek kimse/yol yok).
+            "force"   : veri.get("force") is True,
         }
 
     if tur == "key":

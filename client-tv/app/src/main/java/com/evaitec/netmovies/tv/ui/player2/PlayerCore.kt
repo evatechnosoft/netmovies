@@ -486,7 +486,7 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
         }
     }
     val exo = remember {
-        ExoPlayer.Builder(context)
+        ExoPlayer.Builder(context, com.evaitec.netmovies.tv.data.SesOfseti.renderersFactory(context))
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .setTrackSelector(trackSelector)

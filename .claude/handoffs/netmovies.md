@@ -1,4 +1,31 @@
-# Handoff: netmovies — 19 Kas 2026 (Dexter Türkçe dublaj)
+# Handoff: netmovies — 19 Kas 2026 20:05 kapanış
+
+> worktree `C:\projects\netmovies\.claude\worktrees\devam-et-tazeleme` · dal `feature/remote-play-force` (push'lu, 0 dirty) · yarım adım yok.
+> **21 Kas 00:17 kapanış kanıtı:** 19 Kas'tan beri kod değişikliği yok; bekleyen devir commit'i 2b635ba push edildi. ZimaOS kapalı/erişilemez (`ssh zima` zaman aşımı) — canlı durum bu turda DOĞRULANMADI, aşağıdaki canlı satırları 19 Kas'a ait. Açık taslak PR'lar: #28 `fix/devam-et-tazeleme`, #29 `feature/ytdlp-channel-id`, #30 `fix/pilavyer-player-host`. `feature/remote-play-force` için PR yok.
+
+## Hedef
+(1) Dexter'da Türkçe dublaj yok hatası — sistemde düzeltildi, canlıda. (2) Uzaktan "oynat"a sormadan geç + "ara ve aç" betiği — hazırlandı, yayınlanmadı (Dean: "hazırla, işlem yapma, izliyorum").
+
+## Durum
+- **Dexter dublaj:** dal `fix/pilavyer-player-host` (abc73be), taslak PR #30 → `fix/devam-et-tazeleme`. ZimaOS checkout'u ve engine imajı bu dalda (19:38 yeniden oluşturuldu). Kanıt: Dexter 4x11 ve 4x12 `resolve_sources` → DiziAbi | Türkçe Dublaj, DDiziMom | Türkçe Dublaj, DiziBox. 4x11 TV'de 19:50'de baştan açıldı (`remote/status` url `dexter-4-sezon-11-bolum`, playing true). Sesi kulakla doğrulamadım.
+- **MobLand 2x10:** hata değil; DiziAbi ve DDiziMom'da sayfa var, oynatıcı boş (`data-player-type="none"`). Tek kaynak DiziBox (altyazılı). 2x09 dublajlı geliyor.
+- **remote-play-force (f5a3f80):** `stream/Public/API/v1/Routers/remote.py` `force` alanı, client-tv `RemoteCommand.force` + `MainActivity` kartı atlar, `scripts/tv_ac.py "<başlık>" <sezon> <bölüm> [--plugin] [--kuru] [--sor]`. Kanıt: kumanda testleri 10/10 (stream konteynerinde geçici kopya), `:app:compileDebugKotlin` exit 0, betik `--kuru` ile Dexter 4x11 → sıra 46. Gerçek TV'de `force` DENENMEDİ; sürüm artırılmadı, PR açılmadı.
+- 4x12 konumu 904. sn'de kayıtlı (benim CENTER komutum duraklattı, sonra stop + play ile 4x11 açıldı).
+
+## Tekrarlama
+- Oynayan içerik varken `remote/play` TV'de onay kartı açar; uzaktan `CENTER` kartı onaylamaz, oynatıcıyı duraklatır. `force` yayınlanana kadar: önce `transport stop`, sonra play.
+- `docker logs --since` ZimaOS'ta boş dönebiliyor; boşta kontrolü `docker logs -t --tail N | grep remote/state` ile.
+- Hafıza klasörü (`~/.claude-3/projects/.../memory`) bu oturumdan yazılamıyor; "tv_ac kullan" notu kaydedilemedi.
+
+## Dean'den bekleyen
+1. "Yayınla": stream rebuild + client-tv 0.9.93 (`apk_publish.sh tv`, yalnız ZimaOS'tan) — `force` için.
+2. PR #28 + #30 (+ bu dal) `fix/general-stability`'ye birleşsin mi; sunucu birleşmemiş daldan çalışıyor.
+3. 16 Kas bloğundaki 2. ve 3. karar aynen duruyor.
+
+## Tek sonraki adım
+ZimaOS açılınca: `ssh zima "docker ps --format '{{.Names}} {{.Status}}' | grep netmovies; cd /DATA/AppData/netmovies && git log --oneline -1"` (abc73be bekleniyor), sonra Dean'e karar 1-2'yi sor.
+
+# (eski) 19 Kas 2026 — Dexter Türkçe dublaj ayrıntısı
 
 > 19 Kas 19:40 (+03) · dal `fix/pilavyer-player-host` (abc73be, push'lu; `fix/devam-et-tazeleme` üstüne) · ZimaOS checkout'u ve engine imajı bu dalda.
 

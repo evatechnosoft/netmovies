@@ -409,7 +409,7 @@ class MainActivity : ComponentActivity() {
                                             )
                                             // Bir şey oynuyorsa sormadan kesme (Dean: "film
                                             // çalışırken direkt geçiş yapıyor").
-                                            if (selected != null) { bekleyenDevam = false; bekleyenUzak = gelen } else selected = gelen
+                                            if (selected != null && !cmd.force) { bekleyenDevam = false; bekleyenUzak = gelen } else { bekleyenUzak = null; selected = gelen }
                                         }
 
                                         "key" -> when (cmd.key) {

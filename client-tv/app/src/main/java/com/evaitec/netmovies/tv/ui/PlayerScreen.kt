@@ -206,7 +206,7 @@ fun PlayerScreen(
         }
     }
     val exo = remember {
-        ExoPlayer.Builder(context)
+        ExoPlayer.Builder(context, com.evaitec.netmovies.tv.data.SesOfseti.renderersFactory(context))
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .setTrackSelector(trackSelector)
@@ -2781,6 +2781,19 @@ internal fun SettingsPanel(
                         },
                         if (textDisabled) 0 else 1 + yazilar.indexOfFirst { (g, i) -> g.isTrackSelected(i) },
                     ) { n -> if (n == 0) onSelectSubtitle(null, 0) else yazilar[n - 1].let { (g, i) -> onSelectSubtitle(g, i) } }
+                }
+                // Yalnız Bluetooth çıkışında: hoparlör gecikmesi cihazdan cihaza değişir, kulakla ayarlanır.
+                if (com.evaitec.netmovies.tv.data.SesOfseti.bluetooth) {
+                    val ofsetContext = LocalContext.current
+                    var ofset by remember { mutableStateOf(com.evaitec.netmovies.tv.data.SesOfseti.ms) }
+                    Secim(
+                        "Ses gecikmesi (Bluetooth)",
+                        com.evaitec.netmovies.tv.data.SesOfseti.secenekler.map { if (it > 0) "+$it ms" else "$it ms" },
+                        com.evaitec.netmovies.tv.data.SesOfseti.secenekler.indexOf(ofset),
+                    ) { n ->
+                        ofset = com.evaitec.netmovies.tv.data.SesOfseti.secenekler[n]
+                        com.evaitec.netmovies.tv.data.SesOfseti.ayarla(ofsetContext, ofset)
+                    }
                 }
                 // Canlı yayında hız anlamsız (canlının önüne geçilemez): satır gizli.
                 if (!canli) Secim(

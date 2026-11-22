@@ -356,6 +356,8 @@ data class RemoteCommand(
     val submit: Boolean = false,
     // play: telefonun seçtiği bölüm sırası (0 tabanlı), yoksa -1.
     val episode: Int = -1,
+    // play: oynayan içerik varken onay kartı göstermeden geç.
+    val force: Boolean = false,
 )
 
 @Serializable
