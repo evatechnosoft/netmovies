@@ -1,3 +1,9 @@
+# Handoff: 22 Kas 10:20 — oynatıcı sadeleşti, 0.9.96 yayında
+> dal `fix/oynatici-sadelestir` (6be3694, push'lu, `fix/arama-onarim` üstüne); ZimaOS checkout bu dal, sunucu kodu değişmedi (rebuild yok).
+> **Yapıldı:** eski oynatıcı + anahtar silindi (hep Oynatıcı 2), ön izleme kalktı (YUKARI = çubuk), Bölümler/Önizleme/Ayarlar hapları + ipucu satırı + "Oynatıcı 2" etiketi kalktı, filmde açılış/jenerik işareti yok. Kanıt: compileDebugKotlin + testDebugUnitTest exit 0; apk_publish → "yayinlandi: tv 0.9.96" (imza 7328a32d).
+> **Doğrulanmadı:** Mi Box'ta görünüm; Amazon'da Dehşet'teki "dizi gibi geçiş"in Açılışı atla kartı olduğu varsayım (TV günlüğü yeniden başlatmada silinmişti).
+> **Tek sonraki adım:** Dean 0.9.96'yı TV'de denesin; geçiş hâlâ çıkıyorsa ekranda ne yazdığını sor.
+
 # Handoff: KAPANIŞ 22 Kas 00:20 — arama onarımı + rozetler canlıda, 0.9.95 yayında
 > **Dal zinciri (hepsi push'lu):** `fix/general-stability` ← #28 `fix/devam-et-tazeleme` ← #30 `fix/pilavyer-player-host` ← `feature/remote-play-force` ← `fix/bt-audio-offset` ← `fix/arama-onarim` (uç, 600cab0 + bu not). ZimaOS checkout `fix/arama-onarim`; engine 21 Kas 21:20, stream 22 Kas ~00:15 yeni imaj.
 > **Canlıda (kanıt komut çıktısı):** FilmMakinesi araması yeni uçta ("arıcı" 2 sonuç) · FullHD sonuçsuz arama `[]` · "whalefall" → Balina Düşüşü (TMDB Türkçe ad tekrarı) · rozet: "balina düşüşü" `['DUB','SINEMA']`, "beekeeper 2" `['YAKINDA']` · `/rc` şablonunda rozet (konteynerde `VIZYON` 2 eşleşme) · testler motor 120, stream 307 OK · tünel 303 · `apk_publish.sh tv` → "yayinlandi: tv 0.9.95" (imza 7328a32d).

@@ -31,7 +31,6 @@ import com.evaitec.netmovies.tv.input.KeyBindings
 import com.evaitec.netmovies.tv.ui.BrowseScreen
 import com.evaitec.netmovies.tv.ui.HomeScreen
 import com.evaitec.netmovies.tv.ui.KeyMapScreen
-import com.evaitec.netmovies.tv.ui.PlayerScreen
 import com.evaitec.netmovies.tv.ui.TouchButton
 
 class MainActivity : ComponentActivity() {
@@ -502,31 +501,17 @@ class MainActivity : ComponentActivity() {
                                     com.evaitec.netmovies.tv.data.CihazKipi.ayarla(this@MainActivity, secilen)
                                     kip = secilen
                                 }
-                            // Oynatıcı 2 deneme aşamasında: Ayarlar'daki anahtar açıksa o,
-                            // değilse eski oynatıcı (yedek). Bkz. docs/PLAYER2-PLAN.md.
                             // key(url): içerik değişince oynatıcı SIFIRDAN kurulur. Anahtarsız
                             // hâlde telefondan gelen içerik aynı ExoPlayer'a düşüyor, efektler
                             // eski içeriği tutuyordu — R.J. Decker kaydı Terminatör 3'ün
-                            // konum/süresiyle yazıldı (Dean, 30 Eylül).
-                            current != null && com.evaitec.netmovies.tv.data.OynaticiSecimi.yeniMi(this@MainActivity) ->
+                            // konum/süresiyle yazıldı (Dean, 30 Eylül). Eski oynatıcı 22 Kasım'da kalktı.
+                            current != null ->
                                 key(current.url) {
                                     com.evaitec.netmovies.tv.ui.player2.PlayerScreen2(
                                         item = current,
                                         bindings = bindings,
                                         library = library,
                                         onBack = { selected = null },
-                                        kanallar = kanalListesi,
-                                        onKanal = { selected = it },
-                                    )
-                                }
-                            current != null ->
-                                key(current.url) {
-                                    PlayerScreen(
-                                        item = current,
-                                        bindings = bindings,
-                                        library = library,
-                                        onBack = { selected = null },
-                                        onHome = anaSayfa,
                                         kanallar = kanalListesi,
                                         onKanal = { selected = it },
                                     )

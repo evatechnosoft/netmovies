@@ -1013,8 +1013,11 @@ fun rememberPlayerCore(item: MediaItem, library: Library, onExit: () -> Unit): P
     }
 
     // AC — işaretler: süre öğrenilir öğrenilmez, kaynağın altyazısından.
-    LaunchedEffect(core, core.currentLinkUrl, core.currentEpIndex, core.duration > 0) {
+    LaunchedEffect(core, core.currentLinkUrl, core.currentEpIndex, core.duration > 0, core.episodes.isEmpty()) {
         val c = core
+        // Film: açılış/jenerik dizi kavramı; altyazı sessizliği filmin ortasında "Açılışı atla"
+        // çıkarıyordu (Dean, 22 Kasım, Amazon'da Dehşet). Bölüm listesi yoksa işaret yok.
+        if (c.episodes.isEmpty()) { c.markers = null; return@LaunchedEffect }
         if (c.duration <= 0) return@LaunchedEffect
         val altyazi = c.links.getOrNull(c.currentLinkIndex)?.subtitles
             ?.firstOrNull { it.url.isNotBlank() } ?: return@LaunchedEffect

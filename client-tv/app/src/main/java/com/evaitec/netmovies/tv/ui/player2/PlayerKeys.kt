@@ -48,12 +48,8 @@ class PlayerKeys(
     private fun seekBy(ms: Long) { core.seekBy(ms); ui.flashControls() }
     private fun seekHold(yon: Int, heldMs: Long) { core.seekHold(yon, heldMs); ui.flashControls() }
 
-    private fun enterScrub() {
-        ui.scrubPos = core.exo.currentPosition
-        ui.scrubMode = true
-        ui.scrubTick++          // preview'ı mevcut pozisyona seek et
-        ui.showControls = true
-    }
+    // Önizleme kaldırıldı (Dean, 22 Kasım: kullanılmıyor); YUKARI yalnız çubuğu gösterir.
+    private fun enterScrub() = ui.flashControls()
 
     fun dispatch(a: RemoteAction) {
         when (a) {
@@ -96,25 +92,6 @@ class PlayerKeys(
             "seek" -> seekBy((value * 1000).toLong())
             "stop" -> onExit()
         }
-    }
-
-    // Scrub modunda D-pad: ◀/▶ imleç, OK atla, Geri iptal.
-    private fun handleScrubKey(e: NKey): Boolean {
-        if (e.action != NKey.ACTION_DOWN) return true
-        when (e.keyCode) {
-            NKey.KEYCODE_DPAD_LEFT -> { ui.scrubPos = (ui.scrubPos - 10_000).coerceAtLeast(0); ui.scrubTick++ }
-            NKey.KEYCODE_DPAD_RIGHT -> {
-                val d = core.exo.duration
-                ui.scrubPos = (ui.scrubPos + 10_000).let { if (d > 0) it.coerceAtMost(d) else it }
-                ui.scrubTick++
-            }
-            NKey.KEYCODE_DPAD_CENTER, NKey.KEYCODE_ENTER -> {
-                core.seekTo(ui.scrubPos); ui.scrubMode = false; ui.flashControls()
-            }
-            NKey.KEYCODE_BACK -> ui.scrubMode = false
-            else -> Unit
-        }
-        return true
     }
 
     /** Kök Box `onPreviewKeyEvent`: KeyPairGate, ipucu, bilgi tuşları, başlangıç panelinde GERİ. */
@@ -196,7 +173,6 @@ class PlayerKeys(
                 if (ne.action == NKey.ACTION_DOWN) core.nextEpIndex?.let { core.goToEpisode(it) }
                 true
             }
-            ui.scrubMode -> handleScrubKey(ne)
             // Uzun basışla açılan panelin bırakma olayı controller'a aittir.
             controller.consumesPendingUp(ne) -> true
             // Modal açıkken tuşlar panele kalır.

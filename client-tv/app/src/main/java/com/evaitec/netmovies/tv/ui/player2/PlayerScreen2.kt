@@ -39,7 +39,6 @@ import com.evaitec.netmovies.tv.ui.KeyHintChip
 import com.evaitec.netmovies.tv.ui.KaynakYokEkrani
 import com.evaitec.netmovies.tv.ui.PlayerLoadingScreen
 import com.evaitec.netmovies.tv.ui.NextEpisodeCard
-import com.evaitec.netmovies.tv.ui.ScrubOverlay
 import com.evaitec.netmovies.tv.ui.SeekScreen
 import com.evaitec.netmovies.tv.ui.SettingsPanel
 import com.evaitec.netmovies.tv.ui.SkipIntroCard
@@ -92,7 +91,6 @@ fun PlayerScreen2(
   remember(ui) { ui.showKeys = keyPrefs.getBoolean("show_keys", true) }
   val rootFocus = remember { FocusRequester() }
   val panelFocus = remember { FocusRequester() }
-  val previewExo = rememberPreviewPlayer(core, ui)
 
   // Ayarlar açılınca en zengin liste aranır (core bir kez yapar). Yalnız ayarBolumler'e
   // bağlıyken panel içinde Bölümler sekmesine geçiş tetiklemiyor, düz liste kalıyordu.
@@ -185,13 +183,6 @@ fun PlayerScreen2(
         onPlayPause = { core.playPause() },
         onSeekBack = { core.seekBy(-10_000) },
         onSeekFwd = { core.seekBy(10_000) },
-        onOpenSettings = { ui.showSettings = true },
-        onScrub = {
-          ui.scrubPos = exo.currentPosition
-          ui.scrubMode = true
-          ui.scrubTick++          // önizlemeyi mevcut konuma seek et
-          ui.showControls = true
-        },
         onSeekToFraction = { core.seekToFraction(it) },
         nowLabel = core.simdikiEtiket.orEmpty(),
         onPrevEpisode = prevEp?.let { i -> { core.goToEpisode(i) } },
@@ -219,10 +210,6 @@ fun PlayerScreen2(
           onPlay = { core.goToEpisode(nextEp) },
         )
       }
-    }
-
-    if (ui.scrubMode) {
-      previewExo?.let { ScrubOverlay(previewExo = it, scrubPos = ui.scrubPos, duration = core.duration) }
     }
 
     if (ui.showSeek) {
@@ -330,20 +317,6 @@ fun PlayerScreen2(
         CornerStatus(status ?: "Yükleniyor…", loader = status != KAYNAK_YOK && status != BOLUM_YOK)
       status != null && !ui.showSettings ->
         CornerStatus(status, loader = status != KAYNAK_YOK && status != BOLUM_YOK)
-    }
-
-    // Two players share the same UI; the tag tells them apart during the trial.
-    if (ui.showControls && !ui.scrubMode) {
-      Box(Modifier.fillMaxSize().padding(horizontal = NmDim.SafeH, vertical = NmDim.SafeV)) {
-        Text(
-          "Oynatıcı 2",
-          fontSize = NmType.Caption,
-          fontWeight = FontWeight.Medium,
-          color = NmColor.OnSurface,
-          modifier = Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(NmDim.PillRadius))
-            .background(NmColor.Scrim).padding(horizontal = 14.dp, vertical = 7.dp),
-        )
-      }
     }
 
     // Tuş göstergesi EN ÜSTTE: paneller açıkken de görünsün.
