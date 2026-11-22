@@ -616,9 +616,18 @@
       const ogeler = (d?.result || []).slice(0, 5).map((r) => ({
         plugin: r.plugin, url: r.content_url, title: r.title, poster: r.poster,
       })).filter((o) => o.url);
+      // Yalnız liste değiştiyse çiz: basılı tutulan kart parmağın altından kaybolmasın.
+      const imza = JSON.stringify(ogeler);
+      if (imza === sonImza) return;
+      sonImza = imza;
       kartlariBas($('son'), ogeler);
-    } catch (_) {}
+    } catch (_) {}   // ağ hatası: eski liste kalır, sonraki turda yeniden denenir
   }
+  // Sayfa bir kez çekiyordu: TV'de izlenen şey açık duran kumandada görünmüyor,
+  // ilk istek düşerse liste hiç gelmiyordu. Dakikada bir ve sayfa öne gelince tazele.
+  let sonImza = '';
+  setInterval(() => { if (!document.hidden) sonIzlenenler(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sonIzlenenler(); });
 
   function kartlariBas(kap, ogeler) {
     kap.innerHTML = '';

@@ -115,6 +115,20 @@ def normalize_url(url: str, base_url: str) -> str:
     return re.sub(r"^https?://[^/]+", base_url.rstrip("/"), url)
 
 
+def pilavyer_kaynak_adi(eklenti: str, audios: list | None) -> str:
+    """Pilavyer oynatıcısının `audios` alanından kaynak adı (DiziAbi, DDiziMom).
+
+    Ad sabit "Dublaj + Orijinal" idi: sesi yalnız İngilizce olan bölüm (Dexter S2B10)
+    dublaj sayılıp listenin başına geçiyordu. Alan yoksa dil iddia edilmez.
+    """
+    diller = [str(a.get("lang") or "").lower() for a in audios or [] if isinstance(a, dict)]
+    if not diller:
+        return eklenti
+    if not any(d.startswith("tr") for d in diller):
+        return f"{eklenti} | Orijinal Dil"
+    return f"{eklenti} | Türkçe Dublaj" + (" + Orijinal" if len(set(diller)) > 1 else "")
+
+
 def absolute(base_url: str, value: str | None) -> str | None:
     if not value:
         return None
