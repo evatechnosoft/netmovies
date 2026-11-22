@@ -9,6 +9,8 @@
 import asyncio
 
 from dataclasses import asdict
+from datetime import date
+from typing import Awaitable, Callable
 from urllib.parse import quote_plus, unquote_plus
 
 from Core   import Request
@@ -17,7 +19,7 @@ from ..Libs import fuck_dmca, get_client_headers, lang_memo, source_score
 from ..Libs.arama_niyet import ayristir, sirala, tekillestir, yapim_yili
 
 from Public.Home.Libs import admin_config, watch_store
-from Public.Home.Routers.tmdb import rating_for, type_for, year_for
+from Public.Home.Routers.tmdb import rating_for, turkce_ad, type_for, year_for
 
 # Kaynak başına tavan: bir eklenti asılırsa bütün arama onu beklemesin.
 # Middleware isteği 30sn'de kesiyor (`_istek.py`), altında kalmalı.
@@ -187,6 +189,33 @@ async def _bolum_sayilari(ogeler: list[dict], client_headers: dict) -> None:
     await asyncio.gather(*(bolumler(o) for o in ogeler[:_ZENGIN_TAVANI]), return_exceptions=True)
 
 
+# Kaynağı olmayan yeni film kartı (Dean, 21 Kas: "Balina Düşüşü bazı sağlayıcılarda var
+# ama bizde gözükmüyor"): siteler vizyondaki filme videosuz tanıtım sayfası açıyor.
+# Kart gizlenmez, "Sinemada" rozeti alır; istemci rozeti `lang` içindeki bu değerden çizer.
+SINEMADA = "SINEMA"
+YAKINDA  = "YAKINDA"   # yapım yılı gelecek yıl: henüz vizyona girmedi
+_SINEMA_TIMEOUT = 6.0
+
+
+def _yeni_film(oge: dict, bu_yil: int) -> bool:
+    """Yalnız bu yılın/gelecek yılın filmleri yoklanır: eski filmde boş kaynak arıza demektir, vizyon değil."""
+    yil = oge.get("year")
+    return isinstance(yil, int) and yil >= bu_yil and not oge.get("episode_count")
+
+
+async def _sinemada_isaretle(
+    ogeler: list[dict], kaynak_sayisi: Callable[[str, str], Awaitable[int | None]], bu_yil: int
+) -> None:
+    """Hiçbir sağlayıcısı kaynak vermeyen yeni filme rozet ekler. Yanıt alınamayan (None) kart işaretlenmez."""
+    async def yokla(oge: dict) -> None:
+        saglayicilar = oge.get("providers") or [{"plugin": oge.get("plugin"), "url": oge.get("url")}]
+        sayilar = await asyncio.gather(*(kaynak_sayisi(s["plugin"], s["url"]) for s in saglayicilar))
+        if all(sayi == 0 for sayi in sayilar):
+            oge["lang"] = [*(oge.get("lang") or []), YAKINDA if oge["year"] > bu_yil else SINEMADA]
+
+    await asyncio.gather(*(yokla(o) for o in ogeler[:_ZENGIN_TAVANI] if _yeni_film(o, bu_yil)))
+
+
 # YouTube araması (Dean, 5 Ekim: "ne yazarsam bulsun, öne al"). Sağlayıcı
 # aramasından AYRI: YouTube eklentisinin kendi `search`ü yalnız resmi dizi
 # listesi döner, çünkü kaynak zinciri onu başlık eşleştirmede kullanıyor; her
@@ -252,9 +281,7 @@ async def search_all(request: Request):
     # sağlayıcıya gitmez (HDFilmCehennemi "resident evil 2026" için 0 döndürüyor).
     niyet  = ayristir(sorgu)
     aranan = niyet.baslik or sorgu
-    varyantlar = _varyantlar(aranan)
-
-    async def tek(ad: str) -> list:
+    async def tek(ad: str, varyantlar: list[str]) -> list:
         for varyant in varyantlar:
             try:
                 sonuc = await asyncio.wait_for(
@@ -288,16 +315,19 @@ async def search_all(request: Request):
         return youtube_kartlari(sonuc if isinstance(sonuc, list) else [])
 
     yt_gorev = asyncio.create_task(youtube())
-    gruplar  = await asyncio.gather(*(tek(ad) for ad in adlar), return_exceptions=True)
 
-    ogeler: list[dict] = []
-    for grup in gruplar:
-        if isinstance(grup, list):
-            ogeler.extend(grup)
+    async def topla(baslik: str) -> list[dict]:
+        varyantlar = _varyantlar(baslik)
+        gruplar = await asyncio.gather(*(tek(ad, varyantlar) for ad in adlar), return_exceptions=True)
+        bulunan = [oge for grup in gruplar if isinstance(grup, list) for oge in grup]
+        # Gizli kategori ve puan eşiği de burada uygulanır.
+        return _alakali(admin_config.filter_aggregate_items(bulunan, cfg), baslik)
 
-    # Gizli kategori ve puan eşiği de burada uygulanır.
-    ogeler = admin_config.filter_aggregate_items(ogeler, cfg)
-    ogeler = _alakali(ogeler, aranan)
+    ogeler = await topla(aranan)
+    # Özgün adla hiçbir kaynak bulamadıysa Türkçe adıyla bir kez daha dene.
+    if not ogeler and (tr_ad := await turkce_ad(aranan)) and _sade(tr_ad) != _sade(aranan):
+        aranan = tr_ad
+        ogeler = await topla(aranan)
 
     # Sıra: kullanıcının kendi listeleri en önde, sonra kanıtlanmış sağlayıcı.
     # Stabil sıralama — eşit ağırlıkta kaynakların kendi sırası korunur.
@@ -326,6 +356,22 @@ async def search_all(request: Request):
     ogeler = sorted(ogeler, key=lambda o: -agirlik.get(lang_memo.anahtar(o.get("title") or ""), 0))
 
     await _bolum_sayilari(ogeler, basliklar)
+
+    async def kaynak_sayisi(plugin: str, url: str) -> int | None:
+        try:
+            sonuc = await asyncio.wait_for(
+                fuck_dmca(
+                    "/load_links",
+                    params         = {"plugin": plugin, "encoded_url": unquote_plus(str(url or ""))},
+                    client_headers = basliklar,
+                ),
+                timeout = _SINEMA_TIMEOUT,
+            )
+        except Exception:
+            return None   # yanıt yok ≠ kaynak yok
+        return len(sonuc) if isinstance(sonuc, list) else None
+
+    await _sinemada_isaretle(ogeler, kaynak_sayisi, date.today().year)
     # Bölüm sayımı YouTube kartlarına yapılmaz: her video için yt-dlp koşardı.
     if yt_tur in ("video", "liste"):
         ogeler = youtube_one(await yt_gorev, ogeler)

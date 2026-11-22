@@ -28,6 +28,9 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
 
 _KART   = re.compile(r'<a href="([^"]+)" title="([^"]*)" class="poster">(.*?)</a>', re.S)
 _POSTER = re.compile(r'<img[^>]+src="([^"]+)"')
+_ARAMA  = re.compile(
+    r'<a href="([^"]+)" class="search-result">(?:\s*<img[^>]+src="([^"]+)")?.*?<span class="title">([^<]+)</span>', re.S
+)
 _EMBED  = re.compile(r'<iframe[^>]+src="(https?://[^"]*/embed/(\d+))"')
 # Düğmenin tamamı alınır: metinden önce bir <svg> geliyor, `>` sonrası ilk parçayı
 # okuyan desen hep boş dönüyordu. Blokta hem `data-lang="dual"` hem görünen etiket var.
@@ -80,8 +83,16 @@ class FilmMakinesi(PluginBase):
         return [MainPageResult(category=category, title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
 
     async def search(self, query: str) -> list[SearchResult]:
-        response = await self.httpx.get(f"{self.main_url}/", params={"s": query}, headers={"User-Agent": _UA})
-        return [SearchResult(title=t, url=u, poster=p) for t, u, p in self._cards(response.text)]
+        # Site aramayı canlı arama ucuna taşıdı; eski `/?s=` her sorguya aynı ana sayfayı dönüyor.
+        response = await self.httpx.get(
+            f"{self.main_url}/", params={"knl_ajax_search": "1", "s": query}, headers={"User-Agent": _UA}
+        )
+        if response.status_code != 200:
+            return []
+        return [
+            SearchResult(title=baslik.strip(), url=self.fix_url(href), poster=self.fix_url(poster) if poster else None)
+            for href, poster, baslik in _ARAMA.findall(response.text)
+        ]
 
     async def load_item(self, url: str) -> MovieInfo:
         response = await self.httpx.get(url, headers={"User-Agent": _UA})

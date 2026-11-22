@@ -1,3 +1,26 @@
+# Handoff: KAPANIŞ 22 Kas 00:20 — arama onarımı + rozetler canlıda, 0.9.95 yayında
+> **Dal zinciri (hepsi push'lu):** `fix/general-stability` ← #28 `fix/devam-et-tazeleme` ← #30 `fix/pilavyer-player-host` ← `feature/remote-play-force` ← `fix/bt-audio-offset` ← `fix/arama-onarim` (uç, 600cab0 + bu not). ZimaOS checkout `fix/arama-onarim`; engine 21 Kas 21:20, stream 22 Kas ~00:15 yeni imaj.
+> **Canlıda (kanıt komut çıktısı):** FilmMakinesi araması yeni uçta ("arıcı" 2 sonuç) · FullHD sonuçsuz arama `[]` · "whalefall" → Balina Düşüşü (TMDB Türkçe ad tekrarı) · rozet: "balina düşüşü" `['DUB','SINEMA']`, "beekeeper 2" `['YAKINDA']` · `/rc` şablonunda rozet (konteynerde `VIZYON` 2 eşleşme) · testler motor 120, stream 307 OK · tünel 303 · `apk_publish.sh tv` → "yayinlandi: tv 0.9.95" (imza 7328a32d).
+> **Doğrulanmadı:** rozetin TV ve `/rc` ekranındaki görünümü (cihazda/tarayıcıda bakılmadı) · 0.9.95 Mi Box'a kuruldu mu · Bluetooth ses ofsetinin kulakla etkisi (Mi Box'ta 0.9.93 kuruluydu, ofset 0).
+> **Kararlar:** kaynak 0 kart gizlenmez, rozet alır (Dean "olur") · yoklama yalnız bu yıl/gelecek yıl film kartı, ilk 14, 6 sn tavan; yanıtsız = işaretleme · gelecek yıl = Yakında.
+> **Tekrarlama:** Balina Düşüşü/Beekeeper 2 kaynağı arama (film dijitalde yok / 15 Oca 2027) · ses kaymasında kaynak/proxy ölçümü (temiz).
+> **Bekleyen (Dean):** Bluetooth ofseti için oturan ms (varsayılan yapılacak) · PR birleştirme sırası · eski: seçili sağlıksız kaynağı atlama, 13 Kas denetim maddeleri.
+> **Tek sonraki adım:** Dean ms değerini yazarsa `SesOfseti` varsayılanını ona çek; yoksa PR zincirini `fix/general-stability`'ye birleştirme kararını sor.
+
+# Handoff: Sinemada rozeti canlıda, 0.9.94 yayında (21 Kas 21:40)
+> dal `fix/arama-onarim` @ fc1eeb8 (push'lu), PR yok. Stream 21:3x'te yeniden derlendi+yenilendi; `apk_publish.sh tv` → "yayinlandi: tv 0.9.94" (imza 7328a32d).
+> **Yapılan:** `search_all` bu yıl/gelecek yıl film kartlarında (ilk 14) `load_links` yoklar; tüm sağlayıcılar 0 ise `lang`'a `SINEMA` ekler (yanıtsız = işaretleme). TV kartı `SINEMA` → "Sinemada" (`HomeScreen.kt`).
+> **Kanıt (canlı):** "balina düşüşü" → `['DUB','SINEMA']` 4,2 sn · "beekeeper 2" → `['SINEMA']` 3,6 sn · "matrix" rozetsiz 6,1 sn · stream testleri 306 OK · tünel 303.
+> **Doğrulanmadı:** rozetin TV ekranındaki görünümü (0.9.94 cihazda açılmadı) · web/`/rc` araması rozeti çizmiyor (yalnız TV/telefon uygulaması).
+> **Bekleyen (Dean):** Bluetooth ofseti için oturan ms değeri.
+
+# Handoff: arama onarımı canlıda (21 Kas akşam)
+> 2026-11-21 ~21:20 (+03) · dal `fix/arama-onarim` @ 23781d6 (push'lu, taban `fix/bt-audio-offset`), PR yok. ZimaOS checkout bu dalda; engine + stream + tunnel 21:14-21:20'de yeni imajla yenilendi.
+> **Yapılan:** FilmMakinesi araması `/?knl_ajax_search=1&s=` ucuna geçti · FullHDFilmizlesene sonuçsuz aramada 404 istisnası → `[]` (istemci 2xx dışında fırlatıyor, durum kodu kontrolü yetmedi) · `search_all` sonuç 0 ise TMDB Türkçe adıyla bir kez daha arar (`tmdb.turkce_ad`).
+> **Kanıt (canlı):** FilmMakinesi "arıcı" 2 sonuç · FullHD "whalefall" `result:[]`, "arıcı" 3 sonuç · `search_all?query=whalefall` 10 sonuç, ilki Balina Düşüşü (DDiziMom) · testler motor 120, stream 302 OK · w.evaitec.com 303.
+> **Bilinen:** Balina Düşüşü ve Beekeeper 2 kartı var, kaynak 0 (film dijitalde yok / 15 Oca 2027). FilmMakinesi "matrix" 0 (sitede yok mu doğrulanmadı). Türkçe ad tekrarı alakasız "balina" sonuçlarını da getiriyor.
+> **Bekleyen (Dean):** videosuz kartı "Sinemada" işaretleme · Bluetooth ofseti için oturan ms değeri.
+
 # Handoff: 0.9.93 yayında — Bluetooth ses gecikmesi ayarı (21 Kas)
 > 2026-11-21 · dal `fix/bt-audio-offset` (push'lu), PR yok. `apk_publish.sh tv` çıktısı: imza 7328a32d, release `v0.9.93-poc` + `netmovies-tv-v0.9.93`, "yayinlandi: tv 0.9.93". ZimaOS checkout artık `fix/bt-audio-offset` (konteynerler yeniden derlenmedi).
 > **Doğrulanmadı:** Mi Box'a kuruldu mu · ayarın kulakla etkisi. **Bekleyen:** Dean'in bulduğu ms değeri (varsayılan yapılabilir).
