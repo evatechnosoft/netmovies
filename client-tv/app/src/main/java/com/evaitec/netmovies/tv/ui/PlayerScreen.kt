@@ -920,7 +920,13 @@ internal fun SettingsPanel(
                     val sesler = audioGroups.flatMap { g -> (0 until g.length).map { g to it } }
                     Secim(
                         "Ses",
-                        sesler.mapIndexed { n, (g, i) -> g.getTrackFormat(i).let { it.label ?: it.language ?: "Ses ${n + 1}" } },
+                        sesler.mapIndexed { n, (g, i) ->
+                            g.getTrackFormat(i).let {
+                                val ad = it.label ?: it.language ?: "Ses ${n + 1}"
+                                val bicim = com.evaitec.netmovies.tv.data.sesBicimi(it.sampleMimeType, it.channelCount)
+                                if (bicim.isEmpty()) ad else "$ad · $bicim"
+                            }
+                        },
                         sesler.indexOfFirst { (g, i) -> g.isTrackSelected(i) },
                     ) { n -> sesler[n].let { (g, i) -> onSelectAudio(g, i) } }
                 }
