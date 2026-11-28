@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,7 +30,7 @@ import com.evaitec.netmovies.tv.ui.theme.NmType
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun PlayerLoadingScreen(poster: String?, title: String?, status: String?) {
+fun PlayerLoadingScreen(poster: String?, title: String?, status: String?, bilgi: String = "", ozet: String? = null) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         PosterImage(poster, title, Modifier.fillMaxSize())
         Box(
@@ -49,6 +50,18 @@ fun PlayerLoadingScreen(poster: String?, title: String?, status: String?) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (bilgi.isNotBlank()) Text(bilgi, fontSize = NmType.Body, color = NmColor.OnSurfaceMuted, maxLines = 1)
+            // Kaynak aranırken okunacak kısa özet (Dean, 28 Kas: "eskiden gösteriyordu").
+            ozet?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    modifier = Modifier.fillMaxWidth(0.55f),
+                    fontSize = NmType.Body,
+                    color = NmColor.OnSurface,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 NmLoader()
                 Text(status ?: "Yükleniyor…", fontSize = NmType.Body, color = NmColor.OnSurfaceMuted)
