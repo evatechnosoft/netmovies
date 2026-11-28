@@ -10,7 +10,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -149,12 +152,28 @@ fun PlayerScreen2(
       modifier = Modifier.fillMaxSize(),
     )
 
+    // Dizide açılan bölümün kendi özeti (TMDB, sezon başına tek istek); yoksa dizi açıklaması.
+    val acilanBolum = core.episodes.getOrNull(core.currentEpIndex)
+    var bolumOzeti by remember(item.url) { mutableStateOf<String?>(null) }
+    LaunchedEffect(acilanBolum?.season, acilanBolum?.episode) {
+      val sezon = acilanBolum?.season ?: return@LaunchedEffect
+      val bolum = acilanBolum.episode ?: return@LaunchedEffect
+      bolumOzeti = runCatching {
+        com.evaitec.netmovies.tv.data.Network.api
+          .episodeOverviews(title = item.title.orEmpty(), season = sezon).result.episodes[bolum.toString()]?.overview
+      }.getOrNull()
+    }
+
     // Hiç oynamadan beklenirken tam ekran geçiş; bulunamadıysa tekrar dene ekranı.
     val acilisBekleniyor = !core.ready && core.position == 0L && !ui.showSettings
     when {
       acilisBekleniyor && core.status == KAYNAK_YOK && !core.showStartPanel ->
         KaynakYokEkrani(item.poster, item.title) { core.tekrarDene() }
-      acilisBekleniyor -> PlayerLoadingScreen(item.poster, item.title, core.status)
+      acilisBekleniyor -> PlayerLoadingScreen(
+        item.poster, item.title, core.status,
+        bilgi = icerikBilgisi(core.details, item.rating),
+        ozet = bolumOzeti?.takeIf { it.isNotBlank() } ?: core.details?.description,
+      )
     }
 
     // Sarma göstergesi — sağ alt; kontrol çubuğu açıkken onun üstünde.
