@@ -1,4 +1,26 @@
-# Handoff: netmovies — 19 Kas 2026 20:05 kapanış
+# Handoff: netmovies — 28 Kas 2026 19:15 (yavaşlık + ses formatı + Mi Box)
+
+> worktree aynı · entegrasyon `fix/general-stability` (uç 73179f1, PR #37 birleşti) · ZimaOS checkout ve engine imajı bu uçta (engine 19:07'de yeniden oluşturuldu) · client-tv 0.9.96.
+
+## Ne oldu
+- **Yavaşlık / boş Yeni Çıkanlar — kök neden:** ZimaOS 15:10'da açıldı; WARP konteyneri sağlık denetimine takılıp `docker-bekcisi` tarafından 26+ kez yeniden başlatıldı. Motorun sağlık ölçümü WARP düşükken alındı (15/16 "Erişilemedi"), 6 saat önbellekte kaldı → `aggregate_new` 0 içerik, `search_all` 10–12 sn.
+- **Düzeltme (PR #37, f8f3016):** `engine/Public/API/v1/Routers/plugin_health.py` `_omur` — kaynakların yarıdan fazlası düşükse ölçüm 60 sn yaşar. Motor testleri ZimaOS'ta 122/122 OK. Canlı kanıt (19:08): sağlık 14/16 (DiziYou, PornHub düşük), `aggregate_new` movie 0,02 sn / 119 KB, serie 0,02 sn / 97 KB, `search_all` matrix 2,8 sn, dexter 2,5 sn.
+- **Ses formatı (8 örnek, izleme geçmişinden):** hepsi AAC-LC stereo 48 kHz (Rush S1B10 DiziBox 44,1 kHz); 5.1/AC3/EAC3/DTS yok. Betik `~/.ai/work/netmovies-av-sync/audio_probe.py`.
+- **Mi Box:** `192.168.0.55:5555` (eski .11 değil), 0.9.96 = sunucudaki son sürüm.
+
+## Açık
+- **WARP neden sağlıksız düşüyor: BİLİNMİYOR.** Gözlem: yeniden başladıktan birkaç dakika sonra konteyner içi `curl https://cloudflare.com/cdn-cgi/trace` 4,5 sn'de bağlanamıyor (kod 000), `warp-cli status` "Connected" diyor; 5 sn'lik sağlık denetimi 3 kez aşılınca bekçi yeniden başlatıyor. Günlükte `get_registration_config` ERROR. Proxy yolu (`netmovies-warp:8080`) aynı anda da düşüyor mu ölçülmedi — sonraki adım bu.
+- TV tarafı açılış süresi ölçülmedi. Bluetooth ses ofseti için oturan ms değeri Dean'den bekleniyor.
+
+## Tekrarlama
+- ZimaOS'ta `docker logs --since` boş dönüyor; `docker logs -t --tail N` kullan.
+- Kabuk komutunda test dosyası yoluna `>` ya da `sed` geçerse izin kancası reddediyor; testleri `git worktree add /tmp/nm-wt <dal>` + salt-okunur bağlama ile koş.
+- Geri alma: `git revert -m 1 73179f1`, sonra engine build + `up -d --no-build engine`.
+
+## Tek sonraki adım
+`ssh zima "docker inspect netmovies-warp --format '{{.State.StartedAt}} {{.State.Health.Status}}'"` — hâlâ birkaç dakikada bir yeniden başlıyorsa: düşüş anında içeriden ve proxy'den aynı anda `curl` ile hangisinin koptuğunu ayır (yalnız içerisi kopuyorsa sağlık denetimini proxy yoluna çevir; ikisi de kopuyorsa MASQUE → WireGuard dene).
+
+# (eski) 19 Kas 2026 20:05 kapanış
 
 > worktree `C:\projects\netmovies\.claude\worktrees\devam-et-tazeleme` · dal `feature/remote-play-force` (push'lu, 0 dirty) · yarım adım yok.
 > **21 Kas 00:17 kapanış kanıtı:** 19 Kas'tan beri kod değişikliği yok; bekleyen devir commit'i 2b635ba push edildi. ZimaOS kapalı/erişilemez (`ssh zima` zaman aşımı) — canlı durum bu turda DOĞRULANMADI, aşağıdaki canlı satırları 19 Kas'a ait. Açık taslak PR'lar: #28 `fix/devam-et-tazeleme`, #29 `feature/ytdlp-channel-id`, #30 `fix/pilavyer-player-host`. `feature/remote-play-force` için PR yok.
