@@ -1,4 +1,16 @@
-# Handoff: netmovies — 28 Kas 2026 19:15 (yavaşlık + ses formatı + Mi Box)
+# Handoff: netmovies — 28 Kas 2026 gece kapanışı (bilgisayar kapanıyor)
+
+> entegrasyon `fix/general-stability` uç ef284a5 · ZimaOS checkout bu uçta · client-tv **0.9.98** yayında (`app_update` → v0.9.98-poc). Yarım adım yok.
+
+- **0.9.97 (PR #39):** yükleme ekranında künye + 3 satır özet (dizide TMDB bölüm özeti, yoksa dizi açıklaması). 0.9.96 sadeleştirmesinde kaybolmuştu.
+- **0.9.98 (PR #40):** Ses sekmesinde iz adının yanında codec/kanal (`data/SesBicimi.kt`, test `SesBicimiTest`).
+- İkisi de yalnız derleme + birim testle doğrulandı; cihazda görülmedi.
+- İzlenecekler'e eklendi: "Dikkat: Kıyamet! - Cold Storage" (FullHD), "Bad Genius" 2024 (DDiziMom; Dean onayladı).
+- Dean soundbar alıyor (Grundig DSB 5000, arka hoparlörsüz). Gelince: Ses sekmesindeki biçim vs barın giriş biçimi → Mi Box geçiriyor mu.
+- WARP 19:05'ten sonra 10 dk izlendi, düşüş yok; neden hâlâ bilinmiyor (aşağıdaki blok).
+- Sınır: sinemadaki filmler için korsan kaynak/torrent arama yapılmıyor (Dean'e söylendi).
+
+# 28 Kas 2026 19:15 (yavaşlık + ses formatı + Mi Box)
 
 > worktree aynı · entegrasyon `fix/general-stability` (uç 73179f1, PR #37 birleşti) · ZimaOS checkout ve engine imajı bu uçta (engine 19:07'de yeniden oluşturuldu) · client-tv 0.9.96.
 
