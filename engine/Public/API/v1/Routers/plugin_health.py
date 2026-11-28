@@ -21,6 +21,15 @@ from .      import api_v1_router, api_v1_global_message
 from ..Libs import plugin_manager
 
 _TTL_SECONDS = 6 * 3600
+# Kaynakların yarıdan fazlası aynı anda erişilemezse arıza bizim ağımızdadır (WARP düşmüş),
+# sitelerde değil. 28 Kas 2026: WARP yeniden başlarken alınan ölçüm 15/16 kaynağı 6 saat
+# "ölü" saydırdı, Yeni Çıkanlar boş kaldı. Şüpheli ölçüm kısa ömürlü tutulur.
+_TTL_SUPHELI = 60
+
+
+def _omur(sonuc: dict) -> int:
+    return _TTL_SUPHELI if sonuc["healthy"] * 2 < sonuc["total"] else _TTL_SECONDS
+
 _cache: dict = {"checked_at": 0.0, "results": None}
 
 
@@ -70,7 +79,7 @@ async def _check_one(name: str) -> dict:
 
 async def run_plugin_health(force: bool = False) -> dict:
     now = time.monotonic()
-    if not force and _cache["results"] is not None and (now - _cache["checked_at"]) < _TTL_SECONDS:
+    if not force and _cache["results"] is not None and (now - _cache["checked_at"]) < _omur(_cache["results"]):
         return _cache["results"]
 
     names   = plugin_manager.get_plugin_names()
